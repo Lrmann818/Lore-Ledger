@@ -4,6 +4,8 @@ set -euo pipefail
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 project_root="$(cd "$script_dir/.." && pwd)"
 verify_script="$script_dir/verify-zip.sh"
+project_name="CampaignTracker"
+target="web"
 
 output_dir="${1:-$project_root/release}"
 tmp_files=()
@@ -62,7 +64,7 @@ fi
 mkdir -p "$output_dir"
 
 timestamp="$(date '+%Y%m%d-%H%M')"
-zip_name="pages-deploy-$timestamp.zip"
+zip_name="$project_name-$target-$timestamp.zip"
 zip_path="$output_dir/$zip_name"
 
 include_roots=(index.html styles.css app.js boot.js js icons)
