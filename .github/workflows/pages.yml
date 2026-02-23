@@ -20,6 +20,15 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Git diagnostics
+        run: |
+          git rev-parse --short HEAD
+          git describe --tags --abbrev=0 || true
+          git tag -l | tail -n 10 || true
 
       - name: Setup Node
         uses: actions/setup-node@v4
