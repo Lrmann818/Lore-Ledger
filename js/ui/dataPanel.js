@@ -266,12 +266,14 @@ export function initDataPanel(deps) {
 
     const schema = Number.isFinite(state?.schemaVersion) ? state.schemaVersion : "?";
     const version = (window.__APP_VERSION__ || window.APP_VERSION || "dev").toString();
+    const build = (window.__APP_BUILD__ || "").toString();
     const lastModified = (document.lastModified || "").toString();
 
     const lines = [
       `${appName}`,
       "",
       `Version: ${version}`,
+      build ? `Build: ${build}` : null,
       `Schema: v${schema}`,
       lastModified ? `Last modified: ${lastModified}` : null,
       "",

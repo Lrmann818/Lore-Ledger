@@ -15,7 +15,7 @@ if (import.meta.env.PROD) {
       });
     },
     onOfflineReady() {
-      console.info("Offline ready...");
+      // Intentionally silent: avoid startup console noise in production.
     }
   });
 }

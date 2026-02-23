@@ -21,9 +21,6 @@ import {
 import {
   DEV_MODE,
   DEV_STATE_GUARD_MODE,
-  DEV_DOCS_URL,
-  DEV_QUERY_PARAM,
-  STATE_GUARD_QUERY_PARAM,
   installStateMutationGuard,
   installStateMutationAllowanceLifecycle,
   withAllowedStateMutationAsync
@@ -99,14 +96,9 @@ const StateGuard = installStateMutationGuard(state, {
 const appState = StateGuard.state;
 if (DEV_MODE) {
   globalThis.__APP_STATE__ = appState;
-  console.info(`[dev] DEV enabled (${DEV_QUERY_PARAM}=1).`);
-  console.info(`[dev] stateGuard mode: ${StateGuard.mode} (${STATE_GUARD_QUERY_PARAM}=warn|throw|off).`);
-  console.info(`[dev] docs: ${DEV_DOCS_URL}`);
-  console.info("[dev] test guard: __APP_STATE__.tracker.campaignTitle = 'test'");
 }
 if (DEV_MODE && StateGuard.enabled) {
   installStateMutationAllowanceLifecycle();
-  console.info("[dev] state mutation guard is active for out-of-scope direct writes.");
 }
 
 /************************ Shared file picker ************************/

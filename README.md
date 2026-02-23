@@ -34,6 +34,13 @@ Preview the built app locally:
 npm run preview
 ```
 
+### App version string
+
+- `vite.config.js` defines `__APP_VERSION__` at build time from `package.json`'s `version`.
+- Production builds append `+<short-git-sha>` when Git metadata is available.
+- Dev server uses `<package-version>-dev`.
+- `boot.js` exposes this as `window.__APP_VERSION__` (and `window.APP_VERSION` for compatibility), and the About dialog reads it.
+
 ## GitHub Pages deployment
 
 - Production base path is configured as `/CampaignTracker/` in `vite.config.js`.

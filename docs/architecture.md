@@ -20,7 +20,7 @@ This doc captures intended module boundaries, aligned with the current refactor 
 
 ### `boot.js`
 - Runs before `app.js`.
-- Reads `<meta name="app-version">` and exposes `window.__APP_VERSION__`/`window.APP_VERSION`.
+- Reads the Vite-defined `__APP_VERSION__` constant and exposes `window.__APP_VERSION__`/`window.APP_VERSION`.
 - Reads persisted theme from local storage and applies `document.documentElement.dataset.theme` early to avoid flash/mismatch.
 
 ### `app.js`

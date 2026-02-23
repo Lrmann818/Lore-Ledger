@@ -34,7 +34,6 @@ function ensureBanner() {
 }
 
 export function showUpdateBanner({ onRefresh, onDismiss } = {}) {
-  console.log("[banner] show");
   if (dismissed) return;
 
   ensureBanner();
@@ -61,7 +60,6 @@ export function showUpdateBanner({ onRefresh, onDismiss } = {}) {
 }
 
 export function hideUpdateBanner() {
-  console.log("[banner] hide");
   if (!bannerEl) return;
   bannerEl.hidden = true;
   bannerEl.classList.add("isHidden");

@@ -28,7 +28,7 @@ Use this once to verify the listener is active:
 
 ```js
 const s = document.createElement("script");
-s.textContent = "console.log('inline script should be blocked')";
+s.textContent = "window.__cspInlineProbe = 'blocked-if-csp-is-working'";
 document.head.appendChild(s);
 ```
 
