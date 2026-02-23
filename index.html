@@ -5,16 +5,16 @@
   <meta charset="utf-8" />
   <meta http-equiv="Content-Security-Policy" content="
   default-src 'self';
-  base-uri 'self';
-  object-src 'none';
-  form-action 'self';
   script-src 'self';
-  style-src 'self' 'unsafe-inline';
+  style-src 'self';
+  style-src-attr 'unsafe-inline';
   img-src 'self' data: blob:;
   font-src 'self';
   connect-src 'self';
   media-src 'self' blob:;
   worker-src 'self' blob:;
+  object-src 'none';
+  base-uri 'self';
 ">
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="app-version" content="0.3.0" />
@@ -62,8 +62,7 @@
       <div class="calcDropdown" id="calcDropdown">
         <button id="calcBtn" class="tab calcBtn" type="button" aria-haspopup="true" aria-expanded="false"
           title="Calculator">
-          <span id="calcBtnIcon" class="iconMask btnIcon" aria-hidden="true"
-            style="--icon:url('icons/calcIcon.svg');"></span>
+          <span id="calcBtnIcon" class="iconMask btnIcon icon-calc" aria-hidden="true"></span>
         </button>
 
         <div class="calcMenu" id="calcMenu" hidden>
@@ -111,8 +110,7 @@
       <div class="diceDropdown" id="diceDropdown">
         <button id="diceBtn" class="tab diceBtn" type="button" aria-haspopup="true" aria-expanded="false"
           title="Dice Roller">
-          <span id="diceBtnIcon" class="iconMask diceIconImg" aria-hidden="true"
-            style="--icon:url('icons/dice/d20.svg');"></span>
+          <span id="diceBtnIcon" class="iconMask diceIconImg icon-dice-d20" aria-hidden="true"></span>
         </button>
         <div class="diceMenu" id="diceMenu" hidden>
           <div class="diceTop">
@@ -128,8 +126,7 @@
 
             <!-- Active die icon -->
             <div class="diceHero" aria-hidden="true">
-              <span id="diceActiveIcon" class="iconMask diceActiveIcon"
-                style="--icon:url('icons/dice/d20.svg');"></span>
+              <span id="diceActiveIcon" class="iconMask diceActiveIcon icon-dice-d20"></span>
             </div>
 
             <label class="diceField diceModField">
@@ -156,26 +153,25 @@
           <!-- Icon presets (select die, do not roll) -->
           <div class="dicePresets" aria-label="Choose die">
             <button type="button" class="dicePreset" data-sides="4" aria-label="d4">
-              <span class="iconMask dicePresetIcon" aria-hidden="true" style="--icon:url('icons/dice/d4.svg');"></span>
+              <span class="iconMask dicePresetIcon icon-dice-d4" aria-hidden="true"></span>
             </button>
             <button type="button" class="dicePreset" data-sides="6" aria-label="d6">
-              <span class="iconMask dicePresetIcon" aria-hidden="true" style="--icon:url('icons/dice/d6.svg');"></span>
+              <span class="iconMask dicePresetIcon icon-dice-d6" aria-hidden="true"></span>
             </button>
             <button type="button" class="dicePreset" data-sides="8" aria-label="d8">
-              <span class="iconMask dicePresetIcon" aria-hidden="true" style="--icon:url('icons/dice/d8.svg');"></span>
+              <span class="iconMask dicePresetIcon icon-dice-d8" aria-hidden="true"></span>
             </button>
             <button type="button" class="dicePreset" data-sides="10" aria-label="d10">
-              <span class="iconMask dicePresetIcon" aria-hidden="true" style="--icon:url('icons/dice/d10.svg');"></span>
+              <span class="iconMask dicePresetIcon icon-dice-d10" aria-hidden="true"></span>
             </button>
             <button type="button" class="dicePreset" data-sides="12" aria-label="d12">
-              <span class="iconMask dicePresetIcon" aria-hidden="true" style="--icon:url('icons/dice/d12.svg');"></span>
+              <span class="iconMask dicePresetIcon icon-dice-d12" aria-hidden="true"></span>
             </button>
             <button type="button" class="dicePreset" data-sides="20" aria-label="d20">
-              <span class="iconMask dicePresetIcon" aria-hidden="true" style="--icon:url('icons/dice/d20.svg');"></span>
+              <span class="iconMask dicePresetIcon icon-dice-d20" aria-hidden="true"></span>
             </button>
             <button type="button" class="dicePreset" data-sides="100" aria-label="d100">
-              <span class="iconMask dicePresetIcon" aria-hidden="true"
-                style="--icon:url('icons/dice/d100.svg');"></span>
+              <span class="iconMask dicePresetIcon icon-dice-d100" aria-hidden="true"></span>
             </button>
           </div>
 
@@ -189,7 +185,7 @@
       <!-- Settings -->
       <button id="settingsBtn" class="tab settingsBtn" type="button" title="Data &amp; Settings"
         aria-label="Data & Settings">
-        <span class="iconMask settingsBtnIcon" aria-hidden="true" style="--icon:url('icons/settingsIcon.svg');"></span>
+        <span class="iconMask settingsBtnIcon icon-settings" aria-hidden="true"></span>
       </button>
     </div>
   </header>

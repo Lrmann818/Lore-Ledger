@@ -4071,6 +4071,42 @@ button#colorBtn[aria-expanded="true"] {
   display: inline-block;
 }
 
+.icon-calc {
+  --icon: url("icons/calcIcon.svg");
+}
+
+.icon-settings {
+  --icon: url("icons/settingsIcon.svg");
+}
+
+.icon-dice-d4 {
+  --icon: url("icons/dice/d4.svg");
+}
+
+.icon-dice-d6 {
+  --icon: url("icons/dice/d6.svg");
+}
+
+.icon-dice-d8 {
+  --icon: url("icons/dice/d8.svg");
+}
+
+.icon-dice-d10 {
+  --icon: url("icons/dice/d10.svg");
+}
+
+.icon-dice-d12 {
+  --icon: url("icons/dice/d12.svg");
+}
+
+.icon-dice-d20 {
+  --icon: url("icons/dice/d20.svg");
+}
+
+.icon-dice-d100 {
+  --icon: url("icons/dice/d100.svg");
+}
+
 /* Everything inside the dropdown menu uses the themed dice icon color */
 .diceMenu .iconMask {
   --iconColor: var(--diceIconColor);
