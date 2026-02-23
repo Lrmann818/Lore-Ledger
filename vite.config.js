@@ -1,16 +1,16 @@
 import { defineConfig } from "vite";
 import { VitePWA } from "vite-plugin-pwa";
 import { readFileSync } from "node:fs";
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const rootDir = dirname(fileURLToPath(import.meta.url));
 const pkgJson = JSON.parse(readFileSync(resolve(rootDir, "package.json"), "utf8"));
 
-function getGitShortSha() {
+function runGit(args) {
   try {
-    return execSync("git rev-parse --short HEAD", {
+    return execFileSync("git", args, {
       cwd: rootDir,
       stdio: ["ignore", "pipe", "ignore"]
     }).toString().trim();
@@ -19,12 +19,39 @@ function getGitShortSha() {
   }
 }
 
+function getGitShortSha() {
+  return runGit(["rev-parse", "--short", "HEAD"]);
+}
+
+function parseTagVersion(tag) {
+  const match = String(tag || "").trim().match(/^v?(\d+)\.(\d+)\.(\d+)$/);
+  if (!match) return null;
+  return {
+    major: Number(match[1]),
+    minor: Number(match[2]),
+    patch: Number(match[3])
+  };
+}
+
+function resolveAppVersion(pkgVersion) {
+  const latestTag = runGit(["describe", "--tags", "--abbrev=0"]);
+  const parsedTag = parseTagVersion(latestTag);
+  if (!latestTag || !parsedTag) return pkgVersion;
+
+  const commitsSinceTagRaw = runGit(["rev-list", `${latestTag}..HEAD`, "--count"]);
+  const commitsSinceTag = Number.parseInt(commitsSinceTagRaw, 10);
+  if (!Number.isFinite(commitsSinceTag) || commitsSinceTag < 0) return pkgVersion;
+
+  const computedPatch = parsedTag.patch + commitsSinceTag;
+  return `${parsedTag.major}.${parsedTag.minor}.${computedPatch}`;
+}
+
 export default defineConfig(({ mode }) => {
   const base = mode === "production" ? "/CampaignTracker/" : "/";
   const pkgVersion = String(pkgJson?.version || "0.0.0");
-  const sha = getGitShortSha();
-  const appVersion = mode === "production" ? pkgVersion : `${pkgVersion}-dev`;
-  const appBuild = mode === "production" ? sha : "dev";
+  const resolvedVersion = resolveAppVersion(pkgVersion);
+  const appVersion = mode === "production" ? resolvedVersion : `${resolvedVersion}-dev`;
+  const appBuild = getGitShortSha();
 
   return {
     base,

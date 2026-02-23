@@ -34,12 +34,20 @@ Preview the built app locally:
 npm run preview
 ```
 
-### App version string
+### Versioning
 
-- `vite.config.js` defines `__APP_VERSION__` at build time from `package.json`'s `version`.
-- Production builds append `+<short-git-sha>` when Git metadata is available.
-- Dev server uses `<package-version>-dev`.
-- `boot.js` exposes this as `window.__APP_VERSION__` (and `window.APP_VERSION` for compatibility), and the About dialog reads it.
+- Tag `v0.3.0` (or `0.3.0`) to set the major/minor/baseline patch.
+- Build version is computed as `MAJOR.MINOR.(tagPatch + commitsSinceTag)`.
+- Dev server appends `-dev` to the computed version.
+- Build uses short Git SHA when available.
+- If no tag exists (or Git metadata is unavailable), version falls back to `package.json` version and build may be empty.
+
+Set a new baseline tag:
+
+```bash
+git tag v0.3.0
+git push origin v0.3.0
+```
 
 ## GitHub Pages deployment
 

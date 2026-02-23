@@ -266,7 +266,7 @@ export function initDataPanel(deps) {
 
     const schema = Number.isFinite(state?.schemaVersion) ? state.schemaVersion : "?";
     const version = (window.__APP_VERSION__ || window.APP_VERSION || "dev").toString();
-    const build = (window.__APP_BUILD__ || "").toString();
+    const build = (window.__APP_BUILD__ || window.APP_BUILD || "").toString();
     const lastModified = (document.lastModified || "").toString();
 
     const lines = [
