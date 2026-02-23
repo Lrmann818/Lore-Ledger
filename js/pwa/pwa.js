@@ -15,7 +15,7 @@ if (import.meta.env.PROD) {
       });
     },
     onOfflineReady() {
-      console.info("Offline ready...");
+      console.info("Offline ready");
     }
   });
 }
