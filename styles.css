@@ -4856,6 +4856,10 @@ section.panel[data-collapsed="true"]> :not([data-panel-header]) {
   backdrop-filter: blur(2px);
 }
 
+.updateBanner.isHidden {
+  display: none !important;
+}
+
 .updateBanner__actions {
   display: flex;
   align-items: center;

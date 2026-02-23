@@ -45,7 +45,6 @@ export function showUpdateBanner({ onRefresh, onDismiss } = {}) {
     if (typeof onRefresh === "function") {
       await onRefresh();
     }
-    window.location.reload();
   };
 
   dismissBtnEl.onclick = () => {
@@ -57,10 +56,14 @@ export function showUpdateBanner({ onRefresh, onDismiss } = {}) {
   };
 
   bannerEl.hidden = false;
+  bannerEl.classList.remove("isHidden");
+  bannerEl.style.display = "";
 }
 
 export function hideUpdateBanner() {
   console.log("[banner] hide");
   if (!bannerEl) return;
   bannerEl.hidden = true;
+  bannerEl.classList.add("isHidden");
+  bannerEl.style.display = "none";
 }
