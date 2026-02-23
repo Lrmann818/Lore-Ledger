@@ -5,6 +5,8 @@
  * and initializes tracker/character/map modules.
  ***************************************************************************/
 
+import "./js/pwa/pwa.js";
+
 import {
   STORAGE_KEY,
   ACTIVE_TAB_KEY,

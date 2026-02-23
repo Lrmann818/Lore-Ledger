@@ -26,3 +26,10 @@ Quick validation after Vite changes.
 1. Run `npm run build`.
 2. Run `npm run preview`.
 3. Confirm app behavior matches dev and assets load from the built output.
+
+## 6) Offline app shell (PWA)
+1. While online, open the production site once.
+2. Open DevTools -> `Application` and verify a service worker is registered.
+3. In DevTools, enable offline mode (`Network` -> `Offline`).
+4. Reload the page.
+5. Confirm the app still loads and `#tracker`, `#character`, and `#map` tabs still work.

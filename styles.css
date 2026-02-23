@@ -4834,3 +4834,54 @@ section.panel[data-collapsed="true"]> :not([data-panel-header]) {
 #diceMenu .diceTopRow .diceCountLabel {
   margin-left: 25px;
 }
+
+/* PWA update banner */
+.updateBanner {
+  position: fixed;
+  top: calc(var(--topbarHeight, 64px) + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1200;
+  width: min(92vw, 420px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--card);
+  color: var(--text);
+  box-shadow: 0 8px 24px var(--shadow-drop);
+  backdrop-filter: blur(2px);
+}
+
+.updateBanner.isHidden {
+  display: none !important;
+}
+
+.updateBanner__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.updateBanner__btn {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-3);
+  color: var(--text);
+  padding: 6px 10px;
+  font: inherit;
+  cursor: pointer;
+}
+
+.updateBanner__btn:hover {
+  background: var(--surface-3-hover);
+}
+
+.updateBanner__btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--ring) inset;
+}
