@@ -9,6 +9,27 @@ export default defineConfig(({ mode }) => {
       VitePWA({
         registerType: "prompt",
         injectRegister: false,
+        manifest: {
+          name: "Campaign Tracker",
+          short_name: "Tracker",
+          start_url: ".",
+          scope: ".",
+          display: "standalone",
+          theme_color: "#111111",
+          background_color: "#111111",
+          icons: [
+            {
+              src: "icons/icon-192-filled.png",
+              sizes: "192x192",
+              type: "image/png"
+            },
+            {
+              src: "icons/icon-512-filled.png",
+              sizes: "512x512",
+              type: "image/png"
+            }
+          ]
+        },
         includeAssets: [
           "favicon.ico",
           "apple-touch-icon.png",
