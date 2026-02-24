@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg"
+     viewBox="0 0 135.47 135.47"
+     aria-hidden="true"
+     focusable="false">
+  <!-- Outer frame -->
+  <path d="
+    M36 28
+    H99
+    a10 10 0 0 1 10 10
+    V97
+    a10 10 0 0 1-10 10
+    H36
+    a10 10 0 0 1-10-10
+    V38
+    a10 10 0 0 1 10-10
+    Z
+    M36 38
+    V97
+    H99
+    V38
+    Z"
+    fill="currentColor"
+    stroke="currentColor"
+    stroke-width="4"
+    stroke-linejoin="round"
+    stroke-linecap="round"/>
+
+  <!-- Sun -->
+  <circle cx="49" cy="52" r="6.5"
+          fill="currentColor"
+          stroke="currentColor"
+          stroke-width="4"
+          stroke-linejoin="round"
+          stroke-linecap="round"/>
+
+  <!-- Mountains -->
+  <path d="
+    M40 92
+    L56 70
+    L67 84
+    L77 74
+    L95 92
+    Z"
+    fill="currentColor"
+    stroke="currentColor"
+    stroke-width="4"
+    stroke-linejoin="round"
+    stroke-linecap="round"/>
+</svg>
