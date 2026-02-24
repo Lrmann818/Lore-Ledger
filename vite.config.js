@@ -66,11 +66,14 @@ export default defineConfig(({ mode }) => {
         manifest: {
           name: "Lore Ledger",
           short_name: "Ledger",
+          id: "/CampaignTracker/",
           start_url: "/CampaignTracker/",
           scope: "/CampaignTracker/",
           display: "standalone",
           theme_color: "#111111",
           background_color: "#111111",
+          lang: "en",
+          description: "A lightweight, offline-friendly D&D campaign manager for sessions, NPCs, parties, locations, and notes.",
           icons: [
             {
               src: "icons/icon-192-filled.png",
