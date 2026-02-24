@@ -25,6 +25,7 @@ let _matchesSearch = null;
 let _enhanceNumberSteppers = null;
 let _pickNpcImage = null;
 let _updateNpc = null;
+let _setNpcPortraitHidden = null;
 let _moveNpcCard = null;
 let _moveNpc = null;
 let _deleteNpc = null;
@@ -39,6 +40,7 @@ function initNpcCards(deps = {}) {
   _enhanceNumberSteppers = deps.enhanceNumberSteppers;
   _pickNpcImage = deps.pickNpcImage;
   _updateNpc = deps.updateNpc;
+  _setNpcPortraitHidden = deps.setNpcPortraitHidden;
   _moveNpcCard = deps.moveNpcCard;
   _moveNpc = deps.moveNpc;
   _deleteNpc = deps.deleteNpc;
@@ -83,14 +85,6 @@ function renderNpcCard(npc) {
 
   const isCollapsed = !!npc.collapsed;
   card.classList.toggle("collapsed", isCollapsed);
-
-  // --- Portrait (full-width top) ---
-  const portrait = renderCardPortrait({
-    blobId: npc.imgBlobId,
-    altText: npc.name || "NPC Portrait",
-    blobIdToObjectUrl: _blobIdToObjectUrl,
-    onPick: () => _pickNpcImage(npc.id),
-  });
 
   // --- Main stacked fields ---
   const body = document.createElement("div");
@@ -143,6 +137,17 @@ function renderNpcCard(npc) {
   headerRow.appendChild(moveUp);
   headerRow.appendChild(moveDown);
   headerRow.appendChild(toggle);
+
+  // --- Portrait (full-width top) ---
+  const portrait = renderCardPortrait({
+    blobId: npc.imgBlobId,
+    altText: npc.name || "NPC Portrait",
+    blobIdToObjectUrl: _blobIdToObjectUrl,
+    onPick: () => _pickNpcImage(npc.id),
+    isHidden: !!npc.portraitHidden,
+    onToggleHidden: (hidden) => _setNpcPortraitHidden?.(npc.id, hidden),
+    headerControlsEl: headerRow,
+  });
 
   // Collapsible content: everything below name
 
@@ -290,7 +295,7 @@ function renderNpcCard(npc) {
   body.appendChild(headerRow);
   body.appendChild(collapsible);
 
-  card.appendChild(portrait);
+  if (portrait) card.appendChild(portrait);
   card.appendChild(body);
   // Footer should also collapse
   footer.hidden = isCollapsed;
@@ -345,6 +350,7 @@ export function initNpcsPanel(deps = {}) {
   const {
     updateTrackerField,
     updateTrackerCardField,
+    setCardPortraitHidden,
     addTrackerCard,
     removeTrackerCard,
     swapTrackerCards,
@@ -448,6 +454,12 @@ export function initNpcsPanel(deps = {}) {
     if (rerender) renderNpcCards();
   }
 
+  function setNpcPortraitHidden(id, hidden) {
+    if (!setCardPortraitHidden("npc", id, hidden, { queueSave: false })) return;
+    SaveManager.markDirty();
+    renderNpcCards();
+  }
+
   function moveNpcCard(id, dir) {
     const sectionId = _state.tracker.npcActiveSectionId;
     const q = (_state.tracker.npcSearch || "").trim();
@@ -518,6 +530,7 @@ export function initNpcsPanel(deps = {}) {
     enhanceNumberSteppers,
     pickNpcImage,
     updateNpc,
+    setNpcPortraitHidden,
     moveNpcCard,
     deleteNpc,
     numberOrNull,

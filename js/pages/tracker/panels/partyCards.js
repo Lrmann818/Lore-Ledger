@@ -27,6 +27,7 @@ let _matchesSearch = null;
 let _enhanceNumberSteppers = null;
 let _pickPartyImage = null;
 let _updateParty = null;
+let _setPartyPortraitHidden = null;
 let _movePartyCard = null;
 let _deleteParty = null;
 let _numberOrNull = null;
@@ -41,6 +42,7 @@ function initPartyCards(deps = {}) {
   _enhanceNumberSteppers = deps.enhanceNumberSteppers;
   _pickPartyImage = deps.pickPartyImage;
   _updateParty = deps.updateParty;
+  _setPartyPortraitHidden = deps.setPartyPortraitHidden;
   _movePartyCard = deps.movePartyCard;
   _deleteParty = deps.deleteParty;
   _numberOrNull = deps.numberOrNull;
@@ -89,13 +91,6 @@ function renderPartyCard(m) {
   const isCollapsed = !!m.collapsed;
   card.classList.toggle("collapsed", isCollapsed);
 
-  const portrait = renderCardPortrait({
-    blobId: m.imgBlobId,
-    altText: m.name || "Party Member Portrait",
-    blobIdToObjectUrl: _blobIdToObjectUrl,
-    onPick: () => _pickPartyImage(m.id),
-  });
-
   const body = document.createElement("div");
   body.className = "npcCardBodyStack";
 
@@ -133,6 +128,16 @@ function renderPartyCard(m) {
   headerRow.appendChild(moveUp);
   headerRow.appendChild(moveDown);
   headerRow.appendChild(toggle);
+
+  const portrait = renderCardPortrait({
+    blobId: m.imgBlobId,
+    altText: m.name || "Party Member Portrait",
+    blobIdToObjectUrl: _blobIdToObjectUrl,
+    onPick: () => _pickPartyImage(m.id),
+    isHidden: !!m.portraitHidden,
+    onToggleHidden: (hidden) => _setPartyPortraitHidden?.(m.id, hidden),
+    headerControlsEl: headerRow,
+  });
 
   const collapsible = document.createElement("div");
   collapsible.className = "npcCollapsible";
@@ -274,7 +279,7 @@ function renderPartyCard(m) {
   body.appendChild(headerRow);
   body.appendChild(collapsible);
 
-  card.appendChild(portrait);
+  if (portrait) card.appendChild(portrait);
   card.appendChild(body);
 
   footer.hidden = isCollapsed;
@@ -328,6 +333,7 @@ export function initPartyPanel(deps = {}) {
   const {
     updateTrackerField,
     updateTrackerCardField,
+    setCardPortraitHidden,
     addTrackerCard,
     removeTrackerCard,
     swapTrackerCards,
@@ -420,6 +426,12 @@ export function initPartyPanel(deps = {}) {
     if (rerender) renderPartyCards();
   }
 
+  function setPartyPortraitHidden(id, hidden) {
+    if (!setCardPortraitHidden("party", id, hidden, { queueSave: false })) return;
+    SaveManager.markDirty();
+    renderPartyCards();
+  }
+
   async function deleteParty(id) {
     const member = _state.tracker.party.find(m => m.id === id);
     if (!member) return;
@@ -484,6 +496,7 @@ export function initPartyPanel(deps = {}) {
     enhanceNumberSteppers,
     pickPartyImage,
     updateParty,
+    setPartyPortraitHidden,
     movePartyCard,
     deleteParty,
     numberOrNull,

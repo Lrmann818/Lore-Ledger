@@ -24,6 +24,7 @@ let _Popovers = null;
 // Injected helper functions.
 let _pickLocImage = null;
 let _updateLoc = null;
+let _setLocPortraitHidden = null;
 let _moveLocCard = null;
 let _deleteLoc = null;
 
@@ -94,6 +95,7 @@ function initLocationCards(deps = {}) {
   _cardsEl = deps.cardsEl;
   _pickLocImage = deps.pickLocImage;
   _updateLoc = deps.updateLoc;
+  _setLocPortraitHidden = deps.setLocPortraitHidden;
   _moveLocCard = deps.moveLocCard;
   _deleteLoc = deps.deleteLoc;
 }
@@ -139,13 +141,6 @@ export function renderLocationCard(loc) {
   const isCollapsed = !!loc.collapsed;
   card.classList.toggle("collapsed", isCollapsed);
 
-  const portrait = renderCardPortrait({
-    blobId: loc.imgBlobId,
-    altText: loc.title || "Location Image",
-    blobIdToObjectUrl: _blobIdToObjectUrl,
-    onPick: () => _pickLocImage(loc.id),
-  });
-
   const body = document.createElement("div");
   body.className = "npcCardBodyStack";
 
@@ -184,6 +179,16 @@ export function renderLocationCard(loc) {
   headerRow.appendChild(moveUp);
   headerRow.appendChild(moveDown);
   headerRow.appendChild(toggle);
+
+  const portrait = renderCardPortrait({
+    blobId: loc.imgBlobId,
+    altText: loc.title || "Location Image",
+    blobIdToObjectUrl: _blobIdToObjectUrl,
+    onPick: () => _pickLocImage(loc.id),
+    isHidden: !!loc.portraitHidden,
+    onToggleHidden: (hidden) => _setLocPortraitHidden?.(loc.id, hidden),
+    headerControlsEl: headerRow,
+  });
 
   // Collapsible content
   const collapsible = document.createElement("div");
@@ -279,7 +284,7 @@ const del = createDeleteButton({
   body.appendChild(headerRow);
   body.appendChild(collapsible);
 
-  card.appendChild(portrait);
+  if (portrait) card.appendChild(portrait);
   card.appendChild(body);
 
   // Footer should also collapse
@@ -328,6 +333,7 @@ export function initLocationsPanel(deps = {}) {
   const {
     updateTrackerField,
     updateTrackerCardField,
+    setCardPortraitHidden,
     addTrackerCard,
     removeTrackerCard,
     swapTrackerCards,
@@ -425,6 +431,12 @@ export function initLocationsPanel(deps = {}) {
     if (rerender) renderLocationCards();
   }
 
+  function setLocPortraitHidden(id, hidden) {
+    if (!setCardPortraitHidden("locations", id, hidden, { queueSave: false })) return;
+    SaveManager.markDirty();
+    renderLocationCards();
+  }
+
   function moveLocCard(id, dir) {
     const sectionId = _state.tracker.locActiveSectionId;
     const q = (_state.tracker.locSearch || "").trim();
@@ -497,6 +509,7 @@ export function initLocationsPanel(deps = {}) {
     cardsEl,
     pickLocImage,
     updateLoc,
+    setLocPortraitHidden,
     moveLocCard,
     deleteLoc
   });

@@ -5,12 +5,49 @@ export function renderCardPortrait({
   placeholderText = "Click to add image",
   blobIdToObjectUrl,
   onPick,
+  isHidden = false,
+  onToggleHidden,
+  headerControlsEl,
+  iconPath = "icons/imageIcon.svg",
 } = {}) {
+  const hasImage = !!blobId;
+  const hidden = !!isHidden && !hasImage;
+  const canToggle = typeof onToggleHidden === "function";
+
+  const createToggleButton = ({ hide } = {}) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = `cardPortraitToggleBtn${hide ? " cardPortraitToggleBtnOverlay" : " cardPortraitToggleBtnHeader"}`;
+    const label = hide ? "Hide image" : "Show image";
+    btn.setAttribute("aria-label", label);
+    btn.title = label;
+
+    const icon = document.createElement("span");
+    icon.className = "iconMask cardPortraitToggleIcon";
+    icon.setAttribute("aria-hidden", "true");
+    icon.style.setProperty("--icon", `url('${iconPath}')`);
+    btn.appendChild(icon);
+
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      onToggleHidden?.(hide);
+    });
+    return btn;
+  };
+
+  if (hidden && !hasImage) {
+    if (canToggle && headerControlsEl) {
+      headerControlsEl.appendChild(createToggleButton({ hide: false }));
+    }
+    return null;
+  }
+
   const portrait = document.createElement("div");
   portrait.className = "npcPortraitTop";
   portrait.title = title;
 
-  if (blobId) {
+  if (hasImage) {
     const img = document.createElement("img");
     img.alt = altText;
     portrait.appendChild(img);
@@ -25,6 +62,10 @@ export function renderCardPortrait({
     placeholder.className = "mutedSmall";
     placeholder.textContent = placeholderText;
     portrait.appendChild(placeholder);
+  }
+
+  if (canToggle && !hasImage) {
+    portrait.appendChild(createToggleButton({ hide: true }));
   }
 
   portrait.addEventListener("click", (e) => {

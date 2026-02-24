@@ -19,6 +19,7 @@ export function makeNpc({ sectionId = "", group = "undecided", name = "", notes 
     hpMax: null,
     hpCurrent: null,
     imgBlobId: null,
+    portraitHidden: false,
     collapsed: false
   };
 }
@@ -34,6 +35,7 @@ export function makePartyMember({ sectionId = "party", name = "", notes = "" } =
     hpMax: null,
     hpCurrent: null,
     imgBlobId: null,
+    portraitHidden: false,
     collapsed: false
   };
 }
@@ -46,6 +48,7 @@ export function makeLocation({ sectionId = "", title = "", notes = "", type = "t
     notes,
     type,
     imgBlobId: null,
+    portraitHidden: false,
     collapsed: false
   };
 }

@@ -43,7 +43,8 @@ export async function pickAndStorePortrait({
     setStatus,
   });
 
-  if (!blobId) return false;
-  setBlobId(item, blobId);
+  // Match character portrait UX: cancelling the picker clears the portrait reference.
+  if (typeof blobId === "undefined") return false;
+  setBlobId(item, blobId || null);
   return true;
 }

@@ -219,6 +219,10 @@ export function createStateActions({ state, SaveManager } = {}) {
     return true;
   }
 
+  function setCardPortraitHidden(type, id, hidden, options = {}) {
+    return updateTrackerCardField(type, id, "portraitHidden", !!hidden, options);
+  }
+
   return {
     mutateState,
     mutateCharacter,
@@ -228,6 +232,7 @@ export function createStateActions({ state, SaveManager } = {}) {
     updateTrackerField,
     updateMapField,
     updateTrackerCardField,
+    setCardPortraitHidden,
     addTrackerCard,
     removeTrackerCard,
     swapTrackerCards,
