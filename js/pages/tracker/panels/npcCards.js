@@ -14,6 +14,7 @@ import { renderCardPortrait } from "./cards/shared/cardPortraitRenderShared.js";
 import { createStateActions } from "../../../domain/stateActions.js";
 import { requireMany, getNoopDestroyApi } from "../../../utils/domGuards.js";
 import { startJumpDebugRun, queueJumpDebugCheckpoints } from "../../../ui/jumpDebug.js";
+import * as masonry from "../../../ui/masonryLayout.js";
 
 let _cardsEl = null;
 let _Popovers = null;
@@ -31,6 +32,7 @@ let _moveNpcCard = null;
 let _moveNpc = null;
 let _deleteNpc = null;
 let _numberOrNull = null;
+const MASONRY_OPTIONS = { panelName: "npc", minCardWidth: 175, gapVar: "--cards-grid-gap" };
 
 const matchesSearch = makeFieldSearchMatcher(["name", "className", "status", "notes"]);
 
@@ -70,6 +72,8 @@ function renderNpcCards() {
     _cardsEl.appendChild(empty);
 
     _cardsEl.scrollTop = prevScroll; // restore even on empty
+    masonry.attach(_cardsEl, MASONRY_OPTIONS);
+    masonry.relayout(_cardsEl);
     return;
   }
 
@@ -77,6 +81,8 @@ function renderNpcCards() {
   _enhanceNumberSteppers(_cardsEl);
 
   _cardsEl.scrollTop = prevScroll; // restore after DOM rebuild
+  masonry.attach(_cardsEl, MASONRY_OPTIONS);
+  masonry.relayout(_cardsEl);
 }
 
 function renderNpcCard(npc) {
@@ -451,6 +457,7 @@ export function initNpcsPanel(deps = {}) {
     renameSectionBtn,
     deleteSectionBtn
   } = guard.els;
+  masonry.attach(cardsEl, MASONRY_OPTIONS);
 
   function updateNpc(id, patch, rerender = true) {
     const updates = Object.entries(patch || {});

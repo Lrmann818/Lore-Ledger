@@ -14,6 +14,7 @@ import { renderCardPortrait } from "./cards/shared/cardPortraitRenderShared.js";
 import { createStateActions } from "../../../domain/stateActions.js";
 import { requireMany, getNoopDestroyApi } from "../../../utils/domGuards.js";
 import { startJumpDebugRun, queueJumpDebugCheckpoints } from "../../../ui/jumpDebug.js";
+import * as masonry from "../../../ui/masonryLayout.js";
 
 let _cardsEl = null;
 let _state = null;
@@ -28,6 +29,7 @@ let _updateLoc = null;
 let _setLocPortraitHidden = null;
 let _moveLocCard = null;
 let _deleteLoc = null;
+const MASONRY_OPTIONS = { panelName: "location", minCardWidth: 175, gapVar: "--cards-grid-gap" };
 
 /**
  * Locations toolbar wiring (search / filter / add)
@@ -127,11 +129,15 @@ export function renderLocationCards() {
       : "No locations in this section yet. Click “+ Add Location”.";
     _cardsEl.appendChild(empty);
     _cardsEl.scrollTop = prevScroll;
+    masonry.attach(_cardsEl, MASONRY_OPTIONS);
+    masonry.relayout(_cardsEl);
     return;
   }
 
   list.forEach(loc => _cardsEl.appendChild(renderLocationCard(loc)));
   _cardsEl.scrollTop = prevScroll;
+  masonry.attach(_cardsEl, MASONRY_OPTIONS);
+  masonry.relayout(_cardsEl);
 }
 
 export function renderLocationCard(loc) {
@@ -412,6 +418,7 @@ export function initLocationsPanel(deps = {}) {
     renameSectionBtn,
     deleteSectionBtn
   } = guard.els;
+  masonry.attach(cardsEl, MASONRY_OPTIONS);
 
   // Enhance the type filter so its OPEN menu matches the Map Tools dropdown.
   // Closed control keeps the same size as the panel header select.

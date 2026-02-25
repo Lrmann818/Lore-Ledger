@@ -14,6 +14,7 @@ import { renderCardPortrait } from "./cards/shared/cardPortraitRenderShared.js";
 import { createStateActions } from "../../../domain/stateActions.js";
 import { requireMany, getNoopDestroyApi } from "../../../utils/domGuards.js";
 import { startJumpDebugRun, queueJumpDebugCheckpoints } from "../../../ui/jumpDebug.js";
+import * as masonry from "../../../ui/masonryLayout.js";
 
 let _cardsEl = null;
 let _state = null;
@@ -33,6 +34,7 @@ let _movePartyCard = null;
 let _deleteParty = null;
 let _numberOrNull = null;
 let _renderPartyTabs = null;
+const MASONRY_OPTIONS = { panelName: "party", minCardWidth: 175, gapVar: "--cards-grid-gap" };
 
 const matchesSearch = makeFieldSearchMatcher(["name", "className", "status", "notes"]);
 
@@ -72,12 +74,16 @@ export function renderPartyCards() {
       : "No party members in this section yet. Click “+ Add Member”.";
     _cardsEl.appendChild(empty);
     _cardsEl.scrollTop = prevScroll;
+    masonry.attach(_cardsEl, MASONRY_OPTIONS);
+    masonry.relayout(_cardsEl);
     return;
   }
 
   list.forEach(m => _cardsEl.appendChild(renderPartyCard(m)));
   if (_enhanceNumberSteppers) _enhanceNumberSteppers(_cardsEl);
   _cardsEl.scrollTop = prevScroll;
+  masonry.attach(_cardsEl, MASONRY_OPTIONS);
+  masonry.relayout(_cardsEl);
 }
 
 function numberOrNull(v) {
@@ -398,6 +404,7 @@ export function initPartyPanel(deps = {}) {
     renameSectionBtn,
     deleteSectionBtn
   } = guard.els;
+  masonry.attach(cardsEl, MASONRY_OPTIONS);
 
   async function pickPartyImage(memberId) {
     let pickedBlobId = null;

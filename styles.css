@@ -2305,6 +2305,18 @@ div.mutedSmall {
   align-items: start;
 }
 
+.trackerCardsGrid.masonryEnabled {
+  display: block;
+  position: relative;
+}
+
+.trackerCardsGrid.masonryEnabled>.npcCard {
+  position: absolute;
+  top: 0;
+  left: 0;
+  will-change: transform;
+}
+
 .npcCard {
   position: relative;
   /* anchors ::after */
