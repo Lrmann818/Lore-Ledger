@@ -13,6 +13,7 @@ import { createDeleteButton, createSectionSelectRow } from "./cards/shared/cardF
 import { renderCardPortrait } from "./cards/shared/cardPortraitRenderShared.js";
 import { createStateActions } from "../../../domain/stateActions.js";
 import { requireMany, getNoopDestroyApi } from "../../../utils/domGuards.js";
+import { startJumpDebugRun, queueJumpDebugCheckpoints } from "../../../ui/jumpDebug.js";
 
 let _cardsEl = null;
 let _Popovers = null;
@@ -82,6 +83,7 @@ function renderNpcCard(npc) {
   const card = document.createElement("div");
   card.className = "npcCard npcCardStack";
   card.dataset.npcId = npc.id;
+  card.dataset.cardId = npc.id;
 
   const isCollapsed = !!npc.collapsed;
   card.classList.toggle("collapsed", isCollapsed);
@@ -117,12 +119,24 @@ function renderNpcCard(npc) {
   const toggle = createCollapseButton({
     isCollapsed,
     onToggle: () => {
+      const action = isCollapsed ? "expand" : "collapse";
+      const jumpRun = startJumpDebugRun({
+        panel: "npc",
+        cardId: npc.id,
+        action,
+        panelEl: _cardsEl,
+        getCardEl: () => _cardsEl?.querySelector(`.npcCard[data-card-id="${npc.id}"]`) || card,
+      });
+      jumpRun?.log("before-click-handler");
+
       // Preserve page scroll position. NPC re-render rebuilds the card DOM,
       // which can cause the browser to jump to the top when the focused button disappears.
       const x = window.scrollX;
       const y = window.scrollY;
 
       _updateNpc(npc.id, { collapsed: !isCollapsed }, true);
+      jumpRun?.log("after-state-update");
+      queueJumpDebugCheckpoints(jumpRun);
 
       requestAnimationFrame(() => {
         window.scrollTo(x, y);

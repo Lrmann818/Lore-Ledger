@@ -13,6 +13,7 @@ import { createDeleteButton, createSectionSelectRow } from "./cards/shared/cardF
 import { renderCardPortrait } from "./cards/shared/cardPortraitRenderShared.js";
 import { createStateActions } from "../../../domain/stateActions.js";
 import { requireMany, getNoopDestroyApi } from "../../../utils/domGuards.js";
+import { startJumpDebugRun, queueJumpDebugCheckpoints } from "../../../ui/jumpDebug.js";
 
 let _cardsEl = null;
 let _state = null;
@@ -137,6 +138,7 @@ export function renderLocationCard(loc) {
   // Reuse the same card frame/classes as NPCs/Party
   const card = document.createElement("div");
   card.className = "npcCard npcCardStack";
+  card.dataset.cardId = loc.id;
 
   const isCollapsed = !!loc.collapsed;
   card.classList.toggle("collapsed", isCollapsed);
@@ -171,7 +173,18 @@ export function renderLocationCard(loc) {
   const toggle = createCollapseButton({
     isCollapsed,
     onToggle: () => {
+      const action = isCollapsed ? "expand" : "collapse";
+      const jumpRun = startJumpDebugRun({
+        panel: "location",
+        cardId: loc.id,
+        action,
+        panelEl: _cardsEl,
+        getCardEl: () => _cardsEl?.querySelector(`.npcCard[data-card-id="${loc.id}"]`) || card,
+      });
+      jumpRun?.log("before-click-handler");
       _updateLoc(loc.id, { collapsed: !isCollapsed }, true);
+      jumpRun?.log("after-state-update");
+      queueJumpDebugCheckpoints(jumpRun);
     },
   });
 
