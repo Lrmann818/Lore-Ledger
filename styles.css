@@ -4935,3 +4935,8 @@ section.panel[data-collapsed="true"]> :not([data-panel-header]) {
   outline: none;
   box-shadow: 0 0 0 2px var(--ring) inset;
 }
+
+.cardsRerenderMask {
+  opacity: 0;
+  pointer-events: none;
+}

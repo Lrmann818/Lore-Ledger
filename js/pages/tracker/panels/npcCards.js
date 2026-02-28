@@ -53,6 +53,8 @@ function initNpcCards(deps = {}) {
 function renderNpcCards() {
   if (!_state) return;
   const prevScroll = _cardsEl.scrollTop; // keep scroll position
+  const shouldMaskRerender = prevScroll > 0;
+  if (shouldMaskRerender) _cardsEl.classList.add("cardsRerenderMask");
   const raf = requestAnimationFrame;
   const renderRun = startJumpDebugRun({
     panel: "npc",
@@ -82,7 +84,10 @@ function renderNpcCards() {
 
     masonry.attach(_cardsEl, MASONRY_OPTIONS);
     masonry.relayout(_cardsEl);
-    raf(() => raf(() => { _cardsEl.scrollTop = prevScroll; }));
+    raf(() => raf(() => {
+      _cardsEl.scrollTop = prevScroll;
+      if (shouldMaskRerender) _cardsEl.classList.remove("cardsRerenderMask");
+    }));
     renderRun?.log("after-dom-rebuild-relayout");
     queueJumpDebugCheckpoints(renderRun);
     return;
@@ -93,7 +98,10 @@ function renderNpcCards() {
 
   masonry.attach(_cardsEl, MASONRY_OPTIONS);
   masonry.relayout(_cardsEl);
-  raf(() => raf(() => { _cardsEl.scrollTop = prevScroll; }));
+  raf(() => raf(() => {
+    _cardsEl.scrollTop = prevScroll;
+    if (shouldMaskRerender) _cardsEl.classList.remove("cardsRerenderMask");
+  }));
   renderRun?.log("after-dom-rebuild-relayout");
   queueJumpDebugCheckpoints(renderRun);
 }
