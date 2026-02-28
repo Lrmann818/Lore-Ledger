@@ -8,6 +8,7 @@ export function renderCardPortrait({
   isHidden = false,
   onToggleHidden,
   headerControlsEl,
+  onImageLoad,
   iconPath = "icons/imageIcon.svg",
 } = {}) {
   const hasImage = !!blobId;
@@ -50,6 +51,10 @@ export function renderCardPortrait({
   if (hasImage) {
     const img = document.createElement("img");
     img.alt = altText;
+    if (typeof onImageLoad === "function" && !img.dataset.portraitLoadBound) {
+      img.dataset.portraitLoadBound = "1";
+      img.addEventListener("load", () => onImageLoad(), { once: true });
+    }
     portrait.appendChild(img);
 
     if (typeof blobIdToObjectUrl === "function") {

@@ -35,6 +35,7 @@ let _deleteParty = null;
 let _numberOrNull = null;
 let _renderPartyTabs = null;
 const USE_INCREMENTAL_CARDS = true;
+const USE_INCREMENTAL_PORTRAIT = true;
 const MASONRY_OPTIONS = { panelName: "party", minCardWidth: 175, gapVar: "--cards-grid-gap" };
 
 const matchesSearch = makeFieldSearchMatcher(["name", "className", "status", "notes"]);
@@ -88,6 +89,50 @@ function patchPartyCardCollapsed(cardId, collapsed, focusEl = null) {
 
   schedulePartyMasonryRelayout();
   focusPartyCardCollapseButton(cardId, focusEl || toggle);
+  return true;
+}
+
+function focusElementWithoutScroll(el) {
+  if (!el) return;
+  requestAnimationFrame(() => {
+    try { el.focus({ preventScroll: true }); } catch { el.focus?.(); }
+  });
+}
+
+function patchPartyCardPortrait(cardId, hidden, focusEl = null) {
+  const card = findPartyCardElById(cardId);
+  if (!card) return false;
+
+  const member = _state?.tracker?.party?.find((m) => m.id === cardId);
+  if (!member) return false;
+
+  const headerRow = card.querySelector(".npcHeaderRow");
+  const body = card.querySelector(".npcCardBodyStack");
+  if (!headerRow || !body) return false;
+
+  headerRow.querySelectorAll(".cardPortraitToggleBtnHeader").forEach((btn) => btn.remove());
+  card.querySelector(".npcPortraitTop")?.remove();
+
+  const portrait = renderCardPortrait({
+    blobId: member.imgBlobId,
+    altText: member.name || "Party Member Portrait",
+    blobIdToObjectUrl: _blobIdToObjectUrl,
+    onPick: () => _pickPartyImage(member.id),
+    isHidden: !!hidden,
+    onToggleHidden: (nextHidden) => _setPartyPortraitHidden?.(member.id, nextHidden),
+    headerControlsEl: headerRow,
+    onImageLoad: schedulePartyMasonryRelayout,
+  });
+  if (portrait) card.insertBefore(portrait, body);
+
+  const nextFocusEl = focusEl && focusEl.isConnected
+    ? focusEl
+    : (hidden
+      ? headerRow.querySelector(".cardPortraitToggleBtnHeader")
+      : card.querySelector(".npcPortraitTop .cardPortraitToggleBtnOverlay"));
+
+  schedulePartyMasonryRelayout();
+  focusElementWithoutScroll(nextFocusEl);
   return true;
 }
 
@@ -227,6 +272,7 @@ function renderPartyCard(m) {
     isHidden: !!m.portraitHidden,
     onToggleHidden: (hidden) => _setPartyPortraitHidden?.(m.id, hidden),
     headerControlsEl: headerRow,
+    onImageLoad: schedulePartyMasonryRelayout,
   });
   headerRow.appendChild(toggle);
 
@@ -521,6 +567,8 @@ export function initPartyPanel(deps = {}) {
   function setPartyPortraitHidden(id, hidden) {
     if (!setCardPortraitHidden("party", id, hidden, { queueSave: false })) return;
     SaveManager.markDirty();
+    const focusEl = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    if (USE_INCREMENTAL_CARDS && USE_INCREMENTAL_PORTRAIT && patchPartyCardPortrait(id, hidden, focusEl)) return;
     renderPartyCards();
   }
 

@@ -30,6 +30,7 @@ let _setLocPortraitHidden = null;
 let _moveLocCard = null;
 let _deleteLoc = null;
 const USE_INCREMENTAL_CARDS = true;
+const USE_INCREMENTAL_PORTRAIT = true;
 const MASONRY_OPTIONS = { panelName: "location", minCardWidth: 175, gapVar: "--cards-grid-gap" };
 
 /**
@@ -139,6 +140,50 @@ function patchLocationCardCollapsed(cardId, collapsed, focusEl = null) {
 
   scheduleLocationMasonryRelayout();
   focusLocationCardCollapseButton(cardId, focusEl || toggle);
+  return true;
+}
+
+function focusElementWithoutScroll(el) {
+  if (!el) return;
+  requestAnimationFrame(() => {
+    try { el.focus({ preventScroll: true }); } catch { el.focus?.(); }
+  });
+}
+
+function patchLocationCardPortrait(cardId, hidden, focusEl = null) {
+  const card = findLocationCardElById(cardId);
+  if (!card) return false;
+
+  const loc = _state?.tracker?.locationsList?.find((location) => location.id === cardId);
+  if (!loc) return false;
+
+  const headerRow = card.querySelector(".npcHeaderRow");
+  const body = card.querySelector(".npcCardBodyStack");
+  if (!headerRow || !body) return false;
+
+  headerRow.querySelectorAll(".cardPortraitToggleBtnHeader").forEach((btn) => btn.remove());
+  card.querySelector(".npcPortraitTop")?.remove();
+
+  const portrait = renderCardPortrait({
+    blobId: loc.imgBlobId,
+    altText: loc.title || "Location Image",
+    blobIdToObjectUrl: _blobIdToObjectUrl,
+    onPick: () => _pickLocImage(loc.id),
+    isHidden: !!hidden,
+    onToggleHidden: (nextHidden) => _setLocPortraitHidden?.(loc.id, nextHidden),
+    headerControlsEl: headerRow,
+    onImageLoad: scheduleLocationMasonryRelayout,
+  });
+  if (portrait) card.insertBefore(portrait, body);
+
+  const nextFocusEl = focusEl && focusEl.isConnected
+    ? focusEl
+    : (hidden
+      ? headerRow.querySelector(".cardPortraitToggleBtnHeader")
+      : card.querySelector(".npcPortraitTop .cardPortraitToggleBtnOverlay"));
+
+  scheduleLocationMasonryRelayout();
+  focusElementWithoutScroll(nextFocusEl);
   return true;
 }
 
@@ -278,6 +323,7 @@ export function renderLocationCard(loc) {
     isHidden: !!loc.portraitHidden,
     onToggleHidden: (hidden) => _setLocPortraitHidden?.(loc.id, hidden),
     headerControlsEl: headerRow,
+    onImageLoad: scheduleLocationMasonryRelayout,
   });
   headerRow.appendChild(toggle);
 
@@ -526,6 +572,8 @@ export function initLocationsPanel(deps = {}) {
   function setLocPortraitHidden(id, hidden) {
     if (!setCardPortraitHidden("locations", id, hidden, { queueSave: false })) return;
     SaveManager.markDirty();
+    const focusEl = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    if (USE_INCREMENTAL_CARDS && USE_INCREMENTAL_PORTRAIT && patchLocationCardPortrait(id, hidden, focusEl)) return;
     renderLocationCards();
   }
 

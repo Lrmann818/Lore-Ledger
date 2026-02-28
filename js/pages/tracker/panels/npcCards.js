@@ -33,6 +33,7 @@ let _moveNpc = null;
 let _deleteNpc = null;
 let _numberOrNull = null;
 const USE_INCREMENTAL_CARDS = true;
+const USE_INCREMENTAL_PORTRAIT = true;
 const MASONRY_OPTIONS = { panelName: "npc", minCardWidth: 175, gapVar: "--cards-grid-gap" };
 
 const matchesSearch = makeFieldSearchMatcher(["name", "className", "status", "notes"]);
@@ -86,6 +87,50 @@ function patchNpcCardCollapsed(cardId, collapsed, focusEl = null) {
 
   scheduleNpcMasonryRelayout();
   focusCardCollapseButton(cardId, focusEl || toggle);
+  return true;
+}
+
+function focusElementWithoutScroll(el) {
+  if (!el) return;
+  requestAnimationFrame(() => {
+    try { el.focus({ preventScroll: true }); } catch { el.focus?.(); }
+  });
+}
+
+function patchNpcCardPortrait(cardId, hidden, focusEl = null) {
+  const card = findNpcCardElById(cardId);
+  if (!card) return false;
+
+  const npc = _state?.tracker?.npcs?.find((n) => n.id === cardId);
+  if (!npc) return false;
+
+  const headerRow = card.querySelector(".npcHeaderRow");
+  const body = card.querySelector(".npcCardBodyStack");
+  if (!headerRow || !body) return false;
+
+  headerRow.querySelectorAll(".cardPortraitToggleBtnHeader").forEach((btn) => btn.remove());
+  card.querySelector(".npcPortraitTop")?.remove();
+
+  const portrait = renderCardPortrait({
+    blobId: npc.imgBlobId,
+    altText: npc.name || "NPC Portrait",
+    blobIdToObjectUrl: _blobIdToObjectUrl,
+    onPick: () => _pickNpcImage(npc.id),
+    isHidden: !!hidden,
+    onToggleHidden: (nextHidden) => _setNpcPortraitHidden?.(npc.id, nextHidden),
+    headerControlsEl: headerRow,
+    onImageLoad: scheduleNpcMasonryRelayout,
+  });
+  if (portrait) card.insertBefore(portrait, body);
+
+  const nextFocusEl = focusEl && focusEl.isConnected
+    ? focusEl
+    : (hidden
+      ? headerRow.querySelector(".cardPortraitToggleBtnHeader")
+      : card.querySelector(".npcPortraitTop .cardPortraitToggleBtnOverlay"));
+
+  scheduleNpcMasonryRelayout();
+  focusElementWithoutScroll(nextFocusEl);
   return true;
 }
 
@@ -234,6 +279,7 @@ function renderNpcCard(npc) {
     isHidden: !!npc.portraitHidden,
     onToggleHidden: (hidden) => _setNpcPortraitHidden?.(npc.id, hidden),
     headerControlsEl: headerRow,
+    onImageLoad: scheduleNpcMasonryRelayout,
   });
   headerRow.appendChild(toggle);
 
@@ -546,6 +592,8 @@ export function initNpcsPanel(deps = {}) {
   function setNpcPortraitHidden(id, hidden) {
     if (!setCardPortraitHidden("npc", id, hidden, { queueSave: false })) return;
     SaveManager.markDirty();
+    const focusEl = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    if (USE_INCREMENTAL_CARDS && USE_INCREMENTAL_PORTRAIT && patchNpcCardPortrait(id, hidden, focusEl)) return;
     renderNpcCards();
   }
 
