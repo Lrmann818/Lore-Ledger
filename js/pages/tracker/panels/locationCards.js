@@ -110,6 +110,7 @@ export function renderLocationCards() {
   if (!_state) return;
 
   const prevScroll = _cardsEl.scrollTop; // keep scroll position
+  const raf = requestAnimationFrame;
   const renderRun = startJumpDebugRun({
     panel: "location",
     cardId: "render",
@@ -136,18 +137,18 @@ export function renderLocationCards() {
       ? "No locations match your search in this section."
       : "No locations in this section yet. Click “+ Add Location”.";
     _cardsEl.appendChild(empty);
-    _cardsEl.scrollTop = prevScroll;
     masonry.attach(_cardsEl, MASONRY_OPTIONS);
     masonry.relayout(_cardsEl);
+    raf(() => raf(() => { _cardsEl.scrollTop = prevScroll; }));
     renderRun?.log("after-dom-rebuild-relayout");
     queueJumpDebugCheckpoints(renderRun);
     return;
   }
 
   list.forEach(loc => _cardsEl.appendChild(renderLocationCard(loc)));
-  _cardsEl.scrollTop = prevScroll;
   masonry.attach(_cardsEl, MASONRY_OPTIONS);
   masonry.relayout(_cardsEl);
+  raf(() => raf(() => { _cardsEl.scrollTop = prevScroll; }));
   renderRun?.log("after-dom-rebuild-relayout");
   queueJumpDebugCheckpoints(renderRun);
 }

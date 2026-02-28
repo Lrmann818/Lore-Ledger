@@ -57,6 +57,7 @@ export function renderPartyCards() {
   if (!_state) return;
 
   const prevScroll = _cardsEl.scrollTop; // keep scroll position
+  const raf = requestAnimationFrame;
   const renderRun = startJumpDebugRun({
     panel: "party",
     cardId: "render",
@@ -81,9 +82,9 @@ export function renderPartyCards() {
       ? "No party members match your search in this section."
       : "No party members in this section yet. Click “+ Add Member”.";
     _cardsEl.appendChild(empty);
-    _cardsEl.scrollTop = prevScroll;
     masonry.attach(_cardsEl, MASONRY_OPTIONS);
     masonry.relayout(_cardsEl);
+    raf(() => raf(() => { _cardsEl.scrollTop = prevScroll; }));
     renderRun?.log("after-dom-rebuild-relayout");
     queueJumpDebugCheckpoints(renderRun);
     return;
@@ -91,9 +92,9 @@ export function renderPartyCards() {
 
   list.forEach(m => _cardsEl.appendChild(renderPartyCard(m)));
   if (_enhanceNumberSteppers) _enhanceNumberSteppers(_cardsEl);
-  _cardsEl.scrollTop = prevScroll;
   masonry.attach(_cardsEl, MASONRY_OPTIONS);
   masonry.relayout(_cardsEl);
+  raf(() => raf(() => { _cardsEl.scrollTop = prevScroll; }));
   renderRun?.log("after-dom-rebuild-relayout");
   queueJumpDebugCheckpoints(renderRun);
 }

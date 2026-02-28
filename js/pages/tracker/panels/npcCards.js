@@ -53,6 +53,7 @@ function initNpcCards(deps = {}) {
 function renderNpcCards() {
   if (!_state) return;
   const prevScroll = _cardsEl.scrollTop; // keep scroll position
+  const raf = requestAnimationFrame;
   const renderRun = startJumpDebugRun({
     panel: "npc",
     cardId: "render",
@@ -79,9 +80,9 @@ function renderNpcCards() {
       : "No NPCs in this section yet. Click “+ Add NPC”.";
     _cardsEl.appendChild(empty);
 
-    _cardsEl.scrollTop = prevScroll; // restore even on empty
     masonry.attach(_cardsEl, MASONRY_OPTIONS);
     masonry.relayout(_cardsEl);
+    raf(() => raf(() => { _cardsEl.scrollTop = prevScroll; }));
     renderRun?.log("after-dom-rebuild-relayout");
     queueJumpDebugCheckpoints(renderRun);
     return;
@@ -90,9 +91,9 @@ function renderNpcCards() {
   list.forEach(npc => _cardsEl.appendChild(renderNpcCard(npc)));
   _enhanceNumberSteppers(_cardsEl);
 
-  _cardsEl.scrollTop = prevScroll; // restore after DOM rebuild
   masonry.attach(_cardsEl, MASONRY_OPTIONS);
   masonry.relayout(_cardsEl);
+  raf(() => raf(() => { _cardsEl.scrollTop = prevScroll; }));
   renderRun?.log("after-dom-rebuild-relayout");
   queueJumpDebugCheckpoints(renderRun);
 }
