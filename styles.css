@@ -67,7 +67,7 @@
       color-mix(in srgb, var(--bg) 70%, transparent));
   --update-banner: linear-gradient(to bottom,
       color-mix(in srgb, var(--bg) 100%, transparent),
-      color-mix(in srgb, var(--bg) 90%, transparent));
+      color-mix(in srgb, var(--bg) 80%, transparent));
   --diceDivText: var(--diceIconColor);
   --dicePresetIconColor: var(--diceIconColor);
 
