@@ -1,13 +1,12 @@
-import { registerSW } from "virtual:pwa-register";
+import { initPwaUpdates } from "./updates.js";
 import { hideUpdateBanner, showUpdateBanner } from "./updateBanner.js";
 
 if (import.meta.env.PROD) {
-  const updateSW = registerSW({
-    immediate: true,
+  const { applyUpdate } = initPwaUpdates({
     onNeedRefresh() {
       showUpdateBanner({
         onRefresh: async () => {
-          await updateSW(true);
+          await applyUpdate();
         },
         onDismiss: () => {
           hideUpdateBanner();

@@ -6,6 +6,8 @@ import { uiConfirm, uiAlert } from "./dialogs.js";
 import { enhanceSelectDropdown } from "./selectDropdown.js";
 import { safeAsync } from "./safeAsync.js";
 import { requireMany, getNoopDestroyApi } from "../utils/domGuards.js";
+import { initPwaUpdates } from "../pwa/updates.js";
+import { showUpdateBanner } from "../pwa/updateBanner.js";
 
 let _activeDataPanel = null;
 
@@ -157,9 +159,57 @@ export function initDataPanel(deps) {
   const clearImagesBtn = document.getElementById("dataClearImagesBtn");
   const clearTextsBtn = document.getElementById("dataClearTextsBtn");
   const aboutBtn = document.getElementById("dataAboutBtn");
+  const checkUpdatesBtn = /** @type {HTMLButtonElement|null} */ (document.getElementById("checkUpdatesBtn"));
+  const settingsUpdateStatus = /** @type {HTMLElement|null} */ (document.getElementById("settingsUpdateStatus"));
+
+  const setUpdateStatus = (message = "") => {
+    if (!settingsUpdateStatus) return;
+    settingsUpdateStatus.textContent = message;
+  };
+
+  let updateReadySeen = false;
+  let updatesApi = null;
 
   if (exportBtn) addListener(exportBtn, "click", () => exportBackup());
   if (importFile) addListener(importFile, "change", (e) => importBackup(e));
+
+  if (checkUpdatesBtn) {
+    if (!("serviceWorker" in navigator)) {
+      checkUpdatesBtn.disabled = true;
+      setUpdateStatus("Updates not supported on this browser.");
+    } else {
+      updatesApi = initPwaUpdates({
+        onNeedRefresh: () => {
+          updateReadySeen = true;
+          setUpdateStatus("Update available.");
+          showUpdateBanner({
+            onRefresh: async () => {
+              await updatesApi?.applyUpdate?.();
+            }
+          });
+        }
+      });
+
+      addListener(checkUpdatesBtn, "click",
+        safeAsync(async () => {
+          if (!updatesApi?.checkForUpdates) return;
+
+          updateReadySeen = false;
+          setUpdateStatus("Checking…");
+          await updatesApi.checkForUpdates();
+          await new Promise((resolve) => setTimeout(resolve, 1500));
+
+          if (!updateReadySeen) {
+            setUpdateStatus("You're up to date.");
+          }
+        }, (err) => {
+          console.error(err);
+          setUpdateStatus("Could not check for updates.");
+          notifyStatus(setStatus, "Check for updates failed.");
+        })
+      );
+    }
+  }
 
   if (resetAllBtn) addListener(resetAllBtn, "click",
     safeAsync(async () => {

@@ -855,44 +855,49 @@
         <button type="button" class="npcSmallBtn" id="dataPanelClose" aria-label="Close">✕</button>
       </div>
 
-      <div class="dataPanelSection">
-        <div class="dataPanelLabel">Theme</div>
-        <select id="dataPanelThemeSelect" class="settingsSelect" title="Theme"></select>
-      </div>
-
-      <div class="settingsDivider"></div>
-
-      <div class="dataPanelSection">
-        <div class="dataPanelLabel">Backups</div>
-        <div class="dataPanelActions">
-          <button id="dataExportBtn" class="settingsItem" type="button">Export Backup (.json)</button>
-
-          <label class="settingsItem settingsFileItem" title="Import a previously exported backup">
-            Import Backup
-            <input id="dataImportFile" type="file" accept="application/json" />
-          </label>
+      <div class="dataPanelBody">
+        <div class="dataPanelSection">
+          <div class="dataPanelLabel">Theme</div>
+          <select id="dataPanelThemeSelect" class="settingsSelect" title="Theme"></select>
         </div>
-      </div>
 
-      <div class="settingsDivider"></div>
+        <div class="settingsDivider"></div>
 
-      <div class="dataPanelSection">
-        <div class="dataPanelLabel">Maintenance</div>
-        <div class="mutedSmall">These options affect data stored in your browser on this device.</div>
-        <div class="dataPanelActions">
-          <button id="dataResetUiBtn" class="settingsItem" type="button">Reset UI Only</button>
-          <button id="dataClearImagesBtn" class="settingsItem" type="button">Clear Images Only</button>
-          <button id="dataClearTextsBtn" class="settingsItem" type="button">Clear Text Notes Only</button>
-          <button id="dataAboutBtn" class="settingsItem" type="button">About</button>
+        <div class="dataPanelSection">
+          <div class="dataPanelLabel">Backups</div>
+          <div class="dataPanelActions">
+            <button id="dataExportBtn" class="settingsItem" type="button">Export Backup (.json)</button>
+
+            <label class="settingsItem settingsFileItem" title="Import a previously exported backup">
+              Import Backup
+              <input id="dataImportFile" type="file" accept="application/json" />
+            </label>
+          </div>
         </div>
-      </div>
 
-      <div class="settingsDivider"></div>
+        <div class="settingsDivider"></div>
 
-      <div class="dataPanelSection">
-        <div class="dataPanelLabel dangerLabel">Danger Zone</div>
-        <button class="settingsItem danger" id="dataResetAllBtn" type="button">Reset Everything</button>
-        <div class="mutedSmall">This clears campaign data + images + notes from this browser.</div>
+        <div class="dataPanelSection">
+          <div class="dataPanelLabel">Maintenance</div>
+          <div class="mutedSmall">These options affect data stored in your browser on this device.</div>
+          <div class="dataPanelActions">
+            <button id="dataResetUiBtn" class="settingsItem" type="button">Reset UI Only</button>
+            <button id="dataClearImagesBtn" class="settingsItem" type="button">Clear Images Only</button>
+            <button id="dataClearTextsBtn" class="settingsItem" type="button">Clear Text Notes Only</button>
+            <button id="dataAboutBtn" class="settingsItem" type="button">About</button>
+            <button id="checkUpdatesBtn" class="settingsItem" type="button" aria-label="Check for updates"
+              title="Check for updates">Check for updates</button>
+            <div class="settingsUpdateStatus" id="settingsUpdateStatus" aria-live="polite"></div>
+          </div>
+        </div>
+
+        <div class="settingsDivider"></div>
+
+        <div class="dataPanelSection">
+          <div class="dataPanelLabel dangerLabel">Danger Zone</div>
+          <button class="settingsItem danger" id="dataResetAllBtn" type="button">Reset Everything</button>
+          <div class="mutedSmall">This clears campaign data + images + notes from this browser.</div>
+        </div>
       </div>
     </div>
   </div>
