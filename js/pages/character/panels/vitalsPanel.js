@@ -5,6 +5,7 @@ import { numberOrNull } from "../../../utils/number.js";
 import { safeAsync } from "../../../ui/safeAsync.js";
 import { createStateActions } from "../../../domain/stateActions.js";
 import { requireMany, getNoopDestroyApi } from "../../../utils/domGuards.js";
+import { flipSwapTwo } from "../../../ui/flipSwap.js";
 
 function notifyStatus(setStatus, message) {
   if (typeof setStatus === "function") {
@@ -47,7 +48,19 @@ function setupVitalsTileReorder({ state, SaveManager, panelEl, gridEl, actions =
     });
   }
 
+  function findTileByVitalKey(vitalKey) {
+    return Array.from(grid.querySelectorAll(".charTile")).find((t) => t.dataset.vitalKey === vitalKey) || null;
+  }
+
   function moveVital(key, dir) {
+    const currentOrder = state.character.ui?.vitalsOrder;
+    const i = Array.isArray(currentOrder) ? currentOrder.indexOf(key) : -1;
+    const j = i + dir;
+    if (i === -1 || j < 0 || !Array.isArray(currentOrder) || j >= currentOrder.length) return;
+    const adjacentKey = currentOrder[j];
+    const tileEl = findTileByVitalKey(key);
+    const adjacentEl = findTileByVitalKey(adjacentKey);
+
     const moved = mutateCharacter((character) => {
       const order = character.ui?.vitalsOrder;
       if (!Array.isArray(order)) return false;
@@ -60,7 +73,18 @@ function setupVitalsTileReorder({ state, SaveManager, panelEl, gridEl, actions =
     }, { queueSave: false });
     if (!moved) return;
     SaveManager.markDirty();
-    applyOrder();
+
+    const prevScroll = panel.scrollTop;
+    const didSwap = flipSwapTwo(tileEl, adjacentEl, {
+      durationMs: 260,
+      easing: "cubic-bezier(.22,1,.36,1)",
+      swap: () => {
+        if (dir < 0) grid.insertBefore(tileEl, adjacentEl);
+        else grid.insertBefore(adjacentEl, tileEl);
+        panel.scrollTop = prevScroll;
+      },
+    });
+    if (!didSwap) applyOrder();
   }
 
   function makeMoveBtn(label, title, onClick) {
@@ -72,7 +96,10 @@ function setupVitalsTileReorder({ state, SaveManager, panelEl, gridEl, actions =
     b.addEventListener("click", (e) => {
       e.preventDefault();
       e.stopPropagation();
-      onClick();
+      onClick(e.currentTarget);
+      requestAnimationFrame(() => {
+        try { b.focus({ preventScroll: true }); } catch { b.focus?.(); }
+      });
     });
     return b;
   }

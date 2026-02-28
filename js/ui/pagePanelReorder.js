@@ -8,6 +8,7 @@
 
 import { DEV_MODE } from "../utils/dev.js";
 import { requireEl, requireMany, getNoopDestroyApi } from "../utils/domGuards.js";
+import { flipSwapTwo } from "./flipSwap.js";
 
 /** @type {Map<string, () => void>} */
 const activePagePanelReorderDestroyByPage = new Map();
@@ -129,11 +130,37 @@ export function setupPagePanelReorder({
     const j = i + dir;
     if (j < 0 || j >= order.length) return;
 
+    const adjacentId = order[j];
+    const panelEl = document.getElementById(id);
+    const adjacentEl = document.getElementById(adjacentId);
+
     [order[i], order[j]] = [order[j], order[i]];
 
     SaveManager?.markDirty?.();
-    applyOrder();
-    document.getElementById(id)?.scrollIntoView({ block: "nearest" });
+    if (!panelEl || !adjacentEl || !columnsWrap.contains(panelEl) || !columnsWrap.contains(adjacentEl)) {
+      applyOrder();
+      return;
+    }
+
+    const swapInDom = () => {
+      const parentA = panelEl.parentNode;
+      const parentB = adjacentEl.parentNode;
+      if (!parentA || !parentB) return;
+      const markerA = document.createComment("swap-panel-a");
+      const markerB = document.createComment("swap-panel-b");
+      parentA.replaceChild(markerA, panelEl);
+      parentB.replaceChild(markerB, adjacentEl);
+      parentA.replaceChild(adjacentEl, markerA);
+      parentB.replaceChild(panelEl, markerB);
+    };
+
+    const didSwap = flipSwapTwo(panelEl, adjacentEl, {
+      durationMs: 260,
+      easing: "cubic-bezier(.22,1,.36,1)",
+      swap: swapInDom,
+    });
+
+    if (!didSwap) applyOrder();
   }
 
   function makeMoveBtn(label, title, onClick) {
@@ -147,7 +174,7 @@ export function setupPagePanelReorder({
       (e) => {
         e.preventDefault();
         e.stopPropagation();
-        onClick();
+        onClick(e.currentTarget);
       },
       { signal }
     );
@@ -174,8 +201,18 @@ export function setupPagePanelReorder({
     wrap.className = "sectionMoves";
     wrap.dataset.sectionMoves = panelId;
 
-    wrap.appendChild(makeMoveBtn("↑", "Move section up", () => moveSection(panelId, -1)));
-    wrap.appendChild(makeMoveBtn("↓", "Move section down", () => moveSection(panelId, +1)));
+    wrap.appendChild(makeMoveBtn("↑", "Move section up", (btn) => {
+      moveSection(panelId, -1);
+      requestAnimationFrame(() => {
+        try { btn?.focus({ preventScroll: true }); } catch { btn?.focus?.(); }
+      });
+    }));
+    wrap.appendChild(makeMoveBtn("↓", "Move section down", (btn) => {
+      moveSection(panelId, +1);
+      requestAnimationFrame(() => {
+        try { btn?.focus({ preventScroll: true }); } catch { btn?.focus?.(); }
+      });
+    }));
 
     headerEl.appendChild(wrap);
     createdMoveWraps.push(wrap);
