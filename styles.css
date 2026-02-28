@@ -65,6 +65,9 @@
   --calculatorBg: linear-gradient(to bottom,
       color-mix(in srgb, var(--bg) 100%, transparent),
       color-mix(in srgb, var(--bg) 70%, transparent));
+  --update-banner: linear-gradient(to bottom,
+      color-mix(in srgb, var(--bg) 100%, transparent),
+      color-mix(in srgb, var(--bg) 90%, transparent));
   --diceDivText: var(--diceIconColor);
   --dicePresetIconColor: var(--diceIconColor);
 
@@ -2332,6 +2335,7 @@ div.mutedSmall {
   box-shadow:
     0 6px 16px var(--shadow-drop);
   overflow: hidden;
+  overflow-anchor: none;
 }
 
 /* When a dropdown inside a card is open, raise the card above its siblings.
@@ -2375,8 +2379,6 @@ div.mutedSmall {
   margin-bottom: 4px;
 }
 
-
-
 .locHeader {
   display: flex;
   align-items: center;
@@ -2384,9 +2386,6 @@ div.mutedSmall {
   gap: 4px;
   margin-bottom: 4px;
 }
-
-
-
 
 .locCards {
   --cards-grid-gap: 4px;
@@ -4671,6 +4670,7 @@ textarea {
 #locCards {
   overflow-y: auto;
   overflow-x: hidden;
+  overflow-anchor: none;
 }
 
 /* Data & Settings modal */
@@ -4900,7 +4900,7 @@ section.panel[data-collapsed="true"]> :not([data-panel-header]) {
   padding: 10px 12px;
   border: 1px solid var(--border);
   border-radius: 10px;
-  background: var(--card);
+  background: var(--update-banner);
   color: var(--text);
   box-shadow: 0 8px 24px var(--shadow-drop);
   backdrop-filter: blur(2px);
