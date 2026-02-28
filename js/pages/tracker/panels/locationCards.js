@@ -31,6 +31,7 @@ let _moveLocCard = null;
 let _deleteLoc = null;
 const USE_INCREMENTAL_CARDS = true;
 const USE_INCREMENTAL_PORTRAIT = true;
+const USE_INCREMENTAL_REORDER = true;
 const MASONRY_OPTIONS = { panelName: "location", minCardWidth: 175, gapVar: "--cards-grid-gap" };
 
 /**
@@ -119,6 +120,32 @@ function focusLocationCardCollapseButton(cardId, fallbackEl = null) {
     const btn = findLocationCardElById(cardId)?.querySelector(".cardCollapseBtn") || fallbackEl;
     try { btn?.focus({ preventScroll: true }); } catch { btn?.focus?.(); }
   });
+}
+
+function focusLocationCardMoveButton(cardId, dir) {
+  requestAnimationFrame(() => {
+    const card = findLocationCardElById(cardId);
+    if (!card) return;
+    const buttons = card.querySelectorAll(".moveBtn");
+    const btn = buttons[dir < 0 ? 0 : 1] || buttons[0] || null;
+    try { btn?.focus({ preventScroll: true }); } catch { btn?.focus?.(); }
+  });
+}
+
+function patchLocationCardReorder(cardId, adjacentId, dir) {
+  if (!_cardsEl) return false;
+  const cardEl = findLocationCardElById(cardId);
+  const adjacentEl = findLocationCardElById(adjacentId);
+  if (!cardEl || !adjacentEl) return false;
+
+  const prevScroll = _cardsEl.scrollTop;
+  if (dir < 0) _cardsEl.insertBefore(cardEl, adjacentEl);
+  else _cardsEl.insertBefore(adjacentEl, cardEl);
+  _cardsEl.scrollTop = prevScroll;
+
+  masonry.relayout(_cardsEl);
+  focusLocationCardMoveButton(cardId, dir);
+  return true;
 }
 
 function patchLocationCardCollapsed(cardId, collapsed, focusEl = null) {
@@ -605,6 +632,13 @@ export function initLocationsPanel(deps = {}) {
 
     if (!swapTrackerCards("locations", aId, bId)) return;
     jumpRun?.log("after-swap");
+
+    if (USE_INCREMENTAL_CARDS && USE_INCREMENTAL_REORDER && patchLocationCardReorder(aId, bId, dir)) {
+      jumpRun?.log("after-incremental-reorder");
+      queueJumpDebugCheckpoints(jumpRun);
+      return;
+    }
+
     renderLocationCards();
     jumpRun?.log("after-render");
     queueJumpDebugCheckpoints(jumpRun);

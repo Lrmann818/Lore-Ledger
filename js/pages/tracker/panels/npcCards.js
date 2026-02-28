@@ -34,6 +34,7 @@ let _deleteNpc = null;
 let _numberOrNull = null;
 const USE_INCREMENTAL_CARDS = true;
 const USE_INCREMENTAL_PORTRAIT = true;
+const USE_INCREMENTAL_REORDER = true;
 const MASONRY_OPTIONS = { panelName: "npc", minCardWidth: 175, gapVar: "--cards-grid-gap" };
 
 const matchesSearch = makeFieldSearchMatcher(["name", "className", "status", "notes"]);
@@ -66,6 +67,32 @@ function focusCardCollapseButton(cardId, fallbackEl = null) {
     const btn = findNpcCardElById(cardId)?.querySelector(".cardCollapseBtn") || fallbackEl;
     try { btn?.focus({ preventScroll: true }); } catch { btn?.focus?.(); }
   });
+}
+
+function focusNpcCardMoveButton(cardId, dir) {
+  requestAnimationFrame(() => {
+    const card = findNpcCardElById(cardId);
+    if (!card) return;
+    const buttons = card.querySelectorAll(".moveBtn");
+    const btn = buttons[dir < 0 ? 0 : 1] || buttons[0] || null;
+    try { btn?.focus({ preventScroll: true }); } catch { btn?.focus?.(); }
+  });
+}
+
+function patchNpcCardReorder(cardId, adjacentId, dir) {
+  if (!_cardsEl) return false;
+  const cardEl = findNpcCardElById(cardId);
+  const adjacentEl = findNpcCardElById(adjacentId);
+  if (!cardEl || !adjacentEl) return false;
+
+  const prevScroll = _cardsEl.scrollTop;
+  if (dir < 0) _cardsEl.insertBefore(cardEl, adjacentEl);
+  else _cardsEl.insertBefore(adjacentEl, cardEl);
+  _cardsEl.scrollTop = prevScroll;
+
+  masonry.relayout(_cardsEl);
+  focusNpcCardMoveButton(cardId, dir);
+  return true;
 }
 
 function patchNpcCardCollapsed(cardId, collapsed, focusEl = null) {
@@ -624,6 +651,13 @@ export function initNpcsPanel(deps = {}) {
 
     if (!swapTrackerCards("npc", aId, bId)) return;
     jumpRun?.log("after-swap");
+
+    if (USE_INCREMENTAL_CARDS && USE_INCREMENTAL_REORDER && patchNpcCardReorder(aId, bId, dir)) {
+      jumpRun?.log("after-incremental-reorder");
+      queueJumpDebugCheckpoints(jumpRun);
+      return;
+    }
+
     renderNpcCards();
     jumpRun?.log("after-render");
     queueJumpDebugCheckpoints(jumpRun);

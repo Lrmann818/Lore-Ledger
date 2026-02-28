@@ -36,6 +36,7 @@ let _numberOrNull = null;
 let _renderPartyTabs = null;
 const USE_INCREMENTAL_CARDS = true;
 const USE_INCREMENTAL_PORTRAIT = true;
+const USE_INCREMENTAL_REORDER = true;
 const MASONRY_OPTIONS = { panelName: "party", minCardWidth: 175, gapVar: "--cards-grid-gap" };
 
 const matchesSearch = makeFieldSearchMatcher(["name", "className", "status", "notes"]);
@@ -68,6 +69,32 @@ function focusPartyCardCollapseButton(cardId, fallbackEl = null) {
     const btn = findPartyCardElById(cardId)?.querySelector(".cardCollapseBtn") || fallbackEl;
     try { btn?.focus({ preventScroll: true }); } catch { btn?.focus?.(); }
   });
+}
+
+function focusPartyCardMoveButton(cardId, dir) {
+  requestAnimationFrame(() => {
+    const card = findPartyCardElById(cardId);
+    if (!card) return;
+    const buttons = card.querySelectorAll(".moveBtn");
+    const btn = buttons[dir < 0 ? 0 : 1] || buttons[0] || null;
+    try { btn?.focus({ preventScroll: true }); } catch { btn?.focus?.(); }
+  });
+}
+
+function patchPartyCardReorder(cardId, adjacentId, dir) {
+  if (!_cardsEl) return false;
+  const cardEl = findPartyCardElById(cardId);
+  const adjacentEl = findPartyCardElById(adjacentId);
+  if (!cardEl || !adjacentEl) return false;
+
+  const prevScroll = _cardsEl.scrollTop;
+  if (dir < 0) _cardsEl.insertBefore(cardEl, adjacentEl);
+  else _cardsEl.insertBefore(adjacentEl, cardEl);
+  _cardsEl.scrollTop = prevScroll;
+
+  masonry.relayout(_cardsEl);
+  focusPartyCardMoveButton(cardId, dir);
+  return true;
 }
 
 function patchPartyCardCollapsed(cardId, collapsed, focusEl = null) {
@@ -636,6 +663,13 @@ export function initPartyPanel(deps = {}) {
 
     if (!swapTrackerCards("party", aId, bId)) return;
     jumpRun?.log("after-swap");
+
+    if (USE_INCREMENTAL_CARDS && USE_INCREMENTAL_REORDER && patchPartyCardReorder(aId, bId, dir)) {
+      jumpRun?.log("after-incremental-reorder");
+      queueJumpDebugCheckpoints(jumpRun);
+      return;
+    }
+
     renderPartyCards();
     jumpRun?.log("after-render");
     queueJumpDebugCheckpoints(jumpRun);
