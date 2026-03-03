@@ -4434,6 +4434,14 @@ button#colorBtn[aria-expanded="true"] {
   margin-bottom: 8px;
 }
 
+/* keep transforms smooth */
+.diceHero {
+  transform-origin: 50% 60%;
+}
+@media (prefers-reduced-motion: reduce) {
+  .diceHero { transition: none; }
+}
+
 .diceActiveIcon {
   width: 70px;
   height: 70px;

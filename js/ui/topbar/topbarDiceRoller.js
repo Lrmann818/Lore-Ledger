@@ -175,7 +175,38 @@ export function initTopbarDiceRoller(deps) {
         });
     };
 
+let heroRollAnim = null;
+
+const triggerRollAnimation = () => {
+  if (window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches) return;
+
+  const hero = menu?.querySelector(".diceHero");
+  if (!hero) return;
+
+  heroRollAnim?.cancel?.();
+  heroRollAnim = null;
+
+  // Pick whole turns so the final angle matches the resting pose (no snap).
+  const turns = 3 + Math.floor(Math.random() * 4); // 3–6 full turns
+  const spin = 360 * turns; // always ends aligned with 0deg
+
+  const keyframes = [
+    { transform: `rotate(0deg) scale(1)` },
+    { transform: `rotate(${Math.round(spin * 0.55)}deg) scale(1.03)` },
+    { transform: `rotate(${Math.round(spin * 0.85)}deg) scale(0.995)` },
+    // Land exactly on the resting orientation:
+    { transform: `rotate(${spin}deg) scale(1)` },
+  ];
+
+  heroRollAnim = hero.animate(keyframes, {
+    duration: 720,
+    easing: "cubic-bezier(.12,.9,.2,1)", // nice slow-down at end
+    fill: "none",
+  });
+};
+
     const doRoll = () => {
+        triggerRollAnimation();
         const v = readUi();
         actions.setPath(["ui", "dice", "last"], { ...state.ui.dice.last, ...v }, { queueSave: false });
 
