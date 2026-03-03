@@ -50,6 +50,11 @@ export function initTopbarDiceRoller(deps) {
         disBtn
     } = guard.els;
     const activeIcon = requireEl("#diceActiveIcon", document, { warn: false });
+    const pctA = requireEl("#dicePctA", document, { warn: false });
+    const pctB = requireEl("#dicePctB", document, { warn: false });
+    const pctAIcon = requireEl("#dicePctAIcon", document, { warn: false });
+    const pctBIcon = requireEl("#dicePctBIcon", document, { warn: false });
+    const hero = menu?.querySelector(".diceHero");
     const presetBtns = menu?.querySelectorAll(".dicePreset");
     const modPlusEl = requireEl("#diceModPlus", document, { warn: false });
 
@@ -100,6 +105,17 @@ export function initTopbarDiceRoller(deps) {
         return Math.max(min, Math.min(max, n));
     };
 
+    function setPercentileRolling(on) {
+        if (!hero || !pctA || !pctB) return;
+        hero.classList.toggle("pctRolling", !!on);
+        pctA.hidden = !on;
+        pctB.hidden = !on;
+        if (!on) {
+            if (pctAIcon) pctAIcon.style.transform = "";
+            if (pctBIcon) pctBIcon.style.transform = "";
+        }
+    }
+
     const updateDiceIcon = (sides) => {
         const topIcon = document.getElementById("diceBtnIcon");
         const relPath = diceIconMap[sides] || diceIconMap[20];
@@ -107,6 +123,7 @@ export function initTopbarDiceRoller(deps) {
         // Icons are CSS-mask based (span.iconMask), so we swap the --icon url.
         if (topIcon) topIcon.style.setProperty("--icon", `url('${src}')`);
         if (activeIcon) activeIcon.style.setProperty("--icon", `url('${src}')`);
+        setPercentileRolling(false);
     };
 
     const readUi = () => {
@@ -175,35 +192,110 @@ export function initTopbarDiceRoller(deps) {
         });
     };
 
-let heroRollAnim = null;
+    let heroRollAnim = null;
+    let pctAnimA = null;
+    let pctAnimB = null;
+    let pctRunId = 0;
 
-const triggerRollAnimation = () => {
-  if (window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches) return;
+    const triggerRollAnimation = async () => {
+        const sides = readUi().sides;
+        if (window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches) {
+            pctRunId += 1;
+            heroRollAnim?.cancel?.();
+            pctAnimA?.cancel?.();
+            pctAnimB?.cancel?.();
+            heroRollAnim = null;
+            pctAnimA = null;
+            pctAnimB = null;
+            setPercentileRolling(false);
+            return;
+        }
 
-  const hero = menu?.querySelector(".diceHero");
-  if (!hero) return;
+        if (sides !== 100) {
+            if (!hero) return;
+            const runId = ++pctRunId;
+            pctAnimA?.cancel?.();
+            pctAnimB?.cancel?.();
+            pctAnimA = null;
+            pctAnimB = null;
+            if (runId === pctRunId) setPercentileRolling(false);
 
-  heroRollAnim?.cancel?.();
-  heroRollAnim = null;
+            heroRollAnim?.cancel?.();
+            heroRollAnim = null;
 
-  // Pick whole turns so the final angle matches the resting pose (no snap).
-  const turns = 3 + Math.floor(Math.random() * 4); // 3–6 full turns
-  const spin = 360 * turns; // always ends aligned with 0deg
+            // Pick whole turns so the final angle matches the resting pose (no snap).
+            const turns = 3 + Math.floor(Math.random() * 4); // 3–6 full turns
+            const spin = 360 * turns; // always ends aligned with 0deg
 
-  const keyframes = [
-    { transform: `rotate(0deg) scale(1)` },
-    { transform: `rotate(${Math.round(spin * 0.55)}deg) scale(1.03)` },
-    { transform: `rotate(${Math.round(spin * 0.85)}deg) scale(0.995)` },
-    // Land exactly on the resting orientation:
-    { transform: `rotate(${spin}deg) scale(1)` },
-  ];
+            const keyframes = [
+                { transform: `rotate(0deg) scale(1)` },
+                { transform: `rotate(${Math.round(spin * 0.55)}deg) scale(1.03)` },
+                { transform: `rotate(${Math.round(spin * 0.85)}deg) scale(0.995)` },
+                // Land exactly on the resting orientation:
+                { transform: `rotate(${spin}deg) scale(1)` },
+            ];
 
-  heroRollAnim = hero.animate(keyframes, {
-    duration: 720,
-    easing: "cubic-bezier(.12,.9,.2,1)", // nice slow-down at end
-    fill: "none",
-  });
-};
+            heroRollAnim = hero.animate(keyframes, {
+                duration: 720,
+                easing: "cubic-bezier(.12,.9,.2,1)", // nice slow-down at end
+                fill: "none",
+            });
+            return;
+        }
+
+        if (!hero || !pctA || !pctB || !pctAIcon || !pctBIcon) return;
+
+        const runId = ++pctRunId;
+        heroRollAnim?.cancel?.();
+        heroRollAnim = null;
+        pctAnimA?.cancel?.();
+        pctAnimB?.cancel?.();
+        pctAnimA = null;
+        pctAnimB = null;
+
+        setPercentileRolling(true);
+
+        const turnsA = 3 + Math.floor(Math.random() * 3); // 3-5 turns
+        const turnsB = 3 + Math.floor(Math.random() * 3); // 3-5 turns
+        const spinA = 360 * turnsA;
+        const spinB = 360 * turnsB;
+
+        const pctKeyframesA = [
+            { transform: "rotate(0deg) scale(1)" },
+            { transform: `rotate(${Math.round(spinA * 0.55)}deg) scale(1.03)` },
+            { transform: `rotate(${Math.round(spinA * 0.85)}deg) scale(0.995)` },
+            { transform: `rotate(${spinA}deg) scale(1)` }
+        ];
+        const pctKeyframesB = [
+            { transform: "rotate(0deg) scale(1)" },
+            { transform: `rotate(${Math.round(spinB * 0.55)}deg) scale(1.025)` },
+            { transform: `rotate(${Math.round(spinB * 0.85)}deg) scale(0.992)` },
+            { transform: `rotate(${spinB}deg) scale(1)` }
+        ];
+
+        pctAnimA = pctAIcon.animate(pctKeyframesA, {
+            duration: 720,
+            easing: "cubic-bezier(.12,.9,.2,1)",
+            fill: "none"
+        });
+        pctAnimB = pctBIcon.animate(pctKeyframesB, {
+            duration: 760,
+            delay: 60,
+            easing: "cubic-bezier(.12,.9,.2,1)",
+            fill: "none"
+        });
+
+        try {
+            await Promise.all([pctAnimA.finished, pctAnimB.finished]);
+        } catch {
+            // Animation was canceled by a newer roll; noop.
+        } finally {
+            if (runId !== pctRunId) return;
+            pctAnimA = null;
+            pctAnimB = null;
+            setPercentileRolling(false);
+        }
+    };
 
     const doRoll = () => {
         triggerRollAnimation();

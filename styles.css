@@ -4427,10 +4427,12 @@ button#colorBtn[aria-expanded="true"] {
 
 /* Big active die icon */
 .diceHero {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 6px 0 2px;
+  flex: 0 0 70px;
+  min-width: 70px;
+  max-width: 70px;
+  width: 70px;
+  height: 70px;
+  position: relative;
   margin-bottom: 8px;
 }
 
@@ -4443,10 +4445,54 @@ button#colorBtn[aria-expanded="true"] {
 }
 
 .diceActiveIcon {
-  width: 70px;
-  height: 70px;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   display: block;
   opacity: 0.95;
+}
+
+.dicePctDie {
+  position: absolute;
+  width: 56px;
+  height: 56px;
+  transform-origin: 50% 55%;
+  opacity: 0.95;
+}
+
+.dicePctDie[hidden] {
+  display: none;
+}
+
+#dicePctA {
+  left: -2px;
+  top: 7px;
+  transform: rotate(-22deg) scaleY(1.10);
+  z-index: 1;
+}
+
+#dicePctB {
+  left: 14px;
+  top: 10px;
+  transform: rotate(16deg) scaleY(1.10);
+  z-index: 2;
+}
+
+.dicePctDie > span {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.diceHero.pctRolling #diceActiveIcon {
+  display: none;
+}
+
+.diceHero.pctRolling .dicePctDie {
+  display: block;
 }
 
 /* 3-button roll row */
