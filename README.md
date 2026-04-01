@@ -39,6 +39,7 @@ That direction is visible in the current structure:
 
 - Vanilla `HTML`, `CSS`, and ES module `JavaScript`
 - [`Vite`](https://vitejs.dev/) for local development, production builds, and preview
+- [`Vitest`](https://vitest.dev/) for targeted unit tests around state migration behavior
 - [`vite-plugin-pwa`](https://vite-pwa-org.netlify.app/) / Workbox for service worker registration, precaching, and update prompts
 - Browser persistence via `localStorage` and `IndexedDB`
 - GitHub Actions and GitHub Pages for production deployment
@@ -92,7 +93,34 @@ With the state guard enabled, direct out-of-scope writes warn or throw and point
 __APP_STATE__.tracker.campaignTitle = "Guard test"
 ```
 
-## 7. Build and preview
+## 7. Automated tests
+
+The repo now includes a small Vitest-based automated test surface:
+
+- `tests/state.smoke.test.js` confirms the test runner can import the app's state module.
+- `tests/state.migrate.test.js` covers `migrateState(...)` behavior in `js/state.js`, including valid schema upgrades, already-current normalization behavior, and malformed or partial inputs that the app currently accepts or rejects.
+
+Run the test suite in watch mode:
+
+```bash
+npm test
+```
+
+Run the suite once:
+
+```bash
+npm run test:run
+```
+
+Run only the migration suite:
+
+```bash
+npm run test:run -- tests/state.migrate.test.js
+```
+
+This is intentionally targeted coverage, not full-app automation. UI behavior, browser storage flows, backup/restore end-to-end behavior, and PWA/offline behavior still rely on the manual checks documented under `docs/`.
+
+## 8. Build and preview
 
 Build the production output into `dist/`:
 
@@ -156,7 +184,7 @@ bash scripts/make-pages-zip.sh ./artifacts
 
 The runtime-only zip is for alternate/manual packaging workflows. Standard GitHub Pages deployment in this repo uses the built `dist/` output instead.
 
-## 8. Versioning
+## 9. Versioning
 
 Version metadata is resolved at build time in [`vite.config.js`](vite.config.js).
 
@@ -175,7 +203,7 @@ git push origin v0.4.0
 
 `package.json` currently keeps a placeholder version and should be treated as the fallback path rather than the primary release source of truth.
 
-## 9. GitHub Pages deployment notes
+## 10. GitHub Pages deployment notes
 
 - Production base path is `/CampaignTracker/` in [`vite.config.js`](vite.config.js)
 - Hash-based navigation is preserved for `#tracker`, `#character`, and `#map`
@@ -189,7 +217,7 @@ If the GitHub Pages path ever changes, update the following together:
 - PWA manifest `id`, `start_url`, and `scope`
 - Workbox navigation fallback paths
 
-## 10. Persistence and storage overview
+## 11. Persistence and storage overview
 
 The app is local-first and stores data in the browser:
 
@@ -200,6 +228,7 @@ The app is local-first and stores data in the browser:
 - Spell notes are stored separately in IndexedDB text storage
 - `loadAll()` migrates older saved shapes and legacy image data URLs into the current schema/storage model during startup
 - Backup export bundles sanitized state, stored images, and stored text into a JSON file; backup import validates, migrates, restores, and then reloads the app
+- Vitest migration coverage currently protects `migrateState(...)` schema upgrades and normalization behavior, which improves confidence in saved-state integrity and import/backward-compatibility work without replacing manual browser-level verification
 
 Intentionally non-persistent runtime state:
 
@@ -209,7 +238,7 @@ Intentionally non-persistent runtime state:
 
 For maintainers, this split matters: copying `localStorage` alone is not a complete backup of a populated app.
 
-## 11. PWA / offline behavior overview
+## 12. PWA / offline behavior overview
 
 Production builds register a service worker through `vite-plugin-pwa`. Dev builds do not register the service worker.
 
@@ -223,11 +252,13 @@ Production builds register a service worker through `vite-plugin-pwa`. Dev build
 
 See [`docs/PWA_NOTES.md`](docs/PWA_NOTES.md) for offline test steps and cache reset guidance.
 
-## 12. Documentation index
+## 13. Documentation index
 
 Existing documentation:
 
 - [`docs/architecture.md`](docs/architecture.md) - module boundaries, startup order, dependency direction, and page wiring
+- [`docs/state-schema.md`](docs/state-schema.md) - persisted state shape, schema history, migration rules, and restore compatibility notes
+- [`docs/testing-guide.md`](docs/testing-guide.md) - current automated test commands plus the manual release/regression checklist
 - [`docs/PWA_NOTES.md`](docs/PWA_NOTES.md) - offline cache behavior, update prompts, and reset steps
 - [`docs/CSP_AUDIT.md`](docs/CSP_AUDIT.md) - DEV-mode CSP verification checklist
 - [`docs/SMOKE_TEST.md`](docs/SMOKE_TEST.md) - persistence-focused pre-ship smoke test
@@ -241,11 +272,11 @@ Planned documentation placeholders:
 - [`docs/release-process.md`](docs/release-process.md) - TODO: tagging, build verification, packaging scripts, and release checklist
 - [`docs/maintainer-guide.md`](docs/maintainer-guide.md) - TODO: common change paths, module entrypoints, and troubleshooting notes
 
-## 13. Current status / known limitations
+## 14. Current status / known limitations
 
 - The app is single-user and browser-local. There is no sync, login, or shared backend.
 - Clearing site data or switching browser profiles will remove local data unless a backup JSON has been exported first.
 - Offline support is a production-build feature; `npm run dev` does not exercise the service worker path.
 - Map undo/redo is intentionally in-memory only and resets on refresh.
 - GitHub Pages deployment assumes the `/CampaignTracker/` base path today.
-- Runtime validation is currently documentation-driven rather than automated; the repo does not currently define a test suite in `package.json`.
+- Automated tests currently cover the Vitest smoke check and `js/state.js` migration behavior only; broader UI, browser-storage, backup/restore, and PWA validation is still manual.

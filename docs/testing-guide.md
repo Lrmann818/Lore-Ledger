@@ -1,10 +1,10 @@
 # Testing Guide
 
-This is the authoritative manual testing guide for Campaign Tracker / Lore Ledger. It consolidates the current guidance from `docs/SMOKE_TEST.md`, `SMOKE_TEST.md`, and `docs/CSP_AUDIT.md` into one release-quality checklist.
+This is the authoritative manual testing guide for Campaign Tracker / Lore Ledger. It consolidates the current guidance from `docs/SMOKE_TEST.md`, `SMOKE_TEST.md`, and `docs/CSP_AUDIT.md` into one release-quality checklist, while also pointing to the current automated Vitest coverage for state migration behavior.
 
 ## 1. Testing philosophy
 
-The project is currently validated primarily through manual testing. Because the app is local-first and splits persistence across `localStorage`, IndexedDB blobs, IndexedDB texts, and PWA caches, the highest-risk regressions are:
+The project is currently validated primarily through manual testing. There is now targeted automated coverage for `js/state.js`, but most user-facing behavior still needs browser-level verification. Because the app is local-first and splits persistence across `localStorage`, IndexedDB blobs, IndexedDB texts, and PWA caches, the highest-risk regressions are:
 
 - data loss after refresh
 - broken image or drawing persistence
@@ -28,39 +28,62 @@ Standard setup:
 
 Treat any data-loss, restore, offline-shell, or CSP regression as a merge/release blocker.
 
-## 2. Pre-merge minimum checks
+## 2. Current automated coverage
+
+Vitest is the current unit test runner.
+
+Current commands:
+
+- `npm test`
+  Expected: starts Vitest in watch mode for local development.
+- `npm run test:run`
+  Expected: runs the current automated suite once and exits.
+- `npm run test:run -- tests/state.migrate.test.js`
+  Expected: runs only the migration-focused suite for `migrateState(...)`.
+
+Current automated scope is intentionally narrow:
+
+- `tests/state.smoke.test.js` is a runner smoke test that confirms the app state module loads under Vitest.
+- `tests/state.migrate.test.js` covers valid historical migration paths, already-current schema normalization behavior, and malformed or partial inputs that `migrateState(...)` currently accepts, repairs, preserves, or rejects.
+
+Those tests improve confidence in saved-state integrity, backup/import safety, and future schema evolution, but they do not replace manual checks for UI rendering, IndexedDB-backed asset flows, full backup/restore behavior, or PWA/offline behavior.
+
+## 3. Pre-merge minimum checks
 
 Run these before merging any user-visible change:
 
-1. `npm run build`
+1. If the change touched `js/state.js`, schema history, import validation, or migration semantics, run `npm run test:run -- tests/state.migrate.test.js`.
+   Expected: the migration suite passes and any behavior changes are intentional.
+2. `npm run build`
    Expected: production build succeeds with no unexpected errors.
-2. Open the app in `npm run dev` or another local served environment.
+3. Open the app in `npm run dev` or another local served environment.
    Expected: the changed area loads cleanly and normal interaction does not produce unexpected console errors.
-3. Reload the relevant top-level route.
+4. Reload the relevant top-level route.
    Expected: `#tracker`, `#character`, and `#map` continue to restore the same page after reload when that area was touched.
-4. Run the detailed checks for the affected surface:
-   - Persistence or storage change: sections 4 and 8
-   - Tracker change: section 5
-   - Character change: section 6
-   - Map, drawing, or image change: section 7
-   - PWA, assets, routing base path, or build-output change: section 9
-   - CSP, boot, startup, or asset-loading change: section 10
-5. If the change touched themes or boot-time styling, reload once with a non-default theme selected.
+5. Run the detailed checks for the affected surface:
+   - Persistence or storage change: sections 5 and 9
+   - Tracker change: section 6
+   - Character change: section 7
+   - Map, drawing, or image change: section 8
+   - PWA, assets, routing base path, or build-output change: section 10
+   - CSP, boot, startup, or asset-loading change: section 11
+6. If the change touched themes or boot-time styling, reload once with a non-default theme selected.
    Expected: the saved theme applies immediately with no obvious flash to the wrong theme.
 
-## 3. Pre-release minimum checks
+## 4. Pre-release minimum checks
 
 Before any release candidate or production deploy, run the full set below in a clean browser profile:
 
-1. Complete section 4, including refresh durability and intentional non-persistence checks.
-2. Complete sections 5, 6, and 7 for Tracker, Character, and Map.
-3. Complete section 8 using a real exported backup file and `Reset Everything`.
-4. Complete section 9 against a production build or deployed site.
-5. Complete section 10 with `?dev=1`, then repeat a quick normal flow without the dev flag.
-6. Cover the browser/device matrix in section 11.
-7. Capture failure evidence using section 12.
+1. Run `npm run test:run`.
+2. Complete section 5, including refresh durability and intentional non-persistence checks.
+3. Complete sections 6, 7, and 8 for Tracker, Character, and Map.
+4. Complete section 9 using a real exported backup file and `Reset Everything`.
+5. Complete section 10 against a production build or deployed site.
+6. Complete section 11 with `?dev=1`, then repeat a quick normal flow without the dev flag.
+7. Cover the browser/device matrix in section 12.
+8. Capture failure evidence using section 13.
 
-## 4. Persistence regression checks
+## 5. Persistence regression checks
 
 Use these whenever persistence, save timing, storage migration, image handling, or page initialization changes.
 
@@ -89,7 +112,7 @@ Checks:
    - Expected: the final drawing state persists, but the pre-refresh undo/redo history does not.
    - Also remember that dice history and calculator history are runtime-only.
 
-## 5. Tracker page checks
+## 6. Tracker page checks
 
 Baseline checks:
 
@@ -116,7 +139,7 @@ Additional checks when the change touched Tracker rendering or organization:
 - Collapse and expand cards, or reorder/collapse Tracker panels if touched, then reload and confirm the UI state persists.
 - Watch for duplicate event behavior after rerenders. One click should equal one action.
 
-## 6. Character page checks
+## 7. Character page checks
 
 Baseline checks:
 
@@ -146,7 +169,7 @@ Additional checks when the change touched Character-specific UI persistence:
 - Verify textarea sizing/collapse behavior still persists for any field using persisted UI sizing.
 - If inventory search or the active inventory item changed, confirm the selection/search state survives reload.
 
-## 7. Map page checks
+## 8. Map page checks
 
 Baseline checks:
 
@@ -171,7 +194,7 @@ Additional checks when the change touched map management, tools, or gestures:
 - If `Remove Image`, `Clear Map`, or delete-map behavior changed, confirm the action affects only the intended map.
 - On a touch-capable device, verify drawing and gesture behavior with touch input.
 
-## 8. Backup/import/export checks
+## 9. Backup/import/export checks
 
 Run this flow whenever persistence, import/export, blobs, texts, or migrations change. It is also a required pre-release check.
 
@@ -193,7 +216,9 @@ Run this flow whenever persistence, import/export, blobs, texts, or migrations c
 
 If import/export code changed, also try one bad input path such as invalid JSON or an unsupported file and confirm the app fails safely instead of partially replacing live data.
 
-## 9. PWA/offline checks
+For pure `migrateState(...)` changes, the automated Vitest suite documents the current structural behavior. This manual flow is still required because import/export also exercises file parsing, blob restoration, text restoration, reload timing, and startup storage migration outside `migrateState(...)`.
+
+## 10. PWA/offline checks
 
 Use a production build or deployed production site for this section.
 
@@ -220,7 +245,7 @@ If caches become stale during testing:
 2. Clear site data in DevTools `Application` -> `Storage`.
 3. Close all app tabs, reopen online, and refresh once.
 
-## 10. CSP/security checks
+## 11. CSP/security checks
 
 Run this when touching startup code, CSP, asset loading, imports, or browser APIs that may be blocked by policy.
 
@@ -267,7 +292,7 @@ Expected result:
 - No DEV CSP audit logging
 - No extra CSP audit status noise during normal use
 
-## 11. Suggested browser/device matrix
+## 12. Suggested browser/device matrix
 
 | Scope | Minimum coverage | Primary purpose |
 | --- | --- | --- |
@@ -278,7 +303,7 @@ Expected result:
 
 If only one mobile platform is available, prioritize a real touch device over a desktop emulator.
 
-## 12. What evidence to capture on failure
+## 13. What evidence to capture on failure
 
 For any failed check, record:
 

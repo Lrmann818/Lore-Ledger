@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Portrait visibility controls and image-focused actions across tracker cards.
 - A manual `Check for updates` action in the Progressive Web App flow.
 - Additional motion polish for weapon movement, ability/skill movement, and dice rolling, including percentile roll animation.
+- Targeted Vitest coverage for `migrateState(...)`, including historical schema upgrades, already-current normalization behavior, and malformed-input cases that document current migration semantics.
 
 ### Changed
 
