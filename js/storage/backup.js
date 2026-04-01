@@ -5,6 +5,7 @@
 // without creating circular imports.
 
 import { uiAlert, uiConfirm } from "../ui/dialogs.js";
+import { deleteText, textKey_spellNotes } from "./texts-idb.js";
 
 const MAX_BACKUP_BYTES = 15 * 1024 * 1024; // 15 MB
 const MAX_BLOBS = 200;
@@ -15,6 +16,76 @@ function isPlainObject(v) {
 
 function isSafeImageDataUrl(s) {
   return typeof s === "string" && /^data:image\/(png|jpe?g|webp);base64,/.test(s);
+}
+
+function addReferencedId(target, maybeId) {
+  if (typeof maybeId !== "string") return;
+  const id = maybeId.trim();
+  if (!id) return;
+  target.add(id);
+}
+
+function collectPortraitBlobIds(target, items) {
+  if (!Array.isArray(items)) return;
+  for (const item of items) {
+    if (!isPlainObject(item)) continue;
+    addReferencedId(target, item.imgBlobId);
+  }
+}
+
+export function collectReferencedBlobIds(stateLike) {
+  const ids = new Set();
+  if (!isPlainObject(stateLike)) return ids;
+
+  const tracker = isPlainObject(stateLike.tracker) ? stateLike.tracker : null;
+  if (tracker) {
+    collectPortraitBlobIds(ids, tracker.npcs);
+    collectPortraitBlobIds(ids, tracker.party);
+    collectPortraitBlobIds(ids, tracker.locationsList);
+  }
+
+  const character = isPlainObject(stateLike.character) ? stateLike.character : null;
+  if (character) addReferencedId(ids, character.imgBlobId);
+
+  const map = isPlainObject(stateLike.map) ? stateLike.map : null;
+  if (map) {
+    // Keep legacy top-level map blob fields in the scan so cleanup remains safe
+    // even if an older state shape shows up here.
+    addReferencedId(ids, map.bgBlobId);
+    addReferencedId(ids, map.drawingBlobId);
+
+    if (Array.isArray(map.maps)) {
+      for (const mp of map.maps) {
+        if (!isPlainObject(mp)) continue;
+        addReferencedId(ids, mp.bgBlobId);
+        addReferencedId(ids, mp.drawingBlobId);
+      }
+    }
+  }
+
+  return ids;
+}
+
+export function collectReferencedTextIds(stateLike) {
+  const ids = new Set();
+  if (!isPlainObject(stateLike)) return ids;
+
+  const character = isPlainObject(stateLike.character) ? stateLike.character : null;
+  const spells = isPlainObject(character?.spells) ? character.spells : null;
+  const levels = Array.isArray(spells?.levels) ? spells.levels : [];
+
+  for (const level of levels) {
+    if (!isPlainObject(level) || !Array.isArray(level.spells)) continue;
+    for (const spell of level.spells) {
+      if (!isPlainObject(spell)) continue;
+      if (typeof spell.id !== "string") continue;
+      const spellId = spell.id.trim();
+      if (!spellId) continue;
+      addReferencedId(ids, textKey_spellNotes(spellId));
+    }
+  }
+
+  return ids;
 }
 
 function validateIncomingStateShape(state) {
@@ -79,19 +150,8 @@ export async function exportBackup(deps) {
     throw new Error("exportBackup: sanitizeForSave() is required");
   }
 
-  // Collect all blob IDs used by state
-  const ids = new Set();
-
-  for (const npc of (state.tracker.npcs || [])) if (npc.imgBlobId) ids.add(npc.imgBlobId);
-  for (const m of (state.tracker.party || [])) if (m.imgBlobId) ids.add(m.imgBlobId);
-  for (const loc of (state.tracker.locationsList || [])) if (loc.imgBlobId) ids.add(loc.imgBlobId);
-
   ensureMapManager?.();
-  for (const mp of (state.map.maps || [])) {
-    if (state.character?.imgBlobId) ids.add(state.character.imgBlobId);
-    if (mp.bgBlobId) ids.add(mp.bgBlobId);
-    if (mp.drawingBlobId) ids.add(mp.drawingBlobId);
-  }
+  const ids = collectReferencedBlobIds(state);
 
   // Turn blobs into dataURLs inside the backup file
   const blobs = {};
@@ -137,8 +197,6 @@ export async function importBackup(e, deps) {
     putText,
     deleteBlob,           // NEW — needed for abort cleanup
     dataUrlToBlob,
-    clearAllBlobs,        // NEW — needed for post-success cleanup
-    clearAllTexts,        // NEW — needed for post-success cleanup
     ACTIVE_TAB_KEY,
     STORAGE_KEY,
     afterImport,
@@ -227,13 +285,16 @@ export async function importBackup(e, deps) {
     return;
   }
 
+  const oldBlobIds = collectReferencedBlobIds(stateSnapshot);
+  const oldTextIds = collectReferencedTextIds(stateSnapshot);
+
   // ── ROLLBACK HELPERS ───────────────────────────────────────────────────────
   // Track every new blob written so we can clean up partial writes on failure.
-  const newBlobIds = [];
+  const writtenBlobIds = [];
 
   // Called if something fails BEFORE we touch state.
   const abort = async (err, message) => {
-    for (const id of newBlobIds) {
+    for (const id of writtenBlobIds) {
       try { await deleteBlob(id); } catch (_) { }
     }
     console.error("Import failed:", err);
@@ -267,12 +328,12 @@ export async function importBackup(e, deps) {
 
     try {
       await putBlob(blob, oldId);
-      newBlobIds.push(oldId);
+      writtenBlobIds.push(oldId);
     } catch (err) {
       try {
         const newId = await putBlob(blob);
         idMap.set(oldId, newId);
-        newBlobIds.push(newId);
+        writtenBlobIds.push(newId);
       } catch (fallbackErr) {
         await abort(fallbackErr, "Import failed while saving images.");
         return;
@@ -331,22 +392,66 @@ export async function importBackup(e, deps) {
   // ── 6. SAVE ────────────────────────────────────────────────────────────────
 
   try {
-    await saveAll();
+    const ok = await saveAll();
+    if (!ok) {
+      await rollback(
+        new Error("Import failed: saveAll() reported failure."),
+        "Import failed: could not save. Your previous data has been restored."
+      );
+      return;
+    }
   } catch (err) {
     await rollback(err, "Import failed: could not save. Your previous data has been restored.");
     return;
   }
 
   // ── 7. CLEAN UP OLD DATA ───────────────────────────────────────────────────
-  // Only reached on full success. Safe to delete old data now.
-  // Non-fatal if cleanup fails — import already succeeded.
+  // Only reached on full success. We wait until after save succeeds so a failed
+  // import can still roll back to the pre-import state without losing assets it
+  // still needs.
+  //
+  // Cleanup is based on "old references minus new references": if an ID was
+  // referenced before import but is no longer referenced by the saved/imported
+  // state, it is safe to delete. Any ID still referenced after import is kept.
+  //
+  // Cleanup errors are non-fatal on purpose. At this point the import already
+  // succeeded, so we prefer logging a warning and keeping an orphan over
+  // risking a rollback of valid imported data.
+  try {
+    const finalSavedState = sanitizeForSave(state);
+    const newReferencedBlobIds = collectReferencedBlobIds(finalSavedState);
+    const newReferencedTextIds = collectReferencedTextIds(finalSavedState);
+    const importedBlobIds = new Set();
+    const importedTextIds = new Set();
 
-  try { await clearAllBlobs(); } catch (err) {
-    console.warn("Import: old blobs cleanup failed (non-fatal):", err);
+    // Skip IDs written by this import so we never delete newly imported data,
+    // even if a backup reused an old ID or carried an extra unreferenced asset.
+    for (const blobId of writtenBlobIds) addReferencedId(importedBlobIds, blobId);
+    for (const textId of Object.keys(incomingTexts || {})) addReferencedId(importedTextIds, textId);
+
+    for (const blobId of oldBlobIds) {
+      if (newReferencedBlobIds.has(blobId)) continue;
+      if (importedBlobIds.has(blobId)) continue;
+      try {
+        await deleteBlob(blobId);
+      } catch (err) {
+        console.warn("Import cleanup: failed to delete replaced blob:", blobId, err);
+      }
+    }
+
+    for (const textId of oldTextIds) {
+      if (newReferencedTextIds.has(textId)) continue;
+      if (importedTextIds.has(textId)) continue;
+      try {
+        await deleteText(textId);
+      } catch (err) {
+        console.warn("Import cleanup: failed to delete replaced text:", textId, err);
+      }
+    }
+  } catch (err) {
+    console.warn("Import cleanup: failed to compute selective asset cleanup.", err);
   }
-  try { await clearAllTexts(); } catch (err) {
-    console.warn("Import: old texts cleanup failed (non-fatal):", err);
-  }
+
 
   // ── 8. RELOAD UI ───────────────────────────────────────────────────────────
 
