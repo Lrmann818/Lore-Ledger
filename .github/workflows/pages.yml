@@ -16,30 +16,29 @@ concurrency:
 
 jobs:
   build:
+    name: Verify and build
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
+          # Keep tags and history available for build-time version metadata.
           fetch-depth: 0
           fetch-tags: true
 
-      - name: Git diagnostics
-        run: |
-          git rev-parse --short HEAD
-          git describe --tags --abbrev=0 || true
-          git tag -l | tail -n 10 || true
-
-      - name: Setup Node
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
 
-      - name: Install deps
+      - name: Install dependencies
         run: npm ci
 
-      - name: Build
+      - name: Run tests
+        run: npm run test:run
+
+      - name: Build site
         run: npm run build
 
       - name: Upload Pages artifact
@@ -48,6 +47,7 @@ jobs:
           path: dist
 
   deploy:
+    name: Deploy
     runs-on: ubuntu-latest
     needs: build
     environment:

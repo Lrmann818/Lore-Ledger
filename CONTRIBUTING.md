@@ -52,6 +52,7 @@ Recommended dev URL for refactor or state-safety work:
 Useful local commands:
 
 ```bash
+npm run verify
 npm run build
 npm run preview
 ```
@@ -59,7 +60,7 @@ npm run preview
 Working expectations:
 
 - Serve the app through Vite or another local server. Do not test from `file://`.
-- Use `npm run build` before merge for any app change.
+- Use `npm run verify` before merge for any app change. Run `npm ci` first when you want the closest local match to CI.
 - Use `npm run preview` or a deployed build for PWA and offline validation. Dev mode does not register the production service worker.
 - For persistence-sensitive work, prefer a clean browser profile and seed realistic data before testing.
 
@@ -75,7 +76,7 @@ Primary maintainer references:
 
 ## 3. Branch and commit expectations
 
-`main` is the deploy branch. Pushes to `main` trigger the GitHub Pages workflow, so treat it as releaseable at all times.
+`main` is the deploy branch. Pushes to `main` trigger the GitHub Pages workflow, and `Deploy` only runs after `Verify and build` passes, so treat `main` as releaseable at all times.
 
 Branch expectations:
 
@@ -220,7 +221,7 @@ This repository now has targeted automated tests in `package.json` and an in-pro
 
 Minimum expectation for any app change:
 
-1. Run `npm run build`.
+1. Run `npm run verify`.
 2. Test the changed area in a local served environment.
 3. Reload and confirm the affected flow still behaves correctly after refresh.
 4. Check for unexpected console errors.
@@ -303,7 +304,7 @@ Before merging, confirm all of the following are true:
 - The change matches the current architecture instead of bypassing it.
 - Persisted data and compatibility expectations were preserved or migrated.
 - Relevant docs were updated in the same branch.
-- `npm run build` succeeded.
+- `npm run verify` succeeded.
 - The changed area was manually tested, including refresh behavior where relevant.
 - Any risky refactor was called out explicitly for reviewers.
 - Any AI assistance was reviewed and validated by a human.

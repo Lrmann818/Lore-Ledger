@@ -32,7 +32,16 @@ Treat any data-loss, restore, offline-shell, or CSP regression as a merge/releas
 
 Vitest is the current unit test runner.
 
-Current commands:
+Canonical local verification commands:
+
+- `npm ci`
+  Expected: installs dependencies the same way CI does on a clean runner. Use this when you want the closest local match to GitHub Actions, especially after dependency or lockfile changes.
+- `npm run verify`
+  Expected: runs the canonical automated local gate: `npm run test:run` and `npm run build`.
+- `npm run preview`
+  Expected: serves the production build for browser-only validation that CI does not cover.
+
+Focused dev commands:
 
 - `npm test`
   Expected: starts Vitest in watch mode for local development.
@@ -66,6 +75,14 @@ Intentional gaps still left for later phases:
 
 Those gaps are why the manual sections below remain release-critical.
 
+Use `npm run verify` as the default automated pre-merge and pre-release check. The narrower Vitest commands are for faster iteration when you already know which area you are changing.
+
+Intentional differences between local verification and CI:
+
+- CI always starts from a clean Ubuntu runner with Node `20` and runs `npm ci` before the automated gate.
+- Local verification can reuse an existing install; run `npm ci && npm run verify` when you want the closest local CI match.
+- CI stops after the automated gate. Local release validation must continue with `npm run preview` and the manual browser checks below.
+
 ### Conventions for future automated tests
 
 - Keep tests behavior-focused and tied to real exported module APIs such as `migrateState(...)`, `loadAll(...)`, `createSaveManager(...)`, and `importBackup(...)`.
@@ -93,40 +110,41 @@ npm exec --yes --package typescript@5.9.3 -- tsc -p tsconfig.checkjs.json
 
 Run these before merging any user-visible change:
 
-1. If the change touched `js/state.js`, schema history, import validation, or migration semantics, run `npm run test:run -- tests/state.migrate.test.js`.
-   Expected: the migration suite passes and any behavior changes are intentional.
-2. If the change touched `js/storage/*`, save timing, backup import/export, or startup persistence behavior, run `npm run test:run`.
-   Expected: the full critical-path suite passes cleanly.
-3. If the change touched an existing `@ts-check` module, JSDoc typedefs, `types/*.d.ts`, or module boundary contracts, run the CheckJS command from section 2 when practical.
+1. Run `npm run verify`.
+   Expected: the same automated gate CI uses passes locally.
+2. If the change touched an existing `@ts-check` module, JSDoc typedefs, `types/*.d.ts`, or module boundary contracts, run the CheckJS command from section 2 when practical.
    Expected: no new typing regressions are introduced in the area you touched, even though the full repo pass is not yet globally clean.
-4. `npm run build`
-   Expected: production build succeeds with no unexpected errors.
-5. Open the app in `npm run dev` or another local served environment.
+3. Open the app in `npm run dev` or another local served environment.
    Expected: the changed area loads cleanly and normal interaction does not produce unexpected console errors.
-6. Reload the relevant top-level route.
+4. Reload the relevant top-level route.
    Expected: `#tracker`, `#character`, and `#map` continue to restore the same page after reload when that area was touched.
-7. Run the detailed checks for the affected surface:
+5. Run the detailed checks for the affected surface:
    - Persistence or storage change: sections 5 and 9
    - Tracker change: section 6
    - Character change: section 7
    - Map, drawing, or image change: section 8
    - PWA, assets, routing base path, or build-output change: section 10
    - CSP, boot, startup, or asset-loading change: section 11
-8. If the change touched themes or boot-time styling, reload once with a non-default theme selected.
+6. If the change touched themes or boot-time styling, reload once with a non-default theme selected.
    Expected: the saved theme applies immediately with no obvious flash to the wrong theme.
 
 ## 4. Pre-release minimum checks
 
 Before any release candidate or production deploy, run the full set below in a clean browser profile:
 
-1. Run `npm run test:run`.
+1. Run `npm run verify`.
 2. Complete section 5, including refresh durability and intentional non-persistence checks.
 3. Complete sections 6, 7, and 8 for Tracker, Character, and Map.
 4. Complete section 9 using a real exported backup file and `Reset Everything`.
-5. Complete section 10 against a production build or deployed site.
+5. Complete section 10 against the built preview or deployed site.
 6. Complete section 11 with `?dev=1`, then repeat a quick normal flow without the dev flag.
 7. Cover the browser/device matrix in section 12.
 8. Capture failure evidence using section 13.
+
+Intentional difference from CI:
+
+- CI runs `npm ci`, then the same automated gate as `npm run verify`, and stops before any browser-level validation.
+- Local release validation must continue with the preview/manual sections because CI does not exercise real browser persistence, offline/PWA behavior, or cross-browser interaction flows.
 
 ## 5. Persistence regression checks
 

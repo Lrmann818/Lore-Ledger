@@ -124,6 +124,12 @@ Run the suite once:
 npm run test:run
 ```
 
+Run the same automated verification CI uses:
+
+```bash
+npm run verify
+```
+
 Run one suite directly:
 
 ```bash
@@ -131,6 +137,10 @@ npm run test:run -- tests/state.migrate.test.js
 ```
 
 This is intentionally targeted coverage, not full-app automation. The automated suite protects migration, local save/load, save-manager, and backup/import logic, but UI behavior, real browser storage integration, full backup/restore flows, and PWA/offline behavior still rely on the manual checks documented under `docs/`.
+
+`npm run verify` is the canonical local readiness check. It runs `npm run test:run` and `npm run build`, matching the automated checks in CI. It does not replace `npm run preview` or the browser-level manual checks needed for release validation.
+
+For the closest local match to CI, start from a clean install with `npm ci`, then run `npm run verify`.
 
 Static validation is also in progress for the vanilla-JS codebase via `tsconfig.checkjs.json`. That repo-wide CheckJS path is useful for diagnostics, but it still has known gaps in older Character-panel and Tracker card/panel surfaces and is not yet documented as a must-pass project gate.
 
@@ -222,7 +232,8 @@ git push origin v0.4.0
 - Production base path is `/CampaignTracker/` in [`vite.config.js`](vite.config.js)
 - Hash-based navigation is preserved for `#tracker`, `#character`, and `#map`
 - The Pages workflow is defined in [`.github/workflows/pages.yml`](.github/workflows/pages.yml)
-- On pushes to `main` and on manual dispatch, the workflow checks out tags, runs `npm ci`, runs `npm run build`, and deploys `dist/`
+- On pushes to `main` and on manual dispatch, the workflow runs a `Verify and build` job that does `npm ci`, `npm run test:run`, and `npm run build`, uploads `dist/`, and only then runs `Deploy`
+- Local equivalent: `npm ci`, then `npm run verify`; release validation still also needs `npm run preview` plus the manual checks in [`docs/testing-guide.md`](docs/testing-guide.md)
 - If you deploy manually, publish the contents of `dist/`, not the repository root
 
 If the GitHub Pages path ever changes, update the following together:
@@ -283,7 +294,7 @@ Existing documentation:
 Planned documentation placeholders:
 
 - [`docs/storage.md`](docs/storage.md) - TODO: persistent data model, storage keys, IndexedDB stores, and backup format
-- [`docs/release-process.md`](docs/release-process.md) - TODO: tagging, build verification, packaging scripts, and release checklist
+- [`docs/release-process.md`](docs/release-process.md) - current tagging, verification, packaging, deploy, and release checklist
 - [`docs/maintainer-guide.md`](docs/maintainer-guide.md) - TODO: common change paths, module entrypoints, and troubleshooting notes
 
 ## 14. Current status / known limitations
