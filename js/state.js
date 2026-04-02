@@ -551,6 +551,45 @@ export function sanitizeForSave(source, opts = {}) {
     ui: /** @type {PersistedUiState} */ (serializableUi)
   };
 }
+
+/**
+ * Seeds or backfills inventory items from legacy character.equipment text.
+ * Kept pure so the v2 inventory migration edge cases can be tested directly.
+ * @param {unknown} inventoryItems
+ * @param {unknown} legacyEquipment
+ * @returns {unknown[]}
+ */
+export function backfillInventoryItemsFromLegacyEquipment(inventoryItems, legacyEquipment) {
+  const legacy = typeof legacyEquipment === "string" ? legacyEquipment : "";
+
+  if (!Array.isArray(inventoryItems) || inventoryItems.length === 0) {
+    return [{ title: "Inventory", notes: legacy || "" }];
+  }
+
+  const hasAnyNotes = inventoryItems.some((item) => (
+    !!item &&
+    typeof item === "object" &&
+    !Array.isArray(item) &&
+    typeof item.notes === "string" &&
+    item.notes.trim()
+  ));
+
+  if (hasAnyNotes || !legacy || !legacy.trim()) return inventoryItems;
+
+  const nextItems = inventoryItems.slice();
+  const first = (
+    nextItems[0] &&
+    typeof nextItems[0] === "object" &&
+    !Array.isArray(nextItems[0])
+  )
+    ? { ...nextItems[0] }
+    : { title: "Inventory", notes: "" };
+
+  if (!first.notes || !String(first.notes).trim()) first.notes = legacy;
+  if (!first.title) first.title = "Inventory";
+  nextItems[0] = first;
+  return nextItems;
+}
 // ---------- Map manager (multiple maps) ----------
 /**
  * @param {string} [name]
@@ -640,7 +679,7 @@ export function migrateState(raw) {
    * @returns {Record<string, unknown>}
    */
   function ensureObj(parent, key) {
-    if (!parent[key] || typeof parent[key] !== "object") parent[key] = {};
+    if (!parent[key] || typeof parent[key] !== "object" || Array.isArray(parent[key])) parent[key] = {};
     return /** @type {Record<string, unknown>} */ (parent[key]);
   }
   /**
@@ -691,11 +730,9 @@ export function migrateState(raw) {
     ensureObj(c, "skills");
     ensureObj(c, "ui");
     ensureObj(c.ui, "textareaHeights");
-    if (!Array.isArray(c.inventoryItems)) {
-      const legacy = typeof c.equipment === "string" ? c.equipment : "";
-      c.inventoryItems = [{ title: "Inventory", notes: legacy || "" }];
-    }
-    if (c.inventoryItems.length === 0) c.inventoryItems.push({ title: "Inventory", notes: "" });
+    c.inventoryItems = /** @type {NotesEntry[]} */ (
+      backfillInventoryItemsFromLegacyEquipment(c.inventoryItems, c.equipment)
+    );
 
     if (typeof c.activeInventoryIndex !== "number") c.activeInventoryIndex = 0;
     if (c.activeInventoryIndex < 0) c.activeInventoryIndex = 0;
@@ -773,8 +810,6 @@ export function migrateState(raw) {
     const rootUi = /** @type {Partial<RootUiState> & Record<string, unknown>} */ (data.ui);
     ensureObj(rootUi, "textareaHeights");
     ensureObj(rootUi, "panelCollapsed");
-    // Default theme should match fresh installs ("system")
-    if (typeof rootUi.theme !== "string") rootUi.theme = "system";
 
     // ---- THEME MIGRATION (important) ----
     if (!data.ui) data.ui = { theme: "system", textareaHeights: {}, panelCollapsed: {} };
@@ -796,19 +831,9 @@ export function migrateState(raw) {
       data.character = /** @type {Partial<CharacterState> & Record<string, unknown>} */ ({});
     }
     const c = /** @type {Partial<CharacterState> & Record<string, unknown>} */ (data.character);
-    if (!Array.isArray(c.inventoryItems) || c.inventoryItems.length === 0) {
-      const legacy = typeof c.equipment === "string" ? c.equipment : "";
-      c.inventoryItems = [{ title: "Inventory", notes: legacy || "" }];
-      return;
-    }
-    // If inventory exists but is empty AND legacy equipment has content, migrate it once.
-    const legacy = typeof c.equipment === "string" ? c.equipment : "";
-    const first = c.inventoryItems[0];
-    const hasAnyNotes = c.inventoryItems.some(it => (it && typeof it.notes === "string" && it.notes.trim()));
-    if (!hasAnyNotes && legacy && String(legacy).trim()) {
-      if (!first.notes || !String(first.notes).trim()) first.notes = legacy;
-      if (!first.title) first.title = "Inventory";
-    }
+    c.inventoryItems = /** @type {NotesEntry[]} */ (
+      backfillInventoryItemsFromLegacyEquipment(c.inventoryItems, c.equipment)
+    );
   }
 
   const SCHEMA_MIGRATIONS = Object.freeze({
@@ -832,6 +857,11 @@ export function migrateState(raw) {
     if (!applyMigrationStep(v)) break;
     v += 1;
   }
+
+  // Re-apply invariant-preserving migrations even for already-current saves so
+  // partial or malformed payloads still regain the required bucket structure.
+  migrateToV1();
+  migrateToV2();
 
   data.schemaVersion = CURRENT_SCHEMA_VERSION;
   return normalizeState(/** @type {State} */ (data));

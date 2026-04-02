@@ -9,7 +9,7 @@ The standard shipping path is:
 3. merge or push the release commit to `main`
 4. let GitHub Pages deploy the built `dist/` output through [`.github/workflows/pages.yml`](/home/lrdunn301/DnDWebApps/CampaignTracker/CampaignTracker/.github/workflows/pages.yml)
 
-There is no dedicated release automation beyond the GitHub Pages workflow, and there is no automated test suite in `package.json` today. Releases are therefore evidence-driven and rely on manual validation.
+There is no dedicated release automation beyond the GitHub Pages workflow. The repository does now include a local Vitest suite in `package.json`, but the Pages workflow still does not run that suite automatically, so releases remain evidence-driven and still rely on manual validation alongside local automated checks.
 
 ## 1. Release philosophy
 
@@ -103,7 +103,7 @@ Use preview or a deployed production build for PWA and offline checks. `npm run 
 
 ## 6. Required smoke/testing steps
 
-The repository does not currently define automated tests in [`package.json`](/home/lrdunn301/DnDWebApps/CampaignTracker/CampaignTracker/package.json), and the Pages workflow does not run a test suite. Required release validation is therefore manual.
+The repository now defines a targeted automated suite in [`package.json`](/home/lrdunn301/DnDWebApps/CampaignTracker/CampaignTracker/package.json), but the Pages workflow still does not run it. Release validation therefore requires both local automated test execution and the manual checklist.
 
 Primary sources:
 
@@ -114,9 +114,10 @@ Primary sources:
 
 Minimum pre-release expectation:
 
-1. Run `npm run build`.
-2. Use a clean browser profile.
-3. Run the full pre-release checklist in [`docs/testing-guide.md`](/home/lrdunn301/DnDWebApps/CampaignTracker/CampaignTracker/docs/testing-guide.md).
+1. Run `npm run test:run`.
+2. Run `npm run build`.
+3. Use a clean browser profile.
+4. Run the full pre-release checklist in [`docs/testing-guide.md`](/home/lrdunn301/DnDWebApps/CampaignTracker/CampaignTracker/docs/testing-guide.md).
 
 That means covering at least:
 
@@ -211,6 +212,7 @@ What it does today:
 
 Release-specific implications:
 
+- local release validation still needs `npm run test:run` because the workflow does not execute Vitest today
 - pushing a tag does not deploy on its own
 - the built version depends on which tags are available when the workflow runs
 - if version metadata is wrong because the tag arrived late, rerun the workflow manually
@@ -235,6 +237,7 @@ Capture and keep the following evidence for each production release:
 
 - release commit SHA
 - release tag name
+- successful `npm run test:run` output
 - successful `npm run build` output
 - preview or deployed URL used for validation
 - browser coverage used for the release check

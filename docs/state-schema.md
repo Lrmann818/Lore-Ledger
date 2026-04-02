@@ -617,9 +617,9 @@ Current covered behavior:
 
 - valid historical migration paths and schema upgrades, including legacy `map.character`, spell-bucket, single-resource, and inventory migrations
 - already-current saves that should still receive normalization of runtime-only UI state such as dice and calculator history
-- malformed, partial, or risky inputs that document today's behavior, including permissive repair paths and the specific malformed `schemaVersion: 1` inventory case that currently throws during backfill
+- malformed, partial, or risky inputs that document today's behavior, including permissive repair paths and malformed `schemaVersion: 1` inventory shapes that are repaired during backfill
 
-This coverage is intentionally scoped to structural migration behavior in `js/state.js`. It improves confidence in saved-state integrity, backup/import safety, and future schema evolution by locking in the current migration contract without claiming full automation of startup storage migration, IndexedDB conversions, or end-to-end browser persistence flows.
+This coverage is intentionally scoped to structural migration behavior in `js/state.js`. Separate storage/backup tests now cover parts of startup load and import behavior, but this section should still be read as the source of truth for the pure JSON migration contract rather than a claim of full end-to-end browser persistence automation.
 
 ### B. Runtime normalization in `normalizeState(...)`
 

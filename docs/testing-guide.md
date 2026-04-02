@@ -1,10 +1,10 @@
 # Testing Guide
 
-This is the authoritative manual testing guide for Campaign Tracker / Lore Ledger. It consolidates the current guidance from `docs/SMOKE_TEST.md`, `SMOKE_TEST.md`, and `docs/CSP_AUDIT.md` into one release-quality checklist, while also pointing to the current automated Vitest coverage for state migration behavior.
+This is the authoritative manual testing guide for Campaign Tracker / Lore Ledger. It consolidates the current guidance from `docs/SMOKE_TEST.md`, `SMOKE_TEST.md`, and `docs/CSP_AUDIT.md` into one release-quality checklist, while also pointing to the current automated Vitest coverage for migration, persistence, backup/import, and save-lifecycle behavior.
 
 ## 1. Testing philosophy
 
-The project is currently validated primarily through manual testing. There is now targeted automated coverage for `js/state.js`, but most user-facing behavior still needs browser-level verification. Because the app is local-first and splits persistence across `localStorage`, IndexedDB blobs, IndexedDB texts, and PWA caches, the highest-risk regressions are:
+The project is currently validated primarily through manual testing. There is now targeted automated coverage for the main data-integrity paths, but most user-facing behavior still needs browser-level verification. Because the app is local-first and splits persistence across `localStorage`, IndexedDB blobs, IndexedDB texts, and PWA caches, the highest-risk regressions are:
 
 - data loss after refresh
 - broken image or drawing persistence
@@ -41,12 +41,39 @@ Current commands:
 - `npm run test:run -- tests/state.migrate.test.js`
   Expected: runs only the migration-focused suite for `migrateState(...)`.
 
-Current automated scope is intentionally narrow:
+Current automated scope is intentionally targeted:
 
-- `tests/state.smoke.test.js` is a runner smoke test that confirms the app state module loads under Vitest.
-- `tests/state.migrate.test.js` covers valid historical migration paths, already-current schema normalization behavior, and malformed or partial inputs that `migrateState(...)` currently accepts, repairs, preserves, or rejects.
+- `tests/state.migrate.test.js` covers supported legacy migration paths, current-schema normalization, malformed or partial payload repair, inventory backfill, active-inventory clamping, and idempotence.
+- `tests/storage.persistence.test.js` covers `saveAllLocal(...)` sanitized writes plus `loadAll(...)` behavior for missing storage, corrupt storage, stale-bucket replacement, legacy `imgDataUrl` migration, and default-map repair.
+- `tests/storage.saveManager.test.js` covers the local save lifecycle: dirty-delay timing, debounce behavior, `flush()` results, failure banner behavior, retry after failure, repeated dirty cycles, and `init()` reset behavior.
+- `tests/storage.backup.test.js` covers backup export shape, referenced blob/text collection, import validation failures, staged blob/text writes before state swap, rollback when save fails, cleanup of staged assets after pre-swap failures, and blob-ID remap fallback when an import collides with an existing blob id.
 
-Those tests improve confidence in saved-state integrity, backup/import safety, and future schema evolution, but they do not replace manual checks for UI rendering, IndexedDB-backed asset flows, full backup/restore behavior, or PWA/offline behavior.
+Critical paths currently protected by automation:
+
+- schema upgrades and load-time normalization for saved state
+- local save serialization that strips runtime-only fields
+- startup load behavior when stored data is missing, partial, malformed, or legacy-shaped
+- save-manager failure handling that keeps unsaved-state warnings and recovery behavior honest
+- backup import/export invariants, including failure rollback and imported asset preservation
+
+Intentional gaps still left for later phases:
+
+- UI rendering, event wiring, and page-level interaction flows across Tracker, Character, and Map
+- real browser `IndexedDB` behavior and full browser-level backup/restore runs using actual files and reloads
+- PWA install, offline shell, update-banner, cache, and service-worker behavior
+- touch gestures, mobile layout behavior, and cross-browser UI differences
+- end-to-end CSP/startup verification in a real browser session
+
+Those gaps are why the manual sections below remain release-critical.
+
+### Conventions for future automated tests
+
+- Keep tests behavior-focused and tied to real exported module APIs such as `migrateState(...)`, `loadAll(...)`, `createSaveManager(...)`, and `importBackup(...)`.
+- Prefer one test file per module or critical flow under `tests/*.test.js`, named after the area under test.
+- Lock in current compatibility behavior before refactoring persistence or migration code, even when the current behavior is permissive or a little odd.
+- Mock browser-only surfaces explicitly in the test so the expectation stays about Lore Ledger behavior, not Vitest environment quirks.
+- Assert user-safety outcomes first: preserved data, rejected bad input, rollback on failure, stripped runtime-only state, and stable state after retries.
+- When a storage or migration change adds a new supported legacy path or failure mode, add or update tests in the same change.
 
 ### CheckJS / JSDoc validation status
 
@@ -68,22 +95,24 @@ Run these before merging any user-visible change:
 
 1. If the change touched `js/state.js`, schema history, import validation, or migration semantics, run `npm run test:run -- tests/state.migrate.test.js`.
    Expected: the migration suite passes and any behavior changes are intentional.
-2. If the change touched an existing `@ts-check` module, JSDoc typedefs, `types/*.d.ts`, or module boundary contracts, run the CheckJS command from section 2 when practical.
+2. If the change touched `js/storage/*`, save timing, backup import/export, or startup persistence behavior, run `npm run test:run`.
+   Expected: the full critical-path suite passes cleanly.
+3. If the change touched an existing `@ts-check` module, JSDoc typedefs, `types/*.d.ts`, or module boundary contracts, run the CheckJS command from section 2 when practical.
    Expected: no new typing regressions are introduced in the area you touched, even though the full repo pass is not yet globally clean.
-3. `npm run build`
+4. `npm run build`
    Expected: production build succeeds with no unexpected errors.
-4. Open the app in `npm run dev` or another local served environment.
+5. Open the app in `npm run dev` or another local served environment.
    Expected: the changed area loads cleanly and normal interaction does not produce unexpected console errors.
-5. Reload the relevant top-level route.
+6. Reload the relevant top-level route.
    Expected: `#tracker`, `#character`, and `#map` continue to restore the same page after reload when that area was touched.
-6. Run the detailed checks for the affected surface:
+7. Run the detailed checks for the affected surface:
    - Persistence or storage change: sections 5 and 9
    - Tracker change: section 6
    - Character change: section 7
    - Map, drawing, or image change: section 8
    - PWA, assets, routing base path, or build-output change: section 10
    - CSP, boot, startup, or asset-loading change: section 11
-7. If the change touched themes or boot-time styling, reload once with a non-default theme selected.
+8. If the change touched themes or boot-time styling, reload once with a non-default theme selected.
    Expected: the saved theme applies immediately with no obvious flash to the wrong theme.
 
 ## 4. Pre-release minimum checks

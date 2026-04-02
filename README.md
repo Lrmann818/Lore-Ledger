@@ -39,7 +39,7 @@ That direction is visible in the current structure:
 
 - Vanilla `HTML`, `CSS`, and ES module `JavaScript`
 - [`Vite`](https://vitejs.dev/) for local development, production builds, and preview
-- [`Vitest`](https://vitest.dev/) for targeted unit tests around state migration behavior
+- [`Vitest`](https://vitest.dev/) for targeted unit tests around state migration, persistence, backup/import, and save lifecycle behavior
 - Vanilla-JS type safety through `tsconfig.checkjs.json`, file-level `// @ts-check`, JSDoc typedefs/imports, and repo-local `.d.ts` shims under `types/`
 - [`vite-plugin-pwa`](https://vite-pwa-org.netlify.app/) / Workbox for service worker registration, precaching, and update prompts
 - Browser persistence via `localStorage` and `IndexedDB`
@@ -105,10 +105,12 @@ __APP_STATE__.tracker.campaignTitle = "Guard test"
 
 ## 7. Automated tests
 
-The repo now includes a small Vitest-based automated test surface:
+The repo now includes a targeted Vitest-based automated suite for the highest-risk local-data flows:
 
-- `tests/state.smoke.test.js` confirms the test runner can import the app's state module.
-- `tests/state.migrate.test.js` covers `migrateState(...)` behavior in `js/state.js`, including valid schema upgrades, already-current normalization behavior, and malformed or partial inputs that the app currently accepts or rejects.
+- `tests/state.migrate.test.js` covers `migrateState(...)` in `js/state.js`, including supported legacy upgrade paths, current-schema normalization, and malformed or partial inputs.
+- `tests/storage.persistence.test.js` covers `loadAll(...)` and `saveAllLocal(...)`, including sanitized saves, legacy image migration, stale-bucket replacement, and corrupt-storage fallback behavior.
+- `tests/storage.saveManager.test.js` covers the local save manager lifecycle, including dirty/saving/saved transitions, debounce behavior, retries after failure, and reset behavior.
+- `tests/storage.backup.test.js` covers backup export/import validation, staged blob/text writes, rollback on failure, and blob-ID remap behavior during import.
 
 Run the test suite in watch mode:
 
@@ -122,13 +124,13 @@ Run the suite once:
 npm run test:run
 ```
 
-Run only the migration suite:
+Run one suite directly:
 
 ```bash
 npm run test:run -- tests/state.migrate.test.js
 ```
 
-This is intentionally targeted coverage, not full-app automation. UI behavior, browser storage flows, backup/restore end-to-end behavior, and PWA/offline behavior still rely on the manual checks documented under `docs/`.
+This is intentionally targeted coverage, not full-app automation. The automated suite protects migration, local save/load, save-manager, and backup/import logic, but UI behavior, real browser storage integration, full backup/restore flows, and PWA/offline behavior still rely on the manual checks documented under `docs/`.
 
 Static validation is also in progress for the vanilla-JS codebase via `tsconfig.checkjs.json`. That repo-wide CheckJS path is useful for diagnostics, but it still has known gaps in older Character-panel and Tracker card/panel surfaces and is not yet documented as a must-pass project gate.
 
@@ -240,7 +242,7 @@ The app is local-first and stores data in the browser:
 - Spell notes are stored separately in IndexedDB text storage
 - `loadAll()` migrates older saved shapes and legacy image data URLs into the current schema/storage model during startup
 - Backup export bundles sanitized state, stored images, and stored text into a JSON file; backup import validates, migrates, restores, and then reloads the app
-- Vitest migration coverage currently protects `migrateState(...)` schema upgrades and normalization behavior, which improves confidence in saved-state integrity and import/backward-compatibility work without replacing manual browser-level verification
+- Vitest coverage now protects `migrateState(...)`, startup load/save behavior, backup import/export logic, and the local save lifecycle, which improves confidence in saved-state integrity without replacing manual browser-level verification
 
 Intentionally non-persistent runtime state:
 
@@ -291,4 +293,4 @@ Planned documentation placeholders:
 - Offline support is a production-build feature; `npm run dev` does not exercise the service worker path.
 - Map undo/redo is intentionally in-memory only and resets on refresh.
 - GitHub Pages deployment assumes the `/CampaignTracker/` base path today.
-- Automated tests currently cover the Vitest smoke check and `js/state.js` migration behavior only; broader UI, browser-storage, backup/restore, and PWA validation is still manual.
+- Automated tests now cover migration, local persistence, backup/import, and save-manager behavior; broader UI, real browser-storage, backup/restore end-to-end, and PWA validation is still manual.
