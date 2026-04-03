@@ -593,9 +593,6 @@ The current codebase intentionally exposes a few narrow globals:
 
 - version/build metadata from `boot.js`
 - `window.openDataPanel`
-- `window.__applyTextareaSize`
-- `window.renderNpcTabs`
-- `window.renderLocTabs`
 - `globalThis.__APP_STATE__` in DEV mode
 
 These are existing seams, not a preferred extension mechanism. New behavior should use module imports or injected callbacks unless there is no reasonable alternative.

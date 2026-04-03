@@ -469,7 +469,7 @@ function renderNpcCard(npc) {
     onChange: (newVal) => {
       _updateNpc(npc.id, { sectionId: newVal }, true);
       // If tabs are search-filtered like Party, ensure they stay accurate.
-      if (typeof window.renderNpcTabs === "function") window.renderNpcTabs();
+      renderNpcTabs();
     },
     enhanceSelectOnce,
     Popovers: _Popovers,
@@ -780,10 +780,6 @@ export function initNpcsPanel(deps = {}) {
       onSelect: (id) => setActiveSection(id),
     });
   }
-
-  // Allow cards' section dropdown to refresh tabs after a move.
-  // (Kept as a small escape hatch similar to Party's renderer injection.)
-  window.renderNpcTabs = renderNpcTabs;
 
   // Bind search
   searchEl.value = _state.tracker.npcSearch;

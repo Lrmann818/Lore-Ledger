@@ -29,7 +29,8 @@ export function initSpellsPanel(deps = {}) {
         uiAlert,
         uiConfirm,
         uiPrompt,
-        setStatus
+        setStatus,
+        applyTextareaSize
     } = deps;
     _state = state;
 
@@ -458,7 +459,7 @@ export function initSpellsPanel(deps = {}) {
                         ta.value = _spellNotesCache.get(spell.id) ?? '';
 
                         // Re-measure after programmatic value set (otherwise it won't autosize until focus/blur)
-                        requestAnimationFrame(() => window.__applyTextareaSize?.(ta));
+                        requestAnimationFrame(() => applyTextareaSize?.(ta));
                     });
                 }
                 notesWrap.appendChild(ta);

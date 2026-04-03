@@ -19,11 +19,6 @@ import { createStateActions } from "../domain/stateActions.js";
  *   maxHeight?: number
  * }} TextareaSizingDeps
  */
-/**
- * @typedef {Window & {
- *   __applyTextareaSize?: (el: HTMLTextAreaElement | null | undefined) => void
- * }} TextareaSizingWindow
- */
 
 // NOTE: many inputs are created *before* being inserted into the DOM.
 // getComputedStyle() returns incomplete values for disconnected elements, so we defer measuring
@@ -246,10 +241,8 @@ export function setupTextareaSizing({
     el.style.height = el.scrollHeight + "px";
   }
 
-  // Expose a tiny hook so async text loads can trigger a re-measure without faking input events.
-  // (Closes over `store`, so it uses the same persisted sizes.)
-  const autosizeWindow = /** @type {TextareaSizingWindow} */ (window);
-  autosizeWindow.__applyTextareaSize = (el) => {
+  /** @type {(el: HTMLTextAreaElement | null | undefined) => void} */
+  const applyTextareaSize = (el) => {
     try { applySize(el); } catch (_) { }
   };
 
@@ -336,4 +329,6 @@ export function setupTextareaSizing({
     }
   });
   mo.observe(document.body, { childList: true, subtree: true });
+
+  return { applyTextareaSize };
 }

@@ -464,7 +464,7 @@ footer.className = "npcCardFooter";
     value: loc.sectionId || _state.tracker.locActiveSectionId,
     onChange: (newVal) => {
       _updateLoc(loc.id, { sectionId: newVal }, true);
-      if (typeof window.renderLocTabs === "function") window.renderLocTabs();
+      renderLocTabs();
     },
     enhanceSelectOnce,
     Popovers: _Popovers,
@@ -767,9 +767,6 @@ export function initLocationsPanel(deps = {}) {
       onSelect: (id) => setActiveSection(id),
     });
   }
-
-  // Allow cards/actions to refresh tabs if needed.
-  window.renderLocTabs = renderLocTabs;
 
   // Section buttons
   wireSectionCrud({

@@ -72,6 +72,7 @@ import { DEV_MODE } from "../../utils/dev.js";
  *   getText?: GetTextFn,
  *   deleteText?: DeleteTextFn,
  *   autoSizeInput?: AutoSizeInputFn,
+ *   applyTextareaSize?: (el: HTMLTextAreaElement | null | undefined) => void,
  *   [key: string]: unknown
  * }} TrackerPageDeps
  */
@@ -134,6 +135,7 @@ export function initTrackerPage(deps = {}) {
 
     // character sheet autosize
     autoSizeInput,
+    applyTextareaSize,
   } = deps;
 
   if (!state) throw new Error("initTrackerPage: state is required");
@@ -337,6 +339,7 @@ export function initTrackerPage(deps = {}) {
     getText,
     deleteText,
     autoSizeInput,
+    applyTextareaSize,
     enhanceNumberSteppers,
     uiAlert,
     uiConfirm,

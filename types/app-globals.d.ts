@@ -6,9 +6,6 @@ interface Window {
   APP_VERSION?: string;
   __APP_BUILD__?: string;
   APP_BUILD?: string;
-  __applyTextareaSize?: (el: HTMLTextAreaElement | null | undefined) => void;
-  renderLocTabs?: () => void;
-  renderNpcTabs?: () => void;
 }
 
 interface ImportMetaEnv {

@@ -256,6 +256,9 @@ const Theme = createThemeManager({
   state: appState
 });
 
+/** @type {((el: HTMLTextAreaElement | null | undefined) => void) | undefined} */
+let applyTextareaSize;
+
 // Disable autocomplete globally (prevent password managers from hijacking our custom dialogs)
 /**
  * @param {Document | HTMLElement} [root]
@@ -316,7 +319,8 @@ function createTrackerPageDeps() {
     putText,
     getText,
     deleteText,
-    autoSizeInput
+    autoSizeInput,
+    applyTextareaSize
   };
 }
 
@@ -418,12 +422,12 @@ function createTextareaSizingDeps() {
       "Topbar",
       () => initTopbarUI({ state: appState, SaveManager, Popovers, positionMenuOnScreen, setStatus: StatusApi.setStatus })
     );
-    runModuleInit("Tracker page", () => initTrackerPage(createTrackerPageDeps()));
     runModuleInit("Autosize numbers", () => autosizeAllNumbers());
-    runModuleInit(
-      "Textarea sizing",
-      () => setupTextareaSizing(createTextareaSizingDeps())
-    );
+    runModuleInit("Textarea sizing", () => {
+      const api = setupTextareaSizing(createTextareaSizingDeps());
+      applyTextareaSize = api?.applyTextareaSize;
+    });
+    runModuleInit("Tracker page", () => initTrackerPage(createTrackerPageDeps()));
     runModuleInit("Map page", () => setupMapPage(createMapPageDeps()));
     // If migrations or initial setup changed state, persist once, then show clean status.
     await SaveManager.flush();
