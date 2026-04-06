@@ -2313,13 +2313,14 @@ div.mutedSmall {
   position: relative;
 }
 
-.trackerCardsGrid.masonryEnabled>.npcCard {
+.trackerCardsGrid.masonryEnabled>.trackerCard {
   position: absolute;
   top: 0;
   left: 0;
   will-change: transform;
 }
 
+.trackerCard,
 .npcCard {
   position: relative;
   /* anchors ::after */
@@ -2340,11 +2341,13 @@ div.mutedSmall {
 
 /* When a dropdown inside a card is open, raise the card above its siblings.
    This prevents the open menu from rendering behind the next card in the grid. */
+.trackerCard.popoverRaised,
 .npcCard.popoverRaised {
   z-index: 200;
 }
 
 /* Drop shadow layer (outside, clipped) */
+.trackerCard::before,
 .npcCard::before {
   content: "";
   position: absolute;
@@ -2355,6 +2358,7 @@ div.mutedSmall {
   z-index: 2;
 }
 
+.trackerCard::after,
 .npcCard::after {
   content: "";
   position: absolute;
@@ -2365,6 +2369,7 @@ div.mutedSmall {
   z-index: 3;
 }
 
+.trackerCard.collapsed,
 .npcCard.collapsed {
   background: var(--collapsedCard);
   /* collapsed card background */

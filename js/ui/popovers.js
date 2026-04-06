@@ -61,7 +61,8 @@ let activePopoverManagerDestroy = null;
  *   open: () => void,
  *   close: () => void,
  *   toggle: () => void,
- *   reposition: () => void
+ *   reposition: () => void,
+ *   destroy: () => void
  * }} PopoverHandle
  */
 /**
@@ -138,6 +139,14 @@ export function createPopoverManager(cfg) {
     registrations.forEach((reg) => {
       if (reg !== keep && isOpen(reg)) close(reg);
     });
+  };
+
+  const unregister = (reg) => {
+    if (!reg) return;
+    close(reg);
+    registrations.delete(reg);
+    openAnchorPos.delete(reg);
+    if (reg.menu) menuToReg.delete(reg.menu);
   };
 
   const open = (reg, { exclusive = true } = {}) => {
@@ -331,7 +340,8 @@ export function createPopoverManager(cfg) {
       open: () => open(reg, { exclusive: true }),
       close: () => close(reg, { focusButton: false }),
       toggle: () => toggle(reg, { exclusive: true }),
-      reposition: () => reposition(reg)
+      reposition: () => reposition(reg),
+      destroy: () => unregister(reg),
     };
   };
 

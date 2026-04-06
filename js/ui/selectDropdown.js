@@ -2,6 +2,8 @@
 // Progressive enhancement: turn a native <select> into a Popovers-managed dropdown
 // that matches the Map Tools menu styling.
 
+const enhancedStateBySelect = new WeakMap();
+
 /**
  * Enhance a native <select> into a custom dropdown.
  * Keeps the <select> in the DOM (hidden) so existing code that reads/writes
@@ -25,12 +27,17 @@ export function enhanceSelectDropdown(args) {
   const Popovers = args?.Popovers;
   if (!select || !Popovers) return null;
 
+  const existingState = enhancedStateBySelect.get(select);
+  if (existingState) return existingState.api;
+
   // Must be in the DOM (or at least have a parent) so we can insert our wrapper next to it.
   if (!select.parentElement) return null;
 
   // Prevent double-build
   if (select.dataset.dropdownEnhanced === "1") return null;
   select.dataset.dropdownEnhanced = "1";
+  const listenerController = new AbortController();
+  const listenerSignal = listenerController.signal;
 
   const buttonClass = args.buttonClass || "mapToolDropDown";
   // Default option style should match the Map Tools dropdown menu.
@@ -112,7 +119,7 @@ export function enhanceSelectDropdown(args) {
         // Fire a real change event so existing listeners keep working.
         select.dispatchEvent(new Event("change", { bubbles: true }));
         try { api?.close?.(); } catch { /* noop */ }
-      });
+      }, { signal: listenerSignal });
 
       menu.appendChild(b);
     };
@@ -149,11 +156,11 @@ export function enhanceSelectDropdown(args) {
   syncButton();
 
   // Keep the custom UI synced if something changes the select value.
-  select.addEventListener("change", () => syncButton());
+  select.addEventListener("change", () => syncButton(), { signal: listenerSignal });
 
   // Allow callers to sync/rebuild without triggering the real "change" handler.
-  select.addEventListener("selectDropdown:sync", () => syncButton());
-  select.addEventListener("selectDropdown:rebuild", () => { rebuildMenu(); syncButton(); });
+  select.addEventListener("selectDropdown:sync", () => syncButton(), { signal: listenerSignal });
+  select.addEventListener("selectDropdown:rebuild", () => { rebuildMenu(); syncButton(); }, { signal: listenerSignal });
 
   // Register with centralized popovers manager
   api = Popovers.register({
@@ -167,7 +174,7 @@ export function enhanceSelectDropdown(args) {
     onOpen: () => {
       // If this dropdown lives inside a card, temporarily raise the whole card
       // above its siblings so the menu can't render "behind" the next card.
-      const card = btn.closest?.(".npcCard");
+      const card = btn.closest?.(".trackerCard");
       if (card) card.classList.add("popoverRaised");
 
       // In case options changed since last open
@@ -186,7 +193,7 @@ export function enhanceSelectDropdown(args) {
   // (Popovers.register only gives us onOpen here, so we hook close via an observer.)
   // We'll also clean it up if the select is disabled while open.
   const cleanupRaised = () => {
-    const card = btn.closest?.(".npcCard");
+    const card = btn.closest?.(".trackerCard");
     if (card) card.classList.remove("popoverRaised");
   };
 
@@ -242,7 +249,7 @@ export function enhanceSelectDropdown(args) {
         api.close();
       }
     }
-  });
+  }, { signal: listenerSignal });
 
   menu.addEventListener("keydown", (e) => {
     const k = e.key;
@@ -268,19 +275,33 @@ export function enhanceSelectDropdown(args) {
       try { api?.close?.(); } catch { /* noop */ }
       try { btn.focus({ preventScroll: true }); } catch { btn.focus(); }
     }
-  });
+  }, { signal: listenerSignal });
 
   // Manual wiring with "exclusive" control
   btn.addEventListener("click", (e) => {
     e.preventDefault();
     e.stopPropagation();
     if (api?.reg && Popovers?.toggle) Popovers.toggle(api.reg, { exclusive });
-  });
+  }, { signal: listenerSignal });
 
-  return {
+  const destroy = () => {
+    try { api?.destroy?.(); } catch { /* noop */ }
+    mo.disconnect();
+    listenerController.abort();
+    cleanupRaised();
+    wrap.remove();
+    select.classList.remove("nativeSelectHidden");
+    delete select.dataset.dropdownEnhanced;
+    enhancedStateBySelect.delete(select);
+  };
+
+  api = {
     wrap,
     button: btn,
     menu,
-    rebuild: () => { rebuildMenu(); syncButton(); }
+    rebuild: () => { rebuildMenu(); syncButton(); },
+    destroy,
   };
+  enhancedStateBySelect.set(select, { api });
+  return api;
 }

@@ -18,7 +18,7 @@ function readGap(container, gapVar) {
 }
 
 function getCardElements(container) {
-  return Array.from(container.children).filter((el) => el.classList?.contains("npcCard"));
+  return Array.from(container.children).filter((el) => el.classList?.contains("trackerCard"));
 }
 
 function clearCardLayout(cards) {
