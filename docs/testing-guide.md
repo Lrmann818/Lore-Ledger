@@ -30,7 +30,10 @@ Treat any data-loss, restore, offline-shell, or CSP regression as a merge/releas
 
 ## 2. Current automated coverage
 
-Vitest is the current unit test runner, and Playwright now provides a tiny local browser smoke layer.
+Vitest is the current unit test runner, and Playwright provides a focused local browser smoke layer. The automated story is split intentionally:
+
+- `npm run verify` is the canonical build-and-unit gate and matches what GitHub Pages CI runs today.
+- `npm run test:smoke` is a separate local Chromium smoke pass for browser-only regressions that CI still does not cover.
 
 Canonical local verification commands:
 
@@ -41,7 +44,7 @@ Canonical local verification commands:
 - `npm run preview`
   Expected: serves the production build for browser-only validation that CI does not cover.
 - `npm run test:smoke`
-  Expected: starts a controlled Vite server in production mode on the repo's GitHub Pages base path and runs the 4-test local Chromium smoke suite for app boot, map-shell rendering, reload persistence, backup export/import in a fresh browser context, and invalid import feedback.
+  Expected: starts a controlled Vite server in production mode on the repo's GitHub Pages base path and runs the current 9-test local Chromium smoke suite covering app boot, map-shell rendering, reload persistence, backup export/import in a fresh browser context, invalid import feedback, tracker-panel re-init safety, and targeted tracker card-panel behavior.
 
 Focused dev commands:
 
@@ -60,6 +63,9 @@ Current automated scope is intentionally targeted:
 - `tests/storage.backup.test.js` covers backup export shape, referenced blob/text collection, import validation failures, staged blob/text writes before state swap, rollback when save fails, cleanup of staged assets after pre-swap failures, and blob-ID remap fallback when an import collides with an existing blob id.
 - `tests/smoke/app.smoke.js` covers top-level shell boot in Chromium, opening the Map workspace, and a campaign-title reload-persistence check against the dedicated production-mode Vite server.
 - `tests/smoke/backup.smoke.js` covers backup export to a real download, import of that backup into a fresh Chromium browser context, and visible failure handling for invalid JSON import input.
+- `tests/smoke/npcPortrait.smoke.js` covers NPC portrait crop/save behavior plus incremental tracker-card patch paths for portrait toggles, search, section moves, reorder, collapse, and focus restoration.
+- `tests/smoke/partyLocationPanels.smoke.js` covers the same controller-scoped tracker-card behaviors for Party and Location panels, including location type filtering.
+- `tests/smoke/trackerPanelLifecycle.smoke.js` covers repeated `initTrackerPage(...)` calls and checks that tracker panel listeners stay single-bound after re-init.
 
 Critical paths currently protected by automation:
 
@@ -70,13 +76,16 @@ Critical paths currently protected by automation:
 - backup import/export invariants, including failure rollback and imported asset preservation
 - one real-browser boot path through a Vite production-mode server plus one simple reload-persistence check
 - one real file download/upload backup round trip in Chromium using the production base path
+- tracker panel lifecycle cleanup that makes repeated tracker-page init safer
+- tracker incremental DOM patch paths for portrait toggles, reorder, collapse, section moves, search/filter-visible lists, and focus restoration in the tracker card panels
 
 Important browser gaps still left for manual verification:
 
-- Character-page rendering and deeper Tracker/Map interaction flows
+- Character-page rendering depth and broader Character persistence/UI coverage
 - `Reset Everything` plus full browser restore runs that include images, drawings, and text-backed assets
+- map drawing, gesture, and touch/mobile behavior beyond basic shell boot
 - PWA install, offline shell, update-banner, cache, and service-worker behavior
-- touch gestures, mobile layout behavior, and cross-browser UI differences
+- cross-browser UI differences outside local Chromium smoke
 - end-to-end CSP/startup verification in a real browser session
 
 Those gaps are why the manual sections below remain release-critical.

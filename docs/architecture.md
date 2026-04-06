@@ -407,11 +407,40 @@ Panel ownership:
   - owns `state.tracker.locSections`
   - owns `state.tracker.locActiveSectionId`
 
+Current tracker lifecycle model:
+
+- `initTrackerPage(deps)` destroys the previous tracker-page controller before wiring a new one.
+- The tracker-page controller owns a page-local destroy stack and registers child `destroy()` APIs returned by tracker panels, Character bootstrap, panel-collapse wiring, and number-stepper enhancement.
+- Repeated tracker-page init now depends on explicit teardown, not singleton skip flags.
+- Tracker card panels (`npcCards`, `partyCards`, `locationCards`) are instance-scoped controller closures. Their mutable runtime state stays inside the controller instance rather than in hidden module-singleton variables.
+- Each tracker card controller owns its listeners through an `AbortController`, detaches masonry on teardown, and returns a real `destroy()` API.
+- `locationCards.js` also tears down its enhanced filter dropdown as part of controller destroy.
+
+Tracker card shared-helper boundary:
+
+- `js/pages/tracker/panels/cards/shared/cardIncrementalPatchShared.js` is the current narrow shared extraction for NPC/party/location incremental DOM patch behavior.
+- It owns only DOM-facing mechanics shared across those three panels:
+  - card lookup by `data-card-id`
+  - masonry relayout scheduling
+  - focus restoration helpers
+  - FLIP-style reorder patching
+  - collapsed-state patching
+  - portrait DOM patching
+- It does not own tracker state shape, collection-specific mutations, search/filter rules, toolbar behavior, migration/defaulting, or card-body rendering.
+- Fallback full rerender shells remain panel-local by design for now. Extracting that shell is deferred until there is a concrete need to touch all three panels again.
+
 Tracker-card shared helper boundary:
 
 - `js/pages/tracker/panels/cards/shared/*` is shared only by tracker card-style panels (`npcCards`, `partyCards`, `locationCards`).
 - Put tracker-card-specific shared behavior there only if it applies to at least two of those panels.
 - Do not use that folder as a generic shared UI dumping ground.
+- What intentionally remains panel-local today:
+  - visible-item selectors and collection keys
+  - search/filter rules
+  - section bootstrap/defaulting and delete-reassignment rules
+  - location-only toolbar/filter wiring
+  - card-body rendering and field event wiring
+  - panel-specific save-aware mutation helpers
 
 Current implemented coupling:
 
@@ -652,9 +681,9 @@ Rules:
 
 Current reality to be aware of:
 
-- Some older panel modules use module-scoped mutable variables such as `_state`, `_wired`, and singleton flags.
-- Those modules are effectively single-instance for the lifetime of the page.
-- Do not copy that pattern into new modules unless there is a strong reason.
+- Some older Character-panel modules still use module-scoped mutable variables and singleton-style init guards.
+- The tracker NPC/party/location panels no longer follow that pattern; they are instance-scoped controllers with explicit teardown.
+- Do not copy hidden singleton runtime state into new modules unless there is a strong reason and the lifecycle tradeoff is documented.
 
 ## Guidance for where new code should go
 

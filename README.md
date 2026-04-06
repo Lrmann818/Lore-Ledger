@@ -21,6 +21,8 @@ That direction is visible in the current structure:
 - A single composition root in `app.js`
 - Schema-aware state migration in `js/state.js`
 - A split persistence layer for structured state, images, and long-form text
+- Tracker card panels built around destroyable instance-scoped controllers instead of hidden singleton runtime state
+- A narrow shared tracker-card DOM patch helper, with card-body rendering and collection-specific rules still kept local to each panel
 - Production PWA behavior handled through Vite and `vite-plugin-pwa`
 - Maintainer docs for architecture, CSP checks, and smoke testing under [`docs/`](docs)
 
@@ -63,6 +65,12 @@ At a high level, the app is wired as a modular vanilla JS application:
 - `js/domain/*` contains explicit state action helpers and entity factories
 
 For a deeper maintainer view, see [`docs/architecture.md`](docs/architecture.md).
+
+Current tracker-specific architecture notes:
+
+- `initTrackerPage(...)` destroys the previous tracker-page controller before re-initializing Tracker wiring.
+- The NPC, Party, and Location panels now return real `destroy()` APIs and own listener cleanup through `AbortController`.
+- Shared tracker-card dedupe is intentionally narrow today: `js/pages/tracker/panels/cards/shared/cardIncrementalPatchShared.js` only owns incremental DOM patch mechanics, while filtering, section defaults, toolbar wiring, and card-body renderers remain panel-local.
 
 ## 5.1 Type safety in vanilla JS
 
@@ -113,6 +121,9 @@ The repo now includes targeted automation in two layers:
 - `tests/storage.backup.test.js` covers backup export/import validation, staged blob/text writes, rollback on failure, and blob-ID remap behavior during import.
 - `tests/smoke/app.smoke.js` covers app shell boot, opening the Map workspace, and a simple reload-persistence check in Chromium.
 - `tests/smoke/backup.smoke.js` covers backup export, import into a fresh browser context, and visible failure handling for invalid backup files in Chromium.
+- `tests/smoke/npcPortrait.smoke.js` covers NPC portrait crop/save plus incremental tracker-card patch behavior for search, section moves, reorder, collapse, and focus restoration.
+- `tests/smoke/partyLocationPanels.smoke.js` covers the same tracker-card behavior for Party and Location panels, including location type filtering.
+- `tests/smoke/trackerPanelLifecycle.smoke.js` covers repeated `initTrackerPage(...)` calls so tracker panel lifecycle cleanup stays single-bound after re-init.
 
 Run the test suite in watch mode:
 
@@ -150,9 +161,9 @@ Run one suite directly:
 npm run test:run -- tests/state.migrate.test.js
 ```
 
-`npm run test:smoke` runs the 4-test Playwright suite against a controlled Vite server started in production mode on the repo's GitHub Pages base path. It is intentionally local-only today and does not replace preview-based PWA/offline validation.
+`npm run test:smoke` runs the current 9-test Playwright suite against a controlled Vite server started in production mode on the repo's GitHub Pages base path. It is intentionally local-only today and does not replace preview-based PWA/offline validation.
 
-This is intentionally targeted coverage, not full-app automation. Automation now covers migration, local save/load, save-manager behavior, backup/import logic, basic browser boot, one reload-persistence path, and a file-based backup round trip into a fresh browser context. It still does not replace the manual checks for `Reset Everything`, image-backed flows, map drawing behavior, Character-page coverage, PWA/offline behavior, touch interactions, or cross-browser validation documented under `docs/`.
+This is intentionally targeted coverage, not full-app automation. Automation now covers migration, local save/load, save-manager behavior, backup/import logic, basic browser boot, one reload-persistence path, a file-based backup round trip into a fresh browser context, tracker-page re-init safety, and targeted NPC/Party/Location panel regression paths. It still does not replace the manual checks for `Reset Everything`, deeper Character-page coverage, map drawing/touch behavior, PWA/offline behavior, or cross-browser validation documented under `docs/`.
 
 `npm run verify` is the canonical local readiness check. It runs `npm run test:run` and `npm run build`, matching the automated checks in CI. It does not replace `npm run preview` or the browser-level manual checks needed for release validation.
 

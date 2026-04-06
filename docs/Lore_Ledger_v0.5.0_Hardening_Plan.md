@@ -1,5 +1,7 @@
 # Lore Ledger v0.5.0 Hardening Plan
 
+This remains a milestone roadmap. Several items below have already landed in the current repo state, so this file should be read alongside the living source-of-truth docs in `README.md`, `docs/architecture.md`, `docs/testing-guide.md`, and `docs/release-process.md`.
+
 ## Goal
 
 Finish the app’s quality-hardening phase so Lore Ledger can honestly be presented as a stable, production-minded flagship project: architecturally clean, boringly reliable, well-tested, and ready for future feature work.
@@ -28,7 +30,10 @@ Lore Ledger v0.5.0 should be considered hardened when all of the following are t
 
 - Production build works.
 - Migration tests exist and pass.
+- Persistence, backup/import, and save-manager tests now exist and pass as part of the current targeted automated layer.
 - Import/export is much safer than before.
+- CI now blocks deploys on `npm ci`, `npm run test:run`, and `npm run build`.
+- A focused local Playwright smoke suite now exists for browser-only regressions, including tracker lifecycle and incremental tracker-card behavior.
 - Save failure UX exists.
 - Global error handling is better.
 - Docs are much more serious and maintainable.
@@ -37,11 +42,10 @@ Lore Ledger v0.5.0 should be considered hardened when all of the following are t
 ### What still needs to be finished
 
 1. Remaining `@ts-nocheck` cleanup.
-2. Broader automated test coverage beyond migrations.
-3. CI quality gates that run tests before deploy.
-4. Minimal browser-level regression automation.
-5. Formal stress validation with realistic large data.
-6. Clean packaging and artifact hygiene.
+2. Broader automated test coverage beyond the current migration/persistence/backup/save-manager plus focused smoke layer.
+3. Decide later whether any subset of the local smoke suite should move into CI.
+4. Formal stress validation with realistic large data.
+5. Clean packaging and artifact hygiene.
 
 ---
 
@@ -101,7 +105,11 @@ As each file is cleaned up:
 
 ## Objective
 
-Protect the highest-risk data-integrity flows with real automated tests.
+Protect the highest-risk data-integrity flows with real automated tests, then expand coverage carefully from that base.
+
+## Current status
+
+This phase has largely landed for the core data-safety paths. The repo now has targeted automated coverage for migrations, persistence, backup import/export, and save-manager behavior. Remaining work here is breadth, not the initial introduction of critical-path coverage.
 
 ## Priority areas
 
@@ -153,6 +161,10 @@ Expand coverage until every supported legacy path and malformed edge case has ex
 
 Prevent broken builds from being shipped or deployed.
 
+## Current status
+
+This phase has landed in the current GitHub Pages workflow. The deploy path now runs `npm ci`, `npm run test:run`, and `npm run build` before any Pages deployment.
+
 ## Tasks
 
 ### 1. Update GitHub Actions workflow(s)
@@ -192,7 +204,11 @@ But deployment should never bypass verification.
 
 ## Objective
 
-Add a very small, high-value browser suite to catch obvious regressions in real UI flows.
+Add and maintain a very small, high-value browser suite to catch obvious regressions in real UI flows.
+
+## Current status
+
+A focused local Playwright smoke suite now exists. It covers app boot, one reload-persistence path, backup export/import failure handling, tracker panel lifecycle re-init safety, and targeted NPC/Party/Location incremental tracker-card behavior. The remaining decision is whether any subset of that local suite should eventually move into CI.
 
 ## Recommended scope
 
@@ -218,7 +234,8 @@ Only automate golden paths that protect confidence.
 
 ## Acceptance criteria
 
-- A small smoke suite runs locally and in CI.
+- A small smoke suite runs locally and is documented as part of release-readiness verification.
+- CI integration for browser smoke remains optional future work rather than a completed requirement.
 - Smoke tests cover at least one save/reload flow and one backup flow.
 
 ---
@@ -380,15 +397,14 @@ Should describe:
 
 ---
 
-## Recommended execution order
+## Suggested remaining execution order
 
 1. Final `@ts-nocheck` cleanup.
-2. Add persistence/backup/save-manager tests.
-3. Gate CI on tests + build.
-4. Add tiny Playwright smoke suite.
-5. Run and document large-campaign stress pass.
-6. Final packaging/release hygiene pass.
-7. Documentation sync and v0.5.0 release prep.
+2. Expand automated coverage beyond the current persistence/backup/save-manager and focused smoke layers where it will materially reduce release risk.
+3. Decide whether any browser smoke subset belongs in CI.
+4. Run and document large-campaign stress pass.
+5. Final packaging/release hygiene pass.
+6. Documentation sync and v0.5.0 release prep.
 
 ---
 

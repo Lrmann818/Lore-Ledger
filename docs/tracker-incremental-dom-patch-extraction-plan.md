@@ -1,172 +1,49 @@
-# Tracker Incremental DOM Patch Extraction Plan
+# Tracker Incremental DOM Patch Extraction Note
 
-## Scope
+This file is now an archival implementation note. The extraction it described has landed.
 
-Design-only follow-up for the tracker card panel dedupe work.
+## Landed result
 
-In scope:
-
-- `js/pages/tracker/panels/npcCards.js`
-- `js/pages/tracker/panels/partyCards.js`
-- `js/pages/tracker/panels/locationCards.js`
-- `js/pages/tracker/panels/cards/shared/`
-
-Out of scope in the implementation pass:
-
-- `renderNpcCard(...)`
-- `renderPartyCard(...)`
-- `renderLocationCard(...)`
-- the full rerender shell
-- any controller factory or state-shape abstraction
-
-## Duplicate Inventory
-
-The tight duplicate block is the incremental DOM patch section near the top of each controller:
-
-- `npcCards.js:91-239`
-- `partyCards.js:96-244`
-- `locationCards.js:97-245`
-
-The repeated helper candidates are:
-
-1. `find*CardElById(cardId)`
-2. `schedule*MasonryRelayout()`
-3. collapse-button focus restoration
-4. move-button focus restoration
-5. `focusElementWithoutScroll(el)`
-6. `patch*CardReorder(cardId, adjacentId, dir)`
-7. `patch*CardCollapsed(cardId, collapsed, focusEl)`
-8. `patch*CardPortrait(cardId, hidden, focusEl)`
-
-All three panels currently use the same DOM structure and selectors for these paths:
-
-- `.trackerCard[data-card-id="..."]`
-- `.cardCollapseBtn`
-- `.moveBtn`
-- `.npcCollapsible`
-- `.npcCardFooter`
-- `.npcHeaderRow`
-- `.npcCardBodyStack`
-- `.npcPortraitTop`
-- `.cardPortraitToggleBtnHeader`
-- `.cardPortraitToggleBtnOverlay`
-
-The only meaningful variation inside the duplicate block is panel-local data and copy:
-
-- `getNpcById` vs `getPartyMemberById` vs `getLocationById`
-- portrait alt text
-- portrait pick handler
-- portrait hidden-toggle handler
-
-## Narrowest Safe Extraction Boundary
-
-Safest boundary: one new shared helper module for controller-local DOM patch behavior only.
-
-Recommended new file:
+The shared helper now exists at:
 
 - `js/pages/tracker/panels/cards/shared/cardIncrementalPatchShared.js`
 
-This shared module should own:
+It owns the narrow DOM-only behavior shared by NPC, Party, and Location panels:
 
 - card lookup by `data-card-id`
 - masonry relayout scheduling
-- focus helpers
+- focus restoration helpers
 - reorder FLIP patching
 - collapsed-state patching
-- portrait patching
+- portrait DOM patching
 
-This shared module should not own:
+## Boundary that was kept
+
+The helper stays intentionally narrow. It does not own:
 
 - panel state reads beyond injected callbacks
-- `updateNpc` / `updateParty` / `updateLoc`
-- `setNpcPortraitHidden` / `setPartyPortraitHidden` / `setLocPortraitHidden`
+- `updateNpc(...)`, `updateParty(...)`, or `updateLoc(...)`
+- portrait-hidden mutation helpers
 - filtering or visible-list computation
 - jump-debug setup
 - card-body rendering
-- rerender shell behavior
+- full rerender shell behavior
 
-## Proposed API Shape
+## What still stays local
 
-Use a tiny DOM-patcher factory, not a controller factory:
+Each tracker panel still owns:
 
-```js
-export function createCardIncrementalDomPatcher({
-  cardsEl,
-  blobIdToObjectUrl,
-}) {
-  return {
-    findCardElById(cardId) {},
-    scheduleMasonryRelayout() {},
-    focusElementWithoutScroll(el) {},
-    focusCollapseButton(cardId, fallbackEl = null) {},
-    focusMoveButton(cardId, dir) {},
-    patchReorder(cardId, adjacentId, dir) {},
-    patchCollapsed(cardId, collapsed, focusEl = null) {},
-    patchPortrait({
-      cardId,
-      hidden,
-      focusEl = null,
-      getItemById,
-      getBlobId,
-      getAltText,
-      onPick,
-      onToggleHidden,
-    }) {},
-  };
-}
-```
+- visible-item selectors
+- section/search/filter wiring
+- collection keys and mutation semantics
+- add/delete/reassign flows
+- card-body rendering and field event wiring
 
-Notes on shape:
+## Deferred follow-up
 
-- `cardsEl` stays captured once because every duplicate helper already closes over it.
-- `blobIdToObjectUrl` is the only stable portrait dependency worth capturing at construction time.
-- `patchPortrait(...)` keeps all state-shape knowledge injected through callbacks.
-- Keep current selectors, transition timing, reduced-motion handling, `requestAnimationFrame` timing, and focus fallback order unchanged.
+The full rerender shell is still duplicated across the three panels and remains deferred on purpose. That extraction would cross a wider boundary than the incremental DOM patch helper and is not part of the current review-readiness scope.
 
-## What Must Stay Panel-Local
+For the durable current guidance, use:
 
-Keep these local in each panel file:
-
-- `getVisibleNpcs()` / `getVisibleParty()` / `getVisibleLocations()`
-- `updateNpc(...)` / `updateParty(...)` / `updateLoc(...)`
-- `setNpcPortraitHidden(...)` / `setPartyPortraitHidden(...)` / `setLocPortraitHidden(...)`
-- `moveNpcCard(...)` / `movePartyCard(...)` / `moveLocCard(...)`
-- `pickNpcImage(...)` / `pickPartyImage(...)` / `pickLocImage(...)`
-- all section, search, and filter wiring
-- all collection keys: `"npc"`, `"party"`, `"locations"`
-- all jump-debug calls
-- all card-body rendering and field event wiring
-
-The shared helper should stay DOM-only. The panels should continue to decide when state changes happen and when fallback full rerenders happen.
-
-## Exact Files For The Implementation Pass
-
-Change:
-
-1. `js/pages/tracker/panels/cards/shared/cardIncrementalPatchShared.js` (new)
-2. `js/pages/tracker/panels/npcCards.js`
-3. `js/pages/tracker/panels/partyCards.js`
-4. `js/pages/tracker/panels/locationCards.js`
-
-Do not change:
-
-- `js/pages/tracker/panels/cards/shared/cardPortraitRenderShared.js`
-- `js/pages/tracker/panels/cards/shared/cardsShared.js`
-- `renderNpcCard(...)`
-- `renderPartyCard(...)`
-- `renderLocationCard(...)`
-
-## Safest Implementation Order
-
-1. Add `cardIncrementalPatchShared.js` with behavior copied exactly from the current panel implementations.
-2. Move the leaf utilities first inside that file: card lookup, relayout scheduling, `focusElementWithoutScroll`, collapse-button focus, move-button focus.
-3. Move `patchReorder(...)` and `patchCollapsed(...)` next with the current selectors and FLIP timing unchanged.
-4. Move `patchPortrait(...)` last, keeping portrait data and actions callback-driven from each panel.
-5. Update each panel to instantiate the shared DOM patcher and replace only the duplicated helper block.
-6. Leave render shells, body renderers, filtering, state updates, and controller wiring untouched.
-
-Landing expectation for the implementation pass:
-
-- one narrow PR
-- no production behavior changes
-- dedupe limited to the incremental DOM patch path only
+- [`docs/architecture.md`](./architecture.md)
+- [`docs/tracker-card-rendering-dedupe-assessment.md`](./tracker-card-rendering-dedupe-assessment.md)

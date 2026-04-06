@@ -1,154 +1,118 @@
 # Tracker Card Rendering Dedupe Assessment
 
-## Scope
+This note reflects the current tracker card-panel code as it exists today. It is not a future-tense refactor proposal.
 
-Requested scope maps to the current tracker panel files:
+## Scope
 
 - `js/pages/tracker/panels/npcCards.js`
 - `js/pages/tracker/panels/partyCards.js`
 - `js/pages/tracker/panels/locationCards.js`
-- existing shared helpers under `js/pages/tracker/panels/cards/shared/`
+- `js/pages/tracker/panels/cards/shared/`
 
-This is a design-only assessment. No production behavior changes are proposed in this pass.
+## Landed shared extraction
 
-## Recommendation
+The narrow shared extraction has already landed at:
 
-Recommend: extract a few shared primitives only.
+- `js/pages/tracker/panels/cards/shared/cardIncrementalPatchShared.js`
 
-Reasoning:
+That helper currently owns only incremental DOM patch behavior shared by NPC, Party, and Location panels:
 
-- The repo already has the right kind of low-level sharing for obvious UI pieces: section CRUD, search matching, search highlighting, portrait picking/rendering, header buttons, section-select footer, and select enhancement.
-- The biggest remaining duplication is not field schema; it is the controller-side DOM patching and rerender shell repeated almost verbatim across all three panels.
-- A schema-driven card renderer would be too much abstraction for the current differences, especially because the real variation lives in filtering, state keys, migration/defaulting, toolbar wiring, and field-specific event handling.
+- card lookup by `data-card-id`
+- masonry relayout scheduling
+- focus restoration helpers
+- reorder FLIP patching
+- collapsed-state patching
+- portrait DOM patching
 
-## Extract Now
+This boundary is intentionally narrow. The helper is DOM-only and callback-driven. It does not infer tracker state shape or own panel mutations.
 
-These are structural duplicates and the safest future extraction targets:
+## What remains panel-local by design
 
-### 1. Incremental card DOM patch helpers
+The following duplication is still intentional:
 
-All three panels repeat near-identical logic for:
+### 1. Card body rendering
 
-- `find*CardElById(...)`
-- `schedule*MasonryRelayout(...)`
-- move-button focus restoration
-- collapse-button focus restoration
-- `patch*CardReorder(...)`
-- `patch*CardCollapsed(...)`
-- `patch*CardPortrait(...)`
-- `focusElementWithoutScroll(...)`
+Keep `renderNpcCard(...)`, `renderPartyCard(...)`, and `renderLocationCard(...)` separate.
 
-Why this is worth extracting:
+- NPC and Party share some layout patterns but still encode different product concepts.
+- Location cards differ materially in fields, copy, filter behavior, and select handling.
+- The event wiring is dense enough that a generic renderer would hide behavior rather than simplify it.
 
-- The behavior is almost identical across NPC, Party, and Location.
-- The code is mechanical, DOM-oriented, and easy to regression-test in isolation.
-- It is also the most likely place for subtle drift bugs if one panel gets a future fix and the others do not.
+### 2. Panel state shape and filtering
 
-Safe shape:
+Keep local:
 
-- Prefer a tiny helper such as `createCardDomPatcher(...)` or a small set of stateless helpers.
-- Keep panel-specific callbacks injected rather than inferring state shape.
-- Do not fold in card-body rendering or data updates.
+- visible-item selectors
+- search keys and matching inputs
+- active-section state keys
+- collection keys passed to `updateTrackerCardField(...)`, `addTrackerCard(...)`, `removeTrackerCard(...)`, and `swapTrackerCards(...)`
+- location-only type filtering and toolbar wiring
 
-### 2. Full-list rerender shell
+These are real data-shape and behavior differences, not cosmetic naming differences.
 
-All three panels also repeat the same render loop structure:
+### 3. Bootstrap/defaulting/migration behavior
+
+Keep local:
+
+- panel bootstrap defaults
+- section setup
+- legacy migration/default handling
+- add-item behavior
+- section-delete reassignment logic
+
+This work is still clearer and safer when explicit in each panel.
+
+## Deferred work
+
+### Full rerender shell extraction
+
+The three panels still repeat a similar full rerender shell:
 
 - preserve scroll
-- mask rerender while scrolled
-- start jump-debug run
+- optionally mask rerender while scrolled
 - clear grid
 - render empty state or append cards
 - attach/relayout masonry
 - restore scroll on double `requestAnimationFrame`
 
-Why this is worth extracting only if touched:
+That extraction is deferred for now.
 
-- It is clearly duplicated, but it sits close to panel-specific empty-copy text and optional `enhanceNumberSteppers(...)`.
-- This is a good second-step extraction after the incremental patch helpers, not the first step.
+Reason:
 
-Safe shape:
+- the shell sits close to panel-specific empty-state copy and optional post-render behavior such as number-stepper enhancement
+- the higher-risk regression area was incremental patch drift, which is the part already extracted
+- there is no current need to widen the abstraction boundary before another review
 
-- A helper like `renderCardListShell(...)` that accepts `getItems`, `renderCard`, `emptyText`, and optional `afterRender`.
-- Keep per-panel `render*Card(...)` functions local.
+### Controller factory
 
-## Leave Alone
+Do not introduce a controller factory yet.
 
-This duplication is acceptable because the card types are meaningfully different:
+- The current controller shape is repetitive, but still readable.
+- A factory would need to cross into panel-specific defaults, section wiring, and mutation semantics too quickly.
 
-### 1. Card body composition
+### Schema-driven card rendering
 
-Keep `renderNpcCard(...)`, `renderPartyCard(...)`, and `renderLocationCard(...)` separate.
+Do not introduce schema-driven rendering now.
 
-- NPC and Party look similar today, but they encode different product concepts and will likely diverge again.
-- Location cards already differ materially: title/type/notes, type select enhancement, location-specific placeholder copy, and different search-highlight selector behavior.
-- The field wiring is event-heavy and behavior-rich; abstracting it now would hide intent and raise change risk.
+- The remaining differences are larger than a field schema suggests.
+- A descriptor layer would make simple panel edits harder to follow.
 
-### 2. Panel state keys and filtering rules
+## Bottom line
 
-Keep local:
+Completed:
 
-- visible-item selectors
-- search keys
-- active-section keys
-- collection keys passed to `updateTrackerCardField(...)`, `addTrackerCard(...)`, `removeTrackerCard(...)`, and `swapTrackerCards(...)`
-- location-only type filtering and toolbar setup
+- shared incremental DOM patch extraction
+- lifecycle cleanup that makes the card panels safe to destroy and re-initialize
 
-These are not just naming differences. They reflect real state-shape differences.
+Still intentionally local:
 
-### 3. Init/defaulting/migration behavior
+- card-body renderers
+- panel state keys and filters
+- toolbar/setup/defaulting logic
+- section wiring and collection-specific mutations
 
-Keep local:
+Deferred:
 
-- panel bootstrap defaults
-- per-panel section setup
-- legacy migration/default handling
-- add-item behavior
-- section-delete reassignment logic
-
-This code is domain-specific and safer when explicit.
-
-## Maybe Later
-
-These are plausible later steps, but not the safest next move:
-
-### 1. Small controller factory
-
-Only consider this after the incremental DOM patch helpers have been extracted and stable for a while.
-
-- A factory for shared controller wiring could reduce repetition in `setSearch`, `setActiveSection`, add-item flow, and section CRUD hookup.
-- It should stay shallow and callback-driven.
-- It should not own per-card field rendering.
-
-### 2. Schema-driven card rendering
-
-Do not move here yet.
-
-Possible trigger conditions later:
-
-- a fourth tracker card type is added
-- NPC and Party remain intentionally parallel across multiple releases
-- the team wants shared field descriptors for rendering, search, validation, autosize, and persistence wiring together
-
-Why not now:
-
-- Current differences are larger than a field schema suggests.
-- The risky parts are controller lifecycle and DOM patch behavior, not field declaration boilerplate.
-- A schema layer would likely spread logic across descriptors, helper factories, and render adapters, making simple card edits harder.
-
-## Suggested Extraction Order
-
-1. Leave production behavior alone until there is an actual need to touch these files.
-2. When a card-behavior bug or feature touches all three panels, extract only the incremental DOM patch helpers first.
-3. If duplication still hurts after that, extract the rerender shell.
-4. Re-evaluate a tiny controller factory only after those two steps settle.
-5. Revisit schema-driven rendering only if the product surface grows enough to justify it.
-
-## Bottom Line
-
-The safest future dedupe strategy is not "keep everything as-is forever," but it is also not "build a generic card framework."
-
-- Extract now: incremental DOM patch primitives, and maybe later the rerender shell.
-- Leave alone: card-body rendering, state-shape wiring, filtering, migration/defaulting, and per-panel toolbars.
-- Maybe later: a shallow controller factory.
-- Not recommended now: schema-driven card rendering.
+- full rerender shell extraction
+- controller factory work
+- schema-driven tracker card rendering
