@@ -27,9 +27,20 @@ export function createFilePicker(defaults = {}) {
 
     return new Promise(resolve => {
       let settled = false;
+      let focusTimer = 0;
+      let lateCancelTimer = 0;
+
+      const clearTimers = () => {
+        window.clearTimeout(focusTimer);
+        window.clearTimeout(lateCancelTimer);
+      };
+
+      const readFiles = () => Array.from(input.files || []);
 
       const cleanup = () => {
+        clearTimers();
         input.removeEventListener("change", onChange);
+        input.removeEventListener("cancel", onCancel);
         window.removeEventListener("focus", onFocus, true);
       };
 
@@ -41,21 +52,39 @@ export function createFilePicker(defaults = {}) {
       };
 
       const onChange = () => {
-        const list = Array.from(input.files || []);
-        finish(list);
+        finish(readFiles());
+      };
+
+      // Some browsers emit an explicit cancel event for file inputs.
+      const onCancel = () => {
+        finish([]);
       };
 
       // Cancel fallback: after the picker closes, the window regains focus.
-      // If no change happened, treat as cancel.
+      // Give the file input a little extra time before treating it as cancel,
+      // because some browsers restore focus before the selected file fully lands.
       const onFocus = () => {
-        setTimeout(() => {
+        clearTimers();
+        focusTimer = window.setTimeout(() => {
           if (settled) return;
-          const list = Array.from(input.files || []);
-          if (list.length === 0) finish([]);
+          if (!document.hasFocus()) return;
+
+          const list = readFiles();
+          if (list.length > 0) {
+            finish(list);
+            return;
+          }
+
+          lateCancelTimer = window.setTimeout(() => {
+            if (settled) return;
+            if (!document.hasFocus()) return;
+            finish(readFiles());
+          }, 300);
         }, 250);
       };
 
       input.addEventListener("change", onChange, { once: true });
+      input.addEventListener("cancel", onCancel, { once: true });
       window.addEventListener("focus", onFocus, true);
 
       input.click();

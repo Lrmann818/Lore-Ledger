@@ -106,7 +106,7 @@ Use preview or a deployed production build for PWA and offline checks. `npm run 
 
 ## 6. Required smoke/testing steps
 
-The repository now defines targeted automated checks in [`package.json`](/home/lrdunn301/DnDWebApps/CampaignTracker/CampaignTracker/package.json). The Pages workflow currently runs `npm run test:run` plus the production build before deploy. A 4-test Playwright browser smoke suite also exists locally in `tests/smoke/*.smoke.js`, but it is not yet part of CI. Release validation still requires the manual checklist in addition to those automated checks.
+The repository now defines targeted automated checks in [`package.json`](/home/lrdunn301/DnDWebApps/CampaignTracker/CampaignTracker/package.json). The Pages workflow currently runs `npm run test:run` plus the production build before deploy. A focused 9-test Playwright browser smoke suite also exists locally in `tests/smoke/*.smoke.js`, but it is not yet part of CI. Release validation still requires the manual checklist in addition to those automated checks.
 
 Primary sources:
 
@@ -126,7 +126,7 @@ If Chromium is not installed for Playwright on that machine yet, run `npx playwr
 
 That means covering at least:
 
-- local Chromium browser smoke for app shell boot, one reload-persistence path, backup export/import in a fresh browser context, and invalid import feedback
+- local Chromium browser smoke for app shell boot, one reload-persistence path, backup export/import in a fresh browser context, invalid import feedback, tracker-page re-init safety, and targeted NPC/Party/Location panel regressions around portrait toggles, search/filter, section moves, reorder, collapse, and focus restoration
 - persistence durability across refresh
 - Tracker, Character, and Map baseline flows
 - backup export, `Reset Everything`, and backup import

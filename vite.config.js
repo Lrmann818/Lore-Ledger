@@ -47,6 +47,8 @@ function resolveAppVersion(pkgVersion) {
 }
 
 export default defineConfig(({ mode }) => {
+  // Release versioning comes from Git tag/history metadata when available.
+  // package.json stays as the fallback-only source for environments without Git data.
   const base = mode === "production" ? "/CampaignTracker/" : "/";
   const pkgVersion = String(pkgJson?.version || "0.0.0");
   const resolvedVersion = resolveAppVersion(pkgVersion);
@@ -103,6 +105,10 @@ export default defineConfig(({ mode }) => {
         ],
         workbox: {
           navigateFallback: `${base}index.html`,
+          // This app uses hash-only page navigation (#tracker/#character/#map), not
+          // history-style routes. Denying every path here disables Workbox's default
+          // "serve index.html for all navigations" route so our explicit NetworkFirst
+          // page cache below stays in charge of offline shell fallback behavior.
           navigateFallbackDenylist: [/./],
           cleanupOutdatedCaches: true,
           runtimeCaching: [

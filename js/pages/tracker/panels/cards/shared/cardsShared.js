@@ -131,9 +131,11 @@ export function wireSectionCrud({
   missingPromptTitle = "Missing Dialog",
   missingConfirmMessage = "This action needs the in-app confirm dialog, but it isn't available.",
   missingConfirmTitle = "Missing Dialog",
+  listenerSignal,
 }) {
   if (!setStatus) throw new Error("wireSectionCrud requires setStatus");
   const { mutateTracker } = createStateActions({ state, SaveManager });
+  const listenerOptions = listenerSignal ? { signal: listenerSignal } : undefined;
 
   addSectionBtn.addEventListener(
     "click",
@@ -165,7 +167,8 @@ export function wireSectionCrud({
     }, (err) => {
       console.error(err);
       setStatus("Add section failed.");
-    })
+    }),
+    listenerOptions
   );
 
   renameSectionBtn.addEventListener(
@@ -197,7 +200,8 @@ export function wireSectionCrud({
     }, (err) => {
       console.error(err);
       setStatus("Rename section failed.");
-    })
+    }),
+    listenerOptions
   );
 
   deleteSectionBtn.addEventListener(
@@ -241,6 +245,7 @@ export function wireSectionCrud({
     }, (err) => {
       console.error(err);
       setStatus("Delete section failed.");
-    })
+    }),
+    listenerOptions
   );
 }

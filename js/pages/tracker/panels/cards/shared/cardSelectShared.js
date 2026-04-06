@@ -7,12 +7,12 @@ export function enhanceSelectOnce({
   optionClass = "swatchOption",
   groupLabelClass = "dropdownGroupLabel",
 }) {
-  if (!select) return;
-  if (!Popovers) return;
-  if (!enhanceSelectDropdown) return;
-  if (select.dataset.dropdownEnhanced) return;
+  if (!select) return null;
+  if (!Popovers) return null;
+  if (!enhanceSelectDropdown) return null;
+  if (select.dataset.dropdownEnhanced) return null;
 
-  enhanceSelectDropdown({
+  return enhanceSelectDropdown({
     select,
     Popovers,
     buttonClass,

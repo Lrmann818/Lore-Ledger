@@ -77,18 +77,11 @@ import { DEV_MODE } from "../../utils/dev.js";
  * }} TrackerPageDeps
  */
 /** @typedef {{ destroy: () => void }} TrackerPageApi */
-/** @typedef {"npcs" | "party" | "locations"} TrackerSingletonKey */
 /** @typedef {"misc"} TrackerTextFieldKey */
 /** @typedef {{ destroy?: () => void } | Record<string, unknown> | void} TrackerPanelInitResult */
 
 /** @type {TrackerPageApi | null} */
 let _activeTrackerPageController = null;
-/** @type {Record<TrackerSingletonKey, boolean>} */
-const _singletonTrackerPanelInits = {
-  npcs: false,
-  party: false,
-  locations: false
-};
 
 /**
  * @param {TrackerPageDeps} [deps]
@@ -186,13 +179,8 @@ export function initTrackerPage(deps = {}) {
   /**
    * @param {string} panelName
    * @param {() => TrackerPanelInitResult} initFn
-   * @param {{ singletonKey?: TrackerSingletonKey }} [opts]
    */
-  const runPanelInit = (panelName, initFn, { singletonKey } = {}) => {
-    if (singletonKey && _singletonTrackerPanelInits[singletonKey]) {
-      return /** @type {{ destroy: () => void }} */ (getNoopDestroyApi());
-    }
-
+  const runPanelInit = (panelName, initFn) => {
     try {
       const panelApi = initFn();
       const panelDestroy =
@@ -202,7 +190,6 @@ export function initTrackerPage(deps = {}) {
       if (typeof panelDestroy === "function") {
         addDestroy(() => panelDestroy());
       }
-      else if (singletonKey) _singletonTrackerPanelInits[singletonKey] = true;
       return panelApi || getNoopDestroyApi();
     } catch (err) {
       console.error(`${panelName} init failed:`, err);
@@ -280,7 +267,7 @@ export function initTrackerPage(deps = {}) {
     getPortraitAspect,
     blobIdToObjectUrl,
     autoSizeInput,
-  }), { singletonKey: "npcs" });
+  }));
 
   runPanelInit("Party panel", () => initPartyPanel({
     state,
@@ -301,7 +288,7 @@ export function initTrackerPage(deps = {}) {
     setStatus,
     blobIdToObjectUrl,
     autoSizeInput,
-  }), { singletonKey: "party" });
+  }));
 
   runPanelInit("Locations panel", () => initLocationsPanel({
     state,
@@ -320,7 +307,7 @@ export function initTrackerPage(deps = {}) {
     setStatus,
     blobIdToObjectUrl,
     autoSizeInput,
-  }), { singletonKey: "locations" });
+  }));
 
   // ----- Character sheet UI -----
   runPanelInit("Character page", () => initCharacterPageUI({
