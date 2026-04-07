@@ -88,9 +88,13 @@ async function readCharacterLifecycleState(page) {
   return page.evaluate(() => {
     const character = globalThis.__characterLifecycleHarness?.state?.character || {};
     const attacks = Array.isArray(character.attacks) ? character.attacks : [];
+    const resources = Array.isArray(character.resources) ? character.resources : [];
     return {
       attackCount: attacks.length,
       attackNames: attacks.map((attack) => attack?.name || ""),
+      hpCur: character.hpCur ?? null,
+      resourceCount: resources.length,
+      firstResourceCur: resources[0]?.cur ?? null,
     };
   });
 }
@@ -146,6 +150,9 @@ test("attack panel listeners are removed on destroy and rebound once on re-init"
   await expect.poll(() => readCharacterLifecycleState(page)).toEqual({
     attackCount: 1,
     attackNames: ["Shortsword"],
+    hpCur: null,
+    resourceCount: 1,
+    firstResourceCur: 1,
   });
   await expect(page.locator("#attackList .attackRow")).toHaveCount(1);
 
@@ -160,8 +167,75 @@ test("attack panel listeners are removed on destroy and rebound once on re-init"
   await expect.poll(() => readCharacterLifecycleState(page)).toEqual({
     attackCount: 2,
     attackNames: ["", "Longbow"],
+    hpCur: null,
+    resourceCount: 1,
+    firstResourceCur: 1,
   });
   await expect(page.locator("#attackList .attackRow")).toHaveCount(2);
+
+  await expectNoFatalSignals(page, fatalSignals);
+});
+
+test("vitals panel listeners are removed on destroy and rebound once on re-init", async ({ page }) => {
+  const fatalSignals = await openSmokeApp(page);
+
+  await page.getByRole("tab", { name: "Character" }).click();
+  await expect(page.locator("#page-character")).toBeVisible();
+
+  await reinitCharacterPageForLifecycleTest(page, {
+    hpCur: 9,
+    resources: [{ id: "res_seed", name: "Ki", cur: 1, max: 2 }]
+  });
+
+  const hpCurInput = page.locator("#charHpCur");
+  await hpCurInput.fill("11");
+
+  const resourceCurInput = page.locator('#charVitalsTiles .resourceTile input[placeholder="Cur"]').first();
+  await resourceCurInput.fill("2");
+  await page.locator("#addResourceBtn").click();
+
+  await expect.poll(() => readCharacterLifecycleState(page)).toEqual({
+    attackCount: 0,
+    attackNames: [],
+    hpCur: 11,
+    resourceCount: 2,
+    firstResourceCur: 2,
+  });
+
+  await destroyCharacterPageLifecycleHarness(page);
+
+  await hpCurInput.fill("15");
+  await resourceCurInput.fill("7");
+  await page.locator("#addResourceBtn").click();
+
+  await expect.poll(() => readCharacterLifecycleState(page)).toEqual({
+    attackCount: 0,
+    attackNames: [],
+    hpCur: 11,
+    resourceCount: 2,
+    firstResourceCur: 2,
+  });
+  await expect(page.locator('#charVitalsTiles .charTile[data-vital-key^="res:"]')).toHaveCount(2);
+
+  await reinitCharacterPageForLifecycleTest(page, {
+    hpCur: 3,
+    resources: [{ id: "res_fresh", name: "Rage", cur: 4, max: 6 }]
+  });
+
+  const freshHpCurInput = page.locator("#charHpCur");
+  const freshResourceCurInput = page.locator('#charVitalsTiles .resourceTile input[placeholder="Cur"]').first();
+  await freshHpCurInput.fill("7");
+  await freshResourceCurInput.fill("5");
+  await page.locator("#addResourceBtn").click();
+
+  await expect.poll(() => readCharacterLifecycleState(page)).toEqual({
+    attackCount: 0,
+    attackNames: [],
+    hpCur: 7,
+    resourceCount: 2,
+    firstResourceCur: 5,
+  });
+  await expect(page.locator('#charVitalsTiles .charTile[data-vital-key^="res:"]')).toHaveCount(2);
 
   await expectNoFatalSignals(page, fatalSignals);
 });

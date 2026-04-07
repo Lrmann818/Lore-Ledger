@@ -48,59 +48,14 @@ function setupVitalsTileReorder({ state, SaveManager, panelEl, gridEl, actions =
     });
   }
 
-  function findTileByVitalKey(vitalKey) {
-    return Array.from(grid.querySelectorAll(".charTile")).find((t) => t.dataset.vitalKey === vitalKey) || null;
-  }
-
-  function moveVital(key, dir) {
-    const currentOrder = state.character.ui?.vitalsOrder;
-    const i = Array.isArray(currentOrder) ? currentOrder.indexOf(key) : -1;
-    const j = i + dir;
-    if (i === -1 || j < 0 || !Array.isArray(currentOrder) || j >= currentOrder.length) return;
-    const adjacentKey = currentOrder[j];
-    const tileEl = findTileByVitalKey(key);
-    const adjacentEl = findTileByVitalKey(adjacentKey);
-
-    const moved = mutateCharacter((character) => {
-      const order = character.ui?.vitalsOrder;
-      if (!Array.isArray(order)) return false;
-      const i = order.indexOf(key);
-      if (i === -1) return false;
-      const j = i + dir;
-      if (j < 0 || j >= order.length) return false;
-      [order[i], order[j]] = [order[j], order[i]];
-      return true;
-    }, { queueSave: false });
-    if (!moved) return;
-    SaveManager.markDirty();
-
-    const prevScroll = panel.scrollTop;
-    const didSwap = flipSwapTwo(tileEl, adjacentEl, {
-      durationMs: 260,
-      easing: "cubic-bezier(.22,1,.36,1)",
-      swap: () => {
-        if (dir < 0) grid.insertBefore(tileEl, adjacentEl);
-        else grid.insertBefore(adjacentEl, tileEl);
-        panel.scrollTop = prevScroll;
-      },
-    });
-    if (!didSwap) applyOrder();
-  }
-
-  function makeMoveBtn(label, title, onClick) {
+  function makeMoveBtn(label, title, key, dir) {
     const b = document.createElement("button");
     b.type = "button";
     b.className = "moveBtn";
     b.textContent = label;
     b.title = title;
-    b.addEventListener("click", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      onClick(e.currentTarget);
-      requestAnimationFrame(() => {
-        try { b.focus({ preventScroll: true }); } catch { b.focus?.(); }
-      });
-    });
+    b.dataset.moveDirection = String(dir);
+    b.dataset.vitalKey = key;
     return b;
   }
 
@@ -134,8 +89,8 @@ function setupVitalsTileReorder({ state, SaveManager, panelEl, gridEl, actions =
     wrap.className = "vitalMoves";
     wrap.dataset.vitalMoves = key;
 
-    wrap.appendChild(makeMoveBtn("↑", "Move up", () => moveVital(key, -1)));
-    wrap.appendChild(makeMoveBtn("↓", "Move down", () => moveVital(key, +1)));
+    wrap.appendChild(makeMoveBtn("↑", "Move up", key, -1));
+    wrap.appendChild(makeMoveBtn("↓", "Move down", key, +1));
 
     header.appendChild(wrap);
   }
@@ -148,14 +103,13 @@ export function initVitalsPanel(deps = {}) {
   const {
     state,
     SaveManager,
-    bindNumber,
     autoSizeInput,
     enhanceNumberSteppers,
     uiConfirm,
     setStatus,
   } = deps;
 
-  if (!state || !SaveManager || !bindNumber) return;
+  if (!state || !SaveManager) return getNoopDestroyApi();
   const { updateCharacterField, mutateCharacter } = createStateActions({ state, SaveManager });
   mutateCharacter(() => true, { queueSave: false });
 
@@ -178,57 +132,64 @@ export function initVitalsPanel(deps = {}) {
   if (!guard.ok) return guard.destroy;
   const { panelEl, wrap, addBtn } = guard.els;
 
+  /** @type {Array<() => void>} */
+  const destroyFns = [];
+  const addDestroy = (destroyFn) => {
+    if (typeof destroyFn === "function") destroyFns.push(destroyFn);
+  };
+
+  const listenerController = new AbortController();
+  const listenerSignal = listenerController.signal;
+  addDestroy(() => listenerController.abort());
+
+  let destroyed = false;
+
+  const addListener = (target, type, handler, options) => {
+    if (!target || typeof target.addEventListener !== "function") return;
+    const listenerOptions =
+      typeof options === "boolean"
+        ? { capture: options }
+        : (options || {});
+    target.addEventListener(type, handler, { ...listenerOptions, signal: listenerSignal });
+  };
+
+  function markDirty() {
+    try { SaveManager.markDirty(); } catch { /* ignore */ }
+  }
+
+  const vitalNumberFields = [
+    { id: "charHpCur", path: "hpCur", getValue: () => state.character.hpCur },
+    { id: "charHpMax", path: "hpMax", getValue: () => state.character.hpMax },
+    { id: "hitDieAmt", path: "hitDieAmt", getValue: () => state.character.hitDieAmt },
+    { id: "hitDieSize", path: "hitDieSize", getValue: () => state.character.hitDieSize },
+    { id: "charAC", path: "ac", getValue: () => state.character.ac },
+    { id: "charInit", path: "initiative", getValue: () => state.character.initiative },
+    { id: "charSpeed", path: "speed", getValue: () => state.character.speed },
+    { id: "charProf", path: "proficiency", getValue: () => state.character.proficiency },
+    { id: "charSpellAtk", path: "spellAttack", getValue: () => state.character.spellAttack },
+    { id: "charSpellDC", path: "spellDC", getValue: () => state.character.spellDC },
+  ];
+
   function bindVitalsNumbers() {
-    bindNumber("charHpCur", () => state.character.hpCur, (v) => updateCharacterField("hpCur", v, { queueSave: false }));
-    bindNumber("charHpMax", () => state.character.hpMax, (v) => updateCharacterField("hpMax", v, { queueSave: false }));
-    bindNumber("hitDieAmt", () => state.character.hitDieAmt, (v) => updateCharacterField("hitDieAmt", v, { queueSave: false }));
-    bindNumber("hitDieSize", () => state.character.hitDieSize, (v) => updateCharacterField("hitDieSize", v, { queueSave: false }));
-    bindNumber("charAC", () => state.character.ac, (v) => updateCharacterField("ac", v, { queueSave: false }));
-    bindNumber("charInit", () => state.character.initiative, (v) => updateCharacterField("initiative", v, { queueSave: false }));
-    bindNumber("charSpeed", () => state.character.speed, (v) => updateCharacterField("speed", v, { queueSave: false }));
-    bindNumber("charProf", () => state.character.proficiency, (v) => updateCharacterField("proficiency", v, { queueSave: false }));
-    bindNumber("charSpellAtk", () => state.character.spellAttack, (v) => updateCharacterField("spellAttack", v, { queueSave: false }));
-    bindNumber("charSpellDC", () => state.character.spellDC, (v) => updateCharacterField("spellDC", v, { queueSave: false }));
-  }
-
-  function refreshVitalsNumbers() {
-    const fields = [
-      ["charHpCur", state.character.hpCur],
-      ["charHpMax", state.character.hpMax],
-      ["hitDieAmt", state.character.hitDieAmt],
-      ["hitDieSize", state.character.hitDieSize],
-      ["charAC", state.character.ac],
-      ["charInit", state.character.initiative],
-      ["charSpeed", state.character.speed],
-      ["charProf", state.character.proficiency],
-      ["charSpellAtk", state.character.spellAttack],
-      ["charSpellDC", state.character.spellDC],
-    ];
-
-    fields.forEach(([id, value]) => {
+    vitalNumberFields.forEach(({ id, path, getValue }) => {
       const el = guard.els[id];
       if (!el) return;
+
+      const autosizeOpts = { min: 30, max: 60 };
+      const value = getValue();
       el.value = (value === null || value === undefined) ? "" : String(value);
-    });
-  }
 
-  function autoSizeVitals() {
-    [
-      "charHpCur",
-      "charHpMax",
-      "hitDieAmt",
-      "hitDieSize",
-      "charAC",
-      "charInit",
-      "charSpeed",
-      "charProf",
-      "charSpellAtk",
-      "charSpellDC",
-    ].forEach((id) => {
-      const el = guard.els[id];
-      if (!el) return;
-      el.classList.add("autosize");
-      autoSizeInput(el, { min: 30, max: 60 });
+      if (typeof autoSizeInput === "function") {
+        el.classList.add("autosize");
+        autoSizeInput(el, autosizeOpts);
+      }
+
+      addListener(el, "input", () => {
+        if (destroyed) return;
+        updateCharacterField(path, numberOrNull(el.value), { queueSave: false });
+        if (typeof autoSizeInput === "function") autoSizeInput(el, autosizeOpts);
+        markDirty();
+      });
     });
   }
 
@@ -251,11 +212,69 @@ export function initVitalsPanel(deps = {}) {
     }, { queueSave: false });
   }
 
-  function setAndSave() {
-    SaveManager.markDirty();
+  function focusMoveButtonForVital(key, dir, fallbackBtn = null) {
+    if (destroyed) return;
+    requestAnimationFrame(() => {
+      if (destroyed) return;
+      const tileEl = Array.from(wrap.querySelectorAll(".charTile"))
+        .find((tile) => tile.dataset.vitalKey === key);
+      const target = tileEl?.querySelector(`.vitalMoves .moveBtn[data-move-direction="${dir}"]`) || fallbackBtn;
+      try { target?.focus?.({ preventScroll: true }); } catch { target?.focus?.(); }
+    });
+  }
+
+  function moveVital(key, dir, focusBtn = null) {
+    if (destroyed) return;
+
+    const currentOrder = state.character.ui?.vitalsOrder;
+    const i = Array.isArray(currentOrder) ? currentOrder.indexOf(key) : -1;
+    const j = i + dir;
+    if (i === -1 || j < 0 || !Array.isArray(currentOrder) || j >= currentOrder.length) return;
+    const adjacentKey = currentOrder[j];
+    const tileEl = wrap.querySelector(`.charTile[data-vital-key="${key}"]`);
+    const adjacentEl = wrap.querySelector(`.charTile[data-vital-key="${adjacentKey}"]`);
+
+    const moved = mutateCharacter((character) => {
+      const order = character.ui?.vitalsOrder;
+      if (!Array.isArray(order)) return false;
+      const from = order.indexOf(key);
+      if (from === -1) return false;
+      const to = from + dir;
+      if (to < 0 || to >= order.length) return false;
+      [order[from], order[to]] = [order[to], order[from]];
+      return true;
+    }, { queueSave: false });
+    if (!moved) return;
+    markDirty();
+
+    const prevScroll = panelEl.scrollTop;
+    const didSwap = flipSwapTwo(tileEl, adjacentEl, {
+      durationMs: 260,
+      easing: "cubic-bezier(.22,1,.36,1)",
+      swap: () => {
+        if (dir < 0) wrap.insertBefore(tileEl, adjacentEl);
+        else wrap.insertBefore(adjacentEl, tileEl);
+        panelEl.scrollTop = prevScroll;
+      },
+    });
+    if (didSwap) {
+      focusMoveButtonForVital(key, dir, focusBtn);
+      return;
+    }
+
+    setupVitalsTileReorder({
+      state,
+      SaveManager,
+      panelEl,
+      gridEl: wrap,
+      actions: { updateCharacterField, mutateCharacter }
+    });
+    focusMoveButtonForVital(key, dir, focusBtn);
   }
 
   function renderResources() {
+    if (destroyed) return;
+
     ensureResourceArray();
 
     Array.from(wrap.querySelectorAll('.charTile[data-vital-key^="res:"]')).forEach((el) => el.remove());
@@ -278,14 +297,15 @@ export function initVitalsPanel(deps = {}) {
       title.dataset.placeholder = "Resource";
       title.textContent = (r.name ?? "").trim();
 
-      title.addEventListener("keydown", (e) => {
+      addListener(title, "keydown", (e) => {
         if (e.key === "Enter") {
           e.preventDefault();
           title.blur();
         }
       });
 
-      title.addEventListener("input", () => {
+      addListener(title, "input", () => {
+        if (destroyed) return;
         const updated = mutateCharacter((character) => {
           const resource = character.resources?.find((item) => item?.id === r.id);
           if (!resource) return false;
@@ -293,10 +313,10 @@ export function initVitalsPanel(deps = {}) {
           return true;
         }, { queueSave: false });
         if (!updated) return;
-        setAndSave();
+        markDirty();
       });
 
-      title.addEventListener("blur", () => {
+      addListener(title, "blur", () => {
         const t = (title.textContent ?? "").trim();
         if (!t) title.textContent = "";
       });
@@ -307,7 +327,8 @@ export function initVitalsPanel(deps = {}) {
       del.title = "Remove this resource";
       del.textContent = "X";
       del.disabled = (state.character.resources.length <= 1);
-      del.addEventListener(
+      addListener(
+        del,
         "click",
         safeAsync(async (e) => {
           e.preventDefault();
@@ -323,7 +344,7 @@ export function initVitalsPanel(deps = {}) {
             return true;
           }, { queueSave: false });
           if (!removed) return;
-          setAndSave();
+          markDirty();
           renderResources();
         }, (err) => {
           console.error(err);
@@ -344,8 +365,9 @@ export function initVitalsPanel(deps = {}) {
       cur.placeholder = "Cur";
       cur.classList.add("autosize");
       cur.value = (r.cur === null || r.cur === undefined) ? "" : String(r.cur);
-      autoSizeInput(cur, { min: 30, max: 60 });
-      cur.addEventListener("input", () => {
+      autoSizeInput?.(cur, { min: 30, max: 60 });
+      addListener(cur, "input", () => {
+        if (destroyed) return;
         const updated = mutateCharacter((character) => {
           const resource = character.resources?.find((item) => item?.id === r.id);
           if (!resource) return false;
@@ -353,7 +375,8 @@ export function initVitalsPanel(deps = {}) {
           return true;
         }, { queueSave: false });
         if (!updated) return;
-        setAndSave();
+        autoSizeInput?.(cur, { min: 30, max: 60 });
+        markDirty();
       });
 
       const slash = document.createElement("span");
@@ -365,8 +388,9 @@ export function initVitalsPanel(deps = {}) {
       max.placeholder = "Max";
       max.classList.add("autosize");
       max.value = (r.max === null || r.max === undefined) ? "" : String(r.max);
-      autoSizeInput(max, { min: 30, max: 60 });
-      max.addEventListener("input", () => {
+      autoSizeInput?.(max, { min: 30, max: 60 });
+      addListener(max, "input", () => {
+        if (destroyed) return;
         const updated = mutateCharacter((character) => {
           const resource = character.resources?.find((item) => item?.id === r.id);
           if (!resource) return false;
@@ -374,7 +398,8 @@ export function initVitalsPanel(deps = {}) {
           return true;
         }, { queueSave: false });
         if (!updated) return;
-        setAndSave();
+        autoSizeInput?.(max, { min: 30, max: 60 });
+        markDirty();
       });
 
       nums.appendChild(cur);
@@ -390,7 +415,7 @@ export function initVitalsPanel(deps = {}) {
       wrap.appendChild(tile);
     });
 
-    enhanceNumberSteppers(wrap);
+    enhanceNumberSteppers?.(wrap);
     setupVitalsTileReorder({
       state,
       SaveManager,
@@ -400,25 +425,34 @@ export function initVitalsPanel(deps = {}) {
     });
   }
 
-  if (panelEl.dataset.vitalsInit === "1") {
-    refreshVitalsNumbers();
-    autoSizeVitals();
-    renderResources();
-    return getNoopDestroyApi();
-  }
-  panelEl.dataset.vitalsInit = "1";
-
   bindVitalsNumbers();
-  autoSizeVitals();
 
-  addBtn.addEventListener("click", () => {
+  addListener(addBtn, "click", () => {
+    if (destroyed) return;
     ensureResourceArray();
     mutateCharacter((character) => {
       character.resources.push(newResource());
       return true;
     }, { queueSave: false });
-    setAndSave();
+    markDirty();
     renderResources();
+  });
+
+  addListener(wrap, "click", (event) => {
+    if (destroyed) return;
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+
+    const moveBtn = target.closest(".vitalMoves .moveBtn");
+    if (!(moveBtn instanceof HTMLButtonElement)) return;
+
+    const key = moveBtn.dataset.vitalKey;
+    const dir = Number(moveBtn.dataset.moveDirection);
+    if (!key || (dir !== -1 && dir !== 1)) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    moveVital(key, dir, moveBtn);
   });
 
   setupVitalsTileReorder({
@@ -429,4 +463,14 @@ export function initVitalsPanel(deps = {}) {
     actions: { updateCharacterField, mutateCharacter }
   });
   renderResources();
+
+  return {
+    destroy() {
+      if (destroyed) return;
+      destroyed = true;
+      for (let i = destroyFns.length - 1; i >= 0; i--) {
+        destroyFns[i]?.();
+      }
+    }
+  };
 }
