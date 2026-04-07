@@ -90,7 +90,7 @@ Import:
 
 Current limitations:
 
-- Import is not fully transactional. If part of the restore fails after some blobs or texts were staged, those staged records may remain in IndexedDB.
+- Import is not fully transactional. Failed imports now clean up newly written blobs and restore the previous values for text IDs they touched, but unrelated old records or post-success cleanup failures can still leave extra IndexedDB records behind.
 - Import does not clear existing blob/text stores before restore, so old unreferenced records can remain until a reset or cleanup flow removes them.
 - If a backup contains no images, the app currently keeps existing portraits/images instead of forcing them to null.
 

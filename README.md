@@ -122,7 +122,7 @@ The repo now includes targeted automation in two layers:
 - `tests/storage.blobReplacement.test.js` covers the blob replacement hardening path: write new blob, apply the new reference, flush the structured save, then delete the old blob, with rollback when a flush fails.
 - `tests/assetReplacementFlows.test.js` covers portrait/map replacement failure paths so old asset references survive when the replacement save cannot be committed.
 - `tests/storage.saveManager.test.js` covers the local save manager lifecycle, including dirty/saving/saved transitions, debounce behavior, retries after failure, and reset behavior.
-- `tests/storage.backup.test.js` covers backup export/import validation, staged blob/text writes, rollback on failure, and blob-ID remap behavior during import.
+- `tests/storage.backup.test.js` covers backup export/import validation, staged blob/text writes, text rollback on failed imports, and blob-ID remap behavior during import.
 - `tests/smoke/app.smoke.js` covers app shell boot, opening the Map workspace, and a simple reload-persistence check in Chromium.
 - `tests/smoke/backup.smoke.js` covers backup export, import into a fresh browser context, and visible failure handling for invalid backup files in Chromium.
 - `tests/smoke/npcPortrait.smoke.js` covers NPC portrait crop/save plus incremental tracker-card patch behavior for search, section moves, reorder, collapse, and focus restoration.
@@ -284,7 +284,7 @@ The app is local-first and stores data in the browser:
 - Portraits, map background images, and persisted map drawings are stored as IndexedDB blobs
 - Spell notes are stored separately in IndexedDB text storage
 - `loadAll()` migrates older saved shapes and legacy image data URLs into the current schema/storage model during startup
-- Backup export bundles sanitized state, stored images, and stored text into a JSON file; backup import validates, migrates, restores, and then reloads the app
+- Backup export bundles sanitized state, stored images, and stored text into a JSON file; backup import validates, migrates, stages storage writes, restores touched text IDs on failure, and then reloads the app after a successful save
 - Vitest coverage now protects `migrateState(...)`, startup load/save behavior, backup import/export logic, and the local save lifecycle, which improves confidence in saved-state integrity without replacing manual browser-level verification
 
 Intentionally non-persistent runtime state:

@@ -718,6 +718,7 @@ Future restore-compatible changes should preserve these properties:
 Import restores state, blobs, and texts, then reloads the app. That means:
 
 - `importBackup(...)` handles validation, state migration, blob/text staging, and blob ID remapping
+- failed imports restore previously touched text IDs before surfacing the error
 - startup `loadAll(...)` still gets a chance to run on the reloaded app and finalize any startup-only compatibility work
 
 In practice, that means new compatibility work should be placed in one of these buckets:

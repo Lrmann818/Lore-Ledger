@@ -5,7 +5,7 @@
 // without creating circular imports.
 
 import { uiAlert, uiConfirm } from "../ui/dialogs.js";
-import { deleteText, textKey_spellNotes } from "./texts-idb.js";
+import { deleteText, getTextRecord, textKey_spellNotes } from "./texts-idb.js";
 
 const MAX_BACKUP_BYTES = 15 * 1024 * 1024; // 15 MB
 const MAX_BLOBS = 200;
@@ -450,6 +450,7 @@ export async function importBackup(e, deps) {
   }
 
   const { incomingState, incomingBlobs, incomingTexts } = normalized;
+  const incomingTextEntries = Object.entries(incomingTexts);
 
   let migrated;
   try {
@@ -492,10 +493,43 @@ export async function importBackup(e, deps) {
   const oldBlobIds = collectReferencedBlobIds(stateSnapshot);
   const oldTextIds = collectReferencedTextIds(stateSnapshot);
 
+  /** @type {Map<string, { text: string } | null>} */
+  const previousTexts = new Map();
+  try {
+    for (const [textId] of incomingTextEntries) {
+      previousTexts.set(textId, await getTextRecord(textId));
+    }
+  } catch (err) {
+    console.error("Import failed: could not snapshot current text data:", err);
+    await uiAlert("Import failed: could not create a safe restore point.", { title: "Import failed" });
+    resetFileInput(input);
+    return;
+  }
+
   // ── ROLLBACK HELPERS ───────────────────────────────────────────────────────
   // Track every new blob written so we can clean up partial writes on failure.
   /** @type {string[]} */
   const writtenBlobIds = [];
+
+  let textRestoreWarned = false;
+
+  /**
+   * @returns {Promise<void>}
+   */
+  const restorePreviousTexts = async () => {
+    for (const [textId, previous] of previousTexts) {
+      try {
+        if (previous) {
+          await putText(previous.text, textId);
+        } else {
+          await deleteText(textId);
+        }
+      } catch (restoreErr) {
+        textRestoreWarned = true;
+        console.error("Import rollback: failed to restore text:", textId, restoreErr);
+      }
+    }
+  };
 
   // Called if something fails BEFORE we touch state.
   /**
@@ -508,7 +542,11 @@ export async function importBackup(e, deps) {
       try { await deleteBlob(id); } catch (_) { }
     }
     console.error("Import failed:", err);
-    await uiAlert(message || "Import failed due to an unexpected error.", { title: "Import failed" });
+    let alertMessage = message || "Import failed due to an unexpected error.";
+    if (textRestoreWarned) {
+      alertMessage += " Some previous text notes could not be fully restored.";
+    }
+    await uiAlert(alertMessage, { title: "Import failed" });
     resetFileInput(input);
   };
 
@@ -521,6 +559,7 @@ export async function importBackup(e, deps) {
   const rollback = async (err, message) => {
     const restored = cloneSanitizedState(stateSnapshot);
     replaceStateBuckets(state, restored);
+    await restorePreviousTexts();
     await abort(err, message);
   };
 
@@ -558,10 +597,11 @@ export async function importBackup(e, deps) {
 
   // ── 4. WRITE NEW TEXTS ─────────────────────────────────────────────────────
 
-  for (const [tid, tval] of Object.entries(incomingTexts)) {
+  for (const [tid, tval] of incomingTextEntries) {
     try {
       await putText(tval, tid);
     } catch (err) {
+      await restorePreviousTexts();
       await abort(err, "Import failed: could not store text data.");
       return;
     }
@@ -617,7 +657,7 @@ export async function importBackup(e, deps) {
     // Skip IDs written by this import so we never delete newly imported data,
     // even if a backup reused an old ID or carried an extra unreferenced asset.
     for (const blobId of writtenBlobIds) addReferencedId(importedBlobIds, blobId);
-    for (const textId of Object.keys(incomingTexts)) addReferencedId(importedTextIds, textId);
+    for (const [textId] of incomingTextEntries) addReferencedId(importedTextIds, textId);
 
     for (const blobId of oldBlobIds) {
       if (newReferencedBlobIds.has(blobId)) continue;
