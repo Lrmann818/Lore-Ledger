@@ -99,6 +99,27 @@ async function readCharacterLifecycleState(page) {
   });
 }
 
+async function readCharacterAbilitiesLifecycleState(page) {
+  return page.evaluate(() => {
+    const character = globalThis.__characterLifecycleHarness?.state?.character || {};
+    const abilities = character.abilities || {};
+    const skills = character.skills || {};
+    const saveOptions = character.saveOptions || {};
+    const saveMisc = saveOptions.misc || {};
+    const str = abilities.str || {};
+    const athletics = skills.athletics || {};
+
+    return {
+      strScore: str.score ?? null,
+      strSaveProf: !!str.saveProf,
+      strSaveMisc: saveMisc.str ?? null,
+      athleticsLevel: athletics.level ?? null,
+      athleticsMisc: athletics.misc ?? null,
+      athleticsValue: athletics.value ?? null,
+    };
+  });
+}
+
 test("character panels stay safe after repeated character page init", async ({ page }) => {
   const fatalSignals = await openSmokeApp(page);
 
@@ -236,6 +257,116 @@ test("vitals panel listeners are removed on destroy and rebound once on re-init"
     firstResourceCur: 5,
   });
   await expect(page.locator('#charVitalsTiles .charTile[data-vital-key^="res:"]')).toHaveCount(2);
+
+  await expectNoFatalSignals(page, fatalSignals);
+});
+
+test("abilities panel listeners are removed on destroy and rebound once on re-init", async ({ page }) => {
+  const fatalSignals = await openSmokeApp(page);
+
+  await page.getByRole("tab", { name: "Character" }).click();
+  await expect(page.locator("#page-character")).toBeVisible();
+
+  await reinitCharacterPageForLifecycleTest(page, {
+    proficiency: 2,
+    abilities: {
+      str: { score: 10, saveProf: false },
+    },
+    skills: {
+      athletics: { level: "none", misc: 0, value: 0 }
+    },
+    saveOptions: {
+      misc: { str: 0, dex: 0, con: 0, int: 0, wis: 0, cha: 0 },
+      modToAll: ""
+    }
+  });
+
+  const strBlock = page.locator('.abilityBlock[data-ability="str"]');
+  const strScoreInput = strBlock.locator(".abilityScore");
+  const strSaveProfInput = strBlock.locator('[data-stat="saveProf"]');
+  const athleticsBtn = strBlock.locator(".skillProfBtn");
+
+  await expect(athleticsBtn).toHaveCount(1);
+  await expect(strBlock.locator(".abilityMoves")).toHaveCount(1);
+  await expect(strBlock.locator(".abilityMoves .moveBtn")).toHaveCount(2);
+
+  await strScoreInput.fill("14");
+  await strSaveProfInput.check();
+  await page.locator("#saveOptionsBtn").click();
+  await page.locator("#miscSave_str").fill("1");
+  await athleticsBtn.click();
+
+  const firstSkillMenu = page.locator(".skillProfMenu:not([hidden])").first();
+  await expect(firstSkillMenu).toBeVisible();
+  await firstSkillMenu.getByRole("checkbox", { name: "Proficient", exact: true }).check();
+
+  await expect.poll(() => readCharacterAbilitiesLifecycleState(page)).toEqual({
+    strScore: 14,
+    strSaveProf: true,
+    strSaveMisc: 1,
+    athleticsLevel: "prof",
+    athleticsMisc: 0,
+    athleticsValue: 4,
+  });
+
+  await destroyCharacterPageLifecycleHarness(page);
+
+  await expect(strBlock.locator(".skillProfBtn")).toHaveCount(0);
+  await expect(strBlock.locator(".abilityMoves")).toHaveCount(0);
+
+  await strScoreInput.fill("8");
+  await strSaveProfInput.uncheck();
+
+  await expect.poll(() => readCharacterAbilitiesLifecycleState(page)).toEqual({
+    strScore: 14,
+    strSaveProf: true,
+    strSaveMisc: 1,
+    athleticsLevel: "prof",
+    athleticsMisc: 0,
+    athleticsValue: 4,
+  });
+
+  await reinitCharacterPageForLifecycleTest(page, {
+    proficiency: 3,
+    abilities: {
+      str: { score: 10, saveProf: false },
+    },
+    skills: {
+      athletics: { level: "none", misc: 0, value: 0 }
+    },
+    saveOptions: {
+      misc: { str: 0, dex: 0, con: 0, int: 0, wis: 0, cha: 0 },
+      modToAll: ""
+    }
+  });
+
+  const freshStrBlock = page.locator('.abilityBlock[data-ability="str"]');
+  const freshStrScoreInput = freshStrBlock.locator(".abilityScore");
+  const freshStrSaveProfInput = freshStrBlock.locator('[data-stat="saveProf"]');
+  const freshAthleticsBtn = freshStrBlock.locator(".skillProfBtn");
+
+  await expect(freshAthleticsBtn).toHaveCount(1);
+  await expect(freshStrBlock.locator(".abilityMoves")).toHaveCount(1);
+  await expect(freshStrBlock.locator(".abilityMoves .moveBtn")).toHaveCount(2);
+
+  await freshStrScoreInput.fill("16");
+  await freshStrSaveProfInput.check();
+  await page.locator("#saveOptionsBtn").click();
+  await page.locator("#miscSave_str").fill("2");
+  await freshAthleticsBtn.click();
+
+  const secondSkillMenu = page.locator(".skillProfMenu:not([hidden])").first();
+  await expect(secondSkillMenu).toBeVisible();
+  await secondSkillMenu.getByRole("checkbox", { name: "Expert (double)", exact: true }).check();
+
+  await expect.poll(() => readCharacterAbilitiesLifecycleState(page)).toEqual({
+    strScore: 16,
+    strSaveProf: true,
+    strSaveMisc: 2,
+    athleticsLevel: "expert",
+    athleticsMisc: 0,
+    athleticsValue: 9,
+  });
 
   await expectNoFatalSignals(page, fatalSignals);
 });
