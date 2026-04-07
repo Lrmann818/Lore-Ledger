@@ -8,10 +8,14 @@ import { createMapBackgroundActions } from "../js/pages/map/mapBackgroundActions
 import { persistDrawingSnapshot } from "../js/pages/map/mapPersistence.js";
 import { deleteMapWithBlobCleanup } from "../js/pages/map/mapListUI.js";
 
-function makeSaveManager({ flush = vi.fn(async () => true) } = {}) {
+function makeSaveManager({
+  flush = vi.fn(async () => true),
+  reportError = vi.fn()
+} = {}) {
   return {
     markDirty: vi.fn(),
-    flush
+    flush,
+    reportError
   };
 }
 
@@ -439,6 +443,7 @@ describe("asset replacement flows", () => {
     expect(mp.drawingBlobId).toBe("old-drawing");
     expect(saveManager.markDirty).not.toHaveBeenCalled();
     expect(saveManager.flush).not.toHaveBeenCalled();
+    expect(saveManager.reportError).toHaveBeenCalledTimes(1);
     expect(deleteBlob).not.toHaveBeenCalled();
   });
 });

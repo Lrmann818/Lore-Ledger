@@ -157,6 +157,21 @@ describe("createSaveManager", () => {
     expect(statusMessages(setStatus)).toEqual(["Saving...", "Saved locally."]);
   });
 
+  it("exposes the same visible error state for non-flush persistence failures", () => {
+    const { manager, setStatus, showSaveBanner, hideSaveBanner, onExport } = makeSubject();
+
+    manager.init();
+    setStatus.mockClear();
+
+    manager.reportError();
+
+    expect(showSaveBanner).toHaveBeenCalledTimes(1);
+    expect(showSaveBanner).toHaveBeenCalledWith({ onExport });
+    expect(hideSaveBanner).not.toHaveBeenCalled();
+    expect(manager.getStatus()).toEqual({ stateNow: "ERROR", dirty: false, saving: false });
+    expect(statusMessages(setStatus)).toEqual(["Save failed (local). Export a backup."]);
+  });
+
   it("supports repeated dirty cycles without breaking later saves", async () => {
     const { manager, saveAll, setStatus } = makeSubject({
       debounceMs: 100,
