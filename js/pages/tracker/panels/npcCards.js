@@ -228,7 +228,7 @@ function createNpcCardsController(deps = {}) {
       itemId: npcId,
       getItemById: getNpcById,
       getBlobId: (npc) => npc.imgBlobId,
-      setBlobId: (npc, blobId) => { npc.imgBlobId = blobId; },
+      setBlobId: (_npc, blobId) => updateTrackerCardField("npc", npcId, "imgBlobId", blobId, { queueSave: false }),
       deps: {
         pickCropStorePortrait,
         ImagePicker,

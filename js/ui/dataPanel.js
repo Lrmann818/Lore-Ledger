@@ -252,7 +252,12 @@ export function initDataPanel(deps) {
 
           updateReadySeen = false;
           setUpdateStatus("Checking…");
-          await updatesApi.checkForUpdates();
+          const checkStarted = await updatesApi.checkForUpdates();
+          if (!checkStarted) {
+            setUpdateStatus("Could not check for updates.");
+            notifyStatus(setStatus, "Check for updates failed.");
+            return;
+          }
           await new Promise((resolve) => setTimeout(resolve, 1500));
 
           if (!updateReadySeen) {

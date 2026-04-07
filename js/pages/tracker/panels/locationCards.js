@@ -236,7 +236,7 @@ function createLocationCardsController(deps = {}) {
       itemId: id,
       getItemById: getLocationById,
       getBlobId: (location) => location.imgBlobId,
-      setBlobId: (location, blobId) => { location.imgBlobId = blobId; },
+      setBlobId: (_location, blobId) => updateTrackerCardField("locations", id, "imgBlobId", blobId, { queueSave: false }),
       deps: {
         pickCropStorePortrait,
         ImagePicker,

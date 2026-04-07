@@ -96,7 +96,7 @@ export async function pickAndStorePortrait({
       deleteBlob,
       SaveManager,
       applyBlobId: (blobId) => {
-        setBlobId(item, blobId || null);
+        return setBlobId(item, blobId || null);
       }
     });
     return true;

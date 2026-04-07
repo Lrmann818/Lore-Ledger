@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { pickAndStorePortrait } from "../js/pages/tracker/panels/cards/shared/cardPortraitShared.js";
+import { createStateActions } from "../js/domain/stateActions.js";
+import { installStateMutationGuard } from "../js/utils/dev.js";
 import { createMapBackgroundActions } from "../js/pages/map/mapBackgroundActions.js";
 import { persistDrawingSnapshot } from "../js/pages/map/mapPersistence.js";
 
@@ -17,23 +19,83 @@ function waitForAsyncWork() {
   });
 }
 
+function makeGuardedTrackerState(overrides = {}) {
+  const rawState = {
+    tracker: {
+      npcs: [],
+      party: [],
+      locationsList: [],
+      ...overrides.tracker
+    },
+    character: {
+      ...overrides.character
+    },
+    map: {
+      ...overrides.map
+    },
+    ...overrides
+  };
+  return installStateMutationGuard(rawState, { mode: "throw" }).state;
+}
+
 describe("asset replacement flows", () => {
+  it("updates tracker portraits through state actions and persists the replacement", async () => {
+    const state = makeGuardedTrackerState({
+      tracker: {
+        npcs: [{ id: "npc-1", imgBlobId: "old-portrait" }]
+      }
+    });
+    const saveManager = makeSaveManager({
+      flush: vi.fn(async () => true)
+    });
+    const deleteBlob = vi.fn(async () => {});
+    const actions = createStateActions({ state, SaveManager: saveManager });
+
+    const ok = await pickAndStorePortrait({
+      itemId: "npc-1",
+      getItemById: (id) => state.tracker.npcs.find((npc) => npc.id === id) || null,
+      getBlobId: (npc) => npc.imgBlobId,
+      setBlobId: (_npc, blobId) => actions.updateTrackerCardField("npc", "npc-1", "imgBlobId", blobId, { queueSave: false }),
+      deps: {
+        pickCropStorePortrait: vi.fn(async () => new Blob(["portrait"], { type: "image/webp" })),
+        ImagePicker: {},
+        cropImageModal: vi.fn(),
+        getPortraitAspect: vi.fn(),
+        deleteBlob,
+        putBlob: vi.fn(async () => "new-portrait"),
+        SaveManager: saveManager,
+        uiAlert: vi.fn(async () => {}),
+      },
+      setStatus: vi.fn(),
+    });
+
+    expect(ok).toBe(true);
+    expect(state.tracker.npcs[0].imgBlobId).toBe("new-portrait");
+    expect(saveManager.markDirty).toHaveBeenCalledTimes(1);
+    expect(saveManager.flush).toHaveBeenCalledTimes(1);
+    expect(deleteBlob).toHaveBeenCalledTimes(1);
+    expect(deleteBlob).toHaveBeenCalledWith("old-portrait");
+  });
+
   it("keeps the old tracker portrait when the replacement flush fails", async () => {
-    const item = { id: "npc-1", imgBlobId: "old-portrait" };
+    const state = makeGuardedTrackerState({
+      tracker: {
+        npcs: [{ id: "npc-1", imgBlobId: "old-portrait" }]
+      }
+    });
     const saveManager = makeSaveManager({
       flush: vi.fn(async () => false)
     });
     const deleteBlob = vi.fn(async () => {});
     const uiAlert = vi.fn(async () => {});
     const setStatus = vi.fn();
+    const actions = createStateActions({ state, SaveManager: saveManager });
 
     const ok = await pickAndStorePortrait({
-      itemId: item.id,
-      getItemById: (id) => (id === item.id ? item : null),
+      itemId: "npc-1",
+      getItemById: (id) => state.tracker.npcs.find((npc) => npc.id === id) || null,
       getBlobId: (npc) => npc.imgBlobId,
-      setBlobId: (npc, blobId) => {
-        npc.imgBlobId = blobId;
-      },
+      setBlobId: (_npc, blobId) => actions.updateTrackerCardField("npc", "npc-1", "imgBlobId", blobId, { queueSave: false }),
       deps: {
         pickCropStorePortrait: vi.fn(async () => new Blob(["portrait"], { type: "image/webp" })),
         ImagePicker: {},
@@ -48,7 +110,7 @@ describe("asset replacement flows", () => {
     });
 
     expect(ok).toBe(false);
-    expect(item.imgBlobId).toBe("old-portrait");
+    expect(state.tracker.npcs[0].imgBlobId).toBe("old-portrait");
     expect(saveManager.markDirty).toHaveBeenCalledTimes(1);
     expect(saveManager.flush).toHaveBeenCalledTimes(1);
     expect(deleteBlob).toHaveBeenCalledTimes(1);

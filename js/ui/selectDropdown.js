@@ -100,6 +100,25 @@ export function enhanceSelectDropdown(args) {
   };
 
   let api = null;
+  let popoverApi = null;
+  const isCardHosted = () => !!btn.closest?.(".trackerCard");
+
+  const moveMenuToBody = () => {
+    if (!isCardHosted()) return;
+    if (menu.parentElement === document.body) return;
+    menu.classList.add("dropdownMenuPortaled");
+    document.body.appendChild(menu);
+  };
+
+  const restoreMenuParent = () => {
+    if (menu.parentElement !== document.body) return;
+    menu.classList.remove("dropdownMenuPortaled");
+    if (wrap.isConnected) {
+      wrap.appendChild(menu);
+      return;
+    }
+    menu.remove();
+  };
 
   const rebuildMenu = () => {
     menu.innerHTML = "";
@@ -116,9 +135,14 @@ export function enhanceSelectDropdown(args) {
       b.addEventListener("click", () => {
         if (opt.disabled) return;
         select.value = opt.value;
+        if (isCardHosted()) {
+          try { popoverApi?.close?.(); } catch { /* noop */ }
+        }
         // Fire a real change event so existing listeners keep working.
         select.dispatchEvent(new Event("change", { bubbles: true }));
-        try { api?.close?.(); } catch { /* noop */ }
+        if (!isCardHosted()) {
+          try { popoverApi?.close?.(); } catch { /* noop */ }
+        }
       }, { signal: listenerSignal });
 
       menu.appendChild(b);
@@ -163,7 +187,7 @@ export function enhanceSelectDropdown(args) {
   select.addEventListener("selectDropdown:rebuild", () => { rebuildMenu(); syncButton(); }, { signal: listenerSignal });
 
   // Register with centralized popovers manager
-  api = Popovers.register({
+  popoverApi = Popovers.register({
     button: btn,
     menu,
     preferRight,
@@ -172,6 +196,9 @@ export function enhanceSelectDropdown(args) {
     stopInsideClick: true,
     wireButton: false, // we wire manually so nested dropdowns can be non-exclusive
     onOpen: () => {
+      moveMenuToBody();
+      popoverApi?.reposition?.();
+
       // If this dropdown lives inside a card, temporarily raise the whole card
       // above its siblings so the menu can't render "behind" the next card.
       const card = btn.closest?.(".trackerCard");
@@ -186,7 +213,11 @@ export function enhanceSelectDropdown(args) {
         menu.querySelector("button.active:not([disabled])") || menu.querySelector("button:not([disabled])")
       );
       try { active?.focus?.({ preventScroll: true }); } catch { active?.focus?.(); }
-    }
+    },
+    onClose: () => {
+      restoreMenuParent();
+      cleanupRaised();
+    },
   });
 
   // Remove the raised class when the popover closes.
@@ -228,14 +259,14 @@ export function enhanceSelectDropdown(args) {
     const k = e.key;
     if (k === "Enter" || k === " " || k === "ArrowDown") {
       e.preventDefault();
-      if (api?.reg) {
-        Popovers.open(api.reg, { exclusive });
+      if (popoverApi?.reg) {
+        Popovers.open(popoverApi.reg, { exclusive });
         focusSelectedOrFirst();
       }
     } else if (k === "ArrowUp") {
       e.preventDefault();
-      if (api?.reg) {
-        Popovers.open(api.reg, { exclusive });
+      if (popoverApi?.reg) {
+        Popovers.open(popoverApi.reg, { exclusive });
         // focus last enabled
         const opts = /** @type {HTMLButtonElement[]} */ (Array.from(menu.querySelectorAll("button:not([disabled])")));
         if (opts.length) {
@@ -244,9 +275,9 @@ export function enhanceSelectDropdown(args) {
         }
       }
     } else if (k === "Escape") {
-      if (api?.close) {
+      if (popoverApi?.close) {
         e.preventDefault();
-        api.close();
+        popoverApi.close();
       }
     }
   }, { signal: listenerSignal });
@@ -272,7 +303,7 @@ export function enhanceSelectDropdown(args) {
       focusOptionAt(opts.length - 1);
     } else if (k === "Escape") {
       e.preventDefault();
-      try { api?.close?.(); } catch { /* noop */ }
+      try { popoverApi?.close?.(); } catch { /* noop */ }
       try { btn.focus({ preventScroll: true }); } catch { btn.focus(); }
     }
   }, { signal: listenerSignal });
@@ -281,14 +312,15 @@ export function enhanceSelectDropdown(args) {
   btn.addEventListener("click", (e) => {
     e.preventDefault();
     e.stopPropagation();
-    if (api?.reg && Popovers?.toggle) Popovers.toggle(api.reg, { exclusive });
+    if (popoverApi?.reg && Popovers?.toggle) Popovers.toggle(popoverApi.reg, { exclusive });
   }, { signal: listenerSignal });
 
   const destroy = () => {
-    try { api?.destroy?.(); } catch { /* noop */ }
+    try { popoverApi?.destroy?.(); } catch { /* noop */ }
     mo.disconnect();
     listenerController.abort();
     cleanupRaised();
+    restoreMenuParent();
     wrap.remove();
     select.classList.remove("nativeSelectHidden");
     delete select.dataset.dropdownEnhanced;
@@ -296,6 +328,7 @@ export function enhanceSelectDropdown(args) {
   };
 
   api = {
+    ...(popoverApi || {}),
     wrap,
     button: btn,
     menu,

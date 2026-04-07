@@ -3732,6 +3732,12 @@ input[type="range"] {
   overflow: auto;
 }
 
+/* Card-hosted selects portal their open menu to <body>. Keep that layer above
+   the temporarily raised card so the visible menu also receives pointer hits. */
+.dropdownMenu.dropdownMenuPortaled {
+  z-index: 250;
+}
+
 .swatchOption {
   width: 100%;
   display: flex;

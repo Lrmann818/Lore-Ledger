@@ -232,7 +232,7 @@ function createPartyCardsController(deps = {}) {
       itemId: memberId,
       getItemById: getPartyMemberById,
       getBlobId: (member) => member.imgBlobId,
-      setBlobId: (member, blobId) => { member.imgBlobId = blobId; },
+      setBlobId: (_member, blobId) => updateTrackerCardField("party", memberId, "imgBlobId", blobId, { queueSave: false }),
       deps: {
         pickCropStorePortrait,
         ImagePicker,

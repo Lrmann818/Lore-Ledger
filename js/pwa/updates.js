@@ -28,7 +28,8 @@ let updateServiceWorker = null;
 const needRefreshHandlers = new Set();
 /** @type {Set<PwaUpdateCallback>} */
 const offlineReadyHandlers = new Set();
-const appMeta = /** @type {ImportMeta & { env?: { PROD?: boolean } }} */ (import.meta);
+// Keep the PROD check as a direct access so Vite can inline it during build.
+const isProdBuild = import.meta.env.PROD;
 
 /**
  * @param {Iterable<PwaUpdateCallback>} handlers
@@ -51,7 +52,7 @@ function ensureRegistration() {
   if (registerPromise) return registerPromise;
 
   registerPromise = Promise.resolve().then(() => {
-    if (!appMeta.env?.PROD) return null;
+    if (!isProdBuild) return null;
     updateServiceWorker = /** @type {UpdateServiceWorker} */ (registerSW({
       immediate: true,
       onNeedRefresh() {
