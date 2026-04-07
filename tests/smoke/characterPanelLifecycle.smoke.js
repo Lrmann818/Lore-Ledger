@@ -1,8 +1,8 @@
 import { expect, test } from "@playwright/test";
 import { expectNoFatalSignals, openSmokeApp } from "./helpers/smokeApp.js";
 
-async function reinitCharacterPageForLifecycleTest(page) {
-  await page.evaluate(async () => {
+async function reinitCharacterPageForLifecycleTest(page, characterOverrides = {}) {
+  await page.evaluate(async (overrides) => {
     const load = (path) => import(`/CampaignTracker/${path}`);
     const [
       characterPageMod,
@@ -27,7 +27,8 @@ async function reinitCharacterPageForLifecycleTest(page) {
       inventorySearch: "",
       spells: { levels: [] },
       resources: [{ id: "res_1", name: "Ki", cur: 1, max: 2 }],
-      attacks: []
+      attacks: [],
+      ...overrides,
     };
 
     const SaveManager = saveManagerMod.createSaveManager({
@@ -68,10 +69,28 @@ async function reinitCharacterPageForLifecycleTest(page) {
     });
 
     globalThis.__characterLifecycleHarness = {
+      state: testState,
       destroy() {
         try { controller?.destroy?.(); } catch { /* noop */ }
         try { Popovers?.destroy?.(); } catch { /* noop */ }
       },
+    };
+  }, characterOverrides);
+}
+
+async function destroyCharacterPageLifecycleHarness(page) {
+  await page.evaluate(() => {
+    globalThis.__characterLifecycleHarness?.destroy?.();
+  });
+}
+
+async function readCharacterLifecycleState(page) {
+  return page.evaluate(() => {
+    const character = globalThis.__characterLifecycleHarness?.state?.character || {};
+    const attacks = Array.isArray(character.attacks) ? character.attacks : [];
+    return {
+      attackCount: attacks.length,
+      attackNames: attacks.map((attack) => attack?.name || ""),
     };
   });
 }
@@ -86,6 +105,10 @@ test("character panels stay safe after repeated character page init", async ({ p
   await reinitCharacterPageForLifecycleTest(page);
   await reinitCharacterPageForLifecycleTest(page);
 
+  const weaponsBefore = await page.locator("#attackList .attackRow").count();
+  await page.locator("#addAttackBtn").click();
+  await expect(page.locator("#attackList .attackRow")).toHaveCount(weaponsBefore + 1);
+
   const spellLevelsBefore = await page.locator("#spellLevels .spellLevel").count();
   await page.locator("#addSpellLevelBtn").click();
   await expect(page.locator("#spellLevels .spellLevel")).toHaveCount(spellLevelsBefore + 1);
@@ -97,6 +120,48 @@ test("character panels stay safe after repeated character page init", async ({ p
   const resourceTilesBefore = await page.locator('#charVitalsTiles .charTile[data-vital-key^="res:"]').count();
   await page.locator("#addResourceBtn").click();
   await expect(page.locator('#charVitalsTiles .charTile[data-vital-key^="res:"]')).toHaveCount(resourceTilesBefore + 1);
+
+  await expectNoFatalSignals(page, fatalSignals);
+});
+
+test("attack panel listeners are removed on destroy and rebound once on re-init", async ({ page }) => {
+  const fatalSignals = await openSmokeApp(page);
+
+  await page.getByRole("tab", { name: "Character" }).click();
+  await expect(page.locator("#page-character")).toBeVisible();
+
+  await reinitCharacterPageForLifecycleTest(page, {
+    attacks: [{ id: "atk_seed", name: "Dagger", notes: "", bonus: "+5", damage: "1d4+3", range: "20/60", type: "Piercing" }]
+  });
+
+  const nameInput = page.locator("#attackList .attackRow").first().locator(".attackName");
+  await nameInput.fill("Shortsword");
+  await expect.poll(() => readCharacterLifecycleState(page).then((state) => state.attackNames[0])).toBe("Shortsword");
+
+  await destroyCharacterPageLifecycleHarness(page);
+
+  await nameInput.fill("Hammer");
+  await page.locator("#addAttackBtn").click();
+
+  await expect.poll(() => readCharacterLifecycleState(page)).toEqual({
+    attackCount: 1,
+    attackNames: ["Shortsword"],
+  });
+  await expect(page.locator("#attackList .attackRow")).toHaveCount(1);
+
+  await reinitCharacterPageForLifecycleTest(page, {
+    attacks: [{ id: "atk_fresh", name: "Bow", notes: "", bonus: "+4", damage: "1d6+2", range: "80/320", type: "Piercing" }]
+  });
+
+  const freshNameInput = page.locator("#attackList .attackRow").first().locator(".attackName");
+  await freshNameInput.fill("Longbow");
+  await page.locator("#addAttackBtn").click();
+
+  await expect.poll(() => readCharacterLifecycleState(page)).toEqual({
+    attackCount: 2,
+    attackNames: ["", "Longbow"],
+  });
+  await expect(page.locator("#attackList .attackRow")).toHaveCount(2);
 
   await expectNoFatalSignals(page, fatalSignals);
 });
