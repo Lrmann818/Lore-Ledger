@@ -17,6 +17,8 @@ import { requireMany } from "../../../utils/domGuards.js";
 import { startJumpDebugRun, queueJumpDebugCheckpoints } from "../../../ui/jumpDebug.js";
 import * as masonry from "../../../ui/masonryLayout.js";
 
+/** @typedef {import("../../../domain/factories.js").LocationCard} LocationCard */
+
 const USE_INCREMENTAL_CARDS = true;
 const USE_INCREMENTAL_PORTRAIT = true;
 const USE_INCREMENTAL_REORDER = true;
@@ -82,6 +84,10 @@ function createLocationCardsController(deps = {}) {
   });
   addDestroy(() => masonry.detach(cardsEl));
 
+  /**
+   * @param {string} locationId
+   * @returns {LocationCard | null}
+   */
   const getLocationById = (locationId) => state?.tracker?.locationsList?.find((location) => location.id === locationId) || null;
   const getSearchQuery = () => (state?.tracker?.locSearch || "").trim();
   const getTypeFilter = () => state?.tracker?.locFilter || "all";
@@ -226,14 +232,11 @@ function createLocationCardsController(deps = {}) {
       return;
     }
 
-    let pickedBlobId = null;
     const ok = await pickAndStorePortrait({
       itemId: id,
       getItemById: getLocationById,
       getBlobId: (location) => location.imgBlobId,
-      setBlobId: (_location, blobId) => {
-        pickedBlobId = blobId;
-      },
+      setBlobId: (location, blobId) => { location.imgBlobId = blobId; },
       deps: {
         pickCropStorePortrait,
         ImagePicker,
@@ -241,11 +244,13 @@ function createLocationCardsController(deps = {}) {
         putBlob,
         cropImageModal,
         getPortraitAspect,
+        SaveManager,
+        uiAlert,
       },
       setStatus,
     });
     if (!ok) return;
-    updateLoc(id, { imgBlobId: pickedBlobId });
+    renderLocationCards();
   }
 
   async function deleteLoc(id) {

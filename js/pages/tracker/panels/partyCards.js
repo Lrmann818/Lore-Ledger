@@ -17,6 +17,8 @@ import { requireMany } from "../../../utils/domGuards.js";
 import { startJumpDebugRun, queueJumpDebugCheckpoints } from "../../../ui/jumpDebug.js";
 import * as masonry from "../../../ui/masonryLayout.js";
 
+/** @typedef {import("../../../domain/factories.js").PartyMemberCard} PartyMemberCard */
+
 const USE_INCREMENTAL_CARDS = true;
 const USE_INCREMENTAL_PORTRAIT = true;
 const USE_INCREMENTAL_REORDER = true;
@@ -79,6 +81,10 @@ function createPartyCardsController(deps = {}) {
   addDestroy(() => listenerController.abort());
   addDestroy(() => masonry.detach(cardsEl));
 
+  /**
+   * @param {string} memberId
+   * @returns {PartyMemberCard | null}
+   */
   const getPartyMemberById = (memberId) => state?.tracker?.party?.find((member) => member.id === memberId) || null;
   const getSearchQuery = () => (state?.tracker?.partySearch || "").trim();
   const parseNumberOrNull = (value) => (
@@ -222,14 +228,11 @@ function createPartyCardsController(deps = {}) {
   }
 
   async function pickPartyImage(memberId) {
-    let pickedBlobId = null;
     const ok = await pickAndStorePortrait({
       itemId: memberId,
       getItemById: getPartyMemberById,
       getBlobId: (member) => member.imgBlobId,
-      setBlobId: (_member, blobId) => {
-        pickedBlobId = blobId;
-      },
+      setBlobId: (member, blobId) => { member.imgBlobId = blobId; },
       deps: {
         pickCropStorePortrait,
         ImagePicker,
@@ -237,11 +240,13 @@ function createPartyCardsController(deps = {}) {
         putBlob,
         cropImageModal,
         getPortraitAspect,
+        SaveManager,
+        uiAlert,
       },
       setStatus,
     });
     if (!ok) return;
-    updateParty(memberId, { imgBlobId: pickedBlobId });
+    renderPartyCards();
   }
 
   async function deleteParty(id) {

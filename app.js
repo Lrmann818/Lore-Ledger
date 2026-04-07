@@ -100,14 +100,8 @@ import { setupMapPage } from "./js/pages/map/mapPage.js";
 /** @typedef {Parameters<typeof setupSettingsPanel>[0]} SettingsPanelDeps */
 /** @typedef {Parameters<typeof initTrackerPage>[0]} TrackerPageDeps */
 /** @typedef {Parameters<typeof setupMapPage>[0]} MapPageDeps */
-/**
- * @typedef {Parameters<typeof setupTextareaSizing>[0] & {
- *   state: AppState,
- *   markDirty: SaveManagerApi["markDirty"],
- *   saveAll: typeof saveAll,
- *   setStatus: SetStatusFn
- * }} TextareaSizingDeps
- */
+/** @typedef {Parameters<typeof setupTextareaSizing>[0]} TextareaSizingDeps */
+/** @typedef {ReturnType<typeof setupTextareaSizing>} TextareaSizingApi */
 /**
  * @typedef {{
  *   setStatus: SetStatusFn,
@@ -425,7 +419,7 @@ function createTextareaSizingDeps() {
     runModuleInit("Autosize numbers", () => autosizeAllNumbers());
     runModuleInit("Textarea sizing", () => {
       const api = setupTextareaSizing(createTextareaSizingDeps());
-      applyTextareaSize = api?.applyTextareaSize;
+      applyTextareaSize = api.applyTextareaSize;
     });
     runModuleInit("Tracker page", () => initTrackerPage(createTrackerPageDeps()));
     runModuleInit("Map page", () => setupMapPage(createMapPageDeps()));

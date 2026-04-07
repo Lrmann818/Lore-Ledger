@@ -2,7 +2,7 @@
 
 This document is the architecture source of truth for the current Lore Ledger / Campaign Tracker codebase. It describes the code that exists today, not a target refactor state. When a change alters startup order, state shape, persistence behavior, or module boundaries, update this file in the same change.
 
-> AI-assisted editing rules live in `/AI_RULES.md`.
+> AI-assisted editing rules live in [`AI_RULES.md`](../AI_RULES.md).
 
 ## Design goals
 
@@ -115,8 +115,7 @@ This list is intentionally narrower than the files included by `tsconfig.checkjs
 6. `loadAllPersist(...)`:
    - reads `localStorage["localCampaignTracker_v1"]`
    - parses and migrates data through `migrateState(...)`
-   - merges migrated data into the existing exported state object with `Object.assign(...)`
-   - restores root `ui` data
+   - replaces the existing `state` object's top-level buckets via the storage-layer `replaceStateBuckets(...)` helper
    - clears map undo/redo
    - migrates legacy image data URLs into IndexedDB blobs
    - folds legacy map fields into the current multi-map structure
@@ -129,9 +128,9 @@ This list is intentionally narrower than the files included by `tsconfig.checkjs
    - `setupSettingsPanel(...)`
    - `initTopbarUI(...)`
 8. Page/features initialize in this order:
-   - `initTrackerPage(...)`
    - `autosizeAllNumbers()`
    - `setupTextareaSizing(...)`
+   - `initTrackerPage(...)`
    - `setupMapPage(...)`
 9. `initTrackerPage(...)` currently also initializes:
    - tracker campaign title + misc bindings
@@ -207,7 +206,8 @@ This list is intentionally narrower than the files included by `tsconfig.checkjs
 
 - `js/state.js` exports a single canonical `state` object.
 - `app.js` wraps that object with the dev mutation guard and uses the guarded `appState` everywhere.
-- State is not replaced wholesale during load/import. `loadAllPersist(...)` and backup import merge into existing objects with `Object.assign(...)` so existing references stay valid.
+- Load/import preserve the root `state` object, but they replace its top-level buckets (`tracker`, `character`, `map`, `ui`) via `replaceStateBuckets(...)`.
+- Code can safely keep the root `state` reference, but it should not assume old references to nested buckets survive a load/import boundary.
 
 Top-level state buckets:
 
@@ -361,8 +361,9 @@ Not all user-visible data follows the same write path:
   - validates file size and JSON shape
   - migrates incoming state
   - restores blobs/texts first
-  - merges migrated state into the live state object
-  - writes local storage
+  - replaces the live state's top-level buckets on the existing root object
+  - saves the imported structured state through `saveAll()`
+  - selectively removes old blob/text records that are no longer referenced after a successful save
   - reloads the app
 - Reset / clear-images / clear-texts:
   - flush first
@@ -506,6 +507,9 @@ Character-specific boundary notes:
 
 - Only spell notes use separate IndexedDB text storage. Other character notes stay in the main structured save.
 - Character portrait storage uses the shared image flow, but ownership of `state.character.imgBlobId` stays in character modules.
+- `initCharacterPageUI(...)` now destroys the previous character-page controller before re-initializing the page.
+- `equipmentPanel.js` and `spellsPanel.js` now return real `destroy()` APIs and clean up their owned listeners/runtime work on teardown.
+- Some older Character panels still rely on dataset guards or module-local state, so Character lifecycle is improved but not yet at full tracker-panel parity.
 
 ### Map page: `js/pages/map/*`
 
@@ -681,7 +685,7 @@ Rules:
 
 Current reality to be aware of:
 
-- Some older Character-panel modules still use module-scoped mutable variables and singleton-style init guards.
+- Character page re-init is controller-owned now, but some older Character-panel modules still rely on dataset guards or module-local state.
 - The tracker NPC/party/location panels no longer follow that pattern; they are instance-scoped controllers with explicit teardown.
 - Do not copy hidden singleton runtime state into new modules unless there is a strong reason and the lifecycle tradeoff is documented.
 

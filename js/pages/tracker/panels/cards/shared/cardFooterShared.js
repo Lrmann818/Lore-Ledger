@@ -1,4 +1,39 @@
-export function createDeleteButton({ onDelete, className, text = "Delete", title }) {
+/** @typedef {typeof import("./cardSelectShared.js").enhanceSelectOnce} EnhanceSelectOnceFn */
+/** @typedef {typeof import("../../../../../ui/selectDropdown.js").enhanceSelectDropdown} EnhanceSelectDropdownFn */
+/**
+ * @typedef {{
+ *   onDelete?: () => unknown,
+ *   className?: string,
+ *   text?: string,
+ *   title?: string
+ * }} DeleteButtonOptions
+ */
+/**
+ * @typedef {{
+ *   id: string,
+ *   name: string
+ * }} SectionOption
+ */
+/**
+ * @typedef {{
+ *   sections?: SectionOption[],
+ *   value?: string,
+ *   onChange?: (value: string) => unknown,
+ *   enhanceSelectOnce?: EnhanceSelectOnceFn,
+ *   Popovers?: unknown,
+ *   enhanceSelectDropdown?: EnhanceSelectDropdownFn,
+ *   buttonClass?: string,
+ *   optionClass?: string,
+ *   groupLabelClass?: string,
+ *   preferRight?: boolean
+ * }} SectionSelectRowOptions
+ */
+
+/**
+ * @param {DeleteButtonOptions} [options]
+ * @returns {HTMLButtonElement}
+ */
+export function createDeleteButton({ onDelete, className = "", text = "Delete", title } = {}) {
   const button = document.createElement("button");
   button.type = "button";
   button.className = className;
@@ -12,9 +47,13 @@ export function createDeleteButton({ onDelete, className, text = "Delete", title
   return button;
 }
 
+/**
+ * @param {SectionSelectRowOptions} [options]
+ * @returns {{ sectionWrap: HTMLDivElement, sectionSelect: HTMLSelectElement }}
+ */
 export function createSectionSelectRow({
   sections,
-  value,
+  value = "",
   onChange,
   enhanceSelectOnce,
   Popovers,
@@ -49,15 +88,17 @@ export function createSectionSelectRow({
   sectionWrap.appendChild(sectionLabel);
   sectionWrap.appendChild(sectionSelect);
 
-  enhanceSelectOnce({
-    select: sectionSelect,
-    Popovers,
-    enhanceSelectDropdown,
-    buttonClass,
-    optionClass,
-    groupLabelClass,
-    preferRight
-  });
+  if (typeof enhanceSelectOnce === "function") {
+    enhanceSelectOnce({
+      select: sectionSelect,
+      Popovers,
+      enhanceSelectDropdown,
+      buttonClass,
+      optionClass,
+      groupLabelClass,
+      preferRight
+    });
+  }
 
   return { sectionWrap, sectionSelect };
 }

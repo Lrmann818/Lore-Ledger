@@ -35,8 +35,8 @@ This keeps the main JSON payload small and migratable while avoiding inlining im
 
 Compatibility is handled in two places:
 
-- `migrateState(...)` in [`js/state.js`](/home/lrdunn301/DnDWebApps/CampaignTracker/CampaignTracker/js/state.js)
-- startup storage migration in [`js/storage/persistence.js`](/home/lrdunn301/DnDWebApps/CampaignTracker/CampaignTracker/js/storage/persistence.js)
+- `migrateState(...)` in [`js/state.js`](../js/state.js)
+- startup storage migration in [`js/storage/persistence.js`](../js/storage/persistence.js)
 
 That split matters because some compatibility work needs IndexedDB access, not just JSON reshaping.
 
@@ -80,7 +80,7 @@ Important inclusions in the main JSON payload:
 
 The separate UI key is `localCampaignTracker_activeTab`.
 
-That key is written immediately by [`js/ui/navigation.js`](/home/lrdunn301/DnDWebApps/CampaignTracker/CampaignTracker/js/ui/navigation.js) when the top tab changes. It does not mark the full save dirty.
+That key is written immediately by [`js/ui/navigation.js`](../js/ui/navigation.js) when the top tab changes. It does not mark the full save dirty.
 
 `boot.js` also reads `localCampaignTracker_v1` directly on startup to apply the saved theme as early as possible.
 
@@ -137,13 +137,14 @@ Current storage-specific nuances:
 - character/tracker portraits are usually cropped and stored as `image/webp`
 - map drawing snapshots are written as PNG blobs from `canvas.toBlob(...)`
 - map background uploads are stored as the selected file blob
+- portrait, character-portrait, map-background, and drawing-snapshot replacement now use `replaceStoredBlob(...)` so they stage the new blob, update the saved reference, flush the structured save, and only then delete the old blob
 - spell note bodies save on their own debounce directly to IndexedDB and do not use `SaveManager`
 - backup export includes all text records from `texts`, not just texts referenced by the current state
 - backup export includes only blob IDs that are currently referenced from state
 
 ## 6. SaveManager lifecycle
 
-`SaveManager` is created in [`app.js`](/home/lrdunn301/DnDWebApps/CampaignTracker/CampaignTracker/app.js) around `saveAllLocal(...)`.
+`SaveManager` is created in [`app.js`](../app.js) around `saveAllLocal(...)`.
 
 Configured behavior:
 
@@ -207,7 +208,7 @@ Exit/save hooks are best-effort only:
 
 ## 8. Backup export flow
 
-Export lives in [`js/storage/backup.js`](/home/lrdunn301/DnDWebApps/CampaignTracker/CampaignTracker/js/storage/backup.js).
+Export lives in [`js/storage/backup.js`](../js/storage/backup.js).
 
 Current flow:
 
@@ -220,7 +221,7 @@ Current flow:
 4. Build a backup object:
    - `version: 2`
    - `exportedAt`
-   - `state: sanitizeBackupState(...)`
+   - `state: sanitizeForSave(...)`
    - `blobs`
    - `texts: await getAllTexts()`
 5. Serialize to JSON and trigger a download named `campaign-backup-YYYY-MM-DD.json`.
@@ -238,7 +239,7 @@ Compatibility note:
 
 ## 9. Backup import flow
 
-Import also lives in [`js/storage/backup.js`](/home/lrdunn301/DnDWebApps/CampaignTracker/CampaignTracker/js/storage/backup.js).
+Import also lives in [`js/storage/backup.js`](../js/storage/backup.js).
 
 Accepted incoming formats:
 
@@ -260,11 +261,11 @@ Current flow:
    - if that fails, store the blob under a new ID and record an old-to-new remap
 9. Stage texts next with `putText(text, id)`.
 10. Rewrite any remapped blob IDs inside migrated state.
-11. Merge the imported state into the live long-lived `state` object.
+11. Clone the migrated result and replace the live long-lived `state` object's top-level buckets.
 12. Call `ensureMapManager()`.
-13. Write the imported structured state to `localStorage["localCampaignTracker_v1"]`.
-14. Write `localStorage["localCampaignTracker_activeTab"]`.
-15. Call `saveAll()` again as a best-effort hook.
+13. Call `saveAll()` and require that write to succeed before the import is accepted.
+14. After a successful save, selectively delete old blob/text records that are no longer referenced by the restored state.
+15. If the backup contained no blobs, show the completion notice.
 16. Run `afterImport()`, which currently reloads the page from `app.js`.
 
 Import safety behavior:
@@ -276,8 +277,10 @@ Import safety behavior:
 Important current nuances:
 
 - import does not clear existing blob/text stores before restore
-- if import fails after some blob/text staging has already happened, staged records are not rolled back
-- if a backup contains no blobs, the user is told existing portraits were kept
+- before the state swap, failures clean up newly written blobs but do not roll back any texts that were already written
+- after a successful save, import tries to delete old blobs/texts that are no longer referenced, but cleanup failures only log warnings
+- import does not write `localStorage["localCampaignTracker_activeTab"]` directly; tab restore comes from hash, the separate active-tab key when present, or restored `state.ui.activeTab` on the next boot
+- if a backup contains no blobs, the import does not restore image data from the file; already-present blob records are only kept when the restored state still references them
 - import restores root `ui` values too, including `ui.activeTab`
 
 ## 10. Reset Everything behavior
@@ -301,9 +304,9 @@ If any wipe step throws, reset shows an alert and stops instead of reloading int
 
 Related but narrower flows in the data panel:
 
-- `Reset UI` clears UI-only preferences and reloads
-- `Clear Images` nulls all `*BlobId` references in state, flushes that state, clears the blob store, then reloads
-- `Clear Texts` clears the text store and reloads
+- `Reset UI Only` clears UI-only preferences and reloads
+- `Clear Images Only` nulls all `*BlobId` references in state, flushes that state, clears the blob store, then reloads
+- `Clear Text Notes Only` clears the text store and reloads
 
 ## 11. Failure/recovery expectations
 
@@ -328,7 +331,7 @@ Current expectations by failure type:
   - some images may be missing from the exported file
 - import failure:
   - live state is protected until late in the process
-  - staged blobs/texts may still have been written and left orphaned
+  - newly written blobs are cleaned up on pre-swap failure paths, but partially written texts or post-success cleanup failures can still leave orphaned records
 - early theme boot failure:
   - `boot.js` falls back to default CSS theme silently
 
@@ -361,7 +364,7 @@ That means "Saved locally." only describes the structured JSON save path managed
    It only drives the main `localStorage` save.
 
 7. Be careful with replacement writes.
-   Current portrait and map image flows often delete the old blob before the new blob is safely committed. If you touch these paths, prefer write-new -> update reference -> delete-old.
+   Current portrait and map replacement flows now use `replaceStoredBlob(...)` so they write new -> update reference -> flush -> delete old. Preserve that ordering if you touch these paths.
 
 8. Be explicit about save-status semantics when bypassing `SaveManager`.
    `ui.activeTab` and spell note bodies already bypass the normal dirty/save UI. Any new direct-storage path should document that clearly.

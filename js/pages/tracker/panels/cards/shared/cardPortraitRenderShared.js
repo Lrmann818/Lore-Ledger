@@ -1,3 +1,24 @@
+/** @typedef {typeof import("../../../../../storage/blobs.js").blobIdToObjectUrl} BlobIdToObjectUrlFn */
+/**
+ * @typedef {{
+ *   blobId?: string | null,
+ *   altText?: string,
+ *   title?: string,
+ *   placeholderText?: string,
+ *   blobIdToObjectUrl?: BlobIdToObjectUrlFn,
+ *   onPick?: () => unknown,
+ *   isHidden?: boolean,
+ *   onToggleHidden?: (hidden: boolean) => unknown,
+ *   headerControlsEl?: HTMLElement | null,
+ *   onImageLoad?: () => unknown,
+ *   iconPath?: string
+ * }} RenderCardPortraitOptions
+ */
+
+/**
+ * @param {RenderCardPortraitOptions} [options]
+ * @returns {HTMLDivElement | null}
+ */
 export function renderCardPortrait({
   blobId,
   altText,
@@ -15,7 +36,12 @@ export function renderCardPortrait({
   const hidden = !!isHidden && !hasImage;
   const canToggle = typeof onToggleHidden === "function";
 
-  const createToggleButton = ({ hide } = {}) => {
+  /**
+   * @param {{ hide?: boolean } | undefined} options
+   * @returns {HTMLButtonElement}
+   */
+  const createToggleButton = (options) => {
+    const hide = options?.hide === true;
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = `moveBtn cardPortraitToggleBtn${hide ? " cardPortraitToggleBtnOverlay" : " cardPortraitToggleBtnHeader"}`;
@@ -50,7 +76,7 @@ export function renderCardPortrait({
 
   if (hasImage) {
     const img = document.createElement("img");
-    img.alt = altText;
+    img.alt = altText || "";
     if (typeof onImageLoad === "function" && !img.dataset.portraitLoadBound) {
       img.dataset.portraitLoadBound = "1";
       img.addEventListener("load", () => onImageLoad(), { once: true });

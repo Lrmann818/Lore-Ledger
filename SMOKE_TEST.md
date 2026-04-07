@@ -20,7 +20,7 @@ Quick validation after Vite changes.
 ## 4) Static assets
 1. Confirm favicon and apple-touch icon load.
 2. Confirm dice/settings/calc icons render in the UI.
-3. Confirm manifest is reachable at `/manifest.json` in dev.
+3. Confirm the linked manifest is reachable at `/manifest.webmanifest` in dev.
 
 ## 5) Production build + preview
 1. Run `npm run build`.

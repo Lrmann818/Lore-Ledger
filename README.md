@@ -116,7 +116,11 @@ __APP_STATE__.tracker.campaignTitle = "Guard test"
 The repo now includes targeted automation in two layers:
 
 - `tests/state.migrate.test.js` covers `migrateState(...)` in `js/state.js`, including supported legacy upgrade paths, current-schema normalization, and malformed or partial inputs.
+- `tests/state.sanitize.test.js` covers `sanitizeForSave(...)` payload-copy behavior so save/export sanitization does not mutate the live tracker/character buckets.
+- `tests/stateActions.test.js` covers `createStateActions(...)`, including its public helper surface, queue-save behavior, tracker-card type aliases, and unsafe path rejection.
 - `tests/storage.persistence.test.js` covers `loadAll(...)` and `saveAllLocal(...)`, including sanitized saves, legacy image migration, stale-bucket replacement, and corrupt-storage fallback behavior.
+- `tests/storage.blobReplacement.test.js` covers the blob replacement hardening path: write new blob, apply the new reference, flush the structured save, then delete the old blob, with rollback when a flush fails.
+- `tests/assetReplacementFlows.test.js` covers portrait/map replacement failure paths so old asset references survive when the replacement save cannot be committed.
 - `tests/storage.saveManager.test.js` covers the local save manager lifecycle, including dirty/saving/saved transitions, debounce behavior, retries after failure, and reset behavior.
 - `tests/storage.backup.test.js` covers backup export/import validation, staged blob/text writes, rollback on failure, and blob-ID remap behavior during import.
 - `tests/smoke/app.smoke.js` covers app shell boot, opening the Map workspace, and a simple reload-persistence check in Chromium.
@@ -124,6 +128,7 @@ The repo now includes targeted automation in two layers:
 - `tests/smoke/npcPortrait.smoke.js` covers NPC portrait crop/save plus incremental tracker-card patch behavior for search, section moves, reorder, collapse, and focus restoration.
 - `tests/smoke/partyLocationPanels.smoke.js` covers the same tracker-card behavior for Party and Location panels, including location type filtering.
 - `tests/smoke/trackerPanelLifecycle.smoke.js` covers repeated `initTrackerPage(...)` calls so tracker panel lifecycle cleanup stays single-bound after re-init.
+- `tests/smoke/characterPanelLifecycle.smoke.js` covers repeated `initCharacterPageUI(...)` calls so Character page re-init keeps spells, equipment, and representative panel actions single-bound after teardown/re-init.
 
 Run the test suite in watch mode:
 
@@ -161,9 +166,9 @@ Run one suite directly:
 npm run test:run -- tests/state.migrate.test.js
 ```
 
-`npm run test:smoke` runs the current 9-test Playwright suite against a controlled Vite server started in production mode on the repo's GitHub Pages base path. It is intentionally local-only today and does not replace preview-based PWA/offline validation.
+`npm run test:smoke` runs the current 10-test Playwright suite against a controlled Vite server started in production mode on the repo's GitHub Pages base path. It is intentionally local-only today and does not replace preview-based PWA/offline validation.
 
-This is intentionally targeted coverage, not full-app automation. Automation now covers migration, local save/load, save-manager behavior, backup/import logic, basic browser boot, one reload-persistence path, a file-based backup round trip into a fresh browser context, tracker-page re-init safety, and targeted NPC/Party/Location panel regression paths. It still does not replace the manual checks for `Reset Everything`, deeper Character-page coverage, map drawing/touch behavior, PWA/offline behavior, or cross-browser validation documented under `docs/`.
+This is intentionally targeted coverage, not full-app automation. Automation now covers migration, `sanitizeForSave(...)`, `createStateActions(...)`, safe asset replacement ordering, local save/load, a representative structured save/load round trip, save-manager behavior, backup/import logic, basic browser boot, one reload-persistence path, a file-based backup round trip into a fresh browser context, tracker-page re-init safety, character-page re-init safety, and targeted NPC/Party/Location panel regression paths. It still does not replace the manual checks for `Reset Everything`, broader Character-page coverage beyond the current lifecycle smoke, map drawing/touch behavior, PWA/offline behavior, or cross-browser validation documented under `docs/`.
 
 `npm run verify` is the canonical local readiness check. It runs `npm run test:run` and `npm run build`, matching the automated checks in CI. It does not replace `npm run preview` or the browser-level manual checks needed for release validation.
 

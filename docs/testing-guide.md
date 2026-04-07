@@ -44,7 +44,7 @@ Canonical local verification commands:
 - `npm run preview`
   Expected: serves the production build for browser-only validation that CI does not cover.
 - `npm run test:smoke`
-  Expected: starts a controlled Vite server in production mode on the repo's GitHub Pages base path and runs the current 9-test local Chromium smoke suite covering app boot, map-shell rendering, reload persistence, backup export/import in a fresh browser context, invalid import feedback, tracker-panel re-init safety, and targeted tracker card-panel behavior.
+  Expected: starts a controlled Vite server in production mode on the repo's GitHub Pages base path and runs the current 10-test local Chromium smoke suite covering app boot, map-shell rendering, reload persistence, backup export/import in a fresh browser context, invalid import feedback, tracker-page re-init safety, character-page re-init safety, and targeted tracker card-panel behavior.
 
 Focused dev commands:
 
@@ -58,7 +58,11 @@ Focused dev commands:
 Current automated scope is intentionally targeted:
 
 - `tests/state.migrate.test.js` covers supported legacy migration paths, current-schema normalization, malformed or partial payload repair, inventory backfill, active-inventory clamping, and idempotence.
-- `tests/storage.persistence.test.js` covers `saveAllLocal(...)` sanitized writes plus `loadAll(...)` behavior for missing storage, corrupt storage, stale-bucket replacement, legacy `imgDataUrl` migration, and default-map repair.
+- `tests/state.sanitize.test.js` covers `sanitizeForSave(...)` top-level copy behavior so save/export sanitization does not mutate the live tracker/character buckets.
+- `tests/stateActions.test.js` covers `createStateActions(...)`, including queue-save semantics, tracker-card type aliases, and prototype-pollution/path-hardening guards.
+- `tests/storage.persistence.test.js` covers `saveAllLocal(...)` sanitized writes plus `loadAll(...)` behavior for missing storage, corrupt storage, stale-bucket replacement, legacy `imgDataUrl` migration, default-map repair, hit-die alias canonicalization, and a representative save/load round trip.
+- `tests/storage.blobReplacement.test.js` covers the hardened blob replacement contract: write new, apply new reference, flush structured save, then delete old, with rollback on failure.
+- `tests/assetReplacementFlows.test.js` covers portrait/map replacement failure paths so old asset references remain intact when the replacement save cannot be committed.
 - `tests/storage.saveManager.test.js` covers the local save lifecycle: dirty-delay timing, debounce behavior, `flush()` results, failure banner behavior, retry after failure, repeated dirty cycles, and `init()` reset behavior.
 - `tests/storage.backup.test.js` covers backup export shape, referenced blob/text collection, import validation failures, staged blob/text writes before state swap, rollback when save fails, cleanup of staged assets after pre-swap failures, and blob-ID remap fallback when an import collides with an existing blob id.
 - `tests/smoke/app.smoke.js` covers top-level shell boot in Chromium, opening the Map workspace, and a campaign-title reload-persistence check against the dedicated production-mode Vite server.
@@ -66,22 +70,28 @@ Current automated scope is intentionally targeted:
 - `tests/smoke/npcPortrait.smoke.js` covers NPC portrait crop/save behavior plus incremental tracker-card patch paths for portrait toggles, search, section moves, reorder, collapse, and focus restoration.
 - `tests/smoke/partyLocationPanels.smoke.js` covers the same controller-scoped tracker-card behaviors for Party and Location panels, including location type filtering.
 - `tests/smoke/trackerPanelLifecycle.smoke.js` covers repeated `initTrackerPage(...)` calls and checks that tracker panel listeners stay single-bound after re-init.
+- `tests/smoke/characterPanelLifecycle.smoke.js` covers repeated `initCharacterPageUI(...)` calls and checks that representative Character page panel actions stay single-bound after teardown/re-init.
 
 Critical paths currently protected by automation:
 
 - schema upgrades and load-time normalization for saved state
-- local save serialization that strips runtime-only fields
+- local save serialization that strips runtime-only fields and canonicalizes persisted hit-die naming
 - startup load behavior when stored data is missing, partial, malformed, or legacy-shaped
+- `sanitizeForSave(...)` behavior that must not mutate live top-level tracker/character buckets
+- save-aware state-action helper behavior, including prototype-pollution/path hardening on helper paths
+- safe blob replacement ordering so replacement failures preserve the previously referenced portrait/map asset
 - save-manager failure handling that keeps unsaved-state warnings and recovery behavior honest
 - backup import/export invariants, including failure rollback and imported asset preservation
+- one representative structured save/load round trip for the current persisted state shape
 - one real-browser boot path through a Vite production-mode server plus one simple reload-persistence check
 - one real file download/upload backup round trip in Chromium using the production base path
 - tracker panel lifecycle cleanup that makes repeated tracker-page init safer
+- character page lifecycle cleanup that makes repeated character-page init safer for the current destroyable panel/controller surface
 - tracker incremental DOM patch paths for portrait toggles, reorder, collapse, section moves, search/filter-visible lists, and focus restoration in the tracker card panels
 
 Important browser gaps still left for manual verification:
 
-- Character-page rendering depth and broader Character persistence/UI coverage
+- broader Character-page rendering and persistence depth beyond the current repeated-init smoke check
 - `Reset Everything` plus full browser restore runs that include images, drawings, and text-backed assets
 - map drawing, gesture, and touch/mobile behavior beyond basic shell boot
 - PWA install, offline shell, update-banner, cache, and service-worker behavior

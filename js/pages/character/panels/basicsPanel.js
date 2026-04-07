@@ -4,6 +4,7 @@
 import { safeAsync } from "../../../ui/safeAsync.js";
 import { createStateActions } from "../../../domain/stateActions.js";
 import { requireMany } from "../../../utils/domGuards.js";
+import { replaceStoredBlob } from "../../../storage/blobReplacement.js";
 
 function formatPossessive(name) {
   const n = (name || "").trim();
@@ -80,6 +81,7 @@ function setupCharacterPortrait(deps, refs = {}) {
     getPortraitAspect,
     blobIdToObjectUrl,
     setStatus,
+    uiAlert,
   } = deps;
   const { updateCharacterField } = createStateActions({ state, SaveManager });
 
@@ -124,23 +126,33 @@ function setupCharacterPortrait(deps, refs = {}) {
         _portraitPicking = true;
 
         try {
-          const result = await pickCropStorePortrait({
+          const portraitBlob = await pickCropStorePortrait({
             picker: ImagePicker,
-            currentBlobId: state.character.imgBlobId,
-            deleteBlob,
-            putBlob,
             cropImageModal,
             getPortraitAspect,
             aspectSelector: "#charPortraitTop",
             setStatus,
           });
 
-          // cancel
-          if (typeof result === "undefined") return;
+          if (typeof portraitBlob === "undefined") return;
 
-          // delete returns null/""; set to null
-          updateCharacterField("imgBlobId", result || null);
+          await replaceStoredBlob({
+            oldBlobId: state.character.imgBlobId,
+            nextBlob: portraitBlob,
+            putBlob,
+            deleteBlob,
+            SaveManager,
+            applyBlobId: (blobId) => updateCharacterField("imgBlobId", blobId || null, { queueSave: false })
+          });
           await renderPortrait();
+        } catch (err) {
+          console.error("Character portrait replacement failed:", err);
+          if (typeof setStatus === "function") {
+            setStatus("Could not save image. Consider exporting a backup.");
+          }
+          try {
+            await uiAlert?.("Could not save that image (storage may be full).", { title: "Save Failed" });
+          } catch (_) {}
         } finally {
           _portraitPicking = false;
         }

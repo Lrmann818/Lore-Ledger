@@ -181,7 +181,7 @@ export function initVitalsPanel(deps = {}) {
   function bindVitalsNumbers() {
     bindNumber("charHpCur", () => state.character.hpCur, (v) => updateCharacterField("hpCur", v, { queueSave: false }));
     bindNumber("charHpMax", () => state.character.hpMax, (v) => updateCharacterField("hpMax", v, { queueSave: false }));
-    bindNumber("hitDieAmt", () => state.character.hitDieAmount, (v) => updateCharacterField("hitDieAmount", v, { queueSave: false }));
+    bindNumber("hitDieAmt", () => state.character.hitDieAmt, (v) => updateCharacterField("hitDieAmt", v, { queueSave: false }));
     bindNumber("hitDieSize", () => state.character.hitDieSize, (v) => updateCharacterField("hitDieSize", v, { queueSave: false }));
     bindNumber("charAC", () => state.character.ac, (v) => updateCharacterField("ac", v, { queueSave: false }));
     bindNumber("charInit", () => state.character.initiative, (v) => updateCharacterField("initiative", v, { queueSave: false }));
@@ -195,7 +195,7 @@ export function initVitalsPanel(deps = {}) {
     const fields = [
       ["charHpCur", state.character.hpCur],
       ["charHpMax", state.character.hpMax],
-      ["hitDieAmt", state.character.hitDieAmount],
+      ["hitDieAmt", state.character.hitDieAmt],
       ["hitDieSize", state.character.hitDieSize],
       ["charAC", state.character.ac],
       ["charInit", state.character.initiative],

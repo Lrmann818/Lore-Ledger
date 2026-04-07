@@ -7,7 +7,7 @@ The standard shipping path is:
 1. validate the release candidate locally
 2. build the production artifact with Vite
 3. merge or push the release commit to `main`
-4. let GitHub Pages deploy the built `dist/` output through [`.github/workflows/pages.yml`](/home/lrdunn301/DnDWebApps/CampaignTracker/CampaignTracker/.github/workflows/pages.yml)
+4. let GitHub Pages deploy the built `dist/` output through [`.github/workflows/pages.yml`](../.github/workflows/pages.yml)
 
 There is no dedicated release automation beyond the GitHub Pages workflow. Today that workflow runs `npm ci`, `npm run test:run`, and `npm run build` in its `Verify and build` job before any Pages deploy, but releases still remain evidence-driven and still rely on manual validation alongside automated checks.
 
@@ -21,7 +21,7 @@ There is no dedicated release automation beyond the GitHub Pages workflow. Today
 
 ## 2. Versioning rules
 
-User-visible app versioning is computed in [`vite.config.js`](/home/lrdunn301/DnDWebApps/CampaignTracker/CampaignTracker/vite.config.js), not by manually bumping [`package.json`](/home/lrdunn301/DnDWebApps/CampaignTracker/CampaignTracker/package.json).
+User-visible app versioning is computed in [`vite.config.js`](../vite.config.js), not by manually bumping [`package.json`](../package.json).
 
 - Accepted release tag formats are `vX.Y.Z` and `X.Y.Z`.
 - Production build version is computed as `MAJOR.MINOR.(tagPatch + commitsSinceTag)`.
@@ -44,7 +44,7 @@ Important distinction:
 For this repo, tag timing matters:
 
 - The Pages workflow reads Git tags during `npm run build`.
-- A tag by itself does not deploy anything because [`.github/workflows/pages.yml`](/home/lrdunn301/DnDWebApps/CampaignTracker/CampaignTracker/.github/workflows/pages.yml) only runs on pushes to `main` and on manual dispatch.
+- A tag by itself does not deploy anything because [`.github/workflows/pages.yml`](../.github/workflows/pages.yml) only runs on pushes to `main` and on manual dispatch.
 - If you create or push the release tag after the `main` push has already deployed, rerun the workflow manually so the build can pick up the new tag-based version.
 
 Typical flow:
@@ -80,7 +80,7 @@ Expected result:
 
 - `npm run test:run` passes.
 - Vite writes the production artifact to `dist/`.
-- The build includes hashed JS/CSS assets plus PWA files such as `manifest.json`, `manifest.webmanifest`, `sw.js`, and Workbox output.
+- The build includes hashed JS/CSS assets plus PWA files such as the linked `manifest.webmanifest`, copied public `manifest.json`, `sw.js`, and Workbox output.
 - Production base path is `/CampaignTracker/`.
 
 Do not ship by editing `dist/` manually. Rebuild instead.
@@ -106,27 +106,27 @@ Use preview or a deployed production build for PWA and offline checks. `npm run 
 
 ## 6. Required smoke/testing steps
 
-The repository now defines targeted automated checks in [`package.json`](/home/lrdunn301/DnDWebApps/CampaignTracker/CampaignTracker/package.json). The Pages workflow currently runs `npm run test:run` plus the production build before deploy. A focused 9-test Playwright browser smoke suite also exists locally in `tests/smoke/*.smoke.js`, but it is not yet part of CI. Release validation still requires the manual checklist in addition to those automated checks.
+The repository now defines targeted automated checks in [`package.json`](../package.json). The Pages workflow currently runs `npm run test:run` plus the production build before deploy. A focused 10-test Playwright browser smoke suite also exists locally in `tests/smoke/*.smoke.js`, but it is not yet part of CI. Release validation still requires the manual checklist in addition to those automated checks.
 
 Primary sources:
 
-- [`docs/testing-guide.md`](/home/lrdunn301/DnDWebApps/CampaignTracker/CampaignTracker/docs/testing-guide.md)
-- [`docs/SMOKE_TEST.md`](/home/lrdunn301/DnDWebApps/CampaignTracker/CampaignTracker/docs/SMOKE_TEST.md)
-- [`docs/PWA_NOTES.md`](/home/lrdunn301/DnDWebApps/CampaignTracker/CampaignTracker/docs/PWA_NOTES.md)
-- [`docs/CSP_AUDIT.md`](/home/lrdunn301/DnDWebApps/CampaignTracker/CampaignTracker/docs/CSP_AUDIT.md)
+- [`docs/testing-guide.md`](./testing-guide.md)
+- [`docs/SMOKE_TEST.md`](./SMOKE_TEST.md)
+- [`docs/PWA_NOTES.md`](./PWA_NOTES.md)
+- [`docs/CSP_AUDIT.md`](./CSP_AUDIT.md)
 
 Minimum pre-release expectation:
 
 1. Run `npm run verify`.
 2. Run `npm run test:smoke`.
 3. Use a clean browser profile.
-4. Run the full pre-release checklist in [`docs/testing-guide.md`](/home/lrdunn301/DnDWebApps/CampaignTracker/CampaignTracker/docs/testing-guide.md).
+4. Run the full pre-release checklist in [`docs/testing-guide.md`](./testing-guide.md).
 
 If Chromium is not installed for Playwright on that machine yet, run `npx playwright install chromium` once before `npm run test:smoke`.
 
 That means covering at least:
 
-- local Chromium browser smoke for app shell boot, one reload-persistence path, backup export/import in a fresh browser context, invalid import feedback, tracker-page re-init safety, and targeted NPC/Party/Location panel regressions around portrait toggles, search/filter, section moves, reorder, collapse, and focus restoration
+- local Chromium browser smoke for app shell boot, one reload-persistence path, backup export/import in a fresh browser context, invalid import feedback, tracker-page re-init safety, character-page re-init safety, and targeted NPC/Party/Location panel regressions around portrait toggles, search/filter, section moves, reorder, collapse, and focus restoration
 - persistence durability across refresh
 - Tracker, Character, and Map baseline flows
 - backup export, `Reset Everything`, and backup import
@@ -209,7 +209,7 @@ bash scripts/verify-zip.sh --mode pages ./release/<zip-name>.zip
 
 ## 8. GitHub Pages deployment notes
 
-Current deploy behavior is defined in [`.github/workflows/pages.yml`](/home/lrdunn301/DnDWebApps/CampaignTracker/CampaignTracker/.github/workflows/pages.yml).
+Current deploy behavior is defined in [`.github/workflows/pages.yml`](../.github/workflows/pages.yml).
 
 What it does today:
 
@@ -245,7 +245,7 @@ Path/base assumptions:
 - the PWA manifest `id`, `start_url`, and `scope` are also `/CampaignTracker/`
 - Workbox navigation fallback is built from that same base
 
-If the GitHub Pages path ever changes, update all of these together in [`vite.config.js`](/home/lrdunn301/DnDWebApps/CampaignTracker/CampaignTracker/vite.config.js):
+If the GitHub Pages path ever changes, update all of these together in [`vite.config.js`](../vite.config.js):
 
 - `base`
 - PWA manifest `id`
@@ -275,7 +275,7 @@ If optional zip packaging was used, also record:
 - which script produced it
 - successful `Release zip is clean` or `Pages zip is clean` verification output
 
-For failures, follow the evidence guidance in [`docs/testing-guide.md`](/home/lrdunn301/DnDWebApps/CampaignTracker/CampaignTracker/docs/testing-guide.md).
+For failures, follow the evidence guidance in [`docs/testing-guide.md`](./testing-guide.md).
 
 ## 10. Changelog update expectations
 
@@ -284,14 +284,14 @@ This repository does not currently maintain a committed `CHANGELOG.md`.
 Current expectation for each release:
 
 - summarize user-visible changes in the GitHub release notes, tag notes, or release PR description
-- update [`README.md`](/home/lrdunn301/DnDWebApps/CampaignTracker/CampaignTracker/README.md) when release behavior, build behavior, or deployment expectations change
+- update [`README.md`](../README.md) when release behavior, build behavior, or deployment expectations change
 - update this document when the release workflow changes
-- update [`docs/testing-guide.md`](/home/lrdunn301/DnDWebApps/CampaignTracker/CampaignTracker/docs/testing-guide.md) when release validation expectations change
+- update [`docs/testing-guide.md`](./testing-guide.md) when release validation expectations change
 
 If the release changes persistence or compatibility behavior, also update:
 
-- [`docs/state-schema.md`](/home/lrdunn301/DnDWebApps/CampaignTracker/CampaignTracker/docs/state-schema.md)
-- [`docs/storage-and-backups.md`](/home/lrdunn301/DnDWebApps/CampaignTracker/CampaignTracker/docs/storage-and-backups.md)
+- [`docs/state-schema.md`](./state-schema.md)
+- [`docs/storage-and-backups.md`](./storage-and-backups.md)
 
 That is especially important for:
 

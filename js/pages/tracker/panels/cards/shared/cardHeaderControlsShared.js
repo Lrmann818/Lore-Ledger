@@ -1,23 +1,34 @@
 // Shared header control button builders for tracker cards.
 
 /**
+ * @typedef {{
+ *   direction: -1 | 1,
+ *   onMove: (direction: -1 | 1) => void,
+ *   className?: string,
+ *   titleUp?: string,
+ *   titleDown?: string
+ * }} MoveButtonOptions
+ */
+/**
+ * @typedef {{
+ *   isCollapsed: boolean,
+ *   onToggle: () => void,
+ *   className?: string
+ * }} CollapseButtonOptions
+ */
+
+/**
  * Create a move button (up/down) for card headers.
  *
- * @param {Object} opts
- * @param {-1 | 1} opts.direction
- * @param {(direction: -1 | 1) => void} opts.onMove
- * @param {string} [opts.className="moveBtn"]
- * @param {string} [opts.titleUp="Move card up"]
- * @param {string} [opts.titleDown="Move card down"]
+ * @param {MoveButtonOptions | undefined} options
  * @returns {HTMLButtonElement}
  */
-export function createMoveButton({
-  direction,
-  onMove,
-  className = "moveBtn",
-  titleUp = "Move card up",
-  titleDown = "Move card down",
-} = {}) {
+export function createMoveButton(options) {
+  const direction = options?.direction;
+  const onMove = options?.onMove;
+  const className = options?.className || "moveBtn";
+  const titleUp = options?.titleUp || "Move card up";
+  const titleDown = options?.titleDown || "Move card down";
   const dir = direction === -1 ? -1 : 1;
   const btn = document.createElement("button");
   btn.type = "button";
@@ -35,17 +46,13 @@ export function createMoveButton({
 /**
  * Create a collapse/expand toggle button for card headers.
  *
- * @param {Object} opts
- * @param {boolean} opts.isCollapsed
- * @param {() => void} opts.onToggle
- * @param {string} [opts.className="cardCollapseBtn"]
+ * @param {CollapseButtonOptions | undefined} options
  * @returns {HTMLButtonElement}
  */
-export function createCollapseButton({
-  isCollapsed,
-  onToggle,
-  className = "cardCollapseBtn",
-} = {}) {
+export function createCollapseButton(options) {
+  const isCollapsed = options?.isCollapsed;
+  const onToggle = options?.onToggle;
+  const className = options?.className || "cardCollapseBtn";
   const collapsed = !!isCollapsed;
   const btn = document.createElement("button");
   btn.type = "button";

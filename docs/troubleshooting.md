@@ -119,7 +119,7 @@ Recovery:
 4. If an installed PWA keeps old icons or metadata, clear site data, remove the installed app, then install it again.
 5. If you are checking repo assets directly, keep `public/manifest.json` aligned too, but treat the linked `manifest.webmanifest` as the first thing to debug.
 
-One current gotcha: some older docs and smoke-test notes still mention `/manifest.json`, but the live app shell currently points at `./manifest.webmanifest`.
+One current gotcha: the live app shell points at `./manifest.webmanifest`; `public/manifest.json` is a secondary manifest artifact, so debug the linked manifest first.
 
 ## Local save or import problems
 
@@ -153,7 +153,7 @@ Recovery for import issues:
 2. Make sure the selected file is valid JSON and smaller than `15 MB`.
 3. If the backup embeds images, their data must be `png`, `jpeg`, `jpg`, or `webp`.
 4. On successful import, the app should reload automatically.
-5. If a legacy or raw-state file restores text but not images, that usually means the file did not include blob data.
+5. If a legacy or raw-state file restores text but not images, that usually means the file did not include blob data; image references only survive when matching blob IDs already exist locally.
 6. If import still fails, try the same file in a clean browser profile to separate bad data from a damaged local profile.
 
 ## Image and blob issues
@@ -264,7 +264,7 @@ If you need to inspect the current browser state directly:
 
 ## Related docs
 
-- [`docs/storage-and-backups.md`](/home/lrdunn301/DnDWebApps/CampaignTracker/CampaignTracker/docs/storage-and-backups.md)
-- [`docs/PWA_NOTES.md`](/home/lrdunn301/DnDWebApps/CampaignTracker/CampaignTracker/docs/PWA_NOTES.md)
-- [`docs/testing-guide.md`](/home/lrdunn301/DnDWebApps/CampaignTracker/CampaignTracker/docs/testing-guide.md)
-- [`README.md`](/home/lrdunn301/DnDWebApps/CampaignTracker/CampaignTracker/README.md)
+- [`docs/storage-and-backups.md`](./storage-and-backups.md)
+- [`docs/PWA_NOTES.md`](./PWA_NOTES.md)
+- [`docs/testing-guide.md`](./testing-guide.md)
+- [`README.md`](../README.md)

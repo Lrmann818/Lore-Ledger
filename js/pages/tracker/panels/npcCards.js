@@ -17,6 +17,8 @@ import { requireMany } from "../../../utils/domGuards.js";
 import { startJumpDebugRun, queueJumpDebugCheckpoints } from "../../../ui/jumpDebug.js";
 import * as masonry from "../../../ui/masonryLayout.js";
 
+/** @typedef {import("../../../domain/factories.js").NpcCard} NpcCard */
+
 const USE_INCREMENTAL_CARDS = true;
 const USE_INCREMENTAL_PORTRAIT = true;
 const USE_INCREMENTAL_REORDER = true;
@@ -79,6 +81,10 @@ function createNpcCardsController(deps = {}) {
   addDestroy(() => listenerController.abort());
   addDestroy(() => masonry.detach(cardsEl));
 
+  /**
+   * @param {string} npcId
+   * @returns {NpcCard | null}
+   */
   const getNpcById = (npcId) => state?.tracker?.npcs?.find((npc) => npc.id === npcId) || null;
   const getSearchQuery = () => (state?.tracker?.npcSearch || "").trim();
   const getVisibleNpcs = () => {
@@ -218,14 +224,11 @@ function createNpcCardsController(deps = {}) {
   }
 
   async function pickNpcImage(npcId) {
-    let pickedBlobId = null;
     const ok = await pickAndStorePortrait({
       itemId: npcId,
       getItemById: getNpcById,
       getBlobId: (npc) => npc.imgBlobId,
-      setBlobId: (_npc, blobId) => {
-        pickedBlobId = blobId;
-      },
+      setBlobId: (npc, blobId) => { npc.imgBlobId = blobId; },
       deps: {
         pickCropStorePortrait,
         ImagePicker,
@@ -233,11 +236,13 @@ function createNpcCardsController(deps = {}) {
         getPortraitAspect,
         deleteBlob,
         putBlob,
+        SaveManager,
+        uiAlert,
       },
       setStatus,
     });
     if (!ok) return;
-    updateNpc(npcId, { imgBlobId: pickedBlobId });
+    renderNpcCards();
   }
 
   async function deleteNpc(id) {

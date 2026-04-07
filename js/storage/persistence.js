@@ -8,7 +8,7 @@
 // - installExitSave(): best-effort flush on tab close/background.
 
 /** @typedef {typeof import("../state.js").state} AppState */
-/** @typedef {typeof import("../state.js").state["tracker"]["npcs"][number]} PortraitRef */
+/** @typedef {{ imgBlobId?: string | null, imgDataUrl?: string }} PortraitRef */
 /** @typedef {typeof import("../state.js").state["map"]["maps"][number]} MapEntry */
 /** @typedef {ReturnType<typeof import("../state.js").sanitizeForSave>} SanitizedState */
 /** @typedef {ReturnType<typeof import("./saveManager.js").createSaveManager>} SaveManagerLike */

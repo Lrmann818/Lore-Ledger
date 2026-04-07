@@ -1,5 +1,7 @@
 // js/pages/map/mapBackgroundActions.js
 
+import { replaceStoredBlob } from "../../storage/blobReplacement.js";
+
 export function createMapBackgroundActions({
   setStatus,
   uiAlert,
@@ -24,12 +26,18 @@ export function createMapBackgroundActions({
       setStatus("Saving map image...");
 
       const mp = getActiveMap();
-      if (mp.bgBlobId) {
-        try { await deleteBlob(mp.bgBlobId); }
-        catch (err) { console.warn("Failed to delete map image blob:", err); }
-      }
+      let nextBgBlobId = null;
       try {
-        mp.bgBlobId = await putBlob(file);
+        nextBgBlobId = await replaceStoredBlob({
+          oldBlobId: mp.bgBlobId,
+          nextBlob: file,
+          putBlob,
+          deleteBlob,
+          SaveManager,
+          applyBlobId: (blobId) => {
+            mp.bgBlobId = blobId || null;
+          }
+        });
       } catch (err) {
         console.error("Failed to save map image blob:", err);
         setStatus("Could not save map image. Consider exporting a backup.");
@@ -38,16 +46,14 @@ export function createMapBackgroundActions({
       }
 
       let url = null;
-      try { url = await blobIdToObjectUrl(mp.bgBlobId); }
+      try { url = await blobIdToObjectUrl(nextBgBlobId); }
       catch (err) { console.warn("Failed to load map background blob:", err); }
       setBgImg(new Image());
       getBgImg().onload = () => {
         renderMap({ canvas, ctx, drawLayer, bgImg: getBgImg() });
-        commitDrawingSnapshot();
+        void commitDrawingSnapshot();
       };
       getBgImg().src = url;
-
-      SaveManager.markDirty();
     })();
   }
 

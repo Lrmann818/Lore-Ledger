@@ -115,6 +115,30 @@ describe("saveAllLocal", () => {
     expect(ok).toBe(false);
   });
 
+  it("canonicalizes drifted hitDieAmount into hitDieAmt before persisting", () => {
+    const { getStoredValue } = installLocalStorageMock();
+    const state = makeState();
+
+    delete state.character.hitDieAmt;
+    state.character.hitDieAmount = 7;
+
+    const ok = saveAllLocal({
+      storageKey: "test-storage",
+      state,
+      currentSchemaVersion: CURRENT_SCHEMA_VERSION,
+      sanitizeForSave
+    });
+
+    expect(ok).toBe(true);
+
+    const saved = JSON.parse(getStoredValue());
+    expect(saved.character.hitDieAmt).toBe(7);
+    expect("hitDieAmount" in saved.character).toBe(false);
+
+    expect("hitDieAmt" in state.character).toBe(false);
+    expect(state.character.hitDieAmount).toBe(7);
+  });
+
 });
 
 describe("loadAll", () => {
@@ -375,5 +399,134 @@ describe("loadAll", () => {
     expect(state.tracker.campaignTitle).toBe("Before load");
     expect(setStatus).toHaveBeenCalledWith("Loaded with issues. Consider exporting a backup.");
     expect(markDirty).not.toHaveBeenCalled();
+  });
+
+  it("round-trips a representative current saved shape through save and load", async () => {
+    const { getStoredValue } = installLocalStorageMock();
+
+    const sourceState = makeState();
+    sourceState.tracker.campaignTitle = "Moonfall";
+    sourceState.tracker.sessions = [
+      { title: "Session 1", notes: "Camped near the ruins." },
+      { title: "Session 2", notes: "Entered the lower vault." }
+    ];
+    sourceState.tracker.sessionSearch = "vault";
+    sourceState.tracker.activeSessionIndex = 1;
+    sourceState.tracker.npcs = [{ name: "Miri", imgBlobId: "blob_npc_1" }];
+    sourceState.tracker.party = [{ name: "Arlen", imgBlobId: null }];
+    sourceState.tracker.locationsList = [{ title: "Old Keep", imgBlobId: "blob_loc_1" }];
+    sourceState.tracker.misc = "Watch the eastern road.";
+    sourceState.tracker.ui.textareaHeights = { sessionNotes: 116 };
+
+    sourceState.character.name = "Tamsin Vale";
+    sourceState.character.classLevel = "Fighter 5";
+    sourceState.character.race = "Human";
+    sourceState.character.hpCur = 26;
+    sourceState.character.hpMax = 34;
+    sourceState.character.hitDieAmt = 3;
+    sourceState.character.hitDieSize = 10;
+    sourceState.character.ac = 17;
+    sourceState.character.speed = 30;
+    sourceState.character.proficiency = 3;
+    sourceState.character.resources = [{ id: "res_second_wind", name: "Second Wind", cur: 1, max: 1 }];
+    sourceState.character.attacks = [{ id: "atk_1", name: "Longsword", bonus: "+6", damage: "1d8+4" }];
+    sourceState.character.inventoryItems = [
+      { title: "Inventory", notes: "50 ft. rope" },
+      { title: "Pack", notes: "Torches x5" }
+    ];
+    sourceState.character.activeInventoryIndex = 1;
+    sourceState.character.inventorySearch = "torch";
+    sourceState.character.equipment = "Explorer's pack";
+    sourceState.character.spells = {
+      levels: [{
+        id: "spell_level_cantrips",
+        label: "Cantrips",
+        hasSlots: false,
+        used: null,
+        total: null,
+        collapsed: false,
+        spells: [{
+          id: "spell_light",
+          name: "Light",
+          notesCollapsed: true,
+          known: true,
+          prepared: false,
+          expended: false
+        }]
+      }]
+    };
+
+    sourceState.map.activeMapId = "map_ruins";
+    sourceState.map.maps = [{
+      id: "map_ruins",
+      name: "Ruined Keep",
+      bgBlobId: "blob_bg_1",
+      drawingBlobId: "blob_draw_1",
+      brushSize: 11,
+      colorKey: "forest"
+    }];
+    sourceState.map.ui = { activeTool: "eraser", brushSize: 11, viewScale: 1.25 };
+    sourceState.map.undo = ["runtime-only undo"];
+    sourceState.map.redo = ["runtime-only redo"];
+
+    sourceState.ui.theme = "light";
+    sourceState.ui.textareaHeights = { characterNotes: 88 };
+    sourceState.ui.panelCollapsed = { trackerMisc: true };
+    sourceState.ui.dice = {
+      history: [{ text: "1d20+6", t: 100 }],
+      last: { count: 2, sides: 20, mod: 6, mode: "adv" }
+    };
+    sourceState.ui.calc = {
+      history: ["2+2"],
+      memory: "17"
+    };
+
+    const expectedPersisted = sanitizeForSave(structuredClone(sourceState), {
+      currentSchemaVersion: CURRENT_SCHEMA_VERSION
+    });
+
+    const saveOk = saveAllLocal({
+      storageKey: "test-storage",
+      state: sourceState,
+      currentSchemaVersion: CURRENT_SCHEMA_VERSION,
+      sanitizeForSave
+    });
+
+    expect(saveOk).toBe(true);
+
+    const storedRaw = getStoredValue();
+    const storedParsed = JSON.parse(storedRaw);
+    expect(storedParsed).toEqual(expectedPersisted);
+    expect(storedParsed.character.hitDieAmt).toBe(3);
+    expect("hitDieAmount" in storedParsed.character).toBe(false);
+
+    const loadedState = makeState();
+    loadedState.tracker.campaignTitle = "Stale campaign";
+    loadedState.character.inventoryItems = [{ title: "Stale", notes: "Should be replaced" }];
+    loadedState.map.maps = [];
+
+    const setStatus = vi.fn();
+    const markDirty = vi.fn();
+    const ensureMapManager = makeEnsureMapManager(loadedState);
+
+    const loadOk = await loadAll({
+      storageKey: "test-storage",
+      state: loadedState,
+      migrateState,
+      ensureMapManager,
+      dataUrlToBlob: vi.fn(),
+      putBlob: vi.fn(),
+      setStatus,
+      markDirty
+    });
+
+    expect(loadOk).toBe(true);
+    expect(setStatus).not.toHaveBeenCalled();
+    expect(markDirty).toHaveBeenCalledTimes(1);
+    expect(loadedState.map.undo).toEqual([]);
+    expect(loadedState.map.redo).toEqual([]);
+    expect(loadedState.ui.dice.history).toEqual([]);
+    expect(loadedState.ui.calc.history).toEqual([]);
+    expect(sanitizeForSave(loadedState)).toEqual(expectedPersisted);
   });
 });

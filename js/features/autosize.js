@@ -19,6 +19,11 @@ import { createStateActions } from "../domain/stateActions.js";
  *   maxHeight?: number
  * }} TextareaSizingDeps
  */
+/**
+ * @typedef {{
+ *   applyTextareaSize: (el: HTMLTextAreaElement | null | undefined) => void
+ * }} TextareaSizingApi
+ */
 
 // NOTE: many inputs are created *before* being inserted into the DOM.
 // getComputedStyle() returns incomplete values for disconnected elements, so we defer measuring
@@ -164,7 +169,7 @@ export function applyAutosize(el) {
  */
 /**
  * @param {TextareaSizingDeps} [deps]
- * @returns {void}
+ * @returns {TextareaSizingApi}
  */
 export function setupTextareaSizing({
   state,

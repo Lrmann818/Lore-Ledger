@@ -1,19 +1,57 @@
 import { renderCardPortrait } from "./cardPortraitRenderShared.js";
 import * as masonry from "../../../../../ui/masonryLayout.js";
 
+/** @typedef {typeof import("../../../../../storage/blobs.js").blobIdToObjectUrl} BlobIdToObjectUrlFn */
+/**
+ * @typedef {{
+ *   cardsEl?: HTMLElement | null,
+ *   blobIdToObjectUrl?: BlobIdToObjectUrlFn
+ * }} CardIncrementalDomPatcherOptions
+ */
+/**
+ * @template TItem
+ * @typedef {{
+ *   cardId: string,
+ *   hidden: boolean,
+ *   focusEl?: HTMLElement | null,
+ *   getItemById: (itemId: string) => TItem | null,
+ *   getBlobId: (item: TItem) => string | null | undefined,
+ *   getAltText: (item: TItem) => string,
+ *   onPick: (item: TItem) => unknown,
+ *   onToggleHidden: (item: TItem, hidden: boolean) => unknown
+ * }} PatchPortraitOptions
+ */
+
+/**
+ * @param {CardIncrementalDomPatcherOptions} [options]
+ */
 export function createCardIncrementalDomPatcher({
   cardsEl,
   blobIdToObjectUrl,
 } = {}) {
+  /**
+   * @param {HTMLElement | null | undefined} el
+   * @returns {void}
+   */
   function focusWithoutScroll(el) {
     if (!el) return;
     try { el.focus({ preventScroll: true }); } catch { el.focus?.(); }
   }
 
+  /**
+   * @param {string} cardId
+   * @returns {HTMLElement | null}
+   */
   function findCardElById(cardId) {
-    return cardsEl?.querySelector(`.trackerCard[data-card-id="${cardId}"]`) || null;
+    return /** @type {HTMLElement | null} */ (
+      cardsEl?.querySelector(`.trackerCard[data-card-id="${cardId}"]`) || null
+    );
   }
 
+  /**
+   * @param {HTMLElement | null | undefined} el
+   * @returns {void}
+   */
   function focusElementWithoutScroll(el) {
     if (!el) return;
     requestAnimationFrame(() => {
@@ -37,7 +75,7 @@ export function createCardIncrementalDomPatcher({
     requestAnimationFrame(() => {
       const card = findCardElById(cardId);
       if (!card) return;
-      const buttons = card.querySelectorAll(".moveBtn");
+      const buttons = /** @type {NodeListOf<HTMLButtonElement>} */ (card.querySelectorAll(".moveBtn"));
       const btn = buttons[dir < 0 ? 0 : 1] || buttons[0] || null;
       focusWithoutScroll(btn);
     });
@@ -107,12 +145,12 @@ export function createCardIncrementalDomPatcher({
     if (!card) return false;
 
     card.classList.toggle("collapsed", !!collapsed);
-    const collapsible = card.querySelector(".npcCollapsible");
+    const collapsible = /** @type {HTMLElement | null} */ (card.querySelector(".npcCollapsible"));
     if (collapsible) collapsible.hidden = !!collapsed;
-    const footer = card.querySelector(".npcCardFooter");
+    const footer = /** @type {HTMLElement | null} */ (card.querySelector(".npcCardFooter"));
     if (footer) footer.hidden = !!collapsed;
 
-    const toggle = card.querySelector(".cardCollapseBtn");
+    const toggle = /** @type {HTMLButtonElement | null} */ (card.querySelector(".cardCollapseBtn"));
     if (toggle) {
       toggle.setAttribute("aria-label", collapsed ? "Expand card" : "Collapse card");
       toggle.setAttribute("aria-expanded", (!collapsed).toString());
@@ -124,6 +162,11 @@ export function createCardIncrementalDomPatcher({
     return true;
   }
 
+  /**
+   * @template TItem
+   * @param {PatchPortraitOptions<TItem>} options
+   * @returns {boolean}
+   */
   function patchPortrait({
     cardId,
     hidden,
@@ -133,15 +176,15 @@ export function createCardIncrementalDomPatcher({
     getAltText,
     onPick,
     onToggleHidden,
-  } = {}) {
+  }) {
     const card = findCardElById(cardId);
     if (!card) return false;
 
     const item = typeof getItemById === "function" ? getItemById(cardId) : null;
     if (!item) return false;
 
-    const headerRow = card.querySelector(".npcHeaderRow");
-    const body = card.querySelector(".npcCardBodyStack");
+    const headerRow = /** @type {HTMLElement | null} */ (card.querySelector(".npcHeaderRow"));
+    const body = /** @type {HTMLElement | null} */ (card.querySelector(".npcCardBodyStack"));
     if (!headerRow || !body) return false;
 
     headerRow.querySelectorAll(".cardPortraitToggleBtnHeader").forEach((btn) => btn.remove());
@@ -164,8 +207,8 @@ export function createCardIncrementalDomPatcher({
     const nextFocusEl = focusEl && focusEl.isConnected
       ? focusEl
       : (hidden
-        ? headerRow.querySelector(".cardPortraitToggleBtnHeader")
-        : card.querySelector(".npcPortraitTop .cardPortraitToggleBtnOverlay"));
+        ? /** @type {HTMLElement | null} */ (headerRow.querySelector(".cardPortraitToggleBtnHeader"))
+        : /** @type {HTMLElement | null} */ (card.querySelector(".npcPortraitTop .cardPortraitToggleBtnOverlay")));
 
     scheduleMasonryRelayout();
     focusElementWithoutScroll(nextFocusEl);

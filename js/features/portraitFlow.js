@@ -1,16 +1,13 @@
-// Shared "pick → crop → store" helper for portrait-style images.
+// Shared "pick → crop" helper for portrait-style images.
 // Keeps app.js handlers tiny and consistent.
 
 import { uiAlert } from "../ui/dialogs.js";
 /**
- * Picks one image file, crops it via the shared crop modal, stores it in the blobs DB,
- * and (optionally) deletes a previous blob.
+ * Picks one image file, crops it via the shared crop modal, and returns the
+ * prepared replacement blob for the caller to commit.
  *
  * @typedef {{
  *   picker?: { pickOne?: (options?: { accept?: string }) => Promise<File | null> },
- *   currentBlobId?: string | null,
- *   deleteBlob?: (blobId: string) => Promise<unknown>,
- *   putBlob?: (blob: Blob) => Promise<string>,
  *   cropImageModal?: (
  *     file: File,
  *     options?: {
@@ -31,14 +28,11 @@ import { uiAlert } from "../ui/dialogs.js";
  * }} PickCropStorePortraitOptions
  *
  * @param {PickCropStorePortraitOptions} [opts]
- * @returns {Promise<string|null>} new blob id, or null if cancelled/failed
+ * @returns {Promise<Blob|null|undefined>} Blob when ready, null when the user cancels, undefined on failure
  */
 export async function pickCropStorePortrait(opts = {}) {
   const {
     picker,
-    currentBlobId,
-    deleteBlob,
-    putBlob,
     cropImageModal,
     getPortraitAspect,
     aspectSelector,
@@ -50,8 +44,6 @@ export async function pickCropStorePortrait(opts = {}) {
   } = opts || {};
 
   if (!picker?.pickOne) throw new Error("pickCropStorePortrait: missing picker.pickOne()");
-  if (typeof deleteBlob !== "function") throw new Error("pickCropStorePortrait: missing deleteBlob");
-  if (typeof putBlob !== "function") throw new Error("pickCropStorePortrait: missing putBlob");
   if (typeof cropImageModal !== "function") throw new Error("pickCropStorePortrait: missing cropImageModal");
   if (typeof getPortraitAspect !== "function") throw new Error("pickCropStorePortrait: missing getPortraitAspect");
   if (typeof aspectSelector !== "string" || !aspectSelector) throw new Error("pickCropStorePortrait: missing aspectSelector");
@@ -63,21 +55,11 @@ export async function pickCropStorePortrait(opts = {}) {
   try {
     setStatus("Saving image...");
 
-    // If replacing an old image, delete it (best effort)
-    if (currentBlobId) {
-      try {
-        await deleteBlob(currentBlobId);
-      } catch (err) {
-        console.warn("Failed to delete old image blob:", err);
-      }
-    }
-
     const aspect = getPortraitAspect(aspectSelector);
     const cropped = await cropImageModal(file, { aspect, outSize, mime, quality, setStatus });
     if (!cropped) return null; // user cancelled
 
-    const blobId = await putBlob(cropped);
-    return blobId;
+    return cropped;
   } catch (err) {
     console.error("Portrait pick/crop/store failed:", err);
     setStatus("Could not save image. Consider exporting a backup.");
@@ -89,6 +71,6 @@ export async function pickCropStorePortrait(opts = {}) {
         await uiAlert("Could not save that image (storage may be full).", { title: "Save Failed" });
       } catch (_) {}
     }
-    return null;
+    return undefined;
   }
 }

@@ -351,6 +351,35 @@ describe("migrateState", () => {
       expect("resourceCur" in migrated.character).toBe(false);
       expect("resourceMax" in migrated.character).toBe(false);
     });
+
+    it("normalizes hit-die aliases to canonical hitDieAmt without dropping legacy saves", () => {
+      const canonicalOnly = migrateState({
+        character: {
+          hitDieAmt: 4,
+          hitDieSize: 8
+        }
+      });
+      const legacyAliasOnly = migrateState({
+        character: {
+          hitDieAmount: 5,
+          hitDieSize: 10
+        }
+      });
+      const bothPresent = migrateState({
+        character: {
+          hitDieAmt: 6,
+          hitDieAmount: 3,
+          hitDieSize: 12
+        }
+      });
+
+      expect(canonicalOnly.character.hitDieAmt).toBe(4);
+      expect("hitDieAmount" in canonicalOnly.character).toBe(false);
+      expect(legacyAliasOnly.character.hitDieAmt).toBe(5);
+      expect("hitDieAmount" in legacyAliasOnly.character).toBe(false);
+      expect(bothPresent.character.hitDieAmt).toBe(6);
+      expect("hitDieAmount" in bothPresent.character).toBe(false);
+    });
   });
 
   describe("malformed and partial input", () => {

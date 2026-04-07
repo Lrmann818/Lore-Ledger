@@ -7,7 +7,8 @@ This note records the final documentation consistency pass for review readiness.
 The main review-facing docs now agree on the current implementation:
 
 - `README.md`, `docs/architecture.md`, and the tracker engineering notes all describe tracker card panels as destroyable instance-scoped controllers rather than singleton-style panel runtimes.
-- `README.md`, `docs/testing-guide.md`, `docs/browser-smoke-plan.md`, and `docs/release-process.md` all describe the same local-only 9-test Playwright smoke suite and the same CI boundary: `npm ci`, `npm run test:run`, and `npm run build`.
+- `README.md`, `docs/testing-guide.md`, `docs/browser-smoke-plan.md`, and `docs/release-process.md` all describe the same local-only 10-test Playwright smoke suite and the same CI boundary: `npm ci`, `npm run test:run`, and `npm run build`.
+- The review-facing docs now describe Character lifecycle more narrowly: repeated Character-page init has dedicated smoke coverage, while broader Character-page depth still remains a manual-release concern.
 - Tracker dedupe docs now describe the landed incremental DOM patch helper as a narrow DOM-only extraction, not as a broader controller/rendering framework.
 - Remaining tracker duplication is described consistently as intentional panel-local rendering, filtering, defaulting, and mutation wiring rather than unfinished singleton cleanup.
 
@@ -26,7 +27,7 @@ These items remain deferred on purpose and should still be stated clearly in fut
 - The shared full rerender shell across NPC, Party, and Location panels is still duplicated and still intentionally deferred.
 - No controller factory has been introduced for tracker card panels.
 - No schema-driven tracker card renderer has been introduced.
-- Browser verification still has deliberate manual gaps: deeper Character-page coverage, `Reset Everything` plus full restore runs, map drawing/touch behavior, PWA/offline/update-banner behavior, and broader cross-browser validation.
+- Browser verification still has deliberate manual gaps: broader Character-page coverage beyond the repeated-init smoke, `Reset Everything` plus full restore runs, map drawing/touch behavior, PWA/offline/update-banner behavior, and broader cross-browser validation.
 - Playwright smoke coverage remains local-only today; CI still does not provision Chromium or run `npm run test:smoke`.
 
 ## Durable source-of-truth docs

@@ -218,10 +218,11 @@ Older saves may also contain the typo `tracker.ui.textareaHeigts`. Current code 
 - `hpCur: number | null`
 - `hpMax: number | null`
 - `hitDieAmt: number | null`
-  - Seeded by `js/state.js` and `migrateState(...)`.
-- `hitDieAmount: number | null`
-  - Also used by the current Vitals panel.
-  - This is an active naming inconsistency in current code; both names may appear in saved state.
+  - Canonical persisted field.
+  - Seeded by `js/state.js`, written by the Vitals panel, and enforced by save/load normalization.
+- `hitDieAmount?: number | null`
+  - Legacy compatibility alias only.
+  - Incoming saves that still use this name are normalized to `hitDieAmt`, and new saves no longer emit it.
 - `hitDieSize: number | null`
 - `ac: number | null`
 - `initiative: number | null`
@@ -640,7 +641,7 @@ Expected behavior:
 
 - load sanitized JSON from localStorage
 - run `migrateState(...)`
-- merge into the long-lived `state` object via `Object.assign(...)`
+- replace the long-lived root `state` object's top-level buckets via `replaceStateBuckets(...)`
 - clear `map.undo` and `map.redo`
 - convert legacy `imgDataUrl` fields into blob IDs
 - fold legacy top-level map image and drawing fields into the default map entry
@@ -710,7 +711,7 @@ Future restore-compatible changes should preserve these properties:
 - blob IDs should be preserved when possible and remapped when necessary
 - every remapped blob ID must be rewritten everywhere it is referenced
 - future schema versions should not be downgraded or rewritten blindly by older code
-- restore should continue to merge into the existing state object rather than replacing the root object outright, unless the app intentionally changes that contract
+- restore should continue to preserve the root `state` object while replacing its top-level buckets, unless the app intentionally changes that contract
 
 ### Important current nuance
 

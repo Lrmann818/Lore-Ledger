@@ -1,6 +1,8 @@
 import { safeAsync } from "../../../../../ui/safeAsync.js";
 import { createStateActions } from "../../../../../domain/stateActions.js";
 
+/** @typedef {{ id: string, name: string }} SectionEntry */
+
 export function makeSectionId(prefix) {
   return `${prefix}_` + Math.random().toString(36).slice(2) + Date.now().toString(36);
 }
@@ -136,6 +138,21 @@ export function wireSectionCrud({
   if (!setStatus) throw new Error("wireSectionCrud requires setStatus");
   const { mutateTracker } = createStateActions({ state, SaveManager });
   const listenerOptions = listenerSignal ? { signal: listenerSignal } : undefined;
+  /**
+   * @param {Record<string, unknown>} tracker
+   * @returns {SectionEntry[]}
+   */
+  const getSectionList = (tracker) => {
+    if (!Array.isArray(tracker[sectionsKey])) tracker[sectionsKey] = [];
+    return /** @type {SectionEntry[]} */ (tracker[sectionsKey]);
+  };
+  /**
+   * @param {Record<string, unknown>} tracker
+   * @returns {string}
+   */
+  const getActiveSectionId = (tracker) => (
+    typeof tracker[activeKey] === "string" ? tracker[activeKey] : ""
+  );
 
   addSectionBtn.addEventListener(
     "click",
@@ -155,8 +172,8 @@ export function wireSectionCrud({
       const name = proposed.trim() || `Section ${nextNum}`;
       const sec = { id: makeSectionId(idPrefix), name };
       const added = mutateTracker((tracker) => {
-        if (!Array.isArray(tracker[sectionsKey])) tracker[sectionsKey] = [];
-        tracker[sectionsKey].push(sec);
+        const sections = getSectionList(tracker);
+        sections.push(sec);
         tracker[activeKey] = sec.id;
         return true;
       });
@@ -174,7 +191,9 @@ export function wireSectionCrud({
   renameSectionBtn.addEventListener(
     "click",
     safeAsync(async () => {
-      const sec = state.tracker[sectionsKey].find(s => s.id === state.tracker[activeKey]);
+      const sections = getSectionList(state.tracker);
+      const activeSectionId = getActiveSectionId(state.tracker);
+      const sec = sections.find((s) => s.id === activeSectionId);
       if (!sec) return;
 
       if (!uiPrompt) {
@@ -189,7 +208,9 @@ export function wireSectionCrud({
       if (proposed === null) return;
 
       const renamed = mutateTracker((tracker) => {
-        const target = tracker[sectionsKey]?.find((s) => s.id === tracker[activeKey]);
+        const sections = getSectionList(tracker);
+        const activeSectionId = getActiveSectionId(tracker);
+        const target = sections.find((s) => s.id === activeSectionId);
         if (!target) return false;
         target.name = proposed.trim() || target.name || "Section";
         return true;
@@ -207,12 +228,14 @@ export function wireSectionCrud({
   deleteSectionBtn.addEventListener(
     "click",
     safeAsync(async () => {
-      if ((state.tracker[sectionsKey]?.length || 0) <= 1) {
+      const sections = getSectionList(state.tracker);
+      if (sections.length <= 1) {
         await uiAlert?.(minSectionsMessage, { title: minSectionsTitle });
         return;
       }
 
-      const sec = state.tracker[sectionsKey].find(s => s.id === state.tracker[activeKey]);
+      const activeSectionId = getActiveSectionId(state.tracker);
+      const sec = sections.find((s) => s.id === activeSectionId);
       if (!sec) return;
 
       if (!uiConfirm) {
@@ -224,14 +247,15 @@ export function wireSectionCrud({
       if (!ok) return;
 
       const deleted = mutateTracker((tracker) => {
-        const list = tracker[sectionsKey] || [];
-        const activeId = tracker[activeKey];
+        const list = getSectionList(tracker);
+        const activeId = getActiveSectionId(tracker);
         const activeSection = list.find((s) => s.id === activeId);
         if (!activeSection) return false;
 
         const deleteId = activeSection.id;
         tracker[sectionsKey] = list.filter((s) => s.id !== deleteId);
-        const fallbackId = tracker[sectionsKey]?.[0]?.id;
+        const nextSections = getSectionList(tracker);
+        const fallbackId = nextSections[0]?.id;
         if (!fallbackId) return false;
 
         onDeleteMoveItems?.(deleteId, fallbackId);

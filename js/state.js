@@ -7,6 +7,10 @@ export const ACTIVE_TAB_KEY = "localCampaignTracker_activeTab";
 // Save schema versioning
 export const CURRENT_SCHEMA_VERSION = 2;
 
+/** @typedef {import("./domain/factories.js").NpcCard & PortraitRef} NpcCard */
+/** @typedef {import("./domain/factories.js").PartyMemberCard & PortraitRef} PartyMemberCard */
+/** @typedef {import("./domain/factories.js").LocationCard & PortraitRef} LocationCard */
+
 /**
  * Schema version history (append-only).
  * For each new schema version:
@@ -182,19 +186,33 @@ export const SCHEMA_MIGRATION_HISTORY = Object.freeze([
 
 /**
  * @typedef {{
+ *   id: string,
+ *   name: string
+ * }} TrackerSection
+ */
+
+/**
+ * @typedef {{
  *   campaignTitle: string,
  *   sessions: NotesEntry[],
  *   sessionSearch: string,
  *   activeSessionIndex: number,
- *   npcs: PortraitRef[],
+ *   npcs: NpcCard[],
+ *   npcSections: TrackerSection[],
+ *   npcActiveSectionId: string,
  *   npcActiveGroup: string,
  *   npcSearch: string,
- *   party: PortraitRef[],
+ *   party: PartyMemberCard[],
+ *   partySections: TrackerSection[],
+ *   partyActiveSectionId: string,
  *   partySearch: string,
- *   locationsList: PortraitRef[],
+ *   locationsList: LocationCard[],
+ *   locSections: TrackerSection[],
+ *   locActiveSectionId: string,
  *   locSearch: string,
  *   locFilter: string,
  *   misc: string,
+ *   locations?: string,
  *   ui: TrackerUiState,
  *   [key: string]: unknown
  * }} TrackerState
@@ -279,6 +297,7 @@ export const SCHEMA_MIGRATION_HISTORY = Object.freeze([
  *   hpCur: NullableNumber,
  *   hpMax: NullableNumber,
  *   hitDieAmt: NullableNumber,
+ *   hitDieAmount?: NullableNumber,
  *   hitDieSize: NullableNumber,
  *   ac: NullableNumber,
  *   initiative: NullableNumber,
@@ -387,11 +406,17 @@ export const state = {
     sessionSearch: "",
     activeSessionIndex: 0,
     npcs: [],                 // array of npc objects
+    npcSections: [],
+    npcActiveSectionId: "",
     npcActiveGroup: "friendly",
     npcSearch: "",
     party: [],
+    partySections: [],
+    partyActiveSectionId: "",
     partySearch: "",
     locationsList: [],
+    locSections: [],
+    locActiveSectionId: "",
     locSearch: "",
     locFilter: "all",
     misc: "",
@@ -526,6 +551,23 @@ export function normalizeState(data) {
 export function sanitizeForSave(source, opts = {}) {
   const { currentSchemaVersion = CURRENT_SCHEMA_VERSION } = opts;
   const input = /** @type {Partial<StateLike>} */ ((source && typeof source === "object") ? source : {});
+  const shallowCopySaveBucket = (value) => (
+    value &&
+    typeof value === "object" &&
+    !Array.isArray(value)
+  )
+    ? { ...value }
+    : value;
+
+  const serializableTracker = shallowCopySaveBucket(input.tracker);
+
+  const serializableCharacter = shallowCopySaveBucket(input.character);
+  if (serializableCharacter && typeof serializableCharacter === "object" && !Array.isArray(serializableCharacter)) {
+    if ((!("hitDieAmt" in serializableCharacter) || serializableCharacter.hitDieAmt == null) && ("hitDieAmount" in serializableCharacter)) {
+      serializableCharacter.hitDieAmt = serializableCharacter.hitDieAmount ?? null;
+    }
+    delete serializableCharacter.hitDieAmount;
+  }
 
   const serializableMap = { ...(input.map || {}) };
   delete serializableMap.undo;
@@ -545,8 +587,8 @@ export function sanitizeForSave(source, opts = {}) {
 
   return {
     schemaVersion: input.schemaVersion ?? currentSchemaVersion,
-    tracker: input.tracker,
-    character: input.character,
+    tracker: /** @type {TrackerState | undefined} */ (serializableTracker),
+    character: /** @type {CharacterState | undefined} */ (serializableCharacter),
     map: /** @type {PersistedMapState} */ (serializableMap),
     ui: /** @type {PersistedUiState} */ (serializableUi)
   };
@@ -794,7 +836,11 @@ export function migrateState(raw) {
     delete c.resourceCur;
     delete c.resourceMax;
 
+    if ((!("hitDieAmt" in c) || c.hitDieAmt == null) && ("hitDieAmount" in c)) {
+      c.hitDieAmt = /** @type {NullableNumber} */ (c.hitDieAmount ?? null);
+    }
     if (!("hitDieAmt" in c)) c.hitDieAmt = null;
+    delete c.hitDieAmount;
     if (!("hitDieSize" in c)) c.hitDieSize = null;
 
     // Map defaults (multi-map manager expects these)

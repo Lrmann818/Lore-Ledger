@@ -1,6 +1,8 @@
 // @ts-check
 // js/pages/map/mapPersistence.js
 
+import { replaceStoredBlob } from "../../storage/blobReplacement.js";
+
 /** @typedef {import("../../state.js").MapEntry} MapEntry */
 /** @typedef {typeof import("../../storage/blobs.js").blobIdToObjectUrl} BlobIdToObjectUrlFn */
 /** @typedef {typeof import("../../storage/blobs.js").putBlob} PutBlobFn */
@@ -29,18 +31,25 @@ export function persistDrawingSnapshot({
 
     drawLayer.toBlob(async (blob) => {
       if (!blob) { resolve(); return; }
-
-      if (mp.drawingBlobId) {
-        try { await deleteBlob?.(mp.drawingBlobId); }
-        catch (err) { console.warn("Failed to delete map drawing blob:", err); }
-      }
-
       if (!putBlob) {
         resolve();
         return;
       }
-      mp.drawingBlobId = await putBlob(blob);
-      SaveManager.markDirty();
+
+      try {
+        await replaceStoredBlob({
+          oldBlobId: mp.drawingBlobId,
+          nextBlob: blob,
+          putBlob,
+          deleteBlob,
+          SaveManager,
+          applyBlobId: (blobId) => {
+            mp.drawingBlobId = blobId || null;
+          }
+        });
+      } catch (err) {
+        console.error("Failed to persist map drawing blob:", err);
+      }
       resolve();
     }, "image/png");
   });

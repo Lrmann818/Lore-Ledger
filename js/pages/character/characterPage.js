@@ -15,11 +15,6 @@ import { requireMany, getNoopDestroyApi } from "../../utils/domGuards.js";
 import { DEV_MODE } from "../../utils/dev.js";
 
 let _activeCharacterPageController = null;
-const _singletonCharacterPanelInits = {
-  spells: false,
-  equipment: false
-};
-/** @typedef {"spells" | "equipment"} CharacterSingletonKey */
 
 export function initCharacterPageUI(deps) {
   _activeCharacterPageController?.destroy?.();
@@ -137,19 +132,13 @@ export function initCharacterPageUI(deps) {
   /**
    * @param {string} panelName
    * @param {() => ({ destroy?: () => void } | null | undefined | void)} initFn
-   * @param {{ singletonKey?: CharacterSingletonKey }} [options]
    */
-  const runPanelInit = (panelName, initFn, { singletonKey } = {}) => {
-    if (singletonKey && _singletonCharacterPanelInits[singletonKey]) {
-      return getNoopDestroyApi();
-    }
-
+  const runPanelInit = (panelName, initFn) => {
     try {
       const panelApi = initFn();
       if (panelApi && typeof panelApi === "object" && typeof panelApi.destroy === "function") {
         addDestroy(() => panelApi.destroy());
       }
-      else if (singletonKey) _singletonCharacterPanelInits[singletonKey] = true;
       return panelApi || getNoopDestroyApi();
     } catch (err) {
       console.error(`${panelName} init failed:`, err);
@@ -172,13 +161,12 @@ export function initCharacterPageUI(deps) {
     if (!state.character.money) state.character.money = { pp: 0, gp: 0, ep: 0, sp: 0, cp: 0 };
     if (!state.character.personality) state.character.personality = {};
 
-    runPanelInit("Spells panel", () => initSpellsPanel(deps), { singletonKey: "spells" });
+    runPanelInit("Spells panel", () => initSpellsPanel(deps));
     runPanelInit("Attacks panel", () => initAttacksPanel(deps));
 
     runPanelInit(
       "Equipment panel",
-      () => initEquipmentPanel({ ...deps, bindNumber }),
-      { singletonKey: "equipment" }
+      () => initEquipmentPanel({ ...deps, bindNumber })
     );
 
     runPanelInit("Basics panel", () => initBasicsPanel({

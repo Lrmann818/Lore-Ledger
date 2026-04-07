@@ -10,9 +10,10 @@ This note records the current local browser smoke layer for Lore Ledger as it ex
 
 ## Current suite
 
-- The current Chromium suite has 9 smoke tests across:
+- The current Chromium suite has 10 smoke tests across:
   - `tests/smoke/app.smoke.js`
   - `tests/smoke/backup.smoke.js`
+  - `tests/smoke/characterPanelLifecycle.smoke.js`
   - `tests/smoke/npcPortrait.smoke.js`
   - `tests/smoke/partyLocationPanels.smoke.js`
   - `tests/smoke/trackerPanelLifecycle.smoke.js`
@@ -27,7 +28,8 @@ The suite currently covers:
 2. One structured reload-persistence path through campaign title editing.
 3. Backup export/import in a fresh browser context plus invalid import failure handling.
 4. Tracker page re-init safety so repeated `initTrackerPage(...)` calls do not leave duplicate panel bindings behind.
-5. Targeted tracker card-panel behavior for NPC, Party, and Location panels:
+5. Character page re-init safety so repeated `initCharacterPageUI(...)` calls keep representative panel actions single-bound after teardown/re-init.
+6. Targeted tracker card-panel behavior for NPC, Party, and Location panels:
    - portrait toggle and portrait save flows
    - search and location filter behavior
    - section creation and section moves
@@ -38,7 +40,7 @@ The suite currently covers:
 
 Still intentionally left to manual coverage for now:
 
-- deeper Character-page rendering and persistence behavior
+- broader Character-page rendering and persistence behavior beyond the current repeated-init smoke coverage
 - `Reset Everything` and full restore runs with images/drawings/text-backed assets
 - map drawing, touch gestures, and mobile interaction behavior
 - service worker, update-banner, and offline cache behavior
