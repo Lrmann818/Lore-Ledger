@@ -1,6 +1,6 @@
 # Testing Guide
 
-This is the authoritative manual testing guide for Campaign Tracker / Lore Ledger. It consolidates the current guidance from `docs/SMOKE_TEST.md`, `SMOKE_TEST.md`, and `docs/CSP_AUDIT.md` into one release-quality checklist, while also pointing to the current automated Vitest coverage for migration, persistence, backup/import, and save-lifecycle behavior.
+This is the primary current manual testing guide for Campaign Tracker / Lore Ledger. It pulls together the current release/regression guidance from `docs/SMOKE_TEST.md`, `SMOKE_TEST.md`, and `docs/CSP_AUDIT.md`, while still treating those shorter docs as supplemental checklists and pointing to the current automated coverage for migration, persistence, backup/import, and save-lifecycle behavior.
 
 ## 1. Testing philosophy
 
@@ -64,7 +64,7 @@ Current automated scope is intentionally targeted:
 - `tests/storage.blobReplacement.test.js` covers the hardened blob replacement contract: write new, apply new reference, flush structured save, then delete old, with rollback on failure.
 - `tests/assetReplacementFlows.test.js` covers portrait/map replacement failure paths so old asset references remain intact when the replacement save cannot be committed.
 - `tests/storage.saveManager.test.js` covers the local save lifecycle: dirty-delay timing, debounce behavior, `flush()` results, failure banner behavior, retry after failure, repeated dirty cycles, and `init()` reset behavior.
-- `tests/storage.backup.test.js` covers backup export shape, referenced blob/text collection, import validation failures, staged blob/text writes before state swap, text rollback on pre-swap and post-swap failures, cleanup of staged assets after pre-swap failures, and blob-ID remap fallback when an import collides with an existing blob id.
+- `tests/storage.backup.test.js` covers backup export shape, referenced blob/text collection, import validation failures, staged blob/text writes before state swap, rollback attempts for touched text IDs on covered failure paths, cleanup of staged assets after pre-swap failures, and blob-ID remap fallback when an import collides with an existing blob id.
 - `tests/smoke/app.smoke.js` covers top-level shell boot in Chromium, opening the Map workspace, and a campaign-title reload-persistence check against the dedicated production-mode Vite server.
 - `tests/smoke/backup.smoke.js` covers backup export to a real download, import of that backup into a fresh Chromium browser context, and visible failure handling for invalid JSON import input.
 - `tests/smoke/npcPortrait.smoke.js` covers NPC portrait crop/save behavior plus incremental tracker-card patch paths for portrait toggles, search, section moves, reorder, collapse, and focus restoration.
@@ -81,7 +81,7 @@ Critical paths currently protected by automation:
 - save-aware state-action helper behavior, including prototype-pollution/path hardening on helper paths
 - safe blob replacement ordering so replacement failures preserve the previously referenced portrait/map asset
 - save-manager failure handling that keeps unsaved-state warnings and recovery behavior honest
-- backup import/export invariants, including failure rollback and imported asset preservation
+- backup import/export invariants, including covered failure cleanup/rollback paths and imported asset preservation on those paths
 - one representative structured save/load round trip for the current persisted state shape
 - one real-browser boot path through a Vite production-mode server plus one simple reload-persistence check
 - one real file download/upload backup round trip in Chromium using the production base path

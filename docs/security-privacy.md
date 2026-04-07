@@ -86,13 +86,13 @@ Import:
 - Import accepts JSON backups and validates the basic format before applying it.
 - Current checks include a maximum backup size of 15 MB, a maximum of 200 imported images, and an image allowlist limited to PNG, JPEG, and WebP data URLs.
 - Imported state is migrated before restore so older backup formats can still load when supported.
-- Import stages blobs and texts before mutating live state, which is safer than mutating state first.
+- Import stages blobs and texts before mutating live state, which is safer than mutating state first but is not a fully transactional restore.
 
 Current limitations:
 
-- Import is not fully transactional. Failed imports now clean up newly written blobs and restore the previous values for text IDs they touched, but unrelated old records or post-success cleanup failures can still leave extra IndexedDB records behind.
+- Import is not fully transactional. Failed imports clean up newly written blobs and attempt to restore the previous values for text IDs they touched, but unrelated old records, text-restore failures, or post-success cleanup failures can still leave extra IndexedDB records behind.
 - Import does not clear existing blob/text stores before restore, so old unreferenced records can remain until a reset or cleanup flow removes them.
-- If a backup contains no images, the app currently keeps existing portraits/images instead of forcing them to null.
+- If a backup contains no images, the import keeps already-present blob records and only preserves portraits/images that the restored state still references; it does not synthesize missing image data.
 
 Practical guidance:
 

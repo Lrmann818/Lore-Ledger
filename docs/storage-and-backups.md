@@ -273,12 +273,12 @@ Import safety behavior:
 - live state is not mutated until blob/text staging succeeds
 - corrupt or unsupported image payloads fail the import before state restore
 - blob ID remapping is applied to every currently known blob-reference location
-- if import fails after text writes begin, touched text IDs are restored to their pre-import values before the error is surfaced
+- if import fails after text writes begin, the import attempts to restore touched text IDs to their pre-import values before surfacing the error
 
 Important current nuances:
 
 - import does not clear existing blob/text stores before restore
-- before the state swap, failures clean up newly written blobs and restore any touched text IDs to their pre-import values
+- before the state swap, failures clean up newly written blobs and attempt to restore any touched text IDs to their pre-import values
 - after a successful save, import tries to delete old blobs/texts that are no longer referenced, but cleanup failures only log warnings
 - import does not write `localStorage["localCampaignTracker_activeTab"]` directly; tab restore comes from hash, the separate active-tab key when present, or restored `state.ui.activeTab` on the next boot
 - if a backup contains no blobs, the import does not restore image data from the file; already-present blob records are only kept when the restored state still references them
@@ -332,7 +332,7 @@ Current expectations by failure type:
   - some images may be missing from the exported file
 - import failure:
   - live state is protected until late in the process
-  - newly written blobs are cleaned up on failure paths, and touched text IDs are restored to their previous values before the error is shown
+  - newly written blobs are cleaned up on failure paths, and the import attempts to restore touched text IDs to their previous values before the error is shown
   - post-success cleanup failures can still leave orphaned old blob/text records behind
 - early theme boot failure:
   - `boot.js` falls back to default CSS theme silently

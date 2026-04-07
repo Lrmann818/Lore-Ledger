@@ -284,7 +284,7 @@ The app is local-first and stores data in the browser:
 - Portraits, map background images, and persisted map drawings are stored as IndexedDB blobs
 - Spell notes are stored separately in IndexedDB text storage
 - `loadAll()` migrates older saved shapes and legacy image data URLs into the current schema/storage model during startup
-- Backup export bundles sanitized state, stored images, and stored text into a JSON file; backup import validates, migrates, stages storage writes, restores touched text IDs on failure, and then reloads the app after a successful save
+- Backup export bundles sanitized state, stored images, and stored text into a JSON file; backup import validates, migrates, stages blob/text writes before the state swap, attempts to restore touched text IDs if a later step fails, and then reloads the app after a successful save
 - Vitest coverage now protects `migrateState(...)`, startup load/save behavior, backup import/export logic, and the local save lifecycle, which improves confidence in saved-state integrity without replacing manual browser-level verification
 
 Intentionally non-persistent runtime state:
@@ -311,23 +311,30 @@ See [`docs/PWA_NOTES.md`](docs/PWA_NOTES.md) for offline test steps and cache re
 
 ## 13. Documentation index
 
-Existing documentation:
+Core maintainer docs:
 
 - [`docs/architecture.md`](docs/architecture.md) - module boundaries, startup order, dependency direction, and page wiring
+- [`docs/storage-and-backups.md`](docs/storage-and-backups.md) - current localStorage/IndexedDB responsibilities, save lifecycle, backup/import flow, and reset behavior
 - [`docs/state-schema.md`](docs/state-schema.md) - persisted state shape, schema history, migration rules, and restore compatibility notes
 - [`docs/testing-guide.md`](docs/testing-guide.md) - current automated test commands plus the manual release/regression checklist
-- [`docs/PWA_NOTES.md`](docs/PWA_NOTES.md) - offline cache behavior, update prompts, and reset steps
-- [`docs/CSP_AUDIT.md`](docs/CSP_AUDIT.md) - DEV-mode CSP verification checklist
-- [`docs/SMOKE_TEST.md`](docs/SMOKE_TEST.md) - persistence-focused pre-ship smoke test
-- [`SMOKE_TEST.md`](SMOKE_TEST.md) - quick Vite and offline validation checklist
+- [`docs/release-process.md`](docs/release-process.md) - tagging, verification, packaging, deploy, and release checklist
+- [`docs/security-privacy.md`](docs/security-privacy.md) - local-data, CSP, import/export, and privacy expectations
+- [`docs/troubleshooting.md`](docs/troubleshooting.md) - common recovery steps for save, import, offline, and build issues
+- [`docs/browser-smoke-plan.md`](docs/browser-smoke-plan.md) - current Playwright smoke scope and the manual gaps it does not replace
+- [`docs/PWA_NOTES.md`](docs/PWA_NOTES.md) - offline cache behavior, update prompts, and cache reset steps
+
+Supplemental checklists and support docs:
+
+- [`docs/CSP_AUDIT.md`](docs/CSP_AUDIT.md) - dev-mode CSP verification checklist
+- [`docs/SMOKE_TEST.md`](docs/SMOKE_TEST.md) - persistence-focused manual smoke checklist
+- [`SMOKE_TEST.md`](SMOKE_TEST.md) - short Vite/offline validation checklist
 - [`AI_RULES.md`](AI_RULES.md) - repository editing rules for AI-assisted changes
 - [`.github/workflows/pages.yml`](.github/workflows/pages.yml) - production Pages build/deploy workflow
 
-Planned documentation placeholders:
+Branch planning/history notes kept in `docs/`:
 
-- [`docs/storage.md`](docs/storage.md) - TODO: persistent data model, storage keys, IndexedDB stores, and backup format
-- [`docs/release-process.md`](docs/release-process.md) - current tagging, verification, packaging, deploy, and release checklist
-- [`docs/maintainer-guide.md`](docs/maintainer-guide.md) - TODO: common change paths, module entrypoints, and troubleshooting notes
+- [`docs/lore-ledger-final-remaining-closure-plan.md`](docs/lore-ledger-final-remaining-closure-plan.md) - branch closure plan and review-prep notes
+- [`docs/lore-ledger-closure-branch-commit-tracker.md`](docs/lore-ledger-closure-branch-commit-tracker.md) - branch work tracker and commit checklist
 
 ## 14. Current status / known limitations
 
