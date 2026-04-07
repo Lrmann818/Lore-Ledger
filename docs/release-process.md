@@ -106,7 +106,7 @@ Use preview or a deployed production build for PWA and offline checks. `npm run 
 
 ## 6. Required smoke/testing steps
 
-The repository now defines targeted automated checks in [`package.json`](../package.json). The Pages workflow currently runs `npm run test:run` plus the production build before deploy. A focused 10-test Playwright browser smoke suite also exists locally in `tests/smoke/*.smoke.js`; keeping that suite out of CI is the current release-process decision for this version, and CI browser integration remains roadmap work rather than unresolved release debt. Release validation still requires the manual checklist in addition to those automated checks.
+The repository now defines targeted automated checks in [`package.json`](../package.json). The Pages workflow currently runs `npm run test:run` plus the production build before deploy. A focused 16-test Playwright browser smoke suite also exists locally in `tests/smoke/*.smoke.js`; keeping that suite out of CI is the current release-process decision for this version, and CI browser integration remains roadmap work rather than unresolved release debt. Release validation still requires the manual checklist in addition to those automated checks.
 
 Primary sources:
 
@@ -126,7 +126,7 @@ If Chromium is not installed for Playwright on that machine yet, run `npx playwr
 
 That means covering at least:
 
-- local Chromium browser smoke for app shell boot, one reload-persistence path, backup export/import in a fresh browser context, invalid import feedback, tracker-page re-init safety, character-page re-init safety, and targeted NPC/Party/Location panel regressions around portrait toggles, search/filter, section moves, reorder, collapse, and focus restoration
+- local Chromium browser smoke for app shell boot, one reload-persistence path, backup export/import in a fresh browser context, invalid import feedback, tracker-page re-init safety, character-page re-init safety, targeted NPC/Party/Location panel regressions around portrait toggles, search/filter, section moves, reorder, collapse, and focus restoration, plus shared dropdown/popover regressions around enhanced selects and card-menu clickability
 - persistence durability across refresh
 - Tracker, Character, and Map baseline flows
 - backup export, `Reset Everything`, and backup import

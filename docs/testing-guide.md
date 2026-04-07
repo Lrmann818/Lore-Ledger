@@ -44,7 +44,7 @@ Canonical local verification commands:
 - `npm run preview`
   Expected: serves the production build for browser-only validation that CI does not cover.
 - `npm run test:smoke`
-  Expected: starts a controlled Vite server in production mode on the repo's GitHub Pages base path and runs the current 10-test local Chromium smoke suite covering app boot, map-shell rendering, reload persistence, backup export/import in a fresh browser context, invalid import feedback, tracker-page re-init safety, character-page re-init safety, and targeted tracker card-panel behavior.
+  Expected: starts a controlled Vite server in production mode on the repo's GitHub Pages base path and runs the current 16-test local Chromium smoke suite covering app boot, map-shell rendering, reload persistence, backup export/import in a fresh browser context, invalid import feedback, tracker-page re-init safety, character-page re-init safety, targeted tracker card-panel behavior, and recent dropdown/popover regression coverage.
 
 Focused dev commands:
 
@@ -71,6 +71,7 @@ Current automated scope is intentionally targeted:
 - `tests/smoke/partyLocationPanels.smoke.js` covers the same controller-scoped tracker-card behaviors for Party and Location panels, including location type filtering.
 - `tests/smoke/trackerPanelLifecycle.smoke.js` covers repeated `initTrackerPage(...)` calls and checks that tracker panel listeners stay single-bound after re-init.
 - `tests/smoke/characterPanelLifecycle.smoke.js` covers repeated `initCharacterPageUI(...)` calls and checks that representative Character page panel actions stay single-bound after teardown/re-init.
+- `tests/smoke/dropdownRegression.smoke.js` covers shared dropdown/popover behavior, including enhanced select opening, tracker card menu clickability in the body-ported menu path, and dropdown wiring after rerender.
 
 Critical paths currently protected by automation:
 
@@ -88,6 +89,7 @@ Critical paths currently protected by automation:
 - tracker panel lifecycle cleanup that makes repeated tracker-page init safer
 - character page lifecycle cleanup that makes repeated character-page init safer for the current destroyable panel/controller surface
 - tracker incremental DOM patch paths for portrait toggles, reorder, collapse, section moves, search/filter-visible lists, and focus restoration in the tracker card panels
+- shared dropdown/popover interaction paths for enhanced selects and tracker card menus after rerender
 
 Manual release checks that remain by decision:
 

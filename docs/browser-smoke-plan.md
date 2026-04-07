@@ -10,10 +10,11 @@ This note records the current local browser smoke layer for Lore Ledger as it ex
 
 ## Current suite
 
-- The current Chromium suite has 10 smoke tests across:
+- The current Chromium suite has 16 smoke tests across:
   - `tests/smoke/app.smoke.js`
   - `tests/smoke/backup.smoke.js`
   - `tests/smoke/characterPanelLifecycle.smoke.js`
+  - `tests/smoke/dropdownRegression.smoke.js`
   - `tests/smoke/npcPortrait.smoke.js`
   - `tests/smoke/partyLocationPanels.smoke.js`
   - `tests/smoke/trackerPanelLifecycle.smoke.js`
@@ -35,6 +36,7 @@ The suite currently covers:
    - section creation and section moves
    - card reorder and collapse incremental patch paths
    - focus restoration after incremental DOM updates
+7. Shared dropdown and popover regressions around enhanced selects, body-ported card menus, keyboard-open behavior, and post-rerender clickability.
 
 ## Manual-only coverage by decision
 
