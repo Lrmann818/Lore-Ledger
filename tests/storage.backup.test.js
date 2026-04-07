@@ -9,13 +9,14 @@ vi.mock("../js/storage/texts-idb.js", async () => {
   const actual = await vi.importActual("../js/storage/texts-idb.js");
   return {
     ...actual,
-    deleteText: vi.fn(async () => {})
+    deleteText: vi.fn(async () => {}),
+    getTextRecord: vi.fn(async () => null)
   };
 });
 
 import { CURRENT_SCHEMA_VERSION, migrateState, sanitizeForSave } from "../js/state.js";
 import { exportBackup, collectReferencedBlobIds, collectReferencedTextIds, importBackup } from "../js/storage/backup.js";
-import { deleteText, textKey_spellNotes } from "../js/storage/texts-idb.js";
+import { deleteText, getTextRecord, textKey_spellNotes } from "../js/storage/texts-idb.js";
 import { uiAlert } from "../js/ui/dialogs.js";
 
 function makeState() {
@@ -64,9 +65,39 @@ class TestInputElement {
   }
 }
 
+function installTextStore(initialTexts = {}) {
+  const textStore = new Map(Object.entries(initialTexts));
+
+  vi.mocked(getTextRecord).mockImplementation(async (id) => {
+    if (!id || !textStore.has(id)) return null;
+    return {
+      id,
+      text: textStore.get(id) ?? "",
+      updatedAt: 0
+    };
+  });
+
+  vi.mocked(deleteText).mockImplementation(async (id) => {
+    if (id) textStore.delete(id);
+  });
+
+  return {
+    textStore,
+    putText: vi.fn(async (text, id) => {
+      textStore.set(id, String(text ?? ""));
+      return id;
+    })
+  };
+}
+
 afterEach(() => {
   vi.useRealTimers();
   vi.unstubAllGlobals();
+});
+
+beforeEach(() => {
+  vi.mocked(deleteText).mockImplementation(async () => {});
+  vi.mocked(getTextRecord).mockImplementation(async () => null);
 });
 
 describe("collectReferencedBlobIds", () => {
@@ -379,6 +410,10 @@ describe("importBackup", () => {
       order.push("afterImport");
       expect(input.value).toBe("");
     });
+    const importedNotesKey = textKey_spellNotes("new-spell");
+    const { textStore, putText } = installTextStore({
+      [textKey_spellNotes("old-spell")]: "Old spell notes"
+    });
 
     await importBackup(
       { target: input },
@@ -391,10 +426,10 @@ describe("importBackup", () => {
           expect(state.tracker.campaignTitle).toBe("Old Campaign");
           return "new-npc-blob";
         }),
-        putText: vi.fn(async () => {
+        putText: vi.fn(async (text, id) => {
           order.push("putText");
           expect(state.tracker.campaignTitle).toBe("Old Campaign");
-          return textKey_spellNotes("new-spell");
+          return putText(text, id);
         }),
         saveAll: vi.fn(async () => {
           order.push("saveAll");
@@ -409,6 +444,8 @@ describe("importBackup", () => {
     expect(state.tracker.campaignTitle).toBe("Imported Campaign");
     expect(deleteBlob).toHaveBeenCalledWith("old-npc-blob");
     expect(deleteText).toHaveBeenCalledWith(textKey_spellNotes("old-spell"));
+    expect(textStore.get(importedNotesKey)).toBe("Imported spell notes");
+    expect(textStore.has(textKey_spellNotes("old-spell"))).toBe(false);
     expect(order).toEqual([
       "putBlob",
       "putText",
@@ -416,6 +453,64 @@ describe("importBackup", () => {
       "deleteBlob:old-npc-blob",
       "afterImport"
     ]);
+  });
+
+  it("commits colliding text ids on a successful import", async () => {
+    const sharedNotesKey = textKey_spellNotes("shared-spell");
+    const state = makeState();
+    state.character.spells.levels = [
+      {
+        id: "level-old",
+        label: "Cantrips",
+        hasSlots: false,
+        used: null,
+        total: null,
+        collapsed: false,
+        spells: [{ id: "shared-spell", name: "Light", notesCollapsed: true, known: true, prepared: false, expended: false }]
+      }
+    ];
+
+    const importedState = makeState();
+    importedState.tracker.campaignTitle = "Imported Campaign";
+    importedState.character.spells.levels = [
+      {
+        id: "level-new",
+        label: "Cantrips",
+        hasSlots: false,
+        used: null,
+        total: null,
+        collapsed: false,
+        spells: [{ id: "shared-spell", name: "Mage Hand", notesCollapsed: true, known: true, prepared: false, expended: false }]
+      }
+    ];
+
+    const { textStore, putText } = installTextStore({
+      [sharedNotesKey]: "Previous shared notes"
+    });
+    const input = makeInput({
+      version: 2,
+      state: sanitizeForSave(importedState),
+      blobs: {},
+      texts: {
+        [sharedNotesKey]: "Imported shared notes"
+      }
+    });
+
+    await importBackup(
+      { target: input },
+      makeImportDeps({
+        state,
+        migrateState: vi.fn(() => importedState),
+        putText
+      })
+    );
+
+    expect(state.tracker.campaignTitle).toBe("Imported Campaign");
+    expect(textStore.get(sharedNotesKey)).toBe("Imported shared notes");
+    expect(uiAlert).toHaveBeenCalledWith(
+      "This backup did not include images. Existing portraits were kept.",
+      { title: "Import complete" }
+    );
   });
 
   it("rolls state back and deletes newly written blobs when save fails after the swap", async () => {
@@ -505,6 +600,110 @@ describe("importBackup", () => {
     expect(deleteBlob).toHaveBeenNthCalledWith(2, "blob-b");
     expect(state.tracker.campaignTitle).toBe("Existing Campaign");
     expect(uiAlert).toHaveBeenCalledWith("Import failed: could not store text data.", { title: "Import failed" });
+  });
+
+  it("restores previous text data when a later text write fails before the swap", async () => {
+    const state = makeState();
+    state.tracker.campaignTitle = "Existing Campaign";
+
+    const importedState = makeState();
+    importedState.tracker.campaignTitle = "Incoming Campaign";
+
+    const sharedNotesKey = textKey_spellNotes("shared-spell");
+    const newNotesKey = textKey_spellNotes("new-spell");
+    const { textStore, putText } = installTextStore({
+      [sharedNotesKey]: "Original shared notes"
+    });
+
+    const input = makeInput({
+      version: 2,
+      state: sanitizeForSave(importedState),
+      blobs: {},
+      texts: {
+        [sharedNotesKey]: "Incoming shared notes",
+        [newNotesKey]: "Incoming new notes"
+      }
+    });
+
+    await importBackup(
+      { target: input },
+      makeImportDeps({
+        state,
+        migrateState: vi.fn(() => importedState),
+        putText: vi.fn(async (text, id) => {
+          if (id === newNotesKey) throw new Error("second text write failed");
+          return putText(text, id);
+        })
+      })
+    );
+
+    expect(state.tracker.campaignTitle).toBe("Existing Campaign");
+    expect(textStore.get(sharedNotesKey)).toBe("Original shared notes");
+    expect(textStore.has(newNotesKey)).toBe(false);
+    expect(uiAlert).toHaveBeenCalledWith("Import failed: could not store text data.", { title: "Import failed" });
+  });
+
+  it("restores previous text data when save fails after text writes begin", async () => {
+    const state = makeState();
+    state.tracker.campaignTitle = "Old Campaign";
+    state.character.spells.levels = [
+      {
+        id: "level-old",
+        label: "Cantrips",
+        hasSlots: false,
+        used: null,
+        total: null,
+        collapsed: false,
+        spells: [{ id: "shared-spell", name: "Light", notesCollapsed: true, known: true, prepared: false, expended: false }]
+      }
+    ];
+
+    const importedState = makeState();
+    importedState.tracker.campaignTitle = "Imported Campaign";
+    importedState.character.spells.levels = [
+      {
+        id: "level-new",
+        label: "Cantrips",
+        hasSlots: false,
+        used: null,
+        total: null,
+        collapsed: false,
+        spells: [{ id: "shared-spell", name: "Mage Hand", notesCollapsed: true, known: true, prepared: false, expended: false }]
+      }
+    ];
+
+    const sharedNotesKey = textKey_spellNotes("shared-spell");
+    const newNotesKey = textKey_spellNotes("new-spell");
+    const { textStore, putText } = installTextStore({
+      [sharedNotesKey]: "Previous shared notes"
+    });
+    const input = makeInput({
+      version: 2,
+      state: sanitizeForSave(importedState),
+      blobs: {},
+      texts: {
+        [sharedNotesKey]: "Imported shared notes",
+        [newNotesKey]: "Imported new notes"
+      }
+    });
+
+    await importBackup(
+      { target: input },
+      makeImportDeps({
+        state,
+        migrateState: vi.fn(() => importedState),
+        putText,
+        saveAll: vi.fn(async () => false)
+      })
+    );
+
+    expect(state.tracker.campaignTitle).toBe("Old Campaign");
+    expect(textStore.get(sharedNotesKey)).toBe("Previous shared notes");
+    expect(textStore.has(newNotesKey)).toBe(false);
+    expect(uiAlert).toHaveBeenCalledWith(
+      "Import failed: could not save. Your previous data has been restored.",
+      { title: "Import failed" }
+    );
   });
 
   it("remaps blob ids when preserving the original id fails", async () => {

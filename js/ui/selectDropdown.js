@@ -101,7 +101,11 @@ export function enhanceSelectDropdown(args) {
 
   let api = null;
   let popoverApi = null;
+  let destroyed = false;
   const isCardHosted = () => !!btn.closest?.(".trackerCard");
+  const closeMenu = () => {
+    try { popoverApi?.close?.(); } catch { /* noop */ }
+  };
 
   const moveMenuToBody = () => {
     if (!isCardHosted()) return;
@@ -180,7 +184,10 @@ export function enhanceSelectDropdown(args) {
   syncButton();
 
   // Keep the custom UI synced if something changes the select value.
-  select.addEventListener("change", () => syncButton(), { signal: listenerSignal });
+  select.addEventListener("change", () => {
+    if (!menu.hidden) closeMenu();
+    syncButton();
+  }, { signal: listenerSignal });
 
   // Allow callers to sync/rebuild without triggering the real "change" handler.
   select.addEventListener("selectDropdown:sync", () => syncButton(), { signal: listenerSignal });
@@ -233,6 +240,14 @@ export function enhanceSelectDropdown(args) {
     if (menu.hidden) cleanupRaised();
   });
   mo.observe(menu, { attributes: true, attributeFilter: ["hidden"] });
+
+  const disconnectObserver = new MutationObserver(() => {
+    if (destroyed) return;
+    if (select.isConnected && wrap.isConnected) return;
+    destroy();
+  });
+  const disconnectRoot = document.body || document.documentElement;
+  disconnectObserver.observe(disconnectRoot, { childList: true, subtree: true });
 
   // Keyboard: behave more like a native <select>
   // - Enter/Space/ArrowDown opens and focuses the first option
@@ -316,8 +331,11 @@ export function enhanceSelectDropdown(args) {
   }, { signal: listenerSignal });
 
   const destroy = () => {
+    if (destroyed) return;
+    destroyed = true;
     try { popoverApi?.destroy?.(); } catch { /* noop */ }
     mo.disconnect();
+    disconnectObserver.disconnect();
     listenerController.abort();
     cleanupRaised();
     restoreMenuParent();

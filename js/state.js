@@ -1,6 +1,8 @@
 // @ts-check
 // js/state.js — app-wide state + schema migration
 
+import { DEV_MODE } from "./utils/dev.js";
+
 export const STORAGE_KEY = "localCampaignTracker_v1";
 export const ACTIVE_TAB_KEY = "localCampaignTracker_activeTab";
 
@@ -545,11 +547,14 @@ export function normalizeState(data) {
 /**
  * Remove ephemeral UI from persistence/export payloads.
  * @param {StateLike | null | undefined} source
- * @param {{ currentSchemaVersion?: number }} [opts]
+ * @param {{ currentSchemaVersion?: number, devAssertLegacyAliases?: boolean }} [opts]
  * @returns {SanitizedState}
  */
 export function sanitizeForSave(source, opts = {}) {
-  const { currentSchemaVersion = CURRENT_SCHEMA_VERSION } = opts;
+  const {
+    currentSchemaVersion = CURRENT_SCHEMA_VERSION,
+    devAssertLegacyAliases = DEV_MODE
+  } = opts;
   const input = /** @type {Partial<StateLike>} */ ((source && typeof source === "object") ? source : {});
   const shallowCopySaveBucket = (value) => (
     value &&
@@ -562,11 +567,17 @@ export function sanitizeForSave(source, opts = {}) {
   const serializableTracker = shallowCopySaveBucket(input.tracker);
 
   const serializableCharacter = shallowCopySaveBucket(input.character);
-  if (serializableCharacter && typeof serializableCharacter === "object" && !Array.isArray(serializableCharacter)) {
-    if ((!("hitDieAmt" in serializableCharacter) || serializableCharacter.hitDieAmt == null) && ("hitDieAmount" in serializableCharacter)) {
-      serializableCharacter.hitDieAmt = serializableCharacter.hitDieAmount ?? null;
-    }
-    delete serializableCharacter.hitDieAmount;
+  if (
+    devAssertLegacyAliases &&
+    serializableCharacter &&
+    typeof serializableCharacter === "object" &&
+    !Array.isArray(serializableCharacter) &&
+    ("hitDieAmount" in serializableCharacter)
+  ) {
+    console.warn(
+      "[state] Unexpected character.hitDieAmount found during save/export. " +
+      "migrateState() is the canonical normalization point; runtime writes should use hitDieAmt."
+    );
   }
 
   const serializableMap = { ...(input.map || {}) };

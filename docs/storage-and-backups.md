@@ -259,7 +259,7 @@ Current flow:
 8. Stage blobs first:
    - try to preserve each original blob ID via `putBlob(blob, oldId)`
    - if that fails, store the blob under a new ID and record an old-to-new remap
-9. Stage texts next with `putText(text, id)`.
+9. Snapshot every text ID the import is about to touch, then stage texts with `putText(text, id)`.
 10. Rewrite any remapped blob IDs inside migrated state.
 11. Clone the migrated result and replace the live long-lived `state` object's top-level buckets.
 12. Call `ensureMapManager()`.
@@ -273,11 +273,12 @@ Import safety behavior:
 - live state is not mutated until blob/text staging succeeds
 - corrupt or unsupported image payloads fail the import before state restore
 - blob ID remapping is applied to every currently known blob-reference location
+- if import fails after text writes begin, the import attempts to restore touched text IDs to their pre-import values before surfacing the error
 
 Important current nuances:
 
 - import does not clear existing blob/text stores before restore
-- before the state swap, failures clean up newly written blobs but do not roll back any texts that were already written
+- before the state swap, failures clean up newly written blobs and attempt to restore any touched text IDs to their pre-import values
 - after a successful save, import tries to delete old blobs/texts that are no longer referenced, but cleanup failures only log warnings
 - import does not write `localStorage["localCampaignTracker_activeTab"]` directly; tab restore comes from hash, the separate active-tab key when present, or restored `state.ui.activeTab` on the next boot
 - if a backup contains no blobs, the import does not restore image data from the file; already-present blob records are only kept when the restored state still references them
@@ -331,7 +332,8 @@ Current expectations by failure type:
   - some images may be missing from the exported file
 - import failure:
   - live state is protected until late in the process
-  - newly written blobs are cleaned up on pre-swap failure paths, but partially written texts or post-success cleanup failures can still leave orphaned records
+  - newly written blobs are cleaned up on failure paths, and the import attempts to restore touched text IDs to their previous values before the error is shown
+  - post-success cleanup failures can still leave orphaned old blob/text records behind
 - early theme boot failure:
   - `boot.js` falls back to default CSS theme silently
 

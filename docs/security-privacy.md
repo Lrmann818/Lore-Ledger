@@ -86,13 +86,13 @@ Import:
 - Import accepts JSON backups and validates the basic format before applying it.
 - Current checks include a maximum backup size of 15 MB, a maximum of 200 imported images, and an image allowlist limited to PNG, JPEG, and WebP data URLs.
 - Imported state is migrated before restore so older backup formats can still load when supported.
-- Import stages blobs and texts before mutating live state, which is safer than mutating state first.
+- Import stages blobs and texts before mutating live state, which is safer than mutating state first but is not a fully transactional restore.
 
 Current limitations:
 
-- Import is not fully transactional. If part of the restore fails after some blobs or texts were staged, those staged records may remain in IndexedDB.
+- Import is not fully transactional. Failed imports clean up newly written blobs and attempt to restore the previous values for text IDs they touched, but unrelated old records, text-restore failures, or post-success cleanup failures can still leave extra IndexedDB records behind.
 - Import does not clear existing blob/text stores before restore, so old unreferenced records can remain until a reset or cleanup flow removes them.
-- If a backup contains no images, the app currently keeps existing portraits/images instead of forcing them to null.
+- If a backup contains no images, the import keeps already-present blob records and only preserves portraits/images that the restored state still references; it does not synthesize missing image data.
 
 Practical guidance:
 
@@ -125,7 +125,7 @@ When changing persistence, backup, import, or rendering behavior:
 
 - Treat `sanitizeForSave(...)`, `migrateState(...)`, IndexedDB helpers, and backup import/export as one system. If you add a persisted field or a new blob/text reference, update all affected paths together.
 - Do not assume `SaveManager.flush()` makes IndexedDB writes durable. It only drives the main `localStorage` save path.
-- Prefer `write new -> update reference -> delete old` when replacing stored blobs. Some current image flows delete the old blob before the new one is safely committed, which can lose the previous asset if the new write fails.
+- Preserve the current commit-before-delete ordering for blob-backed replacements and deletions. Current portrait/map flows do not delete the previously referenced blob until the structured state change has been durably saved.
 - Keep user-controlled content in form values, `textContent`, and DOM-created nodes. Avoid rendering user or imported content with `innerHTML` or similar HTML-parsing APIs unless a sanitization strategy and security review are added first.
 - Be cautious about adding new network behavior or relaxing CSP directives. Document why the change is needed and what new trust assumptions it introduces.
 - Re-test the full local data lifecycle after storage changes: edit data, refresh, export backup, reset, import backup, and verify restore behavior.

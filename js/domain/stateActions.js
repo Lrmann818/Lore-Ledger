@@ -1,6 +1,6 @@
 // @ts-check
 // Centralized, lightweight state mutation helpers.
-import { withAllowedStateMutation } from "../utils/dev.js";
+import { DEV_MODE, withAllowedStateMutation } from "../utils/dev.js";
 
 /** @typedef {import("../state.js").State} State */
 /** @typedef {typeof import("../state.js").state["tracker"]["npcs"][number]} TrackerCard */
@@ -48,6 +48,9 @@ const BLOCKED_PATH_SEGMENTS = new Set([
   "__defineGetter__",
   "__defineSetter__",
 ]);
+
+const LEGACY_HIT_DIE_ALIAS_MESSAGE =
+  "[state] character.hitDieAmount is a legacy save alias. Use character.hitDieAmt instead; migrateState() is the canonical normalization point.";
 
 /**
  * @param {string | readonly unknown[] | null | undefined} path
@@ -101,6 +104,22 @@ function setPathValue(target, path, value) {
 
   cur[segments[segments.length - 1]] = value;
   return true;
+}
+
+/**
+ * @param {string | readonly unknown[] | null | undefined} path
+ * @param {"root" | "character"} [scope]
+ * @returns {void}
+ */
+function assertNoLegacyHitDieAliasPath(path, scope = "root") {
+  if (!DEV_MODE) return;
+  const segments = toPathSegments(path);
+  const writesLegacyAlias = scope === "character"
+    ? segments[0] === "hitDieAmount"
+    : segments[0] === "character" && segments[1] === "hitDieAmount";
+  if (writesLegacyAlias) {
+    throw new Error(LEGACY_HIT_DIE_ALIAS_MESSAGE);
+  }
 }
 
 /**
@@ -204,6 +223,7 @@ export function createStateActions({ state, SaveManager } = {}) {
    */
   function setPath(path, value, options = {}) {
     const updated = withAllowedStateMutation(() => {
+      assertNoLegacyHitDieAliasPath(path, "root");
       return setPathValue(state, path, value);
     });
     if (!updated) return false;
@@ -219,6 +239,7 @@ export function createStateActions({ state, SaveManager } = {}) {
    */
   function updateCharacterField(path, value, options = {}) {
     const updated = withAllowedStateMutation(() => {
+      assertNoLegacyHitDieAliasPath(path, "character");
       if (!state.character || typeof state.character !== "object") {
         state.character = /** @type {State["character"]} */ ({});
       }

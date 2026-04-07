@@ -5,20 +5,21 @@ This note records the current local browser smoke layer for Lore Ledger as it ex
 ## Current readiness
 
 - GitHub Pages CI gates on `npm ci`, `npm run test:run`, and `npm run build`.
-- Browser smoke coverage exists locally through Playwright, but CI still does not provision Chromium or run `npm run test:smoke`.
+- Browser smoke coverage exists locally through Playwright. Keeping it local-only is the current release-process decision for this version; CI browser provisioning is roadmap work, not unresolved release debt.
 - The smoke suite is intentionally focused. It is broad enough to catch key browser-only regressions in Tracker lifecycle and persistence flows, but it is not a replacement for the manual release checklist.
 
 ## Current suite
 
-- The current Chromium suite has 10 smoke tests across:
+- The current Chromium suite has 16 smoke tests across:
   - `tests/smoke/app.smoke.js`
   - `tests/smoke/backup.smoke.js`
   - `tests/smoke/characterPanelLifecycle.smoke.js`
+  - `tests/smoke/dropdownRegression.smoke.js`
   - `tests/smoke/npcPortrait.smoke.js`
   - `tests/smoke/partyLocationPanels.smoke.js`
   - `tests/smoke/trackerPanelLifecycle.smoke.js`
 - The suite runs through a dedicated Vite server in production mode on the production base path `/CampaignTracker/`.
-- `npm run test:smoke` is local-only today. Release validation still depends on the manual coverage described in [`docs/testing-guide.md`](./testing-guide.md).
+- `npm run test:smoke` is local-only by decision for this version. Release validation still depends on the manual coverage described in [`docs/testing-guide.md`](./testing-guide.md).
 
 ## Current smoke scope
 
@@ -35,22 +36,26 @@ The suite currently covers:
    - section creation and section moves
    - card reorder and collapse incremental patch paths
    - focus restoration after incremental DOM updates
+7. Shared dropdown and popover regressions around enhanced selects, body-ported card menus, keyboard-open behavior, and post-rerender clickability.
 
-## Deferred on purpose
+## Manual-only coverage by decision
 
-Still intentionally left to manual coverage for now:
+Future automation roadmap items, not release-quality debt:
 
 - broader Character-page rendering and persistence behavior beyond the current repeated-init smoke coverage
 - `Reset Everything` and full restore runs with images/drawings/text-backed assets
 - map drawing, touch gestures, and mobile interaction behavior
 - service worker, update-banner, and offline cache behavior
+
+Intentionally out of scope for this version's automated smoke layer:
+
 - broader cross-browser validation outside local Chromium
 
 ## Local run notes
 
 - Playwright browsers are not committed and still need a local install step such as `npx playwright install chromium`.
 - The suite uses a dedicated Vite server in production mode with the production base path `/CampaignTracker/`.
-- PWA/service-worker validation still needs separate manual preview or deployed-site checks; the smoke suite does not cover offline behavior.
+- PWA/service-worker validation requires separate manual preview or deployed-site checks; the smoke suite does not cover offline behavior, and broader automation there remains roadmap work rather than unresolved release debt.
 
 ## Repo touchpoints
 

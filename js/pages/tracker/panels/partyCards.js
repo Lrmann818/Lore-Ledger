@@ -5,6 +5,7 @@ import { enhanceSelectDropdown } from "../../../ui/selectDropdown.js";
 import { attachSearchHighlightOverlay } from "../../../ui/searchHighlightOverlay.js";
 import { renderSectionTabs, wireSectionCrud } from "./cards/shared/cardsShared.js";
 import { pickAndStorePortrait } from "./cards/shared/cardPortraitShared.js";
+import { deleteTrackerCardWithBlobCleanup } from "./cards/shared/cardDeletionShared.js";
 import { makeFieldSearchMatcher } from "./cards/shared/cardSearchShared.js";
 import { attachCardSearchHighlights } from "./cards/shared/cardSearchHighlightShared.js";
 import { createMoveButton, createCollapseButton } from "./cards/shared/cardHeaderControlsShared.js";
@@ -258,12 +259,20 @@ function createPartyCardsController(deps = {}) {
       if (!ok) return;
     }
 
-    if (member.imgBlobId && deleteBlob) {
-      try { await deleteBlob(member.imgBlobId); }
-      catch (err) { console.warn("Failed to delete party image blob:", err); }
+    try {
+      const deleted = await deleteTrackerCardWithBlobCleanup({
+        type: "party",
+        itemId: id,
+        getItemById: getPartyMemberById,
+        mutateTracker,
+        SaveManager,
+        deleteBlob,
+      });
+      if (!deleted) return;
+    } catch (err) {
+      console.error("Delete Party Member failed:", err);
+      return;
     }
-
-    if (!removeTrackerCard("party", id)) return;
     renderPartyTabs();
     renderPartyCards();
   }

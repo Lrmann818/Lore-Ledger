@@ -5,6 +5,7 @@ import { enhanceSelectDropdown } from "../../../ui/selectDropdown.js";
 import { attachSearchHighlightOverlay } from "../../../ui/searchHighlightOverlay.js";
 import { renderSectionTabs, wireSectionCrud } from "./cards/shared/cardsShared.js";
 import { pickAndStorePortrait } from "./cards/shared/cardPortraitShared.js";
+import { deleteTrackerCardWithBlobCleanup } from "./cards/shared/cardDeletionShared.js";
 import { makeFieldSearchMatcher } from "./cards/shared/cardSearchShared.js";
 import { attachCardSearchHighlights } from "./cards/shared/cardSearchHighlightShared.js";
 import { createMoveButton, createCollapseButton } from "./cards/shared/cardHeaderControlsShared.js";
@@ -254,12 +255,20 @@ function createNpcCardsController(deps = {}) {
       if (!ok) return;
     }
 
-    if (npc.imgBlobId && deleteBlob) {
-      try { await deleteBlob(npc.imgBlobId); }
-      catch (err) { console.warn("Failed to delete npc image blob:", err); }
+    try {
+      const deleted = await deleteTrackerCardWithBlobCleanup({
+        type: "npc",
+        itemId: id,
+        getItemById: getNpcById,
+        mutateTracker,
+        SaveManager,
+        deleteBlob,
+      });
+      if (!deleted) return;
+    } catch (err) {
+      console.error("Delete NPC failed:", err);
+      return;
     }
-
-    if (!removeTrackerCard("npc", id)) return;
     renderNpcTabs();
     renderNpcCards();
   }

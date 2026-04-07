@@ -1,10 +1,10 @@
 # Testing Guide
 
-This is the authoritative manual testing guide for Campaign Tracker / Lore Ledger. It consolidates the current guidance from `docs/SMOKE_TEST.md`, `SMOKE_TEST.md`, and `docs/CSP_AUDIT.md` into one release-quality checklist, while also pointing to the current automated Vitest coverage for migration, persistence, backup/import, and save-lifecycle behavior.
+This is the primary current manual testing guide for Campaign Tracker / Lore Ledger. It pulls together the current release/regression guidance from `docs/SMOKE_TEST.md`, `SMOKE_TEST.md`, and `docs/CSP_AUDIT.md`, while still treating those shorter docs as supplemental checklists and pointing to the current automated coverage for migration, persistence, backup/import, and save-lifecycle behavior.
 
 ## 1. Testing philosophy
 
-The project is currently validated primarily through manual testing. There is now targeted automated coverage for the main data-integrity paths, but most user-facing behavior still needs browser-level verification. Because the app is local-first and splits persistence across `localStorage`, IndexedDB blobs, IndexedDB texts, and PWA caches, the highest-risk regressions are:
+The project is currently validated primarily through manual testing. There is now targeted automated coverage for the main data-integrity paths, but most user-facing behavior continues to rely on browser-level verification. Because the app is local-first and splits persistence across `localStorage`, IndexedDB blobs, IndexedDB texts, and PWA caches, the highest-risk regressions are:
 
 - data loss after refresh
 - broken image or drawing persistence
@@ -33,7 +33,7 @@ Treat any data-loss, restore, offline-shell, or CSP regression as a merge/releas
 Vitest is the current unit test runner, and Playwright provides a focused local browser smoke layer. The automated story is split intentionally:
 
 - `npm run verify` is the canonical build-and-unit gate and matches what GitHub Pages CI runs today.
-- `npm run test:smoke` is a separate local Chromium smoke pass for browser-only regressions that CI still does not cover.
+- `npm run test:smoke` is a separate local Chromium smoke pass for browser-only regressions. Keeping it out of CI is the current release-process decision for this version; CI browser provisioning is roadmap work, not release-quality debt.
 
 Canonical local verification commands:
 
@@ -44,7 +44,7 @@ Canonical local verification commands:
 - `npm run preview`
   Expected: serves the production build for browser-only validation that CI does not cover.
 - `npm run test:smoke`
-  Expected: starts a controlled Vite server in production mode on the repo's GitHub Pages base path and runs the current 10-test local Chromium smoke suite covering app boot, map-shell rendering, reload persistence, backup export/import in a fresh browser context, invalid import feedback, tracker-page re-init safety, character-page re-init safety, and targeted tracker card-panel behavior.
+  Expected: starts a controlled Vite server in production mode on the repo's GitHub Pages base path and runs the current 16-test local Chromium smoke suite covering app boot, map-shell rendering, reload persistence, backup export/import in a fresh browser context, invalid import feedback, tracker-page re-init safety, character-page re-init safety, targeted tracker card-panel behavior, and recent dropdown/popover regression coverage.
 
 Focused dev commands:
 
@@ -60,43 +60,45 @@ Current automated scope is intentionally targeted:
 - `tests/state.migrate.test.js` covers supported legacy migration paths, current-schema normalization, malformed or partial payload repair, inventory backfill, active-inventory clamping, and idempotence.
 - `tests/state.sanitize.test.js` covers `sanitizeForSave(...)` top-level copy behavior so save/export sanitization does not mutate the live tracker/character buckets.
 - `tests/stateActions.test.js` covers `createStateActions(...)`, including queue-save semantics, tracker-card type aliases, and prototype-pollution/path-hardening guards.
-- `tests/storage.persistence.test.js` covers `saveAllLocal(...)` sanitized writes plus `loadAll(...)` behavior for missing storage, corrupt storage, stale-bucket replacement, legacy `imgDataUrl` migration, default-map repair, hit-die alias canonicalization, and a representative save/load round trip.
+- `tests/storage.persistence.test.js` covers `saveAllLocal(...)` sanitized writes plus `loadAll(...)` behavior for missing storage, corrupt storage, stale-bucket replacement, legacy `imgDataUrl` migration, default-map repair, hit-die alias save/load compatibility, and a representative save/load round trip.
 - `tests/storage.blobReplacement.test.js` covers the hardened blob replacement contract: write new, apply new reference, flush structured save, then delete old, with rollback on failure.
 - `tests/assetReplacementFlows.test.js` covers portrait/map replacement failure paths so old asset references remain intact when the replacement save cannot be committed.
 - `tests/storage.saveManager.test.js` covers the local save lifecycle: dirty-delay timing, debounce behavior, `flush()` results, failure banner behavior, retry after failure, repeated dirty cycles, and `init()` reset behavior.
-- `tests/storage.backup.test.js` covers backup export shape, referenced blob/text collection, import validation failures, staged blob/text writes before state swap, rollback when save fails, cleanup of staged assets after pre-swap failures, and blob-ID remap fallback when an import collides with an existing blob id.
+- `tests/storage.backup.test.js` covers backup export shape, referenced blob/text collection, import validation failures, staged blob/text writes before state swap, rollback attempts for touched text IDs on covered failure paths, cleanup of staged assets after pre-swap failures, and blob-ID remap fallback when an import collides with an existing blob id.
 - `tests/smoke/app.smoke.js` covers top-level shell boot in Chromium, opening the Map workspace, and a campaign-title reload-persistence check against the dedicated production-mode Vite server.
 - `tests/smoke/backup.smoke.js` covers backup export to a real download, import of that backup into a fresh Chromium browser context, and visible failure handling for invalid JSON import input.
 - `tests/smoke/npcPortrait.smoke.js` covers NPC portrait crop/save behavior plus incremental tracker-card patch paths for portrait toggles, search, section moves, reorder, collapse, and focus restoration.
 - `tests/smoke/partyLocationPanels.smoke.js` covers the same controller-scoped tracker-card behaviors for Party and Location panels, including location type filtering.
 - `tests/smoke/trackerPanelLifecycle.smoke.js` covers repeated `initTrackerPage(...)` calls and checks that tracker panel listeners stay single-bound after re-init.
 - `tests/smoke/characterPanelLifecycle.smoke.js` covers repeated `initCharacterPageUI(...)` calls and checks that representative Character page panel actions stay single-bound after teardown/re-init.
+- `tests/smoke/dropdownRegression.smoke.js` covers shared dropdown/popover behavior, including enhanced select opening, tracker card menu clickability in the body-ported menu path, and dropdown wiring after rerender.
 
 Critical paths currently protected by automation:
 
 - schema upgrades and load-time normalization for saved state
-- local save serialization that strips runtime-only fields and canonicalizes persisted hit-die naming
+- local save serialization that strips runtime-only fields while leaving hit-die alias normalization to migration
 - startup load behavior when stored data is missing, partial, malformed, or legacy-shaped
 - `sanitizeForSave(...)` behavior that must not mutate live top-level tracker/character buckets
 - save-aware state-action helper behavior, including prototype-pollution/path hardening on helper paths
 - safe blob replacement ordering so replacement failures preserve the previously referenced portrait/map asset
 - save-manager failure handling that keeps unsaved-state warnings and recovery behavior honest
-- backup import/export invariants, including failure rollback and imported asset preservation
+- backup import/export invariants, including covered failure cleanup/rollback paths and imported asset preservation on those paths
 - one representative structured save/load round trip for the current persisted state shape
 - one real-browser boot path through a Vite production-mode server plus one simple reload-persistence check
 - one real file download/upload backup round trip in Chromium using the production base path
 - tracker panel lifecycle cleanup that makes repeated tracker-page init safer
 - character page lifecycle cleanup that makes repeated character-page init safer for the current destroyable panel/controller surface
 - tracker incremental DOM patch paths for portrait toggles, reorder, collapse, section moves, search/filter-visible lists, and focus restoration in the tracker card panels
+- shared dropdown/popover interaction paths for enhanced selects and tracker card menus after rerender
 
-Important browser gaps still left for manual verification:
+Manual release checks that remain by decision:
 
-- broader Character-page rendering and persistence depth beyond the current repeated-init smoke check
-- `Reset Everything` plus full browser restore runs that include images, drawings, and text-backed assets
-- map drawing, gesture, and touch/mobile behavior beyond basic shell boot
-- PWA install, offline shell, update-banner, cache, and service-worker behavior
-- cross-browser UI differences outside local Chromium smoke
-- end-to-end CSP/startup verification in a real browser session
+- Broader Character-page rendering and persistence depth beyond the current repeated-init smoke check is a future automation roadmap item, not release-quality debt.
+- `Reset Everything` plus full browser restore runs that include images, drawings, and text-backed assets are a future automation roadmap item, not release-quality debt.
+- Map drawing, gesture, and touch/mobile behavior beyond basic shell boot is a future automation roadmap item, not release-quality debt.
+- PWA install, offline shell, update-banner, cache, and service-worker behavior are a future automation roadmap item, not release-quality debt.
+- Cross-browser UI differences outside local Chromium smoke are intentionally out of scope for automated coverage in this version and stay in the manual browser/device matrix.
+- End-to-end CSP/startup verification in a real browser session remains a required manual release check because it validates the deployed browser/runtime boundary rather than a missing automated test.
 
 Those gaps are why the manual sections below remain release-critical.
 
@@ -120,12 +122,12 @@ Intentional differences between local verification and CI:
 
 ### CheckJS / JSDoc validation status
 
-The repo also has an in-progress static-validation path for vanilla JS:
+The repo also has a repo-wide static-validation path for vanilla JS:
 
 - `tsconfig.checkjs.json` enables `allowJs` + `checkJs` for `app.js`, `boot.js`, `vite.config.js`, `js/**/*.js`, and `types/**/*.d.ts`.
 - The currently hardened `@ts-check` surface is narrower than that repo-wide include set and is concentrated in `app.js`, `js/state.js`, all current `js/domain/*` and `js/storage/*` modules, tracker/map orchestration modules, several shared UI primitives, and focused utility/feature modules.
-- The broad pass is useful as a diagnostic when touching typing work, dependency boundaries, or JSDoc contracts.
-- It is not yet a must-pass release gate. The full repo pass still reports known errors in older Character-panel and Tracker card/panel modules.
+- The broad pass is currently clean and is useful when touching typing work, dependency boundaries, or JSDoc contracts.
+- It is still a separate manual check rather than part of `npm run verify` or the current CI gate.
 - There is currently no dedicated `package.json` script for this. When maintainers want the broad diagnostic run, the current command is:
 
 ```bash
@@ -139,7 +141,7 @@ Run these before merging any user-visible change:
 1. Run `npm run verify`.
    Expected: the same automated gate CI uses passes locally.
 2. If the change touched an existing `@ts-check` module, JSDoc typedefs, `types/*.d.ts`, or module boundary contracts, run the CheckJS command from section 2 when practical.
-   Expected: no new typing regressions are introduced in the area you touched, even though the full repo pass is not yet globally clean.
+   Expected: the current broad pass stays clean when you run it, even though it remains an extra manual check rather than part of the canonical `npm run verify` gate.
 3. Open the app in `npm run dev` or another local served environment.
    Expected: the changed area loads cleanly and normal interaction does not produce unexpected console errors.
 4. Reload the relevant top-level route.
@@ -170,7 +172,7 @@ Before any release candidate or production deploy, run the full set below in a c
 Intentional difference from CI:
 
 - CI runs `npm ci`, then the same automated gate as `npm run verify`, and stops before any browser-level validation.
-- The current browser smoke suite is local-only for now; CI does not yet provision Chromium or run `npm run test:smoke`.
+- The current browser smoke suite is intentionally local-only in this version; CI does not provision Chromium or run `npm run test:smoke`, and changing that is roadmap work rather than unresolved release debt.
 - Local release validation must continue with the preview/manual sections because CI does not exercise real browser persistence, offline/PWA behavior, or cross-browser interaction flows.
 
 ## 5. Persistence regression checks

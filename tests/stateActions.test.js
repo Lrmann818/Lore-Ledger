@@ -5,6 +5,7 @@ const { withAllowedStateMutationSpy } = vi.hoisted(() => ({
 }));
 
 vi.mock("../js/utils/dev.js", () => ({
+  DEV_MODE: true,
   withAllowedStateMutation: withAllowedStateMutationSpy
 }));
 
@@ -122,6 +123,22 @@ describe("createStateActions", () => {
 
     expect(state.character).toEqual({ existing: true });
     expect(withAllowedStateMutationSpy).toHaveBeenCalledTimes(3);
+    expect(SaveManager.markDirty).not.toHaveBeenCalled();
+  });
+
+  it("throws in DEV when helper paths try to write the legacy hitDieAmount alias", () => {
+    const { actions, state, SaveManager } = makeSubject({
+      state: makeState({
+        character: {
+          hitDieAmt: 4
+        }
+      })
+    });
+
+    expect(() => actions.updateCharacterField("hitDieAmount", 7)).toThrow(/hitDieAmt/);
+    expect(() => actions.setPath("character.hitDieAmount", 7)).toThrow(/hitDieAmt/);
+    expect(state.character).toEqual({ hitDieAmt: 4 });
+    expect(withAllowedStateMutationSpy).toHaveBeenCalledTimes(2);
     expect(SaveManager.markDirty).not.toHaveBeenCalled();
   });
 

@@ -1,8 +1,10 @@
+// @ts-check
+
 // Number parsing helpers
 
 /**
  * Convert a value to a number, returning null for empty/invalid values.
- * @param {any} v
+ * @param {unknown} v
  * @returns {number|null}
  */
 export function numberOrNull(v) {

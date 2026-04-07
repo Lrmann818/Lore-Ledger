@@ -3,10 +3,58 @@
 import { enhanceSelectDropdown } from "../../ui/selectDropdown.js";
 import { safeAsync } from "../../ui/safeAsync.js";
 import { requireEl, getNoopDestroyApi } from "../../utils/domGuards.js";
+import { commitStateChangeWithDeferredBlobDeletion } from "../../storage/blobReplacement.js";
 import {
   loadMapBackgroundImage,
   loadMapDrawingLayer
 } from "./mapPersistence.js";
+
+/**
+ * @param {{
+ *   mapState?: { maps?: Array<{ id?: string, bgBlobId?: string | null, drawingBlobId?: string | null }>, activeMapId?: string | null },
+ *   mapId?: string,
+ *   SaveManager?: import("../../storage/saveManager.js").SaveManager,
+ *   deleteBlob?: typeof import("../../storage/blobs.js").deleteBlob,
+ *   newMapEntry?: (name?: string) => { id?: string } | null
+ * }} options
+ * @returns {Promise<boolean>}
+ */
+export async function deleteMapWithBlobCleanup({
+  mapState,
+  mapId,
+  SaveManager,
+  deleteBlob,
+  newMapEntry,
+} = {}) {
+  if (!mapState || !Array.isArray(mapState.maps)) {
+    throw new Error("deleteMapWithBlobCleanup: mapState.maps is required");
+  }
+
+  const mapToDelete = mapState.maps.find((mapEntry) => mapEntry?.id === mapId) || null;
+  if (!mapToDelete) return false;
+
+  const previousMaps = mapState.maps.slice();
+  const previousActiveMapId = mapState.activeMapId;
+
+  await commitStateChangeWithDeferredBlobDeletion({
+    SaveManager,
+    deleteBlob,
+    blobIdsToDelete: [mapToDelete.bgBlobId, mapToDelete.drawingBlobId],
+    applyStateChange: () => {
+      mapState.maps = previousMaps.filter((mapEntry) => mapEntry.id !== mapToDelete.id);
+      if (!mapState.maps.length) {
+        mapState.maps = [newMapEntry?.("World Map") || { id: previousActiveMapId || "map_1" }];
+      }
+      mapState.activeMapId = mapState.maps[0].id;
+    },
+    rollbackStateChange: () => {
+      mapState.maps = previousMaps;
+      mapState.activeMapId = previousActiveMapId;
+    }
+  });
+
+  return true;
+}
 
 export function initMapListUI({
   mapState,
@@ -164,19 +212,15 @@ export function initMapListUI({
       const ok = await uiConfirm(`Delete map "${mp.name || "Map"}"? This cannot be undone.`, { title: "Delete Map", okText: "Delete" });
       if (!ok) return;
 
-      if (mp.bgBlobId) {
-        try { await deleteBlob(mp.bgBlobId); }
-        catch (err) { console.warn("Failed to delete map image blob:", err); }
-      }
-      if (mp.drawingBlobId) {
-        try { await deleteBlob(mp.drawingBlobId); }
-        catch (err) { console.warn("Failed to delete map image blob:", err); }
-      }
+      await deleteMapWithBlobCleanup({
+        mapState,
+        mapId: mp.id,
+        SaveManager,
+        deleteBlob,
+        newMapEntry,
+      });
 
-      mapState.maps = mapState.maps.filter(m => m.id !== mp.id);
-      if (!mapState.maps.length) mapState.maps = [newMapEntry("World Map")];
-      mapState.activeMapId = mapState.maps[0].id;
-      SaveManager.markDirty(); refreshMapSelect();
+      refreshMapSelect();
       await loadActiveMapIntoCanvas();
     }, (err) => {
       console.error(err);

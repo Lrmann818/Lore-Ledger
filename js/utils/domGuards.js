@@ -1,5 +1,12 @@
+// @ts-check
+
 import { DEV_MODE } from "./dev.js";
 
+/**
+ * @typedef {{ key: string, selector: string }} MissingDomEntry
+ */
+
+/** @type {{ destroy: () => void }} */
 const NOOP_DESTROY_API = Object.freeze({
   destroy() { }
 });
@@ -50,6 +57,10 @@ export function getNoopDestroyApi() {
   return NOOP_DESTROY_API;
 }
 
+/**
+ * @param {unknown} spec
+ * @returns {MissingDomEntry[]}
+ */
 function normalizeSpec(spec) {
   if (!spec) return [];
 
@@ -72,6 +83,11 @@ function normalizeSpec(spec) {
   return [];
 }
 
+/**
+ * @param {string} context
+ * @param {ReadonlyArray<MissingDomEntry> | null | undefined} missingList
+ * @returns {string}
+ */
 export function buildMissingMessage(context, missingList) {
   const missing = Array.isArray(missingList) ? missingList : [];
   const base = context ? `${context} unavailable` : "Module unavailable";
@@ -88,6 +104,7 @@ export function requireMany(spec, opts = {}) {
   const entries = normalizeSpec(spec);
   const root = resolveRoot(opts.root);
   const els = {};
+  /** @type {MissingDomEntry[]} */
   const missing = [];
   const stickyMs = Number.isFinite(opts.stickyMs) ? Number(opts.stickyMs) : 5000;
   const devAssert = opts.devAssert !== undefined ? !!opts.devAssert : DEV_MODE;

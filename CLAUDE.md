@@ -19,16 +19,16 @@ Vanilla JavaScript PWA for tabletop RPG campaign management. No framework — pl
 - `js/ui/` — Shared UI: dialogs, popovers, masonry layout, theme, navigation, topbar widgets.
 - `js/utils/dev.js` — Dev-mode state mutation guard (Proxy-based). Only active on localhost.
 - `js/features/` — Cross-cutting features: autosize, image cropper, portrait flow.
-- `tests/` — Vitest tests. Currently only covers `migrateState`.
+- `tests/` — Vitest tests plus Playwright smoke coverage for migration, persistence, asset replacement, lifecycle, and focused browser regressions.
 - `styles.css` — Single CSS file, 5000+ lines, 16 named themes.
 - `index.html` — All static DOM structure lives here.
 
 ## Key Patterns
 
-- **Dependency injection everywhere.** Modules export factory functions that receive deps. No hidden globals except three legacy `window.*` references being cleaned up.
+- **Dependency injection everywhere.** Modules export factory functions that receive deps. Intentional globals are limited to boot-time build/version metadata and the DEV-only `globalThis.__APP_STATE__` escape hatch.
 - **State mutations go through `createStateActions()`** which wraps changes in `withAllowedStateMutation()`. Direct state writes trigger dev-mode warnings.
 - **`SaveManager.markDirty()`** is how any code signals "state changed, schedule a save." It debounces and handles the full save lifecycle.
-- **JSDoc types with `@ts-check`.** No TypeScript compiler — type safety via JSDoc annotations checked by the TS language server. `dev.js` still has `@ts-nocheck` and needs cleanup.
+- **JSDoc types with `@ts-check`.** No TypeScript compiler — type safety comes from JSDoc annotations checked through `tsconfig.checkjs.json`. `js/utils/dev.js` is part of the current `@ts-check` surface.
 - **`sanitizeForSave()`** strips ephemeral UI state (undo/redo, dice history) before persistence.
 
 ## Rules

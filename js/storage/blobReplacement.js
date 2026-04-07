@@ -6,6 +6,101 @@
 /** @typedef {import("./saveManager.js").SaveManager} SaveManager */
 
 /**
+ * @param {{
+ *   SaveManager?: SaveManager,
+ *   applyStateChange?: () => unknown | Promise<unknown>,
+ *   rollbackStateChange?: () => unknown | Promise<unknown>
+ * }} options
+ * @returns {Promise<void>}
+ */
+async function commitStructuredStateChange({
+  SaveManager,
+  applyStateChange,
+  rollbackStateChange,
+} = {}) {
+  if (typeof SaveManager?.markDirty !== "function") {
+    throw new Error("commitStructuredStateChange: SaveManager.markDirty is required");
+  }
+  if (typeof SaveManager?.flush !== "function") {
+    throw new Error("commitStructuredStateChange: SaveManager.flush is required");
+  }
+  if (typeof applyStateChange !== "function") {
+    throw new Error("commitStructuredStateChange: applyStateChange is required");
+  }
+  if (typeof rollbackStateChange !== "function") {
+    throw new Error("commitStructuredStateChange: rollbackStateChange is required");
+  }
+
+  let applied = false;
+
+  try {
+    const appliedResult = await applyStateChange();
+    if (appliedResult === false) {
+      throw new Error("commitStructuredStateChange: applyStateChange returned false");
+    }
+
+    applied = true;
+    SaveManager.markDirty();
+
+    const flushed = await SaveManager.flush();
+    if (!flushed) {
+      throw new Error("commitStructuredStateChange: SaveManager.flush() failed");
+    }
+  } catch (err) {
+    if (applied) {
+      try {
+        await rollbackStateChange();
+      } catch (rollbackErr) {
+        console.warn("commitStructuredStateChange: failed to restore previous state.", rollbackErr);
+      }
+    }
+    throw err;
+  }
+}
+
+/**
+ * Safely commit a structured state change before deleting any now-unreferenced blobs.
+ *
+ * @param {{
+ *   blobIdsToDelete?: Array<string | null | undefined>,
+ *   deleteBlob?: DeleteBlobFn,
+ *   SaveManager?: SaveManager,
+ *   applyStateChange?: () => unknown | Promise<unknown>,
+ *   rollbackStateChange?: () => unknown | Promise<unknown>
+ * }} options
+ * @returns {Promise<void>}
+ */
+export async function commitStateChangeWithDeferredBlobDeletion({
+  blobIdsToDelete = [],
+  deleteBlob,
+  SaveManager,
+  applyStateChange,
+  rollbackStateChange,
+} = {}) {
+  if (typeof deleteBlob !== "function") {
+    throw new Error("commitStateChangeWithDeferredBlobDeletion: deleteBlob is required");
+  }
+
+  await commitStructuredStateChange({
+    SaveManager,
+    applyStateChange,
+    rollbackStateChange,
+  });
+
+  const uniqueBlobIds = Array.from(new Set(
+    blobIdsToDelete.filter((blobId) => typeof blobId === "string" && blobId),
+  ));
+
+  for (const blobId of uniqueBlobIds) {
+    try {
+      await deleteBlob(blobId);
+    } catch (err) {
+      console.warn("Failed to delete blob after committed state change:", err);
+    }
+  }
+}
+
+/**
  * Safely replace a blob-backed asset by committing the new blob and state
  * reference before deleting the old blob.
  *
@@ -37,20 +132,15 @@ export async function replaceStoredBlob({
   if (typeof applyBlobId !== "function") throw new Error("replaceStoredBlob: applyBlobId is required");
 
   let nextBlobId = null;
-  let applied = false;
 
   try {
     nextBlobId = nextBlob ? await putBlob(nextBlob) : null;
 
-    applied = true;
-    const appliedResult = applyBlobId(nextBlobId);
-    if (appliedResult === false) {
-      throw new Error("replaceStoredBlob: applyBlobId returned false");
-    }
-
-    SaveManager.markDirty();
-    const flushed = await SaveManager.flush();
-    if (!flushed) throw new Error("replaceStoredBlob: SaveManager.flush() failed");
+    await commitStructuredStateChange({
+      SaveManager,
+      applyStateChange: () => applyBlobId(nextBlobId),
+      rollbackStateChange: () => applyBlobId(oldBlobId || null),
+    });
 
     if (oldBlobId && oldBlobId !== nextBlobId) {
       try {
@@ -62,14 +152,6 @@ export async function replaceStoredBlob({
 
     return nextBlobId;
   } catch (err) {
-    if (applied) {
-      try {
-        applyBlobId(oldBlobId || null);
-      } catch (rollbackErr) {
-        console.warn("replaceStoredBlob: failed to restore previous blob reference.", rollbackErr);
-      }
-    }
-
     if (nextBlobId && nextBlobId !== oldBlobId) {
       try {
         await deleteBlob(nextBlobId);

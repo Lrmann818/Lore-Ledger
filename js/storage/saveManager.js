@@ -25,6 +25,7 @@
  * @typedef {{
  *   markDirty: () => void,
  *   queueSave?: () => void,
+ *   reportError: () => void,
  *   flush: () => Promise<boolean>,
  *   init: () => void,
  *   getStatus: () => SaveManagerStatus
@@ -128,6 +129,13 @@ export function createSaveManager(opts) {
     }, debounceMs);
   }
 
+  function reportError() {
+    showSaveBanner?.({ onExport });
+    clearDirtyUiTimer();
+    stateNow = SaveState.ERROR;
+    renderStatus();
+  }
+
   async function flush() {
     if (!dirty) {
       if (!saving) {
@@ -159,10 +167,7 @@ export function createSaveManager(opts) {
       return true;
     } catch (err) {
       console.warn("Save failed:", err);
-      showSaveBanner?.({ onExport });
-      clearDirtyUiTimer();
-      stateNow = SaveState.ERROR;
-      renderStatus();
+      reportError();
       return false;
     } finally {
       saving = false;
@@ -188,5 +193,5 @@ export function createSaveManager(opts) {
     return { stateNow, dirty, saving };
   }
 
-  return { markDirty, flush, init, getStatus };
+  return { markDirty, reportError, flush, init, getStatus };
 }

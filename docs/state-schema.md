@@ -219,10 +219,11 @@ Older saves may also contain the typo `tracker.ui.textareaHeigts`. Current code 
 - `hpMax: number | null`
 - `hitDieAmt: number | null`
   - Canonical persisted field.
-  - Seeded by `js/state.js`, written by the Vitals panel, and enforced by save/load normalization.
+  - Seeded by `js/state.js`, written by the Vitals panel, and enforced by migration-time normalization.
 - `hitDieAmount?: number | null`
   - Legacy compatibility alias only.
-  - Incoming saves that still use this name are normalized to `hitDieAmt`, and new saves no longer emit it.
+  - Incoming saves that still use this name are normalized to `hitDieAmt` during `migrateState(...)`.
+  - DEV save/export code warns if runtime state still contains this alias; runtime writes should use `hitDieAmt`.
 - `hitDieSize: number | null`
 - `ac: number | null`
 - `initiative: number | null`
@@ -718,6 +719,7 @@ Future restore-compatible changes should preserve these properties:
 Import restores state, blobs, and texts, then reloads the app. That means:
 
 - `importBackup(...)` handles validation, state migration, blob/text staging, and blob ID remapping
+- failed imports attempt to restore previously touched text IDs before surfacing the error
 - startup `loadAll(...)` still gets a chance to run on the reloaded app and finalize any startup-only compatibility work
 
 In practice, that means new compatibility work should be placed in one of these buckets:

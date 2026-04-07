@@ -1,6 +1,9 @@
 // js/pages/map/mapBackgroundActions.js
 
-import { replaceStoredBlob } from "../../storage/blobReplacement.js";
+import {
+  commitStateChangeWithDeferredBlobDeletion,
+  replaceStoredBlob
+} from "../../storage/blobReplacement.js";
 
 export function createMapBackgroundActions({
   setStatus,
@@ -59,15 +62,25 @@ export function createMapBackgroundActions({
 
   async function removeMapImage() {
     const mp = getActiveMap();
-    if (mp.bgBlobId) {
-      try { await deleteBlob(mp.bgBlobId); }
-      catch (err) { console.warn("Failed to delete map image blob:", err); }
+    const oldBgBlobId = mp.bgBlobId || null;
+
+    if (oldBgBlobId) {
+      await commitStateChangeWithDeferredBlobDeletion({
+        SaveManager,
+        deleteBlob,
+        blobIdsToDelete: [oldBgBlobId],
+        applyStateChange: () => {
+          mp.bgBlobId = null;
+        },
+        rollbackStateChange: () => {
+          mp.bgBlobId = oldBgBlobId;
+        }
+      });
     }
-    mp.bgBlobId = null;
+
     setBgImg(null);
     renderMap({ canvas, ctx, drawLayer, bgImg: getBgImg() });
     await commitDrawingSnapshot();
-    SaveManager.markDirty();
   }
 
   return { setMapImage, removeMapImage };

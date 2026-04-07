@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { migrateState, sanitizeForSave } from "../js/state.js";
 
@@ -26,5 +26,21 @@ describe("sanitizeForSave", () => {
 
     expect(state.tracker.campaignTitle).toBe("Moonfall");
     expect(state.character.name).toBe("Arlen");
+  });
+
+  it("leaves legacy hitDieAmount untouched so migration remains the canonical normalization layer", () => {
+    const state = makeState();
+    delete state.character.hitDieAmt;
+    state.character.hitDieAmount = 7;
+
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const sanitized = sanitizeForSave(state, { devAssertLegacyAliases: true });
+
+    expect("hitDieAmt" in sanitized.character).toBe(false);
+    expect(sanitized.character.hitDieAmount).toBe(7);
+    expect(state.character.hitDieAmount).toBe(7);
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("character.hitDieAmount")
+    );
   });
 });

@@ -115,28 +115,49 @@ describe("saveAllLocal", () => {
     expect(ok).toBe(false);
   });
 
-  it("canonicalizes drifted hitDieAmount into hitDieAmt before persisting", () => {
+  it("preserves drifted hitDieAmount in storage so load-time migration can canonicalize it", async () => {
     const { getStoredValue } = installLocalStorageMock();
     const state = makeState();
 
     delete state.character.hitDieAmt;
     state.character.hitDieAmount = 7;
 
-    const ok = saveAllLocal({
+    const saveOk = saveAllLocal({
       storageKey: "test-storage",
       state,
       currentSchemaVersion: CURRENT_SCHEMA_VERSION,
-      sanitizeForSave
+      sanitizeForSave: (input, opts) => sanitizeForSave(input, { ...opts, devAssertLegacyAliases: false })
     });
 
-    expect(ok).toBe(true);
+    expect(saveOk).toBe(true);
 
     const saved = JSON.parse(getStoredValue());
-    expect(saved.character.hitDieAmt).toBe(7);
-    expect("hitDieAmount" in saved.character).toBe(false);
+    expect("hitDieAmt" in saved.character).toBe(false);
+    expect(saved.character.hitDieAmount).toBe(7);
 
     expect("hitDieAmt" in state.character).toBe(false);
     expect(state.character.hitDieAmount).toBe(7);
+
+    const loadedState = makeState();
+    const ensureMapManager = makeEnsureMapManager(loadedState);
+    const setStatus = vi.fn();
+    const markDirty = vi.fn();
+
+    const loadOk = await loadAll({
+      storageKey: "test-storage",
+      state: loadedState,
+      migrateState,
+      ensureMapManager,
+      dataUrlToBlob: vi.fn(),
+      putBlob: vi.fn(),
+      setStatus,
+      markDirty
+    });
+
+    expect(loadOk).toBe(true);
+    expect(loadedState.character.hitDieAmt).toBe(7);
+    expect("hitDieAmount" in loadedState.character).toBe(false);
+    expect(markDirty).toHaveBeenCalledTimes(1);
   });
 
 });

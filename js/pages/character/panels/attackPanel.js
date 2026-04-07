@@ -4,57 +4,95 @@
 // Production notes:
 // - This module should ONLY own the Attacks panel UI.
 // - It should not call other Character-page wiring helpers (reorder, abilities, etc).
-// - It must be safe if init is called more than once (guard + no double event listeners).
+// - It must be safe if init is called more than once and fully clean up on destroy.
 import { safeAsync } from "../../../ui/safeAsync.js";
 import { createStateActions } from "../../../domain/stateActions.js";
-import { createMoveButton } from "../../tracker/panels/cards/shared/cardHeaderControlsShared.js";
 import { flipSwapTwo } from "../../../ui/flipSwap.js";
 import { requireMany } from "../../../utils/domGuards.js";
 
-let _state = null;
-
+const ATTACK_FIELD_BY_CLASS = Object.freeze({
+  attackName: "name",
+  attackBonus: "bonus",
+  attackDamage: "damage",
+  attackRange: "range",
+  attackType: "type",
+});
 
 export function initAttacksPanel(deps = {}) {
   const {
+    state,
     SaveManager,
     uiConfirm,
     autoSizeInput,
     setStatus,
   } = deps;
-  _state = deps.state;
 
-  if (!_state) throw new Error("initAttacksPanel requires state");
+  if (!state) throw new Error("initAttacksPanel requires state");
   if (!SaveManager) throw new Error("initAttacksPanel requires SaveManager");
 
-  if (!_state.character) _state.character = {};
-  if (!Array.isArray(_state.character.attacks)) _state.character.attacks = [];
-  const { mutateCharacter } = createStateActions({ state: _state, SaveManager });
+  if (!state.character) state.character = {};
+  if (!Array.isArray(state.character.attacks)) state.character.attacks = [];
+
+  const { mutateCharacter } = createStateActions({ state, SaveManager });
 
   const required = {
     panelEl: "#charAttacksPanel",
     listEl: "#attackList",
-    addBtn: "#addAttackBtn"
+    addBtn: "#addAttackBtn",
   };
   const guard = requireMany(required, { root: document, setStatus, context: "Weapons panel" });
   if (!guard.ok) return guard.destroy;
   const { panelEl, listEl, addBtn } = guard.els;
 
-  // Guard: avoid wiring twice if character page init runs again.
-  if (panelEl.dataset.attacksInit === "1") {
-    // Still re-render in case state changed.
-    renderAttacks();
-    return guard.destroy;
-  }
-  panelEl.dataset.attacksInit = "1";
+  /** @type {Array<() => void>} */
+  const destroyFns = [];
+  const addDestroy = (destroyFn) => {
+    if (typeof destroyFn === "function") destroyFns.push(destroyFn);
+  };
+
+  const listenerController = new AbortController();
+  const listenerSignal = listenerController.signal;
+  addDestroy(() => listenerController.abort());
+
+  let destroyed = false;
+
+  const addListener = (target, type, handler, options) => {
+    if (!target || typeof target.addEventListener !== "function") return;
+    const listenerOptions =
+      typeof options === "boolean"
+        ? { capture: options }
+        : (options || {});
+    target.addEventListener(type, handler, { ...listenerOptions, signal: listenerSignal });
+  };
 
   function newAttackId() {
     return "atk_" + Math.random().toString(36).slice(2) + Date.now().toString(36);
   }
 
-  function renderAttacks() {
-    listEl.innerHTML = "";
+  function getAttacks() {
+    return Array.isArray(state.character?.attacks) ? state.character.attacks : [];
+  }
 
-    if (!_state.character.attacks.length) {
+  function createMoveButton(direction, disabled) {
+    const isUp = direction < 0;
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "moveBtn";
+    btn.textContent = isUp ? "\u2191" : "\u2193";
+    btn.title = isUp ? "Move weapon up" : "Move weapon down";
+    btn.setAttribute("aria-label", isUp ? "Move weapon up" : "Move weapon down");
+    btn.dataset.moveDirection = String(direction);
+    btn.disabled = !!disabled;
+    return btn;
+  }
+
+  function renderAttacks() {
+    if (destroyed) return;
+
+    listEl.replaceChildren();
+
+    const attacks = getAttacks();
+    if (!attacks.length) {
       const empty = document.createElement("div");
       empty.className = "mutedSmall";
       empty.textContent = "No weapons yet. Click “+ Weapon”.";
@@ -63,7 +101,6 @@ export function initAttacksPanel(deps = {}) {
     }
 
     const frag = document.createDocumentFragment();
-    const attacks = _state.character.attacks;
     for (let i = 0; i < attacks.length; i++) frag.appendChild(renderAttackRow(attacks[i], i, attacks.length));
     listEl.appendChild(frag);
   }
@@ -91,10 +128,10 @@ export function initAttacksPanel(deps = {}) {
     });
   }
 
-  function renderAttackRow(a, index, total) {
+  function renderAttackRow(attack, index, total) {
     const row = document.createElement("div");
     row.className = "attackRow";
-    row.dataset.attackId = a.id;
+    row.dataset.attackId = attack.id;
 
     const top = document.createElement("div");
     top.className = "attackTop";
@@ -102,31 +139,15 @@ export function initAttacksPanel(deps = {}) {
     const name = document.createElement("input");
     name.className = "attackName";
     name.placeholder = "Dagger";
-    name.value = a.name || "";
+    name.value = attack.name || "";
     autoSizeInput?.(name, { min: 50, max: 200 });
-    name.addEventListener("input", () => patchAttack(a.id, { name: name.value }));
     top.appendChild(name);
 
     const headerActions = document.createElement("div");
     headerActions.className = "attackHeaderActions";
 
-    const moveUp = createMoveButton({
-      direction: -1,
-      titleUp: "Move weapon up",
-      titleDown: "Move weapon down",
-      onMove: () => moveAttack(a.id, -1, moveUp),
-    });
-    moveUp.setAttribute("aria-label", "Move weapon up");
-    moveUp.disabled = index === 0;
-
-    const moveDown = createMoveButton({
-      direction: +1,
-      titleUp: "Move weapon up",
-      titleDown: "Move weapon down",
-      onMove: () => moveAttack(a.id, +1, moveDown),
-    });
-    moveDown.setAttribute("aria-label", "Move weapon down");
-    moveDown.disabled = index >= total - 1;
+    const moveUp = createMoveButton(-1, index === 0);
+    const moveDown = createMoveButton(+1, index >= total - 1);
 
     headerActions.appendChild(moveUp);
     headerActions.appendChild(moveDown);
@@ -138,16 +159,14 @@ export function initAttacksPanel(deps = {}) {
     const bonus = document.createElement("input");
     bonus.className = "attackBonus";
     bonus.placeholder = "+5";
-    bonus.value = a.bonus || "";
+    bonus.value = attack.bonus || "";
     autoSizeInput?.(bonus, { min: 30, max: 60 });
-    bonus.addEventListener("input", () => patchAttack(a.id, { bonus: bonus.value }));
 
     const dmg = document.createElement("input");
     dmg.className = "attackDamage";
     dmg.placeholder = "1d6+2";
-    dmg.value = a.damage || "";
+    dmg.value = attack.damage || "";
     autoSizeInput?.(dmg, { min: 40, max: 160 });
-    dmg.addEventListener("input", () => patchAttack(a.id, { damage: dmg.value }));
 
     middle.appendChild(bonus);
     middle.appendChild(dmg);
@@ -158,37 +177,24 @@ export function initAttacksPanel(deps = {}) {
     const range = document.createElement("input");
     range.className = "attackRange";
     range.placeholder = "80/320";
-    range.value = a.range || "";
+    range.value = attack.range || "";
     autoSizeInput?.(range, { min: 50, max: 150 });
-    range.addEventListener("input", () => patchAttack(a.id, { range: range.value }));
 
     const type = document.createElement("input");
     type.className = "attackType";
     type.placeholder = "Piercing";
-    type.value = a.type || "";
+    type.value = attack.type || "";
     autoSizeInput?.(type, { min: 40, max: 150 });
-    type.addEventListener("input", () => patchAttack(a.id, { type: type.value }));
 
     const actions = document.createElement("div");
     actions.className = "attackActions";
 
     const del = document.createElement("button");
     del.type = "button";
-    del.className = "danger";
+    del.className = "attackDeleteBtn danger";
     del.textContent = "X";
     del.title = "Delete weapon";
-    del.addEventListener(
-      "click",
-      safeAsync(async (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        await deleteAttack(a.id);
-      }, (err) => {
-        console.error(err);
-        if (typeof setStatus === "function") setStatus("Delete weapon failed.");
-        else console.warn("Delete weapon failed.");
-      })
-    );
+    del.setAttribute("aria-label", "Delete weapon");
 
     actions.appendChild(del);
 
@@ -204,9 +210,10 @@ export function initAttacksPanel(deps = {}) {
   }
 
   function patchAttack(id, patch) {
-    mutateCharacter((character) => {
+    if (destroyed) return false;
+    return mutateCharacter((character) => {
       if (!Array.isArray(character.attacks)) return false;
-      const idx = character.attacks.findIndex((x) => x.id === id);
+      const idx = character.attacks.findIndex((item) => item.id === id);
       if (idx === -1) return false;
       character.attacks[idx] = { ...character.attacks[idx], ...patch };
       return true;
@@ -214,20 +221,25 @@ export function initAttacksPanel(deps = {}) {
   }
 
   async function deleteAttack(id) {
+    if (destroyed) return;
+
     if (uiConfirm) {
       const ok = await uiConfirm("Delete this weapon?", { title: "Delete Weapon", okText: "Delete" });
-      if (!ok) return;
+      if (destroyed || !ok) return;
     }
 
     mutateCharacter((character) => {
       if (!Array.isArray(character.attacks)) character.attacks = [];
-      character.attacks = character.attacks.filter((x) => x.id !== id);
+      character.attacks = character.attacks.filter((item) => item.id !== id);
       return true;
     });
+    if (destroyed) return;
     renderAttacks();
   }
 
   function addAttack() {
+    if (destroyed) return;
+
     mutateCharacter((character) => {
       if (!Array.isArray(character.attacks)) character.attacks = [];
       character.attacks.unshift({
@@ -245,9 +257,10 @@ export function initAttacksPanel(deps = {}) {
   }
 
   function moveAttack(id, dir, btn) {
-    const list = _state.character.attacks;
-    if (!Array.isArray(list)) return;
-    const i = list.findIndex((x) => x?.id === id);
+    if (destroyed) return;
+
+    const list = getAttacks();
+    const i = list.findIndex((item) => item?.id === id);
     const j = i + dir;
     if (i < 0 || j < 0 || j >= list.length) return;
 
@@ -259,10 +272,10 @@ export function initAttacksPanel(deps = {}) {
 
     const didMove = mutateCharacter((character) => {
       if (!Array.isArray(character.attacks)) return false;
-      const i = character.attacks.findIndex((x) => x?.id === id);
-      const j = i + dir;
-      if (i < 0 || j < 0 || j >= character.attacks.length) return false;
-      [character.attacks[i], character.attacks[j]] = [character.attacks[j], character.attacks[i]];
+      const from = character.attacks.findIndex((item) => item?.id === id);
+      const to = from + dir;
+      if (from < 0 || to < 0 || to >= character.attacks.length) return false;
+      [character.attacks[from], character.attacks[to]] = [character.attacks[to], character.attacks[from]];
       return true;
     }, { queueSave: false });
     if (!didMove) return;
@@ -292,12 +305,73 @@ export function initAttacksPanel(deps = {}) {
     focusMoveButtonForAttack(id, dir);
   }
 
-  // Safe: we only wire once due to panel guard above.
-  addBtn.addEventListener("click", (e) => {
-    e.preventDefault();
-    e.stopPropagation();
+  addListener(addBtn, "click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
     addAttack();
   });
 
+  addListener(listEl, "input", (event) => {
+    if (destroyed) return;
+    const target = event.target;
+    if (!(target instanceof HTMLInputElement)) return;
+
+    const row = target.closest(".attackRow");
+    if (!(row instanceof HTMLElement)) return;
+    const attackId = row.dataset.attackId;
+    if (!attackId) return;
+
+    const fieldClass = Object.keys(ATTACK_FIELD_BY_CLASS).find((className) => target.classList.contains(className));
+    if (!fieldClass) return;
+
+    patchAttack(attackId, { [ATTACK_FIELD_BY_CLASS[fieldClass]]: target.value });
+  });
+
+  addListener(
+    listEl,
+    "click",
+    safeAsync(async (event) => {
+      if (destroyed) return;
+
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+
+      const row = target.closest(".attackRow");
+      if (!(row instanceof HTMLElement)) return;
+      const attackId = row.dataset.attackId;
+      if (!attackId) return;
+
+      const moveBtn = target.closest(".moveBtn");
+      if (moveBtn instanceof HTMLButtonElement) {
+        event.preventDefault();
+        event.stopPropagation();
+        const dir = Number(moveBtn.dataset.moveDirection);
+        if (dir === -1 || dir === 1) moveAttack(attackId, dir, moveBtn);
+        return;
+      }
+
+      const deleteBtn = target.closest(".attackDeleteBtn");
+      if (!(deleteBtn instanceof HTMLButtonElement)) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+      await deleteAttack(attackId);
+    }, (err) => {
+      console.error(err);
+      if (typeof setStatus === "function") setStatus("Delete weapon failed.");
+      else console.warn("Delete weapon failed.");
+    })
+  );
+
   renderAttacks();
+
+  return {
+    destroy() {
+      if (destroyed) return;
+      destroyed = true;
+      for (let i = destroyFns.length - 1; i >= 0; i--) {
+        destroyFns[i]?.();
+      }
+    }
+  };
 }

@@ -41,17 +41,25 @@ export async function putText(text, id) {
 
 /**
  * @param {string | null | undefined} id
- * @returns {Promise<string>}
+ * @returns {Promise<TextStoreRecord | null>}
  */
-export async function getText(id) {
-  if (!id) return Promise.resolve("");
+export async function getTextRecord(id) {
+  if (!id) return Promise.resolve(null);
   const db = await openDb();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(TEXT_STORE, "readonly");
     const req = tx.objectStore(TEXT_STORE).get(id);
-    req.onsuccess = () => resolve((/** @type {TextStoreRecord | undefined} */ (req.result))?.text ?? "");
+    req.onsuccess = () => resolve((/** @type {TextStoreRecord | undefined} */ (req.result)) ?? null);
     req.onerror = () => reject(req.error);
   });
+}
+
+/**
+ * @param {string | null | undefined} id
+ * @returns {Promise<string>}
+ */
+export async function getText(id) {
+  return (await getTextRecord(id))?.text ?? "";
 }
 
 /**

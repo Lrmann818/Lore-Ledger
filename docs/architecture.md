@@ -56,9 +56,9 @@ This list is intentionally narrower than the files included by `tsconfig.checkjs
 
 ### Current exceptions
 
-- The repo-wide CheckJS pass is not yet fully green. Current errors are still concentrated in older Character-panel code and Tracker card/panel surfaces.
-- Some included files already have partial JSDoc typing but do not yet carry file-level `// @ts-check`.
-- `boot.js`, `vite.config.js`, and other supporting modules are included in the broader config, but they should not be described as fully boundary-hardened unless that work has actually landed.
+- The repo-wide CheckJS pass is currently clean when run against `tsconfig.checkjs.json`, but it is still a separate validation step rather than part of `npm run verify` or the current GitHub Pages CI gate.
+- Some included files still rely on the broader config/JSDoc path without file-level `// @ts-check`; keep file-level hardening claims narrower than repo-wide clean-pass claims.
+- `boot.js`, `vite.config.js`, and other supporting modules are included in the broader config for diagnostics, but they should not be described as fully boundary-hardened unless that work has actually landed.
 
 ## Top-level entrypoints
 
@@ -428,7 +428,7 @@ Tracker card shared-helper boundary:
   - collapsed-state patching
   - portrait DOM patching
 - It does not own tracker state shape, collection-specific mutations, search/filter rules, toolbar behavior, migration/defaulting, or card-body rendering.
-- Fallback full rerender shells remain panel-local by design for now. Extracting that shell is deferred until there is a concrete need to touch all three panels again.
+- Fallback full rerender shells remain panel-local by design. Extracting that shell is intentionally out of scope for the current app/version and should only be revisited if a later change needs to touch all three panels together.
 
 Tracker-card shared helper boundary:
 
@@ -509,7 +509,7 @@ Character-specific boundary notes:
 - Character portrait storage uses the shared image flow, but ownership of `state.character.imgBlobId` stays in character modules.
 - `initCharacterPageUI(...)` now destroys the previous character-page controller before re-initializing the page.
 - `equipmentPanel.js` and `spellsPanel.js` now return real `destroy()` APIs and clean up their owned listeners/runtime work on teardown.
-- Some older Character panels still rely on dataset guards or module-local state, so Character lifecycle is improved but not yet at full tracker-panel parity.
+- Some older Character panels still rely on dataset guards or module-local state. Full tracker-panel lifecycle parity is future refactor roadmap work, not a release blocker for the current character-page destroy/re-init contract.
 
 ### Map page: `js/pages/map/*`
 

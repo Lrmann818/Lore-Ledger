@@ -314,7 +314,9 @@ function createTrackerPageDeps() {
     getText,
     deleteText,
     autoSizeInput,
-    applyTextareaSize
+    // Resolve lazily so Tracker deps stay safe even if this assembly runs
+    // before textarea sizing initialization assigns the implementation.
+    applyTextareaSize: (el) => applyTextareaSize?.(el)
   };
 }
 

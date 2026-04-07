@@ -49,6 +49,7 @@ export function persistDrawingSnapshot({
         });
       } catch (err) {
         console.error("Failed to persist map drawing blob:", err);
+        SaveManager.reportError?.();
       }
       resolve();
     }, "image/png");

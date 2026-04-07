@@ -5,6 +5,7 @@ import { enhanceSelectDropdown } from "../../../ui/selectDropdown.js";
 import { attachSearchHighlightOverlay } from "../../../ui/searchHighlightOverlay.js";
 import { renderSectionTabs, wireSectionCrud } from "./cards/shared/cardsShared.js";
 import { pickAndStorePortrait } from "./cards/shared/cardPortraitShared.js";
+import { deleteTrackerCardWithBlobCleanup } from "./cards/shared/cardDeletionShared.js";
 import { makeFieldSearchMatcher } from "./cards/shared/cardSearchShared.js";
 import { attachCardSearchHighlights } from "./cards/shared/cardSearchHighlightShared.js";
 import { createMoveButton, createCollapseButton } from "./cards/shared/cardHeaderControlsShared.js";
@@ -262,12 +263,20 @@ function createLocationCardsController(deps = {}) {
       if (!ok) return;
     }
 
-    if (location.imgBlobId && deleteBlob) {
-      try { await deleteBlob(location.imgBlobId); }
-      catch (err) { console.warn("Failed to delete location image blob:", err); }
+    try {
+      const deleted = await deleteTrackerCardWithBlobCleanup({
+        type: "locations",
+        itemId: id,
+        getItemById: getLocationById,
+        mutateTracker,
+        SaveManager,
+        deleteBlob,
+      });
+      if (!deleted) return;
+    } catch (err) {
+      console.error("Delete Location failed:", err);
+      return;
     }
-
-    if (!removeTrackerCard("locations", id)) return;
     renderLocTabs();
     renderLocationCards();
   }

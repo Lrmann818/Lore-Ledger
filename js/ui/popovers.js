@@ -99,9 +99,6 @@ export function createPopoverManager(cfg) {
   let installed = false;
   let destroyed = false;
   let raf = 0;
-  /** @type {EventTarget | null} */
-  let lastScrollTarget = null;
-
   // When a popover is opened, we record the anchor's viewport position.
   // If the user scrolls enough that the anchor moves (relative to viewport),
   // we close the popover to mimic native <select> behavior.
@@ -180,17 +177,6 @@ export function createPopoverManager(cfg) {
       registrations.forEach((reg) => {
         if (!isOpen(reg)) return;
 
-        // Native dropdowns close as soon as you scroll the page/list.
-        // We mimic that by closing on any scroll that didn't originate from
-        // inside the open menu or its button.
-        if (lastScrollTarget instanceof Node) {
-          const t = lastScrollTarget;
-          if (!reg.menu.contains(t) && !reg.button.contains(t)) {
-            close(reg);
-            return;
-          }
-        }
-
         // Close on scroll once the anchor has moved a bit.
         const start = openAnchorPos.get(reg);
         if (start) {
@@ -224,10 +210,7 @@ export function createPopoverManager(cfg) {
     // Capture phase catches scrolls from nested containers.
     window.addEventListener(
       "scroll",
-      (e) => {
-        lastScrollTarget = e.target;
-        requestRepositionAll();
-      },
+      () => requestRepositionAll(),
       { capture: true, signal }
     );
 
