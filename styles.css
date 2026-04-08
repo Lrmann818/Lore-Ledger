@@ -2449,6 +2449,29 @@ div.mutedSmall {
   margin-bottom: 4px;
 }
 
+@media (max-width: 600px) {
+  #page-tracker :is(.sessionHeader, .npcHeader, .partyHeader, .locHeader) {
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr);
+    align-items: start;
+    column-gap: var(--panel-control-gap);
+    row-gap: 0;
+  }
+
+  #page-tracker :is(.sessionHeader, .npcHeader, .partyHeader, .locHeader)>h2 {
+    grid-column: 1;
+    align-self: start;
+  }
+
+  #page-tracker :is(.sessionControls, .npcControls, .partyControls, .locControls).panelControls {
+    grid-column: 2;
+    min-width: 0;
+    margin-left: 0;
+    justify-content: flex-end;
+    align-content: flex-start;
+  }
+}
+
 .locCards {
   --cards-grid-gap: 4px;
 }
