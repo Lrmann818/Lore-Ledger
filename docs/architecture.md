@@ -56,7 +56,7 @@ This list is intentionally narrower than the files included by `tsconfig.checkjs
 
 ### Current exceptions
 
-- The repo-wide CheckJS pass is currently clean when run against `tsconfig.checkjs.json`, but it is still a separate validation step rather than part of `npm run verify` or the current GitHub Pages CI gate.
+- The repo-wide CheckJS pass is currently clean through `npm run typecheck`, which uses the repo-pinned `typescript@5.9.3` compiler and now runs inside `npm run verify` plus the current GitHub Pages CI gate.
 - Some included files still rely on the broader config/JSDoc path without file-level `// @ts-check`; keep file-level hardening claims narrower than repo-wide clean-pass claims.
 - `boot.js`, `vite.config.js`, and other supporting modules are included in the broader config for diagnostics, but they should not be described as fully boundary-hardened unless that work has actually landed.
 

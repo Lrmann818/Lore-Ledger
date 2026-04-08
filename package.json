@@ -9,11 +9,13 @@
     "preview": "vite preview",
     "test": "vitest",
     "test:run": "vitest run",
+    "typecheck": "tsc -p tsconfig.checkjs.json --pretty false",
     "test:smoke": "playwright test",
-    "verify": "npm run test:run && npm run build"
+    "verify": "npm run test:run && npm run typecheck && npm run build"
   },
   "devDependencies": {
     "@playwright/test": "^1.59.1",
+    "typescript": "5.9.3",
     "vite": "^5.4.0",
     "vite-plugin-pwa": "^0.20.5",
     "vitest": "^1.6.0"

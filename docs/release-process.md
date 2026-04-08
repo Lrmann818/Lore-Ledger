@@ -9,7 +9,7 @@ The standard shipping path is:
 3. merge or push the release commit to `main`
 4. let GitHub Pages deploy the built `dist/` output through [`.github/workflows/pages.yml`](../.github/workflows/pages.yml)
 
-There is no dedicated release automation beyond the GitHub Pages workflow. Today that workflow runs `npm ci`, `npm run test:run`, and `npm run build` in its `Verify and build` job before any Pages deploy, but releases still remain evidence-driven and still rely on manual validation alongside automated checks.
+There is no dedicated release automation beyond the GitHub Pages workflow. Today that workflow runs `npm ci` and `npm run verify` in its `Verify and build` job before any Pages deploy, but releases still remain evidence-driven and still rely on manual validation alongside automated checks.
 
 ## 1. Release philosophy
 
@@ -79,6 +79,7 @@ For the closest local match to CI, run `npm ci` first, then `npm run verify`.
 Expected result:
 
 - `npm run test:run` passes.
+- `npm run typecheck` passes through the repo-pinned `typescript@5.9.3` toolchain.
 - Vite writes the production artifact to `dist/`.
 - The build includes hashed JS/CSS assets plus PWA files such as the linked `manifest.webmanifest`, copied public `manifest.json`, `sw.js`, and Workbox output.
 - Production base path is `/CampaignTracker/`.
@@ -106,7 +107,7 @@ Use preview or a deployed production build for PWA and offline checks. `npm run 
 
 ## 6. Required smoke/testing steps
 
-The repository now defines targeted automated checks in [`package.json`](../package.json). The Pages workflow currently runs `npm run test:run` plus the production build before deploy. A focused 16-test Playwright browser smoke suite also exists locally in `tests/smoke/*.smoke.js`; keeping that suite out of CI is the current release-process decision for this version, and CI browser integration remains roadmap work rather than unresolved release debt. Release validation still requires the manual checklist in addition to those automated checks.
+The repository now defines targeted automated checks in [`package.json`](../package.json). The Pages workflow currently runs `npm run verify` before deploy, which covers `npm run test:run`, `npm run typecheck`, and the production build. A focused 16-test Playwright browser smoke suite also exists locally in `tests/smoke/*.smoke.js`; keeping that suite out of CI is the current release-process decision for this version, and CI browser integration remains roadmap work rather than unresolved release debt. Release validation still requires the manual checklist in addition to those automated checks.
 
 Primary sources:
 
@@ -139,7 +140,7 @@ Any data-loss, restore, offline-shell, or CSP regression should block release.
 
 Intentional difference from CI:
 
-- CI runs `npm ci`, then `npm run test:run`, then `npm run build`, uploads `dist/`, and only then deploys.
+- CI runs `npm ci`, then `npm run verify`, uploads `dist/`, and only then deploys.
 - CI does not provision Chromium or run `npm run test:smoke`; that stays off the critical path for this version by design, with CI browser integration tracked as roadmap hardening rather than release-quality debt.
 - Local release validation must continue with `npm run preview`, `npm run test:smoke`, and the manual checklist because CI does not validate browser-only persistence, backup/restore, PWA/offline, or cross-browser behavior.
 
@@ -219,8 +220,7 @@ What it does today:
 - in that job, checks out the repository with full history and tags
 - in that job, uses Node `20`
 - in that job, runs `npm ci`
-- in that job, runs `npm run test:run`
-- in that job, runs `npm run build`
+- in that job, runs `npm run verify`
 - in that job, uploads `dist/`
 - runs a separate `Deploy` job only after `Verify and build` succeeds
 

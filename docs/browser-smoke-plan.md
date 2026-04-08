@@ -4,7 +4,7 @@ This note records the current local browser smoke layer for Lore Ledger as it ex
 
 ## Current readiness
 
-- GitHub Pages CI gates on `npm ci`, `npm run test:run`, and `npm run build`.
+- GitHub Pages CI gates on `npm ci` and `npm run verify`.
 - Browser smoke coverage exists locally through Playwright. Keeping it local-only is the current release-process decision for this version; CI browser provisioning is roadmap work, not unresolved release debt.
 - The smoke suite is intentionally focused. It is broad enough to catch key browser-only regressions in Tracker lifecycle and persistence flows, but it is not a replacement for the manual release checklist.
 

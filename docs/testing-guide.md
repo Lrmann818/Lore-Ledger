@@ -40,7 +40,9 @@ Canonical local verification commands:
 - `npm ci`
   Expected: installs dependencies the same way CI does on a clean runner. Use this when you want the closest local match to GitHub Actions, especially after dependency or lockfile changes.
 - `npm run verify`
-  Expected: runs the canonical automated local gate: `npm run test:run` and `npm run build`.
+  Expected: runs the canonical automated local gate: `npm run test:run`, `npm run typecheck`, and `npm run build`.
+- `npm run typecheck`
+  Expected: runs the repo-wide CheckJS pass through the repo-pinned `typescript@5.9.3` compiler.
 - `npm run preview`
   Expected: serves the production build for browser-only validation that CI does not cover.
 - `npm run test:smoke`
@@ -127,11 +129,12 @@ The repo also has a repo-wide static-validation path for vanilla JS:
 - `tsconfig.checkjs.json` enables `allowJs` + `checkJs` for `app.js`, `boot.js`, `vite.config.js`, `js/**/*.js`, and `types/**/*.d.ts`.
 - The currently hardened `@ts-check` surface is narrower than that repo-wide include set and is concentrated in `app.js`, `js/state.js`, all current `js/domain/*` and `js/storage/*` modules, tracker/map orchestration modules, several shared UI primitives, and focused utility/feature modules.
 - The broad pass is currently clean and is useful when touching typing work, dependency boundaries, or JSDoc contracts.
-- It is still a separate manual check rather than part of `npm run verify` or the current CI gate.
-- There is currently no dedicated `package.json` script for this. When maintainers want the broad diagnostic run, the current command is:
+- `npm run typecheck` is the dedicated script for this pass, and it is part of `npm run verify` plus the current CI gate.
+- The repo pins `typescript@5.9.3` as a dev dependency so this pass does not depend on a maintainer's globally cached or locally installed TypeScript version.
+- Maintainers can still run the broad diagnostic directly with:
 
 ```bash
-npm exec --yes --package typescript@5.9.3 -- tsc -p tsconfig.checkjs.json
+npm run typecheck
 ```
 
 ## 3. Pre-merge minimum checks
@@ -140,8 +143,8 @@ Run these before merging any user-visible change:
 
 1. Run `npm run verify`.
    Expected: the same automated gate CI uses passes locally.
-2. If the change touched an existing `@ts-check` module, JSDoc typedefs, `types/*.d.ts`, or module boundary contracts, run the CheckJS command from section 2 when practical.
-   Expected: the current broad pass stays clean when you run it, even though it remains an extra manual check rather than part of the canonical `npm run verify` gate.
+2. If the change touched an existing `@ts-check` module, JSDoc typedefs, `types/*.d.ts`, or module boundary contracts, use `npm run typecheck` directly when you want a faster isolated typing pass during iteration.
+   Expected: the current broad pass stays clean when you run it.
 3. Open the app in `npm run dev` or another local served environment.
    Expected: the changed area loads cleanly and normal interaction does not produce unexpected console errors.
 4. Reload the relevant top-level route.

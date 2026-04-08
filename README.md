@@ -79,14 +79,14 @@ The repo is still plain JavaScript. Current type safety comes from `tsconfig.che
 - File-level `// @ts-check` is now in use for the composition root (`app.js`), `js/state.js`, all current `js/domain/*` and `js/storage/*` modules, map page orchestration/persistence modules, tracker page orchestration modules, several shared UI primitives, and focused utility/feature modules such as `js/features/autosize.js`, `js/features/numberSteppers.js`, and `js/utils/dev.js`.
 - Shared typedefs mostly live beside the code that owns them. The main persisted-state and migration types live in `js/state.js`; ambient browser/build shims live in `types/*.d.ts`.
 - `tsconfig.checkjs.json` includes `app.js`, `boot.js`, `vite.config.js`, `js/**/*.js`, and `types/**/*.d.ts`, so the broader repo can be checked with CheckJS as a diagnostic even where older files are outside the current file-level-hardened set.
-- The repo-wide CheckJS pass is currently clean when run against `tsconfig.checkjs.json`. It is still an extra static-validation step rather than part of `npm run verify` or the current CI gate.
+- The repo-wide CheckJS pass is currently clean through `npm run typecheck`, which uses the repo-pinned `typescript@5.9.3` and is part of `npm run verify` plus the current CI gate.
 
 ## 6. Local development
 
 Install dependencies:
 
 ```bash
-npm install
+npm ci
 ```
 
 Run the local dev server:
@@ -149,6 +149,12 @@ Run the same automated verification CI uses:
 npm run verify
 ```
 
+Run the repo-wide CheckJS pass directly:
+
+```bash
+npm run typecheck
+```
+
 Run the local browser smoke suite:
 
 ```bash
@@ -171,11 +177,11 @@ npm run test:run -- tests/state.migrate.test.js
 
 This is intentionally targeted coverage, not full-app automation. Automation now covers migration, `sanitizeForSave(...)`, `createStateActions(...)`, safe asset replacement ordering, local save/load, a representative structured save/load round trip, save-manager behavior, backup/import logic, basic browser boot, one reload-persistence path, a file-based backup round trip into a fresh browser context, tracker-page re-init safety, character-page re-init safety, targeted NPC/Party/Location panel regression paths, and shared dropdown/popover regressions. `Reset Everything`, broader Character-page coverage beyond the current lifecycle smoke, map drawing/touch behavior, and PWA/offline behavior remain manual release checks today; broader automation for those areas is roadmap work, while broader automated cross-browser coverage remains out of scope for this version.
 
-`npm run verify` is the canonical local readiness check. It runs `npm run test:run` and `npm run build`, matching the automated checks in CI. It does not replace `npm run preview` or the browser-level manual checks needed for release validation.
+`npm run verify` is the canonical local readiness check. It runs `npm run test:run`, `npm run typecheck`, and `npm run build`, matching the automated checks in CI. It does not replace `npm run preview` or the browser-level manual checks needed for release validation.
 
 For the closest local match to CI, start from a clean install with `npm ci`, then run `npm run verify`. CI does not currently run `npm run test:smoke`.
 
-Static validation is also available for the vanilla-JS codebase via `tsconfig.checkjs.json`. That repo-wide CheckJS pass is currently clean, but it remains separate from `npm run verify` and the current CI gate. Treat it as an extra static-validation check when touching typing work or module-boundary contracts.
+Static validation is also available directly through `npm run typecheck` for the vanilla-JS codebase via `tsconfig.checkjs.json`. That repo-wide CheckJS pass is currently clean and now ships as part of `npm run verify` and the current CI gate.
 
 ## 8. Build and preview
 
@@ -265,7 +271,7 @@ git push origin v0.4.0
 - Production base path is `/CampaignTracker/` in [`vite.config.js`](vite.config.js)
 - Hash-based navigation is preserved for `#tracker`, `#character`, and `#map`
 - The Pages workflow is defined in [`.github/workflows/pages.yml`](.github/workflows/pages.yml)
-- On pushes to `main` and on manual dispatch, the workflow runs a `Verify and build` job that does `npm ci`, `npm run test:run`, and `npm run build`, uploads `dist/`, and only then runs `Deploy`
+- On pushes to `main` and on manual dispatch, the workflow runs a `Verify and build` job that does `npm ci` and `npm run verify`, uploads `dist/`, and only then runs `Deploy`
 - Local equivalent: `npm ci`, then `npm run verify`; release validation still also needs `npm run preview` plus the manual checks in [`docs/testing-guide.md`](docs/testing-guide.md)
 - If you deploy manually, publish the contents of `dist/`, not the repository root
 
