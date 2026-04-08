@@ -589,7 +589,7 @@ Map boundary rule:
   - storage maintenance
   - update checks
   - Support actions (`Report Bug`, `Copy Debug Info`) plus the version/build summary shown in the modal
-  - `js/ui/support.js` owns the privacy-safe debug text helpers and the current support-recipient constant (`SUPPORT_EMAIL_PLACEHOLDER`)
+  - `js/ui/support.js` owns the privacy-safe debug text helpers and the current support-recipient constant (`SUPPORT_EMAIL`)
 - `theme.js`
   - theme resolution and system-theme listener management
 - `topbar/*`

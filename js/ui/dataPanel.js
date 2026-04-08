@@ -7,7 +7,7 @@ import { uiConfirm, uiAlert } from "./dialogs.js";
 import { enhanceSelectDropdown } from "./selectDropdown.js";
 import { safeAsync } from "./safeAsync.js";
 import {
-  SUPPORT_EMAIL_PLACEHOLDER,
+  SUPPORT_EMAIL,
   buildDebugInfoText,
   collectDebugInfoSnapshot,
   copyPlainText,
@@ -397,7 +397,7 @@ export function initDataPanel(deps) {
     safeAsync(async () => {
       notifyStatus(setStatus, "Opening bug report email…");
       openBugReportMailto({
-        recipient: SUPPORT_EMAIL_PLACEHOLDER,
+        recipient: SUPPORT_EMAIL,
         debugInfoText: getDebugInfo()
       });
     }, (err) => {

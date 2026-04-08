@@ -1,6 +1,6 @@
 // @ts-check
 
-export const SUPPORT_EMAIL_PLACEHOLDER = "replace-with-real-support@example.com";
+export const SUPPORT_EMAIL = "support@lore-ledger.com";
 export const BUG_REPORT_SUBJECT = "Lore Ledger Bug Report";
 
 /**
@@ -180,7 +180,7 @@ export function buildBugReportBody(options) {
  * @returns {string}
  */
 export function buildBugReportMailtoUrl(options) {
-  const recipient = toNonEmptyString(options?.recipient, SUPPORT_EMAIL_PLACEHOLDER);
+  const recipient = toNonEmptyString(options?.recipient, SUPPORT_EMAIL);
   const subject = toNonEmptyString(options?.subject, BUG_REPORT_SUBJECT);
   const body = buildBugReportBody({ debugInfoText: options?.debugInfoText || "" });
   const params = new URLSearchParams();

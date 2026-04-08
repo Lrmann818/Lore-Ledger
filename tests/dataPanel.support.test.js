@@ -173,7 +173,7 @@ describe("initDataPanel support actions", () => {
 
     dom.reportBugBtn.dispatchEvent(new Event("click"));
     await vi.waitFor(() => {
-      expect(dom.location.href.startsWith("mailto:replace-with-real-support%40example.com?")).toBe(true);
+      expect(dom.location.href.startsWith("mailto:support%40lore-ledger.com?")).toBe(true);
     });
 
     expect(deps.setStatus).toHaveBeenCalledWith("Opening bug report email…");
