@@ -3,7 +3,7 @@ import { expectNoFatalSignals, openSmokeApp } from "./helpers/smokeApp.js";
 
 async function reinitTrackerPageForLifecycleTest(page) {
   await page.evaluate(async () => {
-    const load = (path) => import(`/CampaignTracker/${path}`);
+    const load = (path) => import(new URL(path, window.location.href).href);
     const [
       trackerPageMod,
       stateMod,

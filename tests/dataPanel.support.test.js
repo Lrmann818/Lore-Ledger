@@ -85,9 +85,9 @@ function installFakeDom() {
   ];
   const document = new FakeDocument(elements);
   const location = {
-    href: "https://example.test/CampaignTracker/#tracker",
+    href: "https://example.test/#tracker",
     hash: "#tracker",
-    pathname: "/CampaignTracker/",
+    pathname: "/",
     search: ""
   };
   const navigator = {

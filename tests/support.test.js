@@ -48,7 +48,7 @@ describe("support helpers", () => {
       fallbackPage: "tracker",
       locationObj: {
         hash: "",
-        pathname: "/CampaignTracker/",
+        pathname: "/",
         search: "?notes=secret"
       },
       navigatorObj: {
