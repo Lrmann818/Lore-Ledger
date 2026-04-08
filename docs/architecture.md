@@ -35,7 +35,7 @@ Current Phase 1 coverage is concentrated in boundary and orchestration modules:
 - Tracker orchestration: `js/pages/tracker/trackerPage.js`, `js/pages/tracker/trackerSectionReorder.js`
 - Map orchestration/persistence: `js/pages/map/mapPage.js`, `js/pages/map/mapController.js`, `js/pages/map/mapDrawing.js`, `js/pages/map/mapCanvas.js`, `js/pages/map/mapPersistence.js`
 - Character boundary helper: `js/pages/character/characterSectionReorder.js`
-- Shared UI primitives: `js/ui/dataPanel.js`, `js/ui/navigation.js`, `js/ui/pagePanelReorder.js`, `js/ui/panelHeaderCollapse.js`, `js/ui/popovers.js`, `js/ui/positioning.js`, `js/ui/safeAsync.js`, `js/ui/saveBanner.js`, `js/ui/settingsPanel.js`, `js/ui/status.js`, `js/ui/theme.js`, `js/ui/topbar/topbar.js`
+- Shared UI primitives: `js/ui/dataPanel.js`, `js/ui/navigation.js`, `js/ui/pagePanelReorder.js`, `js/ui/panelHeaderCollapse.js`, `js/ui/popovers.js`, `js/ui/positioning.js`, `js/ui/safeAsync.js`, `js/ui/saveBanner.js`, `js/ui/settingsPanel.js`, `js/ui/status.js`, `js/ui/support.js`, `js/ui/theme.js`, `js/ui/topbar/topbar.js`
 - Focused shared features/utilities: `js/features/autosize.js`, `js/features/numberSteppers.js`, `js/pwa/updateBanner.js`, `js/pwa/updates.js`, `js/utils/dev.js`
 
 This list is intentionally narrower than the files included by `tsconfig.checkjs.json`. The config covers `app.js`, `boot.js`, `vite.config.js`, `js/**/*.js`, and `types/**/*.d.ts`, but not every included file has been hardened to the same standard yet.
@@ -582,12 +582,14 @@ Map boundary rule:
   - CSP-safe replacement for native `alert`, `confirm`, and `prompt`
 - `navigation.js`
   - top-level page switching, URL hash syncing, and persisted active-tab restore
-- `settingsPanel.js` + `dataPanel.js`
+- `settingsPanel.js` + `dataPanel.js` + `support.js`
   - Data & Settings modal wiring
   - theme changes
   - export/import/reset
   - storage maintenance
   - update checks
+  - Support actions (`Report Bug`, `Copy Debug Info`) plus the version/build summary shown in the modal
+  - `js/ui/support.js` owns the privacy-safe debug text helpers and the current support-recipient constant (`SUPPORT_EMAIL_PLACEHOLDER`)
 - `theme.js`
   - theme resolution and system-theme listener management
 - `topbar/*`

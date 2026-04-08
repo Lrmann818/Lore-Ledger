@@ -67,6 +67,8 @@ Current automated scope is intentionally targeted:
 - `tests/assetReplacementFlows.test.js` covers portrait/map replacement failure paths so old asset references remain intact when the replacement save cannot be committed.
 - `tests/storage.saveManager.test.js` covers the local save lifecycle: dirty-delay timing, debounce behavior, `flush()` results, failure banner behavior, retry after failure, repeated dirty cycles, and `init()` reset behavior.
 - `tests/storage.backup.test.js` covers backup export shape, referenced blob/text collection, import validation failures, staged blob/text writes before state swap, rollback attempts for touched text IDs on covered failure paths, cleanup of staged assets after pre-swap failures, and blob-ID remap fallback when an import collides with an existing blob id.
+- `tests/support.test.js` covers the focused support helpers: safe debug-info formatting, bug-report mailto generation, and route/query-string hardening so copied debug info stays privacy-safe.
+- `tests/dataPanel.support.test.js` covers `Data & Settings` -> `Support` wiring, support summary display, `Report Bug`, `Copy Debug Info`, clipboard success, and the alert fallback when copy is unavailable.
 - `tests/smoke/app.smoke.js` covers top-level shell boot in Chromium, opening the Map workspace, and a campaign-title reload-persistence check against the dedicated production-mode Vite server.
 - `tests/smoke/backup.smoke.js` covers backup export to a real download, import of that backup into a fresh Chromium browser context, and visible failure handling for invalid JSON import input.
 - `tests/smoke/npcPortrait.smoke.js` covers NPC portrait crop/save behavior plus incremental tracker-card patch paths for portrait toggles, search, section moves, reorder, collapse, and focus restoration.
@@ -406,6 +408,7 @@ For any failed check, record:
 - expected result versus actual result
 - app version, commit SHA, and whether you were using `npm run dev`, `npm run preview`, or a deployed URL
 - browser name/version, OS, device type, and whether a clean profile was used
+- if the app is open, include `Data & Settings` -> `Support` -> `Copy Debug Info`; it is the fastest way to capture version, build id, runtime label, current page, timestamp, and user agent without copying saved campaign data
 - whether the failure happened online or offline
 - screenshot or short video of the failure
 - relevant Console errors, network failures, service worker details, or CSP logs

@@ -50,7 +50,31 @@ Current expectations:
 
 This should be understood as "no app-managed remote sync today," not "the app never touches the network." If the app is hosted online, the browser still talks to that host to load and update the app itself.
 
-## 4. CSP summary
+## 4. Support and debug info
+
+The `Data & Settings` modal now includes a small `Support` section with `Report Bug`, `Copy Debug Info`, and nearby version/build metadata.
+
+The support/debug payload is intentionally narrow. It includes:
+
+- app version
+- build id when build metadata is available
+- runtime label (`web` or `pwa`)
+- current page/route from the app hash or active top-level page fallback
+- timestamp
+- user agent
+
+It intentionally does not include:
+
+- user notes or other campaign content
+- map data, drawings, or map images
+- backup export/import payloads
+- blob ids or other storage record ids
+- query-string or other user-supplied URL data beyond the current app route
+- other large or sensitive user data
+
+This is a plain-text troubleshooting snapshot, not a data export. `Report Bug` pre-fills an email draft with that snapshot; `Copy Debug Info` copies the same minimal block for issue reports or manual triage.
+
+## 5. CSP summary
 
 The runtime CSP is defined in [`index.html`](../index.html).
 
@@ -71,7 +95,7 @@ Important limits of the current policy:
 
 For development verification of CSP violations, see [`docs/CSP_AUDIT.md`](./CSP_AUDIT.md).
 
-## 5. Import/export safety notes
+## 6. Import/export safety notes
 
 Export:
 
@@ -101,7 +125,7 @@ Practical guidance:
 - Prefer importing backups that came from this app or a source you trust.
 - Before relying on a backup as your only copy, verify it by doing a test import in a disposable profile or after making another backup.
 
-## 6. User expectations and limitations
+## 7. User expectations and limitations
 
 Users should expect:
 
@@ -119,7 +143,7 @@ Users should not expect:
 
 Local browser storage can still be lost or become unavailable if the user clears site data, uses a temporary/private browsing context, switches browser profiles, hits storage limits, or resets the app. Exit-save hooks are best-effort only.
 
-## 7. Developer safety notes when changing storage or rendering behavior
+## 8. Developer safety notes when changing storage or rendering behavior
 
 When changing persistence, backup, import, or rendering behavior:
 
@@ -137,6 +161,7 @@ When changing persistence, backup, import, or rendering behavior:
 - [`docs/CSP_AUDIT.md`](./CSP_AUDIT.md)
 - [`index.html`](../index.html)
 - [`js/state.js`](../js/state.js)
+- [`js/ui/support.js`](../js/ui/support.js)
 - [`js/storage/persistence.js`](../js/storage/persistence.js)
 - [`js/storage/backup.js`](../js/storage/backup.js)
 - [`js/storage/blobs.js`](../js/storage/blobs.js)

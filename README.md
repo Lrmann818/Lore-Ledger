@@ -34,7 +34,7 @@ That direction is visible in the current structure:
 - Spell management with dynamic spell levels and per-spell notes
 - Map page with multiple maps, background image upload/removal, mouse/touch drawing, pan/zoom gestures, brush and eraser tools, brush size and color controls, and persisted drawings
 - Topbar utilities including a clock, calculator, and dice roller
-- Data and settings panel for theme selection, backup export/import, update checks, targeted storage cleanup, and full reset
+- `Data & Settings` for theme selection, a Support section (`Report Bug`, `Copy Debug Info`, and nearby version/build metadata), backup export/import, update checks, targeted storage cleanup, and full reset
 - Local auto-save and backup restore flows designed around browser storage rather than a server
 
 ## 4. Tech stack

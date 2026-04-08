@@ -35,7 +35,7 @@ export function setupSettingsPanel(deps) {
   if (typeof markDirty !== "function") throw new Error("setupSettingsPanel: markDirty() is required");
   if (typeof flush !== "function") throw new Error("setupSettingsPanel: flush() is required");
 
-  initDataPanel({
+  const dataPanelApi = initDataPanel({
     state,
     storageKeys,
     applyTheme,
@@ -59,7 +59,8 @@ export function setupSettingsPanel(deps) {
   const { settingsBtn } = guard.els;
 
   settingsBtn.addEventListener("click", () => {
-    const appWindow = /** @type {Window & { openDataPanel?: (() => void) | undefined }} */ (window);
-    if (typeof appWindow.openDataPanel === "function") appWindow.openDataPanel();
+    dataPanelApi?.open?.();
   });
+
+  return dataPanelApi;
 }
