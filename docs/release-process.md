@@ -82,7 +82,7 @@ Expected result:
 - `npm run typecheck` passes through the repo-pinned `typescript@5.9.3` toolchain.
 - Vite writes the production artifact to `dist/`.
 - The build includes hashed JS/CSS assets plus PWA files such as the linked `manifest.webmanifest`, copied public `manifest.json`, `sw.js`, and Workbox output.
-- Production base path is `/CampaignTracker/`.
+- Production base path is `/`.
 
 Do not ship by editing `dist/` manually. Rebuild instead.
 
@@ -94,7 +94,7 @@ Always preview the production build before shipping.
 npm run preview
 ```
 
-Then open the preview URL printed by Vite. Because this repo builds for the GitHub Pages base path, validate the app under `/CampaignTracker/` if the server root is not the correct entry point.
+Then open the preview URL printed by Vite. This repo now builds for the site root, so validate the app from `/`.
 
 Preview checks:
 
@@ -241,8 +241,10 @@ Manual GitHub-side protections not encoded in repo files:
 
 Path/base assumptions:
 
-- production `base` is `/CampaignTracker/`
-- the PWA manifest `id`, `start_url`, and `scope` are also `/CampaignTracker/`
+- production `base` is `/`
+- GitHub Pages production is being prepared for the custom domain `https://lore-ledger.com/`
+- the build should include `dist/CNAME` with `lore-ledger.com` via [`public/CNAME`](../public/CNAME)
+- the PWA manifest `id`, `start_url`, and `scope` are also `/`
 - Workbox navigation fallback is built from that same base
 
 If the GitHub Pages path ever changes, update all of these together in [`vite.config.js`](../vite.config.js):

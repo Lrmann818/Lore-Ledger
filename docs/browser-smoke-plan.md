@@ -18,7 +18,7 @@ This note records the current local browser smoke layer for Lore Ledger as it ex
   - `tests/smoke/npcPortrait.smoke.js`
   - `tests/smoke/partyLocationPanels.smoke.js`
   - `tests/smoke/trackerPanelLifecycle.smoke.js`
-- The suite runs through a dedicated Vite server in production mode on the production base path `/CampaignTracker/`.
+- The suite runs through a dedicated Vite server in production mode on the production base path `/`.
 - `npm run test:smoke` is local-only by decision for this version. Release validation still depends on the manual coverage described in [`docs/testing-guide.md`](./testing-guide.md).
 
 ## Current smoke scope
@@ -54,7 +54,7 @@ Intentionally out of scope for this version's automated smoke layer:
 ## Local run notes
 
 - Playwright browsers are not committed and still need a local install step such as `npx playwright install chromium`.
-- The suite uses a dedicated Vite server in production mode with the production base path `/CampaignTracker/`.
+- The suite uses a dedicated Vite server in production mode with the production base path `/`.
 - PWA/service-worker validation requires separate manual preview or deployed-site checks; the smoke suite does not cover offline behavior, and broader automation there remains roadmap work rather than unresolved release debt.
 
 ## Repo touchpoints

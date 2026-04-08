@@ -34,7 +34,7 @@ That direction is visible in the current structure:
 - Spell management with dynamic spell levels and per-spell notes
 - Map page with multiple maps, background image upload/removal, mouse/touch drawing, pan/zoom gestures, brush and eraser tools, brush size and color controls, and persisted drawings
 - Topbar utilities including a clock, calculator, and dice roller
-- Data and settings panel for theme selection, backup export/import, update checks, targeted storage cleanup, and full reset
+- `Data & Settings` for theme selection, a Support section (`Report Bug`, `Copy Debug Info`, and nearby version/build metadata), backup export/import, update checks, targeted storage cleanup, and full reset
 - Local auto-save and backup restore flows designed around browser storage rather than a server
 
 ## 4. Tech stack
@@ -268,7 +268,9 @@ git push origin v0.4.0
 
 ## 10. GitHub Pages deployment notes
 
-- Production base path is `/CampaignTracker/` in [`vite.config.js`](vite.config.js)
+- Production base path is `/` in [`vite.config.js`](vite.config.js)
+- GitHub Pages production is being prepared for the custom domain `https://lore-ledger.com/`
+- The repo tracks [`public/CNAME`](public/CNAME) so Vite copies `lore-ledger.com` into the built artifact as `dist/CNAME`
 - Hash-based navigation is preserved for `#tracker`, `#character`, and `#map`
 - The Pages workflow is defined in [`.github/workflows/pages.yml`](.github/workflows/pages.yml)
 - On pushes to `main` and on manual dispatch, the workflow runs a `Verify and build` job that does `npm ci` and `npm run verify`, uploads `dist/`, and only then runs `Deploy`
@@ -349,5 +351,5 @@ Branch planning/history notes kept in `docs/`:
 - Clearing site data or switching browser profiles will remove local data unless a backup JSON has been exported first.
 - Offline support is a production-build feature; `npm run dev` does not exercise the service worker path.
 - Map undo/redo is intentionally in-memory only and resets on refresh.
-- GitHub Pages deployment assumes the `/CampaignTracker/` base path today.
+- GitHub Pages custom-domain deployment assumes the site root `/` and the target host `lore-ledger.com`.
 - Automated tests now cover migration, local persistence, backup/import, and save-manager behavior; broader UI, real browser-storage, backup/restore end-to-end, and PWA validation is still manual.

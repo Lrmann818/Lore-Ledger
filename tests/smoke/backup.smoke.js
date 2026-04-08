@@ -62,7 +62,7 @@ test("backup export round-trips tracker data into a fresh browser context", asyn
   expect(exported.state?.tracker?.campaignTitle).toBe(campaignTitle);
   expect(exported.state?.tracker?.npcs?.[0]?.name).toBe(npcName);
 
-  const baseURL = testInfo.project.use.baseURL ?? "http://127.0.0.1:4173/CampaignTracker/";
+  const baseURL = testInfo.project.use.baseURL ?? "http://127.0.0.1:4173/";
   const importContext = await browser.newContext({ baseURL });
 
   try {

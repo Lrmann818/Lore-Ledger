@@ -1,9 +1,9 @@
 {
   "name": "Lore Ledger",
   "short_name": "Ledger",
-  "id": "/CampaignTracker/",
-  "start_url": "/CampaignTracker/",
-  "scope": "/CampaignTracker/",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#111111",
   "theme_color": "#111111",

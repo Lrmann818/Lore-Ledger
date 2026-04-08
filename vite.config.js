@@ -49,7 +49,7 @@ function resolveAppVersion(pkgVersion) {
 export default defineConfig(({ mode }) => {
   // Release versioning comes from Git tag/history metadata when available.
   // package.json stays as the fallback-only source for environments without Git data.
-  const base = mode === "production" ? "/CampaignTracker/" : "/";
+  const base = "/";
   const pkgVersion = String(pkgJson?.version || "0.0.0");
   const resolvedVersion = resolveAppVersion(pkgVersion);
   const appVersion = mode === "production" ? resolvedVersion : `${resolvedVersion}-dev`;
@@ -68,9 +68,9 @@ export default defineConfig(({ mode }) => {
         manifest: {
           name: "Lore Ledger",
           short_name: "Ledger",
-          id: "/CampaignTracker/",
-          start_url: "/CampaignTracker/",
-          scope: "/CampaignTracker/",
+          id: "/",
+          start_url: "/",
+          scope: "/",
           display: "standalone",
           theme_color: "#111111",
           background_color: "#111111",

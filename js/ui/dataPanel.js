@@ -6,6 +6,15 @@
 import { uiConfirm, uiAlert } from "./dialogs.js";
 import { enhanceSelectDropdown } from "./selectDropdown.js";
 import { safeAsync } from "./safeAsync.js";
+import {
+  SUPPORT_EMAIL_PLACEHOLDER,
+  buildDebugInfoText,
+  collectDebugInfoSnapshot,
+  copyPlainText,
+  formatSupportSummary,
+  getAppReleaseInfo,
+  openBugReportMailto
+} from "./support.js";
 import { requireMany } from "../utils/domGuards.js";
 import { initPwaUpdates } from "../pwa/updates.js";
 import { showUpdateBanner } from "../pwa/updateBanner.js";
@@ -30,7 +39,7 @@ import { showUpdateBanner } from "../pwa/updateBanner.js";
  *   Popovers?: PopoversApi
  * }} DataPanelDeps
  */
-/** @typedef {{ destroy: () => void }} DataPanelApi */
+/** @typedef {{ open?: () => void, close?: () => void, destroy: () => void }} DataPanelApi */
 /**
  * @typedef {{
  *   applyUpdate?: () => Promise<boolean | void>,
@@ -80,7 +89,7 @@ function ensureRootUiState(state) {
 
 /**
  * @param {DataPanelDeps} deps
- * @returns {DataPanelApi | (() => void)}
+ * @returns {DataPanelApi}
  */
 export function initDataPanel(deps) {
   _activeDataPanel?.destroy?.();
@@ -109,7 +118,7 @@ export function initDataPanel(deps) {
     },
     { root: document, setStatus, context: "Data panel" }
   );
-  if (!guard.ok) return guard.destroy;
+  if (!guard.ok) return guard.destroy || { destroy() { } };
   const overlay = /** @type {HTMLElement} */ (guard.els.overlay);
   const panel = /** @type {HTMLElement} */ (guard.els.panel);
   const closeBtn = /** @type {HTMLButtonElement} */ (guard.els.closeBtn);
@@ -178,10 +187,6 @@ export function initDataPanel(deps) {
     overlay.setAttribute("aria-hidden", "true");
   }
 
-  // allow other modules (settings dropdown) to open it
-  const appWindow = /** @type {Window & { openDataPanel?: (() => void) | undefined }} */ (window);
-  appWindow.openDataPanel = open;
-
   // Close interactions
   if (closeBtn) addListener(closeBtn, "click", close);
   addListener(overlay, "click", (e) => {
@@ -214,8 +219,24 @@ export function initDataPanel(deps) {
   const clearImagesBtn = document.getElementById("dataClearImagesBtn");
   const clearTextsBtn = document.getElementById("dataClearTextsBtn");
   const aboutBtn = document.getElementById("dataAboutBtn");
+  const reportBugBtn = /** @type {HTMLButtonElement|null} */ (document.getElementById("dataReportBugBtn"));
+  const copyDebugInfoBtn = /** @type {HTMLButtonElement|null} */ (document.getElementById("dataCopyDebugInfoBtn"));
+  const supportMeta = /** @type {HTMLElement|null} */ (document.getElementById("dataSupportMeta"));
   const checkUpdatesBtn = /** @type {HTMLButtonElement|null} */ (document.getElementById("checkUpdatesBtn"));
   const settingsUpdateStatus = /** @type {HTMLElement|null} */ (document.getElementById("settingsUpdateStatus"));
+  const { version, build } = getAppReleaseInfo();
+
+  if (supportMeta) {
+    supportMeta.textContent = formatSupportSummary({ version, build });
+  }
+
+  const getDebugInfo = () => buildDebugInfoText(
+    collectDebugInfoSnapshot({
+      version,
+      build,
+      fallbackPage: getActiveSupportPage(state)
+    })
+  );
 
   const setUpdateStatus = (message = "") => {
     if (!settingsUpdateStatus) return;
@@ -372,6 +393,43 @@ export function initDataPanel(deps) {
     })
   );
 
+  if (reportBugBtn) addListener(reportBugBtn, "click",
+    safeAsync(async () => {
+      notifyStatus(setStatus, "Opening bug report email…");
+      openBugReportMailto({
+        recipient: SUPPORT_EMAIL_PLACEHOLDER,
+        debugInfoText: getDebugInfo()
+      });
+    }, (err) => {
+      console.error(err);
+      notifyStatus(setStatus, "Open bug report failed.");
+    })
+  );
+
+  if (copyDebugInfoBtn) addListener(copyDebugInfoBtn, "click",
+    safeAsync(async () => {
+      const debugInfo = getDebugInfo();
+      let copied = false;
+
+      try {
+        copied = await copyPlainText(debugInfo);
+      } catch (err) {
+        console.error(err);
+      }
+
+      if (copied) {
+        notifyStatus(setStatus, "Debug info copied.");
+        return;
+      }
+
+      await uiAlert(debugInfo, { title: "Debug info" });
+      notifyStatus(setStatus, "Couldn't copy automatically. Debug info shown in dialog.");
+    }, (err) => {
+      console.error(err);
+      notifyStatus(setStatus, "Copy debug info failed.");
+    })
+  );
+
   if (aboutBtn) addListener(aboutBtn, "click",
     safeAsync(async () => {
     const appName = (state?.tracker && typeof state.tracker.campaignTitle === "string" && state.tracker.campaignTitle.trim())
@@ -379,9 +437,6 @@ export function initDataPanel(deps) {
       : "My Lore Ledger";
 
     const schema = Number.isFinite(state?.schemaVersion) ? state.schemaVersion : "?";
-    const appWindow = /** @type {Window & { __APP_VERSION__?: unknown, APP_VERSION?: unknown, __APP_BUILD__?: unknown, APP_BUILD?: unknown }} */ (window);
-    const version = (appWindow.__APP_VERSION__ || appWindow.APP_VERSION || "dev").toString();
-    const build = (appWindow.__APP_BUILD__ || appWindow.APP_BUILD || "").toString();
     const lastModified = (document.lastModified || "").toString();
 
     const lines = [
@@ -406,12 +461,10 @@ export function initDataPanel(deps) {
 
   /** @type {DataPanelApi} */
   const api = {
+    open,
+    close,
     destroy() {
       listenerController.abort();
-      const appWindow = /** @type {Window & { openDataPanel?: (() => void) | undefined }} */ (window);
-      if (appWindow.openDataPanel === open) {
-        delete appWindow.openDataPanel;
-      }
       if (_activeDataPanel === api) _activeDataPanel = null;
     }
   };
@@ -498,4 +551,12 @@ function removeAllBlobIds(root) {
       if (v && typeof v === "object") stack.push(v);
     }
   }
+}
+
+/**
+ * @param {State} state
+ * @returns {string}
+ */
+function getActiveSupportPage(state) {
+  return typeof state?.ui?.activeTab === "string" ? state.ui.activeTab : "";
 }

@@ -2,7 +2,7 @@ import { defineConfig, devices } from "@playwright/test";
 
 const HOST = "127.0.0.1";
 const PORT = 4173;
-const BASE_PATH = "/CampaignTracker/";
+const BASE_PATH = "/";
 
 export default defineConfig({
   testDir: "./tests/smoke",

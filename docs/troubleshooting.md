@@ -109,13 +109,13 @@ Current behavior:
 - `index.html` links `./manifest.webmanifest`
 - production PWA metadata is defined in `vite.config.js`
 - icon files live under `public/icons/`
-- the current production base path is `/CampaignTracker/`
+- the current production base path is `/`
 
 Recovery:
 
 1. Make sure the app is being served over Vite, preview, or GitHub Pages, not from `file://`.
 2. Inspect the manifest the app actually links: `manifest.webmanifest`.
-3. On GitHub Pages, verify the manifest and icon URLs resolve under `/CampaignTracker/`.
+3. On GitHub Pages with the custom domain, verify the manifest and icon URLs resolve from `/`.
 4. If an installed PWA keeps old icons or metadata, clear site data, remove the installed app, then install it again.
 5. If you are checking repo assets directly, keep `public/manifest.json` aligned too, but treat the linked `manifest.webmanifest` as the first thing to debug.
 
@@ -189,15 +189,15 @@ Common symptoms:
 
 Current behavior:
 
-- production `base` is `/CampaignTracker/`
-- the PWA manifest `id`, `start_url`, and `scope` also use `/CampaignTracker/`
+- production `base` is `/`
+- the PWA manifest `id`, `start_url`, and `scope` also use `/`
 - the GitHub Pages workflow deploys the built `dist/` folder
 
 Recovery:
 
 1. Build with `npm run build`.
 2. Validate the production build with `npm run preview`.
-3. If the preview server root is not the right entry point, test under `/CampaignTracker/`.
+3. Validate the preview build from `/`.
 4. For GitHub Pages, publish `dist/`, not the repository root.
 5. If the Pages path ever changes, update all of these together before rebuilding:
    - Vite `base`

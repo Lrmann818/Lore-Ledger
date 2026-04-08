@@ -3,7 +3,7 @@ import { expectNoFatalSignals, openSmokeApp } from "./helpers/smokeApp.js";
 
 async function reinitCharacterPageForLifecycleTest(page, characterOverrides = {}) {
   await page.evaluate(async (overrides) => {
-    const load = (path) => import(`/CampaignTracker/${path}`);
+    const load = (path) => import(new URL(path, window.location.href).href);
     const [
       characterPageMod,
       stateMod,
