@@ -20,7 +20,8 @@ import { createStateActions } from "../domain/stateActions.js";
  *   tabSelector?: string,
  *   pageIdPrefix?: string,
  *   defaultTab?: string,
- *   updateHash?: boolean
+ *   updateHash?: boolean,
+ *   canActivateTab?: (tabName: string) => boolean
  * }} TopTabsNavigationDeps
  */
 /**
@@ -30,6 +31,7 @@ import { createStateActions } from "../domain/stateActions.js";
  * @typedef {{
  *   applyActiveTab: (tabName: string | null | undefined, opts?: ApplyActiveTabOptions) => void,
  *   getActiveTab: () => string,
+ *   refresh: () => void,
  *   destroy: () => void
  * }} TopTabsNavigationApi
  */
@@ -64,7 +66,8 @@ export function initTopTabsNavigation(deps = {}) {
     tabSelector = ".tab[data-tab]",
     pageIdPrefix = "page-",
     defaultTab = "tracker",
-    updateHash = true
+    updateHash = true,
+    canActivateTab = () => true
   } = deps;
 
   if (typeof activeTopTabsNavigationDestroy === "function") {
@@ -113,15 +116,38 @@ export function initTopTabsNavigation(deps = {}) {
     : null;
 
   /**
+   * @param {string} tabName
+   * @returns {boolean}
+   */
+  function isTabEnabled(tabName) {
+    return !!pages[tabName] && !!canActivateTab(tabName);
+  }
+
+  /**
+   * @returns {string}
+   */
+  function getFirstEnabledTab() {
+    return Object.keys(pages).find((name) => isTabEnabled(name)) || "";
+  }
+
+  /**
    * @param {string | null | undefined} tabName
    */
   function normalizeTabName(tabName) {
     const t = (tabName || "").toString().replace(/^#/, "").trim();
-    if (t && pages[t]) return t;
-    if (pages[defaultTab]) return defaultTab;
-    // Fallback to the first registered page
-    const first = Object.keys(pages)[0];
-    return first || defaultTab;
+    if (t && isTabEnabled(t)) return t;
+    if (isTabEnabled(defaultTab)) return defaultTab;
+    return getFirstEnabledTab();
+  }
+
+  function syncTabAvailability() {
+    tabButtons.forEach((btn) => {
+      const tabName = (btn.dataset.tab || btn.getAttribute("data-tab") || "").trim();
+      const enabled = !!tabName && isTabEnabled(tabName);
+      btn.disabled = !enabled;
+      btn.setAttribute("aria-disabled", enabled ? "false" : "true");
+      btn.classList.toggle("disabled", !enabled);
+    });
   }
 
   /**
@@ -154,10 +180,11 @@ export function initTopTabsNavigation(deps = {}) {
    * @param {ApplyActiveTabOptions} [opts]
    */
   function applyActiveTab(tabName, { markDirty: doMarkDirty = false } = {}) {
+    syncTabAvailability();
     const active = normalizeTabName(tabName);
 
     tabButtons.forEach((btn) => {
-      const isActive = btn.getAttribute("data-tab") === active;
+      const isActive = !!active && btn.getAttribute("data-tab") === active;
       btn.classList.toggle("active", isActive);
       btn.setAttribute("aria-selected", isActive ? "true" : "false");
       btn.setAttribute("tabindex", isActive ? "0" : "-1");
@@ -165,10 +192,13 @@ export function initTopTabsNavigation(deps = {}) {
 
     Object.entries(pages).forEach(([name, el]) => {
       if (!el) return;
-      el.classList.toggle("active", name === active);
+      const isActive = !!active && name === active;
+      el.classList.toggle("active", isActive);
       // Keep DOM accessible; CSS uses .active, but hidden helps SR + tab order
-      el.toggleAttribute("hidden", name !== active);
+      el.toggleAttribute("hidden", !isActive);
     });
+
+    if (!active) return;
 
     if (actions) {
       actions.setPath(["ui", "activeTab"], active, { queueSave: false });
@@ -184,6 +214,7 @@ export function initTopTabsNavigation(deps = {}) {
   // Click to switch
   tabButtons.forEach((btn) => {
     btn.addEventListener("click", () => {
+      if (btn.disabled) return;
       applyActiveTab(btn.dataset.tab || btn.getAttribute("data-tab"));
     }, { signal });
   });
@@ -205,6 +236,7 @@ export function initTopTabsNavigation(deps = {}) {
       if (e.key === "End") next = tabButtons.length - 1;
       const nextTab = tabButtons[next];
       if (!nextTab) return;
+      if (nextTab.disabled) return;
       nextTab.focus();
       applyActiveTab(nextTab.dataset.tab || nextTab.getAttribute("data-tab"));
     },
@@ -259,6 +291,10 @@ export function initTopTabsNavigation(deps = {}) {
     getActiveTab: () => {
       const fromState = (typeof state?.ui?.activeTab === "string") ? state.ui.activeTab : "";
       return normalizeTabName(fromState || location.hash);
+    },
+    refresh: () => {
+      const current = (typeof state?.ui?.activeTab === "string") ? state.ui.activeTab : "";
+      applyActiveTab(current || location.hash, { markDirty: false });
     },
     destroy
   };

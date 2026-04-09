@@ -40,7 +40,7 @@
   <!-- TOPBAR - Calculator & Dice Roller -->
   <header class="topbar">
     <div class="titlewrap">
-      <h1 id="campaignTitle" contenteditable="true" spellcheck="false">My Campaign</h1>
+      <h1 id="campaignTitle" contenteditable="false" spellcheck="false">Lore Ledger</h1>
       <div class="muted" id="statusText"></div>
     </div>
 
@@ -51,8 +51,8 @@
 
     <!-- Navigation Tabs -->
     <div class="topbarRight">
-      <nav class="tabs" role="tablist" aria-label="Pages">
-        <button class="tab active" data-tab="tracker" role="tab" aria-selected="true">Tracker</button>
+      <nav class="tabs" id="campaignTabs" role="tablist" aria-label="Pages" hidden>
+        <button class="tab" data-tab="tracker" role="tab" aria-selected="false">Tracker</button>
         <button class="tab" data-tab="character" role="tab" aria-selected="false">Character</button>
         <button class="tab" data-tab="map" role="tab" aria-selected="false">Map</button>
       </nav>
@@ -196,8 +196,52 @@
   </header>
 
   <main>
+    <!-- CAMPAIGN HUB -->
+    <section class="page active" id="page-hub">
+      <div class="hubShell">
+        <header class="hubWelcome">
+          <h2 class="hubWelcomeTitle">Welcome to Lore Ledger</h2>
+          <p class="muted hubWelcomeCopy" id="hubIntroCopy">Create a new campaign or open an existing one.</p>
+        </header>
+
+        <div class="hubLayout">
+          <section class="panel hubCreatePanel">
+            <div class="hubSectionHeader">
+              <h3 class="m0">Create Campaign</h3>
+              <p class="mutedSmall m0">Start a fresh adventure and jump right in.</p>
+            </div>
+
+            <form id="hubCreateForm" class="hubCreateForm">
+              <label class="hubCreateField" for="hubCampaignNameInput">
+                <span class="hubFieldLabel">Campaign Name</span>
+                <input id="hubCampaignNameInput" type="text" maxlength="120" placeholder="Name your first campaign" />
+              </label>
+              <button id="hubCreateBtn" type="submit">Create Campaign</button>
+            </form>
+          </section>
+
+          <section class="panel hubListPanel">
+            <div class="hubListHeader">
+              <div class="hubSectionHeader">
+                <h3 class="m0">Your Campaigns</h3>
+                <p class="mutedSmall m0">Open an existing campaign or manage its name.</p>
+              </div>
+              <div class="mutedSmall hubCampaignCount" id="hubCampaignCount">No campaigns yet</div>
+            </div>
+
+            <div class="hubEmptyState" id="hubEmptyState">
+              <p class="m0">You do not have any campaigns yet.</p>
+              <p class="muted m0">Create one above, then you can come back here any time to open, rename, or delete it.</p>
+            </div>
+
+            <ul class="hubCampaignList" id="hubCampaignList" aria-label="Campaigns" hidden></ul>
+          </section>
+        </div>
+      </div>
+    </section>
+
     <!-- TRACKER PAGE -->
-    <section class="page active" id="page-tracker">
+    <section class="page" id="page-tracker">
       <div class="trackerColumns" id="trackerColumns">
         <div class="trackerCol" id="trackerCol0">
 
@@ -863,6 +907,16 @@
         <div class="dataPanelSection">
           <div class="dataPanelLabel">Theme</div>
           <select id="dataPanelThemeSelect" class="settingsSelect" title="Theme"></select>
+        </div>
+
+        <div class="settingsDivider" id="dataCampaignDivider" hidden></div>
+
+        <div class="dataPanelSection" id="dataCampaignSection" hidden>
+          <div class="dataPanelLabel">Campaign</div>
+          <div class="mutedSmall">Leave the current campaign and return to the Campaign Hub.</div>
+          <div class="dataPanelActions">
+            <button id="dataOpenHubBtn" class="settingsItem" type="button">Return to Campaign Hub</button>
+          </div>
         </div>
 
         <div class="settingsDivider"></div>

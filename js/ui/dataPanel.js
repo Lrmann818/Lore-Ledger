@@ -35,6 +35,7 @@ import { showUpdateBanner } from "../pwa/updateBanner.js";
  *   resetAll: () => Promise<unknown> | unknown,
  *   clearAllBlobs: () => Promise<unknown> | unknown,
  *   clearAllTexts: () => Promise<unknown> | unknown,
+ *   openCampaignHub?: () => Promise<unknown> | unknown,
  *   setStatus?: SetStatusFn,
  *   Popovers?: PopoversApi
  * }} DataPanelDeps
@@ -106,6 +107,7 @@ export function initDataPanel(deps) {
     resetAll,
     clearAllBlobs,
     clearAllTexts,
+    openCampaignHub,
     setStatus,
     Popovers
   } = deps;
@@ -165,6 +167,7 @@ export function initDataPanel(deps) {
   }
 
   function open() {
+    syncCampaignSection();
     overlay.hidden = false;
     overlay.setAttribute("aria-hidden", "false");
     // Sync theme select
@@ -214,6 +217,9 @@ export function initDataPanel(deps) {
   // Buttons
   const exportBtn = document.getElementById("dataExportBtn");
   const importFile = /** @type {HTMLInputElement|null} */ (document.getElementById("dataImportFile"));
+  const campaignSection = /** @type {HTMLElement|null} */ (document.getElementById("dataCampaignSection"));
+  const campaignDivider = /** @type {HTMLElement|null} */ (document.getElementById("dataCampaignDivider"));
+  const openHubBtn = /** @type {HTMLButtonElement|null} */ (document.getElementById("dataOpenHubBtn"));
   const resetAllBtn = document.getElementById("dataResetAllBtn");
   const resetUiBtn = document.getElementById("dataResetUiBtn");
   const clearImagesBtn = document.getElementById("dataClearImagesBtn");
@@ -243,12 +249,34 @@ export function initDataPanel(deps) {
     settingsUpdateStatus.textContent = message;
   };
 
+  const syncCampaignSection = () => {
+    const activeCampaignId = typeof state?.appShell?.activeCampaignId === "string"
+      ? state.appShell.activeCampaignId.trim()
+      : "";
+    const showCampaignSection = !!activeCampaignId && typeof openCampaignHub === "function";
+    campaignSection?.toggleAttribute("hidden", !showCampaignSection);
+    campaignDivider?.toggleAttribute("hidden", !showCampaignSection);
+    if (openHubBtn) openHubBtn.disabled = !showCampaignSection;
+  };
+
   let updateReadySeen = false;
   /** @type {PwaUpdatesApi} */
   let updatesApi = null;
 
+  syncCampaignSection();
+
   if (exportBtn) addListener(exportBtn, "click", () => exportBackup());
   if (importFile) addListener(importFile, "change", (e) => importBackup(e));
+  if (openHubBtn) addListener(openHubBtn, "click",
+    safeAsync(async () => {
+      if (typeof openCampaignHub !== "function") return;
+      close();
+      await openCampaignHub();
+    }, (err) => {
+      console.error(err);
+      notifyStatus(setStatus, "Return to Campaign Hub failed.");
+    })
+  );
 
   if (checkUpdatesBtn) {
     if (!("serviceWorker" in navigator)) {

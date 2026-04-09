@@ -32,18 +32,59 @@ export function watchForFatalSignals(page) {
 export async function openSmokeApp(page) {
   const fatalSignals = watchForFatalSignals(page);
   await page.goto("/");
-  await expectTrackerShell(page);
+  await expect(page.locator("#campaignTitle")).toBeVisible();
   return fatalSignals;
 }
 
 /**
  * @param {import("@playwright/test").Page} page
  */
+export async function expectHubShell(page) {
+  await expect(page.locator("#page-hub")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Welcome to Lore Ledger" })).toBeVisible();
+  await expect(page.locator("#campaignTabs")).toBeHidden();
+  await expect(page.getByRole("tab", { name: "Hub" })).toHaveCount(0);
+}
+
+/**
+ * @param {import("@playwright/test").Page} page
+ */
 export async function expectTrackerShell(page) {
-  await expect(page.getByRole("tablist", { name: "Pages" })).toBeVisible();
-  await expect(page.getByRole("tab", { name: "Tracker" })).toHaveAttribute("aria-selected", "true");
+  const trackerTab = page.getByRole("tab", { name: "Tracker" });
+  if ((await trackerTab.getAttribute("aria-selected")) !== "true") {
+    if (await page.locator("#page-hub").isVisible()) {
+      await createCampaignFromHub(page, "Smoke Test Campaign");
+    }
+  }
+
+  await expect(page.locator("#campaignTabs")).toBeVisible();
+  await expect(trackerTab).toHaveAttribute("aria-selected", "true");
   await expect(page.locator("#campaignTitle")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Sessions" })).toBeVisible();
+}
+
+/**
+ * @param {import("@playwright/test").Page} page
+ * @param {string} campaignName
+ */
+export async function createCampaignFromHub(page, campaignName) {
+  await expectHubShell(page);
+  await page.locator("#hubCampaignNameInput").fill(campaignName);
+  await page.locator("#hubCreateForm").getByRole("button", { name: "Create Campaign" }).click();
+  await expect(page.getByRole("tab", { name: "Tracker" })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("heading", { name: "Sessions" })).toBeVisible();
+  await expect(page.locator("#campaignTitle")).toHaveText(campaignName);
+}
+
+/**
+ * @param {import("@playwright/test").Page} page
+ */
+export async function returnToHubFromSettings(page) {
+  await page.getByRole("button", { name: "Data & Settings" }).click();
+  await expect(page.getByRole("dialog", { name: "Data & Settings" })).toBeVisible();
+  await page.getByRole("button", { name: "Return to Campaign Hub" }).click();
+  await expect(page.getByRole("dialog", { name: "Data & Settings" })).toBeHidden();
+  await expectHubShell(page);
 }
 
 /**

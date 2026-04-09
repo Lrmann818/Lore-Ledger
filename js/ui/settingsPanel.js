@@ -26,6 +26,7 @@ export function setupSettingsPanel(deps) {
     resetAll,
     clearAllBlobs,
     clearAllTexts,
+    openCampaignHub,
     setStatus,
   } = deps || {};
 
@@ -47,6 +48,7 @@ export function setupSettingsPanel(deps) {
     resetAll,
     clearAllBlobs,
     clearAllTexts,
+    openCampaignHub,
     setStatus,
   });
 

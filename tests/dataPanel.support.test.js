@@ -53,6 +53,16 @@ class FakeElement extends EventTarget {
     return this.attributes.get(name) ?? null;
   }
 
+  toggleAttribute(name, force) {
+    const nextValue = typeof force === "boolean"
+      ? force
+      : !this.attributes.has(name);
+    if (name === "hidden") this.hidden = nextValue;
+    if (nextValue) this.attributes.set(name, "");
+    else this.attributes.delete(name);
+    return nextValue;
+  }
+
   focus() {}
 }
 
@@ -78,6 +88,9 @@ function installFakeDom() {
     new FakeElement("dataPanelOverlay"),
     new FakeElement("dataPanelPanel"),
     new FakeElement("dataPanelClose"),
+    new FakeElement("dataCampaignSection"),
+    new FakeElement("dataCampaignDivider"),
+    new FakeElement("dataOpenHubBtn"),
     new FakeElement("dataReportBugBtn"),
     new FakeElement("dataCopyDebugInfoBtn"),
     new FakeElement("dataSupportMeta"),
@@ -120,6 +133,9 @@ function installFakeDom() {
     document,
     location,
     navigator,
+    campaignSection: document.getElementById("dataCampaignSection"),
+    campaignDivider: document.getElementById("dataCampaignDivider"),
+    openHubBtn: document.getElementById("dataOpenHubBtn"),
     reportBugBtn: document.getElementById("dataReportBugBtn"),
     copyDebugInfoBtn: document.getElementById("dataCopyDebugInfoBtn"),
     supportMeta: document.getElementById("dataSupportMeta")
@@ -128,7 +144,11 @@ function installFakeDom() {
 
 function createDeps() {
   return {
-    state: { ui: { activeTab: "tracker", theme: "system", textareaHeights: {}, panelCollapsed: {} }, tracker: { ui: {} } },
+    state: {
+      appShell: { activeCampaignId: null },
+      ui: { activeTab: "tracker", theme: "system", textareaHeights: {}, panelCollapsed: {} },
+      tracker: { ui: {} }
+    },
     storageKeys: { STORAGE_KEY: "storage", ACTIVE_TAB_KEY: "tab" },
     applyTheme: vi.fn(),
     markDirty: vi.fn(),
@@ -138,6 +158,7 @@ function createDeps() {
     resetAll: vi.fn(),
     clearAllBlobs: vi.fn(),
     clearAllTexts: vi.fn(),
+    openCampaignHub: vi.fn(),
     setStatus: vi.fn()
   };
 }
@@ -227,5 +248,29 @@ describe("initDataPanel support actions", () => {
     expect(uiAlertMock.mock.calls[0][1]).toEqual({ title: "Debug info" });
     expect(deps.setStatus).toHaveBeenCalledWith("Couldn't copy automatically. Debug info shown in dialog.");
     consoleErrorSpy.mockRestore();
+  });
+
+  it("shows the Campaign Hub return action only while a campaign is active", async () => {
+    const deps = createDeps();
+    deps.state.appShell.activeCampaignId = "campaign_alpha";
+    const { initDataPanel } = await import("../js/ui/dataPanel.js");
+
+    const panel = initDataPanel(deps);
+
+    expect(dom.campaignSection.hidden).toBe(false);
+    expect(dom.campaignDivider.hidden).toBe(false);
+    expect(dom.openHubBtn.disabled).toBe(false);
+
+    dom.openHubBtn.dispatchEvent(new Event("click"));
+    await vi.waitFor(() => {
+      expect(deps.openCampaignHub).toHaveBeenCalledTimes(1);
+    });
+
+    deps.state.appShell.activeCampaignId = null;
+    panel.open?.();
+
+    expect(dom.campaignSection.hidden).toBe(true);
+    expect(dom.campaignDivider.hidden).toBe(true);
+    expect(dom.openHubBtn.disabled).toBe(true);
   });
 });

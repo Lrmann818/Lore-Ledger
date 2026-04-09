@@ -366,6 +366,13 @@ export const SCHEMA_MIGRATION_HISTORY = Object.freeze([
 
 /**
  * @typedef {{
+ *   activeCampaignId: string | null,
+ *   [key: string]: unknown
+ * }} AppShellState
+ */
+
+/**
+ * @typedef {{
  *   theme: string,
  *   textareaHeights: NumberLookup,
  *   panelCollapsed: BooleanLookup,
@@ -381,6 +388,7 @@ export const SCHEMA_MIGRATION_HISTORY = Object.freeze([
  *   character: CharacterState,
  *   map: MapState,
  *   ui: RootUiState,
+ *   appShell: AppShellState,
  *   [key: string]: unknown
  * }} State
  */
@@ -495,7 +503,8 @@ export const state = {
     undo: [],
     redo: []
   },
-  ui: { theme: "system", textareaHeights: {}, panelCollapsed: {} }
+  ui: { theme: "system", textareaHeights: {}, panelCollapsed: {} },
+  appShell: { activeCampaignId: null }
 };
 
 const DICE_LAST_DEFAULTS = Object.freeze({
@@ -522,6 +531,13 @@ function normalizeDiceMode(mode) {
  * @returns {State}
  */
 export function normalizeState(data) {
+  if (!data.appShell || typeof data.appShell !== "object" || Array.isArray(data.appShell)) {
+    data.appShell = { activeCampaignId: null };
+  }
+  if (typeof data.appShell.activeCampaignId !== "string" || !data.appShell.activeCampaignId.trim()) {
+    data.appShell.activeCampaignId = null;
+  }
+
   if (!data.ui || typeof data.ui !== "object") {
     data.ui = { theme: "system", textareaHeights: {}, panelCollapsed: {} };
   }

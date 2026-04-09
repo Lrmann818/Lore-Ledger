@@ -15,8 +15,65 @@ import { openDb, TEXT_STORE } from "./idb.js";
  * @param {string} spellId
  * @returns {string}
  */
-export function textKey_spellNotes(spellId) {
+export function legacyTextKey_spellNotes(spellId) {
   return `spell_notes_${spellId}`;
+}
+
+/**
+ * @param {string} campaignIdOrSpellId
+ * @param {string} [spellId]
+ * @returns {string}
+ */
+export function textKey_spellNotes(campaignIdOrSpellId, spellId) {
+  if (typeof spellId === "string") {
+    return `spell_notes_${campaignIdOrSpellId}__${spellId}`;
+  }
+  return legacyTextKey_spellNotes(campaignIdOrSpellId);
+}
+
+/**
+ * @param {string} campaignId
+ * @param {Iterable<string>} spellIds
+ * @param {{
+ *   getTextRecord?: typeof getTextRecord,
+ *   putText?: typeof putText,
+ *   deleteText?: typeof deleteText
+ * }} [deps]
+ * @returns {Promise<boolean>}
+ */
+export async function migrateLegacySpellNotesToCampaignScope(campaignId, spellIds, deps = {}) {
+  const {
+    getTextRecord: readTextRecord = getTextRecord,
+    putText: writeText = putText,
+    deleteText: removeText = deleteText
+  } = deps;
+  const normalizedCampaignId = String(campaignId || "").trim();
+  if (!normalizedCampaignId) return false;
+
+  let changed = false;
+  const seen = new Set();
+
+  for (const rawSpellId of spellIds) {
+    const spellId = String(rawSpellId || "").trim();
+    if (!spellId || seen.has(spellId)) continue;
+    seen.add(spellId);
+
+    const legacyId = legacyTextKey_spellNotes(spellId);
+    const scopedId = textKey_spellNotes(normalizedCampaignId, spellId);
+    const legacyRecord = await readTextRecord(legacyId);
+    if (!legacyRecord) continue;
+
+    const scopedRecord = await readTextRecord(scopedId);
+    if (!scopedRecord) {
+      await writeText(legacyRecord.text || "", scopedId);
+      changed = true;
+    }
+
+    await removeText(legacyId);
+    changed = true;
+  }
+
+  return changed;
 }
 
 /**

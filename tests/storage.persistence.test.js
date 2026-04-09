@@ -1,7 +1,21 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { CURRENT_SCHEMA_VERSION, migrateState, sanitizeForSave } from "../js/state.js";
-import { loadAll, saveAllLocal } from "../js/storage/persistence.js";
+import {
+  createCampaignInVault,
+  deleteCampaignFromVault,
+  LEGACY_MIGRATION_CAMPAIGN_ID,
+  normalizeCampaignVault,
+  projectActiveCampaignState,
+  renameCampaignInVault,
+  wrapLegacyStateInVault
+} from "../js/storage/campaignVault.js";
+import { loadAll, saveAllLocal, switchCampaign } from "../js/storage/persistence.js";
+import {
+  legacyTextKey_spellNotes,
+  migrateLegacySpellNotesToCampaignScope,
+  textKey_spellNotes
+} from "../js/storage/texts-idb.js";
 
 function makeState() {
   return migrateState(undefined);
@@ -51,503 +65,450 @@ function makeEnsureMapManager(state) {
   });
 }
 
-describe("saveAllLocal", () => {
+describe("multi-campaign persistence foundation", () => {
   afterEach(() => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
 
-  it("persists the sanitized state shape without runtime-only fields and does not mutate live state", () => {
-    const { getStoredValue, localStorageMock } = installLocalStorageMock();
-    const state = makeState();
-
-    state.map.undo = ["old undo"];
-    state.map.redo = ["old redo"];
-    state.ui.dice = {
-      history: [{ text: "1d20", t: 1 }],
-      last: { count: 2, sides: 20, mod: 3, mode: "adv" }
-    };
-    state.ui.calc = {
-      history: ["2+2"],
-      memory: "4"
-    };
-
-    const ok = saveAllLocal({
-      storageKey: "test-storage",
-      state,
-      currentSchemaVersion: CURRENT_SCHEMA_VERSION,
-      sanitizeForSave
-    });
-
-    expect(ok).toBe(true);
-    expect(localStorageMock.setItem).toHaveBeenCalledTimes(1);
-
-    const saved = JSON.parse(getStoredValue());
-    expect(saved.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
-    expect(saved.map.undo).toBeUndefined();
-    expect(saved.map.redo).toBeUndefined();
-    expect(saved.ui.dice).toBeUndefined();
-    expect(saved.ui.calc).toEqual({ memory: "4" });
-    expect(state.map.undo).toEqual(["old undo"]);
-    expect(state.map.redo).toEqual(["old redo"]);
-    expect(state.ui.dice).toEqual({
-      history: [{ text: "1d20", t: 1 }],
-      last: { count: 2, sides: 20, mod: 3, mode: "adv" }
-    });
-    expect(state.ui.calc).toEqual({
-      history: ["2+2"],
-      memory: "4"
-    });
-  });
-
-  it("returns false when localStorage throws", () => {
-    const { localStorageMock } = installLocalStorageMock();
-    localStorageMock.setItem.mockImplementation(() => {
-      throw new Error("quota exceeded");
-    });
-
-    const ok = saveAllLocal({
-      storageKey: "test-storage",
-      state: makeState(),
-      sanitizeForSave
-    });
-
-    expect(ok).toBe(false);
-  });
-
-  it("preserves drifted hitDieAmount in storage so load-time migration can canonicalize it", async () => {
-    const { getStoredValue } = installLocalStorageMock();
-    const state = makeState();
-
-    delete state.character.hitDieAmt;
-    state.character.hitDieAmount = 7;
-
-    const saveOk = saveAllLocal({
-      storageKey: "test-storage",
-      state,
-      currentSchemaVersion: CURRENT_SCHEMA_VERSION,
-      sanitizeForSave: (input, opts) => sanitizeForSave(input, { ...opts, devAssertLegacyAliases: false })
-    });
-
-    expect(saveOk).toBe(true);
-
-    const saved = JSON.parse(getStoredValue());
-    expect("hitDieAmt" in saved.character).toBe(false);
-    expect(saved.character.hitDieAmount).toBe(7);
-
-    expect("hitDieAmt" in state.character).toBe(false);
-    expect(state.character.hitDieAmount).toBe(7);
-
-    const loadedState = makeState();
-    const ensureMapManager = makeEnsureMapManager(loadedState);
-    const setStatus = vi.fn();
-    const markDirty = vi.fn();
-
-    const loadOk = await loadAll({
-      storageKey: "test-storage",
-      state: loadedState,
-      migrateState,
-      ensureMapManager,
-      dataUrlToBlob: vi.fn(),
-      putBlob: vi.fn(),
-      setStatus,
-      markDirty
-    });
-
-    expect(loadOk).toBe(true);
-    expect(loadedState.character.hitDieAmt).toBe(7);
-    expect("hitDieAmount" in loadedState.character).toBe(false);
-    expect(markDirty).toHaveBeenCalledTimes(1);
-  });
-
-});
-
-describe("loadAll", () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
-    vi.unstubAllGlobals();
-  });
-
-  it("returns false without touching state when there is no stored payload", async () => {
-    installLocalStorageMock(null);
-
-    const state = makeState();
-    state.tracker.campaignTitle = "Before load";
-
-    const migrateStateMock = vi.fn();
-    const ensureMapManager = makeEnsureMapManager(state);
-    const setStatus = vi.fn();
-    const markDirty = vi.fn();
-
-    const ok = await loadAll({
-      storageKey: "test-storage",
-      state,
-      migrateState: migrateStateMock,
-      ensureMapManager,
-      dataUrlToBlob: vi.fn(),
-      putBlob: vi.fn(),
-      setStatus,
-      markDirty
-    });
-
-    expect(ok).toBe(false);
-    expect(state.tracker.campaignTitle).toBe("Before load");
-    expect(migrateStateMock).not.toHaveBeenCalled();
-    expect(ensureMapManager).not.toHaveBeenCalled();
-    expect(setStatus).not.toHaveBeenCalled();
-    expect(markDirty).not.toHaveBeenCalled();
-  });
-
-  it("clones migrated state, folds legacy map fields, and marks dirty for rewrite", async () => {
-    installLocalStorageMock("{\"saved\":true}");
-
-    const state = makeState();
-    const migrated = {
+  it("migrates legacy single-campaign state into a one-campaign vault and mirrors the canonical campaign name", async () => {
+    const legacyState = {
       schemaVersion: CURRENT_SCHEMA_VERSION,
       tracker: {
-        campaignTitle: "Loaded Campaign",
-        sessions: [{ title: "Session 4", notes: "Recovered notes" }],
-        sessionSearch: "",
-        activeSessionIndex: 0,
-        npcs: [{ name: "Miri", imgDataUrl: "data:image/png;base64,QQ==" }],
-        npcActiveGroup: "friendly",
-        npcSearch: "",
-        party: [{ name: "Arlen", imgDataUrl: "data:image/jpeg;base64,QQ==" }],
-        partySearch: "",
-        locationsList: [{ title: "Harbor", imgDataUrl: "data:image/webp;base64,QQ==", imgBlobId: "keep-blob" }],
-        locSearch: "",
-        locFilter: "all",
-        misc: "",
-        ui: { textareaHeigts: { sessionNotes: 91 } }
+        campaignTitle: "Moonfall",
+        misc: "Recovered misc"
       },
-      character: makeState().character,
-      map: {
-        activeMapId: null,
-        maps: [],
-        undo: ["stale undo"],
-        redo: ["stale redo"],
-        bgDataUrl: "data:image/png;base64,QQ==",
-        drawingBlobId: "legacy-drawing-blob",
-        brushSize: 13,
-        colorKey: "forest"
+      character: {
+        equipment: "50 ft rope"
       },
+      map: {},
       ui: {
         theme: "light",
-        textareaHeights: {},
-        panelCollapsed: {},
-        dice: { history: ["stale"], last: { count: 7, sides: 20, mod: 1, mode: "adv" } },
-        calc: { history: ["2+2"] }
+        textareaHeights: { trackerNotes: 88 },
+        panelCollapsed: {}
       }
     };
-
-    const migrateStateMock = vi.fn(() => migrated);
-    const ensureMapManager = vi.fn(() => {
-      if (!Array.isArray(state.map.maps)) state.map.maps = [];
-      if (!state.map.ui || typeof state.map.ui !== "object") {
-        state.map.ui = { activeTool: "brush", brushSize: 6 };
-      }
-      if (!state.map.maps.length) {
-        state.map.maps.push({
-          id: "map_default",
-          name: "World Map",
-          bgBlobId: null,
-          drawingBlobId: null,
-          brushSize: null,
-          colorKey: ""
-        });
-        state.map.activeMapId = "map_default";
-      }
-    });
-
-    let nextBlobId = 1;
-    const dataUrlToBlob = vi.fn((dataUrl) => ({ dataUrl }));
-    const putBlob = vi.fn(async () => `blob_${nextBlobId++}`);
-    const setStatus = vi.fn();
-    const markDirty = vi.fn();
-
-    const ok = await loadAll({
-      storageKey: "test-storage",
-      state,
-      migrateState: migrateStateMock,
-      ensureMapManager,
-      dataUrlToBlob,
-      putBlob,
-      setStatus,
-      markDirty
-    });
-
-    expect(ok).toBe(true);
-    expect(migrateStateMock).toHaveBeenCalledWith({ saved: true });
-    expect(ensureMapManager).toHaveBeenCalledTimes(1);
-    expect(markDirty).toHaveBeenCalledTimes(1);
-    expect(setStatus).not.toHaveBeenCalled();
-
-    expect(state.tracker).not.toBe(migrated.tracker);
-    expect(state.map).not.toBe(migrated.map);
-    state.tracker.campaignTitle = "Mutated after load";
-    state.tracker.npcs[0].name = "Changed NPC";
-    state.map.maps[0].name = "Changed map";
-    expect(migrated.tracker.campaignTitle).toBe("Loaded Campaign");
-    expect(migrated.tracker.npcs[0].name).toBe("Miri");
-    expect(migrated.map.maps).toEqual([]);
-
-    expect(state.map.undo).toEqual([]);
-    expect(state.map.redo).toEqual([]);
-    expect(state.tracker.ui.textareaHeights).toEqual({ sessionNotes: 91 });
-
-    expect(dataUrlToBlob).toHaveBeenCalledTimes(3);
-    expect(putBlob).toHaveBeenCalledTimes(3);
-    expect(state.tracker.npcs[0]).toMatchObject({ imgBlobId: "blob_1" });
-    expect("imgDataUrl" in state.tracker.npcs[0]).toBe(false);
-    expect(state.tracker.party[0]).toMatchObject({ imgBlobId: "blob_2" });
-    expect(state.tracker.locationsList[0].imgBlobId).toBe("keep-blob");
-
-    expect(state.map.maps[0]).toMatchObject({
-      bgBlobId: "blob_3",
-      drawingBlobId: "legacy-drawing-blob",
-      brushSize: 13,
-      colorKey: "forest"
-    });
-    expect("bgDataUrl" in state.map).toBe(false);
-    expect("drawingBlobId" in state.map).toBe(false);
-    expect("brushSize" in state.map).toBe(false);
-    expect("colorKey" in state.map).toBe(false);
-  });
-
-  it("repairs partial current-schema payloads and replaces stale buckets instead of merging them", async () => {
-    installLocalStorageMock(JSON.stringify({
-      schemaVersion: CURRENT_SCHEMA_VERSION,
-      tracker: {
-        campaignTitle: "Loaded Campaign"
-      },
-      ui: {
-        theme: "light"
-      }
-    }));
-
+    const { getStoredValue } = installLocalStorageMock(JSON.stringify(legacyState));
     const state = makeState();
-    state.tracker.npcs = [{ name: "Stale NPC" }];
-    state.character.inventoryItems = [{ title: "Stale", notes: "Should not survive" }];
-    state.ui.panelCollapsed = { tracker: true };
-
+    const vaultRuntime = { current: null };
     const ensureMapManager = makeEnsureMapManager(state);
     const markDirty = vi.fn();
-    const setStatus = vi.fn();
 
     const ok = await loadAll({
       storageKey: "test-storage",
       state,
       migrateState,
       ensureMapManager,
+      sanitizeForSave,
       dataUrlToBlob: vi.fn(),
       putBlob: vi.fn(),
-      setStatus,
-      markDirty
+      setStatus: vi.fn(),
+      markDirty,
+      vaultRuntime
     });
 
     expect(ok).toBe(true);
     expect(markDirty).toHaveBeenCalledTimes(1);
-    expect(setStatus).not.toHaveBeenCalled();
-    expect(state.tracker.campaignTitle).toBe("Loaded Campaign");
-    expect(state.tracker.sessions).toEqual([{ title: "Session 1", notes: "" }]);
-    expect(state.tracker.npcs).toEqual([]);
-    expect(state.character.inventoryItems).toEqual([{ title: "Inventory", notes: "" }]);
-    expect(state.ui.theme).toBe("light");
-    expect(state.ui.panelCollapsed).toEqual({});
-    expect(state.map.maps).toHaveLength(1);
-    expect(state.map.activeMapId).toBe("map_default");
-  });
+    expect(state.appShell.activeCampaignId).toEqual(expect.any(String));
+    expect(state.tracker.campaignTitle).toBe("Moonfall");
+    expect(state.character.inventoryItems[0].notes).toBe("50 ft rope");
 
-  it("safely normalizes malformed array buckets before the state is rewritten", async () => {
-    installLocalStorageMock(JSON.stringify({
-      schemaVersion: CURRENT_SCHEMA_VERSION,
-      tracker: [],
-      character: [],
-      map: [],
-      ui: []
-    }));
-
-    const state = makeState();
-    const ensureMapManager = makeEnsureMapManager(state);
-    const markDirty = vi.fn();
-    const setStatus = vi.fn();
-
-    const ok = await loadAll({
-      storageKey: "test-storage",
-      state,
-      migrateState,
-      ensureMapManager,
-      dataUrlToBlob: vi.fn(),
-      putBlob: vi.fn(),
-      setStatus,
-      markDirty
-    });
-
-    expect(ok).toBe(true);
-    expect(markDirty).toHaveBeenCalledTimes(1);
-    expect(setStatus).not.toHaveBeenCalled();
-    expect(Array.isArray(state.tracker)).toBe(false);
-    expect(Array.isArray(state.character)).toBe(false);
-    expect(Array.isArray(state.map)).toBe(false);
-    expect(Array.isArray(state.ui)).toBe(false);
-    expect(state.tracker.sessions).toEqual([{ title: "Session 1", notes: "" }]);
-    expect(state.character.inventoryItems).toEqual([{ title: "Inventory", notes: "" }]);
-    expect(state.map.maps).toHaveLength(1);
-    expect(state.ui.theme).toBe("system");
-  });
-
-  it("returns false and leaves state alone when storage payload is corrupt", async () => {
-    installLocalStorageMock("{ definitely not json }");
-
-    const state = makeState();
-    state.tracker.campaignTitle = "Before load";
-
-    const setStatus = vi.fn();
-    const markDirty = vi.fn();
-
-    const ok = await loadAll({
-      storageKey: "test-storage",
-      state,
-      migrateState: vi.fn(),
-      ensureMapManager: vi.fn(),
-      dataUrlToBlob: vi.fn(),
-      putBlob: vi.fn(),
-      setStatus,
-      markDirty
-    });
-
-    expect(ok).toBe(false);
-    expect(state.tracker.campaignTitle).toBe("Before load");
-    expect(setStatus).toHaveBeenCalledWith("Loaded with issues. Consider exporting a backup.");
-    expect(markDirty).not.toHaveBeenCalled();
-  });
-
-  it("round-trips a representative current saved shape through save and load", async () => {
-    const { getStoredValue } = installLocalStorageMock();
-
-    const sourceState = makeState();
-    sourceState.tracker.campaignTitle = "Moonfall";
-    sourceState.tracker.sessions = [
-      { title: "Session 1", notes: "Camped near the ruins." },
-      { title: "Session 2", notes: "Entered the lower vault." }
-    ];
-    sourceState.tracker.sessionSearch = "vault";
-    sourceState.tracker.activeSessionIndex = 1;
-    sourceState.tracker.npcs = [{ name: "Miri", imgBlobId: "blob_npc_1" }];
-    sourceState.tracker.party = [{ name: "Arlen", imgBlobId: null }];
-    sourceState.tracker.locationsList = [{ title: "Old Keep", imgBlobId: "blob_loc_1" }];
-    sourceState.tracker.misc = "Watch the eastern road.";
-    sourceState.tracker.ui.textareaHeights = { sessionNotes: 116 };
-
-    sourceState.character.name = "Tamsin Vale";
-    sourceState.character.classLevel = "Fighter 5";
-    sourceState.character.race = "Human";
-    sourceState.character.hpCur = 26;
-    sourceState.character.hpMax = 34;
-    sourceState.character.hitDieAmt = 3;
-    sourceState.character.hitDieSize = 10;
-    sourceState.character.ac = 17;
-    sourceState.character.speed = 30;
-    sourceState.character.proficiency = 3;
-    sourceState.character.resources = [{ id: "res_second_wind", name: "Second Wind", cur: 1, max: 1 }];
-    sourceState.character.attacks = [{ id: "atk_1", name: "Longsword", bonus: "+6", damage: "1d8+4" }];
-    sourceState.character.inventoryItems = [
-      { title: "Inventory", notes: "50 ft. rope" },
-      { title: "Pack", notes: "Torches x5" }
-    ];
-    sourceState.character.activeInventoryIndex = 1;
-    sourceState.character.inventorySearch = "torch";
-    sourceState.character.equipment = "Explorer's pack";
-    sourceState.character.spells = {
-      levels: [{
-        id: "spell_level_cantrips",
-        label: "Cantrips",
-        hasSlots: false,
-        used: null,
-        total: null,
-        collapsed: false,
-        spells: [{
-          id: "spell_light",
-          name: "Light",
-          notesCollapsed: true,
-          known: true,
-          prepared: false,
-          expended: false
-        }]
-      }]
-    };
-
-    sourceState.map.activeMapId = "map_ruins";
-    sourceState.map.maps = [{
-      id: "map_ruins",
-      name: "Ruined Keep",
-      bgBlobId: "blob_bg_1",
-      drawingBlobId: "blob_draw_1",
-      brushSize: 11,
-      colorKey: "forest"
-    }];
-    sourceState.map.ui = { activeTool: "eraser", brushSize: 11, viewScale: 1.25 };
-    sourceState.map.undo = ["runtime-only undo"];
-    sourceState.map.redo = ["runtime-only redo"];
-
-    sourceState.ui.theme = "light";
-    sourceState.ui.textareaHeights = { characterNotes: 88 };
-    sourceState.ui.panelCollapsed = { trackerMisc: true };
-    sourceState.ui.dice = {
-      history: [{ text: "1d20+6", t: 100 }],
-      last: { count: 2, sides: 20, mod: 6, mode: "adv" }
-    };
-    sourceState.ui.calc = {
-      history: ["2+2"],
-      memory: "17"
-    };
-
-    const expectedPersisted = sanitizeForSave(structuredClone(sourceState), {
-      currentSchemaVersion: CURRENT_SCHEMA_VERSION
-    });
+    const activeCampaignId = state.appShell.activeCampaignId;
+    expect(vaultRuntime.current.campaignIndex.order).toEqual([activeCampaignId]);
+    expect(vaultRuntime.current.campaignIndex.entries[activeCampaignId].name).toBe("Moonfall");
+    expect(vaultRuntime.current.campaignDocs[activeCampaignId].tracker.campaignTitle).toBe("Moonfall");
 
     const saveOk = saveAllLocal({
       storageKey: "test-storage",
-      state: sourceState,
-      currentSchemaVersion: CURRENT_SCHEMA_VERSION,
-      sanitizeForSave
+      state,
+      migrateState,
+      sanitizeForSave,
+      vaultRuntime
     });
 
     expect(saveOk).toBe(true);
 
-    const storedRaw = getStoredValue();
-    const storedParsed = JSON.parse(storedRaw);
-    expect(storedParsed).toEqual(expectedPersisted);
-    expect(storedParsed.character.hitDieAmt).toBe(3);
-    expect("hitDieAmount" in storedParsed.character).toBe(false);
+    const stored = JSON.parse(getStoredValue());
+    expect(stored.vaultVersion).toBe(1);
+    expect(stored.appShell.activeCampaignId).toBe(activeCampaignId);
+    expect(stored.appShell.ui.theme).toBe("light");
+    expect(stored.campaignIndex.entries[activeCampaignId]).toMatchObject({
+      id: activeCampaignId,
+      name: "Moonfall"
+    });
+    expect(stored.campaignDocs[activeCampaignId]).toMatchObject({
+      schemaVersion: CURRENT_SCHEMA_VERSION,
+      tracker: expect.objectContaining({
+        campaignTitle: "Moonfall",
+        misc: "Recovered misc"
+      })
+    });
+  });
 
-    const loadedState = makeState();
-    loadedState.tracker.campaignTitle = "Stale campaign";
-    loadedState.character.inventoryItems = [{ title: "Stale", notes: "Should be replaced" }];
-    loadedState.map.maps = [];
+  it("uses a stable campaign id when wrapping legacy single-campaign state", () => {
+    const legacyState = {
+      schemaVersion: CURRENT_SCHEMA_VERSION,
+      tracker: { campaignTitle: "Moonfall" },
+      character: {},
+      map: {},
+      ui: { theme: "light", textareaHeights: {}, panelCollapsed: {} }
+    };
 
-    const setStatus = vi.fn();
-    const markDirty = vi.fn();
-    const ensureMapManager = makeEnsureMapManager(loadedState);
-
-    const loadOk = await loadAll({
-      storageKey: "test-storage",
-      state: loadedState,
+    const first = wrapLegacyStateInVault({
+      legacyState,
       migrateState,
-      ensureMapManager,
-      dataUrlToBlob: vi.fn(),
-      putBlob: vi.fn(),
-      setStatus,
-      markDirty
+      sanitizeForSave,
+      now: "2026-04-01T00:00:00.000Z"
+    });
+    const second = wrapLegacyStateInVault({
+      legacyState,
+      migrateState,
+      sanitizeForSave,
+      now: "2026-04-02T00:00:00.000Z"
     });
 
-    expect(loadOk).toBe(true);
-    expect(setStatus).not.toHaveBeenCalled();
-    expect(markDirty).toHaveBeenCalledTimes(1);
-    expect(loadedState.map.undo).toEqual([]);
-    expect(loadedState.map.redo).toEqual([]);
-    expect(loadedState.ui.dice.history).toEqual([]);
-    expect(loadedState.ui.calc.history).toEqual([]);
-    expect(sanitizeForSave(loadedState)).toEqual(expectedPersisted);
+    expect(first.activeCampaignId).toBe(LEGACY_MIGRATION_CAMPAIGN_ID);
+    expect(second.activeCampaignId).toBe(LEGACY_MIGRATION_CAMPAIGN_ID);
+    expect(first.vault.campaignIndex.order).toEqual([LEGACY_MIGRATION_CAMPAIGN_ID]);
+    expect(second.vault.campaignIndex.order).toEqual([LEGACY_MIGRATION_CAMPAIGN_ID]);
+  });
+
+  it("uses the canonical active campaign id from the vault and mirrors the index name back into tracker compatibility state", async () => {
+    installLocalStorageMock(JSON.stringify({
+      vaultVersion: 1,
+      appShell: {
+        activeCampaignId: "missing_campaign",
+        ui: {
+          theme: "dark",
+          activeTab: "tracker",
+          textareaHeights: {},
+          panelCollapsed: {},
+          calc: { memory: "4" }
+        }
+      },
+      campaignIndex: {
+        order: ["campaign_beta", "campaign_alpha"],
+        entries: {
+          campaign_alpha: {
+            id: "campaign_alpha",
+            name: "Alpha Canon",
+            createdAt: "2026-04-01T00:00:00.000Z",
+            updatedAt: "2026-04-01T00:00:00.000Z",
+            lastOpenedAt: null
+          },
+          campaign_beta: {
+            id: "campaign_beta",
+            name: "Beta Canon",
+            createdAt: "2026-04-02T00:00:00.000Z",
+            updatedAt: "2026-04-02T00:00:00.000Z",
+            lastOpenedAt: null
+          }
+        }
+      },
+      campaignDocs: {
+        campaign_alpha: {
+          schemaVersion: CURRENT_SCHEMA_VERSION,
+          tracker: { campaignTitle: "Alpha Drifted", misc: "alpha" },
+          character: {},
+          map: {}
+        },
+        campaign_beta: {
+          schemaVersion: CURRENT_SCHEMA_VERSION,
+          tracker: { campaignTitle: "Beta Drifted", misc: "beta" },
+          character: {},
+          map: {}
+        }
+      }
+    }));
+
+    const state = makeState();
+    const ensureMapManager = makeEnsureMapManager(state);
+    const vaultRuntime = { current: null };
+
+    const ok = await loadAll({
+      storageKey: "test-storage",
+      state,
+      migrateState,
+      ensureMapManager,
+      sanitizeForSave,
+      dataUrlToBlob: vi.fn(),
+      putBlob: vi.fn(),
+      setStatus: vi.fn(),
+      markDirty: vi.fn(),
+      vaultRuntime
+    });
+
+    expect(ok).toBe(true);
+    expect(state.appShell.activeCampaignId).toBe("campaign_beta");
+    expect(state.tracker.campaignTitle).toBe("Beta Canon");
+    expect(state.tracker.misc).toBe("beta");
+    expect(state.ui.theme).toBe("dark");
+  });
+
+  it("drops index-only corrupted campaigns instead of fabricating blank documents during vault normalization", () => {
+    const { vault } = normalizeCampaignVault({
+      vaultVersion: 1,
+      appShell: {
+        activeCampaignId: "campaign_broken",
+        ui: { theme: "dark" }
+      },
+      campaignIndex: {
+        order: ["campaign_broken", "campaign_valid"],
+        entries: {
+          campaign_broken: {
+            id: "campaign_broken",
+            name: "Broken Phantom",
+            createdAt: "2026-04-01T00:00:00.000Z",
+            updatedAt: "2026-04-01T00:00:00.000Z",
+            lastOpenedAt: null
+          },
+          campaign_valid: {
+            id: "campaign_valid",
+            name: "Valid Canon",
+            createdAt: "2026-04-01T00:00:00.000Z",
+            updatedAt: "2026-04-01T00:00:00.000Z",
+            lastOpenedAt: null
+          }
+        }
+      },
+      campaignDocs: {
+        campaign_valid: {
+          schemaVersion: CURRENT_SCHEMA_VERSION,
+          tracker: { campaignTitle: "Valid Drifted", misc: "keep" },
+          character: {},
+          map: {}
+        },
+        campaign_doc_only: {
+          schemaVersion: CURRENT_SCHEMA_VERSION,
+          tracker: { campaignTitle: "Doc Only Canon", misc: "doc" },
+          character: {},
+          map: {}
+        }
+      }
+    }, {
+      migrateState,
+      sanitizeForSave,
+      now: "2026-04-08T00:00:00.000Z"
+    });
+
+    expect(vault.appShell.activeCampaignId).toBe("campaign_valid");
+    expect(vault.campaignIndex.order).toEqual(["campaign_valid", "campaign_doc_only"]);
+    expect(vault.campaignIndex.entries.campaign_broken).toBeUndefined();
+    expect(vault.campaignDocs.campaign_broken).toBeUndefined();
+    expect(vault.campaignIndex.entries.campaign_doc_only.name).toBe("Doc Only Canon");
+  });
+
+  it("isolates campaign documents by id and projects the selected campaign back into runtime state", () => {
+    const { getStoredValue } = installLocalStorageMock();
+    const state = makeState();
+    const vaultRuntime = { current: null };
+
+    state.appShell.activeCampaignId = "campaign_alpha";
+    state.tracker.campaignTitle = "Alpha";
+    state.tracker.misc = "alpha notes";
+
+    expect(saveAllLocal({
+      storageKey: "test-storage",
+      state,
+      migrateState,
+      sanitizeForSave,
+      vaultRuntime
+    })).toBe(true);
+
+    state.appShell.activeCampaignId = "campaign_beta";
+    state.tracker.campaignTitle = "Beta";
+    state.tracker.misc = "beta notes";
+
+    expect(saveAllLocal({
+      storageKey: "test-storage",
+      state,
+      migrateState,
+      sanitizeForSave,
+      vaultRuntime
+    })).toBe(true);
+
+    expect(vaultRuntime.current.campaignIndex.order).toEqual(["campaign_alpha", "campaign_beta"]);
+    expect(vaultRuntime.current.campaignDocs.campaign_alpha.tracker.misc).toBe("alpha notes");
+    expect(vaultRuntime.current.campaignDocs.campaign_beta.tracker.misc).toBe("beta notes");
+
+    switchCampaign({
+      state,
+      vaultRuntime,
+      campaignId: "campaign_alpha",
+      migrateState,
+      sanitizeForSave
+    });
+    expect(state.appShell.activeCampaignId).toBe("campaign_alpha");
+    expect(state.tracker.campaignTitle).toBe("Alpha");
+    expect(state.tracker.misc).toBe("alpha notes");
+
+    switchCampaign({
+      state,
+      vaultRuntime,
+      campaignId: "campaign_beta",
+      migrateState,
+      sanitizeForSave
+    });
+    expect(state.appShell.activeCampaignId).toBe("campaign_beta");
+    expect(state.tracker.campaignTitle).toBe("Beta");
+    expect(state.tracker.misc).toBe("beta notes");
+
+    const stored = JSON.parse(getStoredValue());
+    expect(stored.campaignDocs.campaign_alpha.tracker.misc).toBe("alpha notes");
+    expect(stored.campaignDocs.campaign_beta.tracker.misc).toBe("beta notes");
+  });
+
+  it("does not serialize scratch runtime campaign buckets when there is no active campaign", () => {
+    const { getStoredValue } = installLocalStorageMock();
+    const state = makeState();
+    const vaultRuntime = { current: null };
+
+    state.appShell.activeCampaignId = "campaign_saved";
+    state.tracker.campaignTitle = "Saved Campaign";
+    state.tracker.misc = "keep me";
+
+    expect(saveAllLocal({
+      storageKey: "test-storage",
+      state,
+      migrateState,
+      sanitizeForSave,
+      vaultRuntime
+    })).toBe(true);
+
+    state.appShell.activeCampaignId = null;
+    state.tracker.campaignTitle = "Scratch Campaign";
+    state.tracker.misc = "scratch only";
+    state.ui.theme = "dark";
+
+    expect(saveAllLocal({
+      storageKey: "test-storage",
+      state,
+      migrateState,
+      sanitizeForSave,
+      vaultRuntime
+    })).toBe(true);
+
+    const stored = JSON.parse(getStoredValue());
+    expect(stored.appShell.activeCampaignId).toBeNull();
+    expect(Object.keys(stored.campaignDocs)).toEqual(["campaign_saved"]);
+    expect(stored.campaignDocs.campaign_saved.tracker.campaignTitle).toBe("Saved Campaign");
+    expect(stored.campaignDocs.campaign_saved.tracker.misc).toBe("keep me");
+    expect(stored.appShell.ui.theme).toBe("dark");
+  });
+
+  it("creates a new campaign with canonical metadata and default document content", () => {
+    const { vault } = normalizeCampaignVault(null, {
+      migrateState,
+      sanitizeForSave,
+      now: "2026-04-08T00:00:00.000Z"
+    });
+
+    const created = createCampaignInVault(vault, {
+      migrateState,
+      sanitizeForSave,
+      name: "  Moonfall  ",
+      campaignId: "campaign_new",
+      now: "2026-04-08T01:00:00.000Z"
+    });
+
+    expect(created.campaignId).toBe("campaign_new");
+    expect(created.vault.campaignIndex.order).toEqual(["campaign_new"]);
+    expect(created.vault.campaignIndex.entries.campaign_new).toMatchObject({
+      id: "campaign_new",
+      name: "Moonfall",
+      createdAt: "2026-04-08T01:00:00.000Z",
+      updatedAt: "2026-04-08T01:00:00.000Z",
+      lastOpenedAt: null
+    });
+    expect(created.vault.campaignDocs.campaign_new.tracker.campaignTitle).toBe("Moonfall");
+    expect(created.vault.campaignDocs.campaign_new.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
+  });
+
+  it("renames the canonical campaign metadata and mirrors the name into the stored campaign doc", () => {
+    const created = createCampaignInVault(normalizeCampaignVault(null, {
+      migrateState,
+      sanitizeForSave,
+      now: "2026-04-08T00:00:00.000Z"
+    }).vault, {
+      migrateState,
+      sanitizeForSave,
+      name: "Original Name",
+      campaignId: "campaign_alpha",
+      now: "2026-04-08T01:00:00.000Z"
+    });
+
+    const renamed = renameCampaignInVault(
+      created.vault,
+      "campaign_alpha",
+      "  Final Name  ",
+      { now: "2026-04-08T02:00:00.000Z" }
+    );
+
+    expect(renamed.campaignIndex.entries.campaign_alpha.name).toBe("Final Name");
+    expect(renamed.campaignIndex.entries.campaign_alpha.updatedAt).toBe("2026-04-08T02:00:00.000Z");
+    expect(renamed.campaignDocs.campaign_alpha.tracker.campaignTitle).toBe("Final Name");
+  });
+
+  it("deletes the active campaign cleanly back to a null-active hub projection", () => {
+    const created = createCampaignInVault(normalizeCampaignVault(null, {
+      migrateState,
+      sanitizeForSave,
+      now: "2026-04-08T00:00:00.000Z"
+    }).vault, {
+      migrateState,
+      sanitizeForSave,
+      name: "Moonfall",
+      campaignId: "campaign_alpha",
+      now: "2026-04-08T01:00:00.000Z"
+    });
+
+    created.vault.appShell.activeCampaignId = "campaign_alpha";
+
+    const deleted = deleteCampaignFromVault(created.vault, "campaign_alpha");
+    const projected = projectActiveCampaignState(deleted, migrateState);
+
+    expect(deleted.appShell.activeCampaignId).toBeNull();
+    expect(deleted.campaignIndex.order).toEqual([]);
+    expect(deleted.campaignIndex.entries.campaign_alpha).toBeUndefined();
+    expect(deleted.campaignDocs.campaign_alpha).toBeUndefined();
+    expect(projected.appShell.activeCampaignId).toBeNull();
+    expect(projected.tracker.campaignTitle).toBe("My Campaign");
+  });
+
+  it("scopes spell note keys by campaign id and migrates legacy notes without collisions", async () => {
+    expect(textKey_spellNotes("campaign_alpha", "spell_fireball")).toBe("spell_notes_campaign_alpha__spell_fireball");
+    expect(textKey_spellNotes("campaign_beta", "spell_fireball")).toBe("spell_notes_campaign_beta__spell_fireball");
+    expect(textKey_spellNotes("campaign_alpha", "spell_fireball")).not.toBe(
+      textKey_spellNotes("campaign_beta", "spell_fireball")
+    );
+
+    const textStore = new Map([
+      [legacyTextKey_spellNotes("spell_fireball"), "Legacy fireball notes"],
+      [textKey_spellNotes("campaign_beta", "spell_fireball"), "Beta fireball notes"]
+    ]);
+
+    const changed = await migrateLegacySpellNotesToCampaignScope(
+      "campaign_alpha",
+      ["spell_fireball", "spell_fireball"],
+      {
+        getTextRecord: async (id) => (
+          textStore.has(id)
+            ? { id, text: textStore.get(id), updatedAt: 0 }
+            : null
+        ),
+        putText: async (text, id) => {
+          textStore.set(id, String(text ?? ""));
+          return id;
+        },
+        deleteText: async (id) => {
+          textStore.delete(id);
+        }
+      }
+    );
+
+    expect(changed).toBe(true);
+    expect(textStore.get(textKey_spellNotes("campaign_alpha", "spell_fireball"))).toBe("Legacy fireball notes");
+    expect(textStore.get(textKey_spellNotes("campaign_beta", "spell_fireball"))).toBe("Beta fireball notes");
+    expect(textStore.has(legacyTextKey_spellNotes("spell_fireball"))).toBe(false);
   });
 });

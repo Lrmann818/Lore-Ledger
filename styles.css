@@ -764,6 +764,10 @@ body {
   background-attachment: fixed;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 body::before {
   content: "";
   position: fixed;
@@ -1105,6 +1109,10 @@ input[type="range"].uiRange::-moz-range-thumb {
   background: var(--panel);
 }
 
+body[data-shell-mode="hub"] .topbar {
+  padding: 10px;
+}
+
 .titlewrap {
   min-width: 0;
 }
@@ -1116,6 +1124,18 @@ input[type="range"].uiRange::-moz-range-thumb {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+body[data-shell-mode="hub"] #campaignTitle {
+  font-size: 17px;
+}
+
+#campaignTitle[contenteditable="true"] {
+  cursor: text;
+}
+
+#campaignTitle[contenteditable="false"] {
+  cursor: default;
 }
 
 /* Clock matches the same border/surface language as .tab/buttons */
@@ -1183,6 +1203,12 @@ input[type="range"].uiRange::-moz-range-thumb {
   box-shadow: 0 0 0 2px var(--ring) inset;
 }
 
+.tab.disabled,
+.tab:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 button[aria-expanded="true"] {
   box-shadow: 0 0 0 2px var(--ring) inset;
 }
@@ -1197,6 +1223,177 @@ main {
 
 .page.active {
   display: block;
+}
+
+.hubShell {
+  width: min(860px, 100%);
+  margin: 0 auto;
+  display: grid;
+  gap: 12px;
+}
+
+.hubWelcome {
+  display: grid;
+  gap: 6px;
+  padding: 8px 2px 2px;
+}
+
+.hubWelcomeTitle {
+  margin: 0;
+  font-size: clamp(1.7rem, 3vw, 2.15rem);
+  line-height: 1.05;
+}
+
+.hubWelcomeCopy {
+  margin: 0;
+  max-width: 44ch;
+}
+
+.hubLayout {
+  display: grid;
+  grid-template-columns: minmax(240px, 320px) minmax(0, 1fr);
+  gap: 10px;
+}
+
+.hubCreatePanel,
+.hubListPanel {
+  padding: 10px;
+}
+
+.hubCreatePanel,
+.hubListPanel {
+  display: grid;
+  gap: 12px;
+}
+
+.hubSectionHeader {
+  display: grid;
+  gap: 4px;
+}
+
+.hubCreateForm {
+  display: grid;
+  gap: 10px;
+}
+
+.hubCreateForm button {
+  justify-self: start;
+}
+
+.hubCreateField input {
+  min-height: 40px;
+}
+
+.hubCampaignCount {
+  white-space: nowrap;
+  padding-top: 0;
+}
+
+.hubListHeader {
+  display: flex;
+  gap: 8px;
+  align-items: start;
+  justify-content: space-between;
+}
+
+.hubCreateField {
+  display: grid;
+  gap: 6px;
+}
+
+.hubFieldLabel {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.hubEmptyState {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--surface-2) 75%, transparent);
+}
+
+.hubCampaignList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.hubCampaignCard {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--card);
+}
+
+.hubCampaignCard.active {
+  box-shadow: 0 0 0 2px var(--ring) inset;
+}
+
+.hubCampaignSummary {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.hubCampaignTitleRow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.hubCampaignTitle {
+  margin: 0;
+  font-size: 17px;
+  line-height: 1.2;
+}
+
+.hubCampaignBadge {
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface-3);
+  font-size: 12px;
+}
+
+.hubCampaignMeta {
+  margin: 0;
+}
+
+.hubCampaignActions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+@media (max-width: 700px) {
+  .hubLayout {
+    grid-template-columns: 1fr;
+  }
+
+  .hubCreateForm {
+    gap: 8px;
+  }
+
+  .hubCampaignCard {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .hubCampaignActions {
+    justify-content: flex-start;
+  }
 }
 
 .panel {
