@@ -65,7 +65,7 @@ export function initTopTabsNavigation(deps = {}) {
     tabsRootSelector = ".tabs",
     tabSelector = ".tab[data-tab]",
     pageIdPrefix = "page-",
-    defaultTab = "tracker",
+    defaultTab = "hub",
     updateHash = true,
     canActivateTab = () => true
   } = deps;
