@@ -771,23 +771,12 @@ body[data-shell-mode="hub"] {
   --hub-atmosphere-filter: saturate(1.16) brightness(1.14) contrast(1.02);
   --hub-atmosphere-wash-opacity: 0.24;
   color-scheme: dark;
-  background:
-    radial-gradient(circle at 16% 10%, rgba(175, 112, 56, 0.18) 0%, transparent 28%),
-    radial-gradient(circle at 84% 16%, rgba(88, 53, 29, 0.28) 0%, transparent 30%),
-    radial-gradient(circle at 50% 100%, rgba(33, 21, 14, 0.82) 0%, transparent 50%),
-    linear-gradient(180deg, #19120e 0%, #0f0b08 55%, #090705 100%);
+  background: #090705;
 }
 
 html[data-shell-mode="hub"],
 body[data-shell-mode="hub"] {
   background-color: #090705;
-}
-
-body[data-shell-mode="hub"]::before {
-  background:
-    radial-gradient(circle at 18% 0%, rgba(235, 175, 96, 0.14) 0%, transparent 34%),
-    radial-gradient(circle at 82% 12%, rgba(87, 52, 29, 0.2) 0%, transparent 30%),
-    linear-gradient(180deg, rgba(0, 0, 0, 0.06) 0%, rgba(0, 0, 0, 0.22) 100%);
 }
 
 [hidden] {
@@ -1246,10 +1235,7 @@ body[data-shell-mode="hub"] main {
   --hub-safe-area-bottom: 0px;
   --hub-safe-area-left: 0px;
   background: transparent;
-  padding-top: calc(var(--hub-page-gutter) + var(--hub-safe-area-top));
-  padding-right: max(var(--hub-page-gutter), var(--hub-safe-area-right));
-  padding-bottom: calc(var(--hub-page-gutter) + var(--hub-safe-area-bottom));
-  padding-left: max(var(--hub-page-gutter), var(--hub-safe-area-left));
+  padding: 0;
   overflow-x: clip;
 }
 
@@ -1264,32 +1250,31 @@ body[data-shell-mode="hub"] main {
 #page-hub {
   --hub-shell-max: 1120px;
   position: relative;
-  min-height: calc(
-    100dvh - (
-      (2 * var(--hub-page-gutter, clamp(18px, 3vw, 34px))) +
-      var(--hub-safe-area-top, 0px) +
-      var(--hub-safe-area-bottom, 0px)
-    )
-  );
+  min-height: 100vh;
+  min-height: 100dvh;
   isolation: isolate;
   color: #f3e8d2;
-  background: transparent;
+  background:
+    radial-gradient(circle at 16% 10%, rgba(175, 112, 56, 0.18) 0%, transparent 28%),
+    radial-gradient(circle at 84% 16%, rgba(88, 53, 29, 0.28) 0%, transparent 30%),
+    radial-gradient(circle at 50% 100%, rgba(33, 21, 14, 0.82) 0%, transparent 50%),
+    linear-gradient(180deg, #19120e 0%, #0f0b08 55%, #090705 100%);
+  padding-top: calc(var(--hub-page-gutter, clamp(18px, 3vw, 34px)) + var(--hub-safe-area-top, 0px));
+  padding-right: max(var(--hub-page-gutter, clamp(18px, 3vw, 34px)), var(--hub-safe-area-right, 0px));
+  padding-bottom: calc(var(--hub-page-gutter, clamp(18px, 3vw, 34px)) + var(--hub-safe-area-bottom, 0px));
+  padding-left: max(var(--hub-page-gutter, clamp(18px, 3vw, 34px)), var(--hub-safe-area-left, 0px));
   overflow-x: clip;
 }
 
-.hubBackdrop {
-  display: none;
+#page-hub::before,
+#page-hub::after {
+  content: "";
   position: fixed;
   inset: 0;
-  z-index: 0;
   pointer-events: none;
 }
 
-body[data-shell-mode="hub"] .hubBackdrop {
-  display: block;
-}
-
-.hubBackdropImage {
+#page-hub::before {
   z-index: 0;
   background-image: var(--hub-atmosphere-image);
   background-repeat: no-repeat;
@@ -1299,10 +1284,13 @@ body[data-shell-mode="hub"] .hubBackdrop {
   transform: translateZ(0);
 }
 
-.hubBackdropWash {
+#page-hub::after {
   z-index: 1;
   opacity: var(--hub-atmosphere-wash-opacity);
   background:
+    radial-gradient(circle at 18% 0%, rgba(235, 175, 96, 0.14) 0%, transparent 34%),
+    radial-gradient(circle at 82% 12%, rgba(87, 52, 29, 0.2) 0%, transparent 30%),
+    linear-gradient(180deg, rgba(0, 0, 0, 0.06) 0%, rgba(0, 0, 0, 0.22) 100%),
     radial-gradient(circle at 16% 14%, rgba(239, 180, 98, 0.14) 0%, transparent 24%),
     radial-gradient(circle at 22% 84%, rgba(128, 77, 38, 0.16) 0%, transparent 28%),
     radial-gradient(circle at 84% 14%, rgba(95, 57, 32, 0.16) 0%, transparent 28%),
@@ -1313,8 +1301,21 @@ body[data-shell-mode="hub"] .hubBackdrop {
 
 .hubScroll {
   position: relative;
-  z-index: 1;
-  min-height: inherit;
+  z-index: 2;
+  min-height: calc(
+    100vh - (
+      (2 * var(--hub-page-gutter, clamp(18px, 3vw, 34px))) +
+      var(--hub-safe-area-top, 0px) +
+      var(--hub-safe-area-bottom, 0px)
+    )
+  );
+  min-height: calc(
+    100dvh - (
+      (2 * var(--hub-page-gutter, clamp(18px, 3vw, 34px))) +
+      var(--hub-safe-area-top, 0px) +
+      var(--hub-safe-area-bottom, 0px)
+    )
+  );
   overflow-x: clip;
 }
 

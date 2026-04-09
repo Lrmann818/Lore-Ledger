@@ -37,33 +37,29 @@ async function waitForSavedCampaignTitle(page, expectedTitle) {
 async function getHubAtmosphereState(page) {
   const state = await page.evaluate(() => {
     const hero = document.querySelector(".hubHero");
-    const backdropImage = document.querySelector(".hubBackdropImage");
-    const backdropWash = document.querySelector(".hubBackdropWash");
-    if (!(hero instanceof HTMLElement) || !(backdropImage instanceof HTMLElement) || !(backdropWash instanceof HTMLElement)) return null;
+    const hubPage = document.getElementById("page-hub");
+    if (!(hero instanceof HTMLElement) || !(hubPage instanceof HTMLElement)) return null;
 
     const heroRect = hero.getBoundingClientRect();
-    const backdropRect = backdropImage.getBoundingClientRect();
-    const washRect = backdropWash.getBoundingClientRect();
+    const pageRect = hubPage.getBoundingClientRect();
+    const backdropStyles = getComputedStyle(hubPage, "::before");
+    const washStyles = getComputedStyle(hubPage, "::after");
 
     return {
       heroBackgroundImage: getComputedStyle(hero).backgroundImage,
-      backdropBackgroundImage: getComputedStyle(backdropImage).backgroundImage,
-      backdropPosition: getComputedStyle(backdropImage).position,
-      washPosition: getComputedStyle(backdropWash).position,
-      backdropParentTag: backdropImage.parentElement?.tagName ?? null,
-      washParentTag: backdropWash.parentElement?.tagName ?? null,
-      backdropPageAncestorId: backdropImage.closest(".page")?.id ?? null,
-      washPageAncestorId: backdropWash.closest(".page")?.id ?? null,
-      backdropBorderRadius: getComputedStyle(backdropImage).borderRadius,
+      pageBackgroundImage: getComputedStyle(hubPage).backgroundImage,
+      backdropBackgroundImage: backdropStyles.backgroundImage,
+      backdropPosition: backdropStyles.position,
+      washPosition: washStyles.position,
+      backdropOwnerId: hubPage.id,
+      washOwnerId: hubPage.id,
+      pagePaddingTop: getComputedStyle(hubPage).paddingTop,
+      pagePaddingBottom: getComputedStyle(hubPage).paddingBottom,
       heroBottom: heroRect.bottom,
-      backdropTop: backdropRect.top,
-      backdropLeft: backdropRect.left,
-      backdropWidth: backdropRect.width,
-      backdropHeight: backdropRect.height,
-      washTop: washRect.top,
-      washLeft: washRect.left,
-      washWidth: washRect.width,
-      washHeight: washRect.height,
+      pageTop: pageRect.top,
+      pageLeft: pageRect.left,
+      pageWidth: pageRect.width,
+      pageHeight: pageRect.height,
       viewportWidth: window.innerWidth,
       viewportHeight: window.innerHeight
     };
@@ -81,9 +77,9 @@ async function getHubShellLayoutState(page) {
   const state = await page.evaluate(() => {
     const doc = document.documentElement;
     const main = document.querySelector("main");
-    const backdrop = document.querySelector(".hubBackdropImage");
+    const hubPage = document.getElementById("page-hub");
     const shell = document.querySelector(".hubShell");
-    if (!(main instanceof HTMLElement) || !(backdrop instanceof HTMLElement) || !(shell instanceof HTMLElement)) return null;
+    if (!(main instanceof HTMLElement) || !(hubPage instanceof HTMLElement) || !(shell instanceof HTMLElement)) return null;
 
     const maxWidth = doc.clientWidth;
     const offenders = Array.from(document.querySelectorAll("body *"))
@@ -103,8 +99,9 @@ async function getHubShellLayoutState(page) {
       docScrollWidth: doc.scrollWidth,
       bodyScrollWidth: document.body.scrollWidth,
       mainScrollWidth: main.scrollWidth,
-      backdropRight: backdrop.getBoundingClientRect().right,
-      backdropZIndex: getComputedStyle(backdrop).zIndex,
+      pageRight: hubPage.getBoundingClientRect().right,
+      pageBackgroundImage: getComputedStyle(hubPage).backgroundImage,
+      backdropZIndex: getComputedStyle(hubPage, "::before").zIndex,
       shellScrollWidth: shell.scrollWidth,
       shellClientWidth: shell.clientWidth,
       htmlBgColor: getComputedStyle(doc).backgroundColor,
@@ -182,21 +179,17 @@ test("wide hub layouts use the desktop full-screen atmosphere backdrop", async (
 
   expect(state.backdropBackgroundImage).toContain("hub-atmosphere-desktop-v2.webp");
   expect(state.heroBackgroundImage).not.toContain("hub-atmosphere");
+  expect(state.pageBackgroundImage).toContain("linear-gradient");
   expect(state.backdropPosition).toBe("fixed");
   expect(state.washPosition).toBe("fixed");
-  expect(state.backdropParentTag).toBe("BODY");
-  expect(state.washParentTag).toBe("BODY");
-  expect(state.backdropPageAncestorId).toBeNull();
-  expect(state.washPageAncestorId).toBeNull();
-  expect(state.backdropBorderRadius).toBe("0px");
-  expect(Math.abs(state.backdropTop)).toBeLessThan(1);
-  expect(Math.abs(state.backdropLeft)).toBeLessThan(1);
-  expect(Math.abs(state.washTop)).toBeLessThan(1);
-  expect(Math.abs(state.washLeft)).toBeLessThan(1);
-  expect(state.backdropWidth).toBeGreaterThanOrEqual(state.viewportWidth - 0.5);
-  expect(state.backdropHeight).toBeGreaterThanOrEqual(state.viewportHeight - 0.5);
-  expect(state.washWidth).toBeGreaterThanOrEqual(state.viewportWidth - 0.5);
-  expect(state.washHeight).toBeGreaterThanOrEqual(state.viewportHeight - 0.5);
+  expect(state.backdropOwnerId).toBe("page-hub");
+  expect(state.washOwnerId).toBe("page-hub");
+  expect(parseFloat(state.pagePaddingTop)).toBeGreaterThan(0);
+  expect(parseFloat(state.pagePaddingBottom)).toBeGreaterThan(0);
+  expect(Math.abs(state.pageTop)).toBeLessThan(1);
+  expect(Math.abs(state.pageLeft)).toBeLessThan(1);
+  expect(state.pageWidth).toBeGreaterThanOrEqual(state.viewportWidth - 0.5);
+  expect(state.pageHeight).toBeGreaterThanOrEqual(state.viewportHeight - 0.5);
   expect(state.heroBottom).toBeGreaterThan(0);
 
   await expectNoFatalSignals(page, fatalSignals);
@@ -211,21 +204,17 @@ test("narrow hub layouts use the mobile full-screen atmosphere backdrop", async 
 
   expect(state.backdropBackgroundImage).toContain("hub-atmosphere-mobile-v2.webp");
   expect(state.heroBackgroundImage).not.toContain("hub-atmosphere");
+  expect(state.pageBackgroundImage).toContain("linear-gradient");
   expect(state.backdropPosition).toBe("fixed");
   expect(state.washPosition).toBe("fixed");
-  expect(state.backdropParentTag).toBe("BODY");
-  expect(state.washParentTag).toBe("BODY");
-  expect(state.backdropPageAncestorId).toBeNull();
-  expect(state.washPageAncestorId).toBeNull();
-  expect(state.backdropBorderRadius).toBe("0px");
-  expect(Math.abs(state.backdropTop)).toBeLessThan(1);
-  expect(Math.abs(state.backdropLeft)).toBeLessThan(1);
-  expect(Math.abs(state.washTop)).toBeLessThan(1);
-  expect(Math.abs(state.washLeft)).toBeLessThan(1);
-  expect(state.backdropWidth).toBeGreaterThanOrEqual(state.viewportWidth - 0.5);
-  expect(state.backdropHeight).toBeGreaterThanOrEqual(state.viewportHeight - 0.5);
-  expect(state.washWidth).toBeGreaterThanOrEqual(state.viewportWidth - 0.5);
-  expect(state.washHeight).toBeGreaterThanOrEqual(state.viewportHeight - 0.5);
+  expect(state.backdropOwnerId).toBe("page-hub");
+  expect(state.washOwnerId).toBe("page-hub");
+  expect(parseFloat(state.pagePaddingTop)).toBeGreaterThan(0);
+  expect(parseFloat(state.pagePaddingBottom)).toBeGreaterThan(0);
+  expect(Math.abs(state.pageTop)).toBeLessThan(1);
+  expect(Math.abs(state.pageLeft)).toBeLessThan(1);
+  expect(state.pageWidth).toBeGreaterThanOrEqual(state.viewportWidth - 0.5);
+  expect(state.pageHeight).toBeGreaterThanOrEqual(state.viewportHeight - 0.5);
   expect(state.heroBottom).toBeGreaterThan(0);
 
   await expectNoFatalSignals(page, fatalSignals);
@@ -247,7 +236,8 @@ test("hub shell stays within the viewport and keeps a dark root background on de
     expect(state.docScrollWidth).toBe(state.clientWidth);
     expect(state.bodyScrollWidth).toBe(state.clientWidth);
     expect(state.mainScrollWidth).toBe(state.clientWidth);
-    expect(state.backdropRight).toBeLessThanOrEqual(state.clientWidth + 0.5);
+    expect(state.pageRight).toBeLessThanOrEqual(state.clientWidth + 0.5);
+    expect(state.pageBackgroundImage).toContain("linear-gradient");
     expect(state.backdropZIndex).toBe("0");
     expect(state.shellScrollWidth).toBe(state.shellClientWidth);
     expect(state.htmlBgColor).toBe("rgb(9, 7, 5)");
@@ -267,14 +257,13 @@ test("hub atmosphere layers stay anchored while the content scrolls", async ({ p
   await expectHubShell(page);
 
   const before = await page.evaluate(() => {
-    const backdrop = document.querySelector(".hubBackdropImage");
-    const wash = document.querySelector(".hubBackdropWash");
+    const hubPage = document.getElementById("page-hub");
     const layout = document.querySelector(".hubLayout");
-    if (!(backdrop instanceof HTMLElement) || !(wash instanceof HTMLElement) || !(layout instanceof HTMLElement)) return null;
+    if (!(hubPage instanceof HTMLElement) || !(layout instanceof HTMLElement)) return null;
 
     return {
-      backdropTop: backdrop.getBoundingClientRect().top,
-      washTop: wash.getBoundingClientRect().top,
+      backdropPosition: getComputedStyle(hubPage, "::before").position,
+      washPosition: getComputedStyle(hubPage, "::after").position,
       layoutTop: layout.getBoundingClientRect().top,
       scrollHeight: document.documentElement.scrollHeight,
       viewportHeight: window.innerHeight
@@ -289,14 +278,13 @@ test("hub atmosphere layers stay anchored while the content scrolls", async ({ p
   await page.waitForTimeout(100);
 
   const after = await page.evaluate(() => {
-    const backdrop = document.querySelector(".hubBackdropImage");
-    const wash = document.querySelector(".hubBackdropWash");
+    const hubPage = document.getElementById("page-hub");
     const layout = document.querySelector(".hubLayout");
-    if (!(backdrop instanceof HTMLElement) || !(wash instanceof HTMLElement) || !(layout instanceof HTMLElement)) return null;
+    if (!(hubPage instanceof HTMLElement) || !(layout instanceof HTMLElement)) return null;
 
     return {
-      backdropTop: backdrop.getBoundingClientRect().top,
-      washTop: wash.getBoundingClientRect().top,
+      backdropPosition: getComputedStyle(hubPage, "::before").position,
+      washPosition: getComputedStyle(hubPage, "::after").position,
       layoutTop: layout.getBoundingClientRect().top
     };
   });
@@ -304,8 +292,10 @@ test("hub atmosphere layers stay anchored while the content scrolls", async ({ p
   expect(after).not.toBeNull();
   if (!after) throw new Error("Expected Hub backdrop and layout to remain present");
 
-  expect(Math.abs(after.backdropTop - before.backdropTop)).toBeLessThan(1);
-  expect(Math.abs(after.washTop - before.washTop)).toBeLessThan(1);
+  expect(before.backdropPosition).toBe("fixed");
+  expect(before.washPosition).toBe("fixed");
+  expect(after.backdropPosition).toBe("fixed");
+  expect(after.washPosition).toBe("fixed");
   expect(after.layoutTop).toBeLessThan(before.layoutTop - 100);
 
   await expectNoFatalSignals(page, fatalSignals);
