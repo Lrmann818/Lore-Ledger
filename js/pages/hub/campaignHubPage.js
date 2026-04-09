@@ -152,7 +152,7 @@ export function initCampaignHubPage(deps = {}) {
 
     introCopy.textContent = hasCampaigns
       ? "Create a new campaign or open an existing one."
-      : "Create your first campaign to start tracking sessions, characters, and maps.";
+      : "Create your first campaign to begin tracking characters, places, sessions, and maps.";
     countLabel.textContent = hasCampaigns ? `${campaignCount} campaign${campaignCount === 1 ? "" : "s"}` : "No campaigns yet";
     emptyState.toggleAttribute("hidden", campaignCount !== 0);
     list.toggleAttribute("hidden", campaignCount === 0);

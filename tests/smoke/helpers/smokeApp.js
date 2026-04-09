@@ -27,12 +27,20 @@ export function watchForFatalSignals(page) {
  * Opens the app and waits for the top-level shell to finish rendering.
  *
  * @param {import("@playwright/test").Page} page
+ * @param {{ ensureCampaign?: boolean, campaignName?: string }} [opts]
  * @returns {Promise<{ consoleErrors: string[], pageErrors: string[] }>}
  */
-export async function openSmokeApp(page) {
+export async function openSmokeApp(page, opts = {}) {
+  const {
+    ensureCampaign = true,
+    campaignName = "My Campaign"
+  } = opts;
   const fatalSignals = watchForFatalSignals(page);
   await page.goto("/");
-  await expect(page.locator("#campaignTitle")).toBeVisible();
+  await expect(page.locator("main")).toBeVisible();
+  if (ensureCampaign && await page.locator("#page-hub").isVisible()) {
+    await createCampaignFromHub(page, campaignName);
+  }
   return fatalSignals;
 }
 
@@ -40,8 +48,12 @@ export async function openSmokeApp(page) {
  * @param {import("@playwright/test").Page} page
  */
 export async function expectHubShell(page) {
+  await expect(page.locator("body")).toHaveAttribute("data-shell-mode", "hub");
   await expect(page.locator("#page-hub")).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Welcome to Lore Ledger" })).toBeVisible();
+  await expect(page.locator(".topbar")).toBeHidden();
+  await expect(page.getByRole("heading", { name: "Lore Ledger" })).toBeVisible();
+  await expect(page.getByText("Keep your world within reach.")).toBeVisible();
+  await expect(page.locator(".hubHeroIconImage")).toBeVisible();
   await expect(page.locator("#campaignTabs")).toBeHidden();
   await expect(page.getByRole("tab", { name: "Hub" })).toHaveCount(0);
 }
@@ -57,6 +69,8 @@ export async function expectTrackerShell(page) {
     }
   }
 
+  await expect(page.locator("body")).toHaveAttribute("data-shell-mode", "campaign");
+  await expect(page.locator(".topbar")).toBeVisible();
   await expect(page.locator("#campaignTabs")).toBeVisible();
   await expect(trackerTab).toHaveAttribute("aria-selected", "true");
   await expect(page.locator("#campaignTitle")).toBeVisible();

@@ -37,6 +37,9 @@
 </head>
 
 <body>
+  <div class="hubBackdrop hubBackdropImage" aria-hidden="true"></div>
+  <div class="hubBackdrop hubBackdropWash" aria-hidden="true"></div>
+
   <!-- TOPBAR - Calculator & Dice Roller -->
   <header class="topbar">
     <div class="titlewrap">
@@ -198,44 +201,65 @@
   <main>
     <!-- CAMPAIGN HUB -->
     <section class="page active" id="page-hub">
-      <div class="hubShell">
-        <header class="hubWelcome">
-          <h2 class="hubWelcomeTitle">Welcome to Lore Ledger</h2>
-          <p class="muted hubWelcomeCopy" id="hubIntroCopy">Create a new campaign or open an existing one.</p>
-        </header>
-
-        <div class="hubLayout">
-          <section class="panel hubCreatePanel">
-            <div class="hubSectionHeader">
-              <h3 class="m0">Create Campaign</h3>
-              <p class="mutedSmall m0">Start a fresh adventure and jump right in.</p>
-            </div>
-
-            <form id="hubCreateForm" class="hubCreateForm">
-              <label class="hubCreateField" for="hubCampaignNameInput">
-                <span class="hubFieldLabel">Campaign Name</span>
-                <input id="hubCampaignNameInput" type="text" maxlength="120" placeholder="Name your first campaign" />
-              </label>
-              <button id="hubCreateBtn" type="submit">Create Campaign</button>
-            </form>
-          </section>
-
-          <section class="panel hubListPanel">
-            <div class="hubListHeader">
-              <div class="hubSectionHeader">
-                <h3 class="m0">Your Campaigns</h3>
-                <p class="mutedSmall m0">Open an existing campaign or manage its name.</p>
+      <div class="hubScroll">
+        <div class="hubShell">
+          <header class="hubHero" aria-labelledby="hubHeroTitle">
+            <div class="hubHeroCopy">
+              <p class="hubHeroEyebrow">Campaign Hub</p>
+              <h1 class="hubHeroTitle" id="hubHeroTitle">Lore Ledger</h1>
+              <p class="hubHeroTagline">Keep your world within reach.</p>
+              <div class="hubHeroDivider" aria-hidden="true">
+                <span class="hubHeroDividerMark"></span>
               </div>
-              <div class="mutedSmall hubCampaignCount" id="hubCampaignCount">No campaigns yet</div>
+              <p class="hubHeroFeatureLine">Characters &#8226; Places &#8226; Notes &#8226; Maps</p>
+              <p class="hubWelcomeCopy" id="hubIntroCopy">Create a new campaign or open an existing one.</p>
             </div>
 
-            <div class="hubEmptyState" id="hubEmptyState">
-              <p class="m0">You do not have any campaigns yet.</p>
-              <p class="muted m0">Create one above, then you can come back here any time to open, rename, or delete it.</p>
+            <div class="hubHeroVisual" aria-hidden="true">
+              <div class="hubHeroIconFrame">
+                <img class="hubHeroIconImage" src="./icons/icon-512-transparent.png" alt="" width="512" height="512"
+                  decoding="async" />
+              </div>
             </div>
+          </header>
 
-            <ul class="hubCampaignList" id="hubCampaignList" aria-label="Campaigns" hidden></ul>
-          </section>
+          <div class="hubLowerArea">
+            <div class="hubLayout">
+              <section class="panel hubPanel hubCreatePanel">
+                <div class="hubSectionHeader">
+                  <p class="hubSectionEyebrow m0">Begin A Chronicle</p>
+                  <h2 class="m0">Create Campaign</h2>
+                  <p class="mutedSmall m0">Start a fresh adventure and jump right in.</p>
+                </div>
+
+                <form id="hubCreateForm" class="hubCreateForm">
+                  <label class="hubCreateField" for="hubCampaignNameInput">
+                    <span class="hubFieldLabel">Campaign Name</span>
+                    <input id="hubCampaignNameInput" type="text" maxlength="120" placeholder="Name your first campaign" />
+                  </label>
+                  <button id="hubCreateBtn" type="submit">Create Campaign</button>
+                </form>
+              </section>
+
+              <section class="panel hubPanel hubListPanel">
+                <div class="hubListHeader">
+                  <div class="hubSectionHeader">
+                    <p class="hubSectionEyebrow m0">Your Archive</p>
+                    <h2 class="m0">Your Campaigns</h2>
+                    <p class="mutedSmall m0">Open an existing campaign or manage its name.</p>
+                  </div>
+                  <div class="mutedSmall hubCampaignCount" id="hubCampaignCount">No campaigns yet</div>
+                </div>
+
+                <div class="hubEmptyState" id="hubEmptyState">
+                  <p class="m0">You do not have any campaigns yet.</p>
+                  <p class="muted m0">Create one above, then you can come back here any time to open, rename, or delete it.</p>
+                </div>
+
+                <ul class="hubCampaignList" id="hubCampaignList" aria-label="Campaigns" hidden></ul>
+              </section>
+            </div>
+          </div>
         </div>
       </div>
     </section>

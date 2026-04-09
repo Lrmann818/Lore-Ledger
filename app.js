@@ -482,7 +482,11 @@ const NOOP_HUB_PAGE_API = {
   };
 
   const syncShellMode = () => {
-    document.body.dataset.shellMode = hasActiveCampaign() ? "campaign" : "hub";
+    const shellMode = hasActiveCampaign() ? "campaign" : "hub";
+    document.documentElement.dataset.shellMode = shellMode;
+    document.body.dataset.shellMode = shellMode;
+    const topbarEl = document.querySelector(".topbar");
+    topbarEl?.toggleAttribute("hidden", !hasActiveCampaign());
     const campaignTabsEl = document.getElementById("campaignTabs");
     campaignTabsEl?.toggleAttribute("hidden", !hasActiveCampaign());
   };
