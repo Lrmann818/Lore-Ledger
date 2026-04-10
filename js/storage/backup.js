@@ -46,7 +46,7 @@ const MAX_BLOBS = 200;
  *   ensureMapManager?: typeof import("../state.js").ensureMapManager,
  *   getBlob: typeof import("./blobs.js").getBlob,
  *   blobToDataUrl: typeof import("./blobs.js").blobToDataUrl,
- *   getAllTexts: typeof import("./texts-idb.js").getAllTexts,
+ *   getTextRecord: typeof import("./texts-idb.js").getTextRecord,
  *   sanitizeForSave: typeof import("../state.js").sanitizeForSave
  * }} ExportBackupDeps
  */
@@ -171,6 +171,9 @@ export function collectReferencedBlobIds(stateLike) {
 export function collectReferencedTextIds(stateLike) {
   const ids = new Set();
   if (!isPlainObject(stateLike)) return ids;
+  const activeCampaignId = isPlainObject(stateLike.appShell) && typeof stateLike.appShell.activeCampaignId === "string"
+    ? stateLike.appShell.activeCampaignId.trim()
+    : "";
 
   const character = isPlainObject(stateLike.character) ? stateLike.character : null;
   const spells = isPlainObject(character?.spells) ? character.spells : null;
@@ -183,7 +186,12 @@ export function collectReferencedTextIds(stateLike) {
       if (typeof spell.id !== "string") continue;
       const spellId = spell.id.trim();
       if (!spellId) continue;
-      addReferencedId(ids, textKey_spellNotes(spellId));
+      addReferencedId(
+        ids,
+        activeCampaignId
+          ? textKey_spellNotes(activeCampaignId, spellId)
+          : textKey_spellNotes(spellId)
+      );
     }
   }
 
@@ -339,7 +347,7 @@ export async function exportBackup(deps) {
     ensureMapManager,
     getBlob,
     blobToDataUrl,
-    getAllTexts,
+    getTextRecord,
     sanitizeForSave
   } = deps;
 
@@ -349,6 +357,7 @@ export async function exportBackup(deps) {
 
   ensureMapManager?.();
   const ids = collectReferencedBlobIds(state);
+  const textIds = collectReferencedTextIds(state);
 
   // Turn blobs into dataURLs inside the backup file
   /** @type {BackupAssetMap} */
@@ -362,12 +371,23 @@ export async function exportBackup(deps) {
     }
   }
 
+  /** @type {BackupAssetMap} */
+  const texts = {};
+  for (const id of textIds) {
+    try {
+      const record = await getTextRecord(id);
+      if (record) texts[id] = record.text ?? "";
+    } catch (err) {
+      console.warn("Skipping text during export (failed to read):", id, err);
+    }
+  }
+
   const backup = /** @type {BackupEnvelopeV2} */ ({
     version: 2,
     exportedAt: new Date().toISOString(),
     state: sanitizeForSave(state),
     blobs,
-    texts: await getAllTexts()
+    texts
   });
 
   const fileBlob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
@@ -491,7 +511,7 @@ export async function importBackup(e, deps) {
   }
 
   const oldBlobIds = collectReferencedBlobIds(stateSnapshot);
-  const oldTextIds = collectReferencedTextIds(stateSnapshot);
+  const oldTextIds = collectReferencedTextIds(state);
 
   /** @type {Map<string, { text: string } | null>} */
   const previousTexts = new Map();
@@ -650,7 +670,7 @@ export async function importBackup(e, deps) {
   try {
     const finalSavedState = sanitizeForSave(state);
     const newReferencedBlobIds = collectReferencedBlobIds(finalSavedState);
-    const newReferencedTextIds = collectReferencedTextIds(finalSavedState);
+    const newReferencedTextIds = collectReferencedTextIds(state);
     const importedBlobIds = new Set();
     const importedTextIds = new Set();
 

@@ -67,9 +67,9 @@ test("backup export round-trips tracker data into a fresh browser context", asyn
 
   try {
     const importPage = await importContext.newPage();
-    const importSignals = await openSmokeApp(importPage);
+    const importSignals = await openSmokeApp(importPage, { ensureCampaign: false });
 
-    await expect(importPage.locator("#campaignTitle")).toHaveText("My Campaign");
+    await expect(importPage.locator("#page-hub")).toBeVisible();
     await openDataPanel(importPage);
 
     await importPage.locator("#dataImportFile").setInputFiles(backupPath);

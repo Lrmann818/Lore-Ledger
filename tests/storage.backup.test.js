@@ -145,8 +145,9 @@ describe("collectReferencedTextIds", () => {
     vi.stubGlobal("HTMLInputElement", TestInputElement);
   });
 
-  it("derives spell note storage keys from structured spell ids only", () => {
+  it("derives campaign-scoped spell note storage keys from structured spell ids when a campaign is active", () => {
     const ids = collectReferencedTextIds({
+      appShell: { activeCampaignId: "campaign_alpha" },
       character: {
         spells: {
           levels: [
@@ -166,8 +167,8 @@ describe("collectReferencedTextIds", () => {
     });
 
     expect([...ids].sort()).toEqual([
-      textKey_spellNotes("spell_alpha"),
-      textKey_spellNotes("spell_beta")
+      textKey_spellNotes("campaign_alpha", "spell_alpha"),
+      textKey_spellNotes("campaign_alpha", "spell_beta")
     ]);
   });
 });
@@ -178,15 +179,27 @@ describe("exportBackup", () => {
     vi.stubGlobal("HTMLInputElement", TestInputElement);
   });
 
-  it("exports the clean backup shape with referenced blobs and all texts", async () => {
+  it("exports the clean backup shape with referenced blobs and only active-campaign texts", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-04-02T15:30:00.000Z"));
 
     const state = makeState();
+    state.appShell.activeCampaignId = "campaign_alpha";
     state.tracker.campaignTitle = "Exported Campaign";
     state.tracker.npcs = [{ name: "Scout", imgBlobId: "npc-blob" }];
     state.character.imgBlobId = "char-blob";
     state.map.bgBlobId = "map-bg";
+    state.character.spells.levels = [
+      {
+        id: "level-1",
+        label: "Cantrips",
+        hasSlots: false,
+        used: null,
+        total: null,
+        collapsed: false,
+        spells: [{ id: "spell-1", name: "Magic Missile", notesCollapsed: true, known: true, prepared: false, expended: false }]
+      }
+    ];
     state.map.undo = [{ step: 1 }];
     state.map.redo = [{ step: 2 }];
     state.ui.dice = { history: [{ text: "1d20" }], last: { count: 1, sides: 20, mod: 0, mode: "normal" } };
@@ -218,10 +231,11 @@ describe("exportBackup", () => {
       ensureMapManager: vi.fn(),
       getBlob: vi.fn(async (id) => blobRecords[id] ?? null),
       blobToDataUrl: vi.fn(async (blob) => `data:image/png;base64,${blob.id}`),
-      getAllTexts: vi.fn(async () => ({
-        [textKey_spellNotes("spell-1")]: "Magic missile notes",
-        unrelated_text: "Still exported"
-      })),
+      getTextRecord: vi.fn(async (id) => (
+        id === textKey_spellNotes("campaign_alpha", "spell-1")
+          ? { id, text: "Magic missile notes", updatedAt: 0 }
+          : null
+      )),
       sanitizeForSave
     });
 
@@ -241,8 +255,7 @@ describe("exportBackup", () => {
         "map-bg": "data:image/png;base64,map-bg"
       },
       texts: {
-        [textKey_spellNotes("spell-1")]: "Magic missile notes",
-        unrelated_text: "Still exported"
+        [textKey_spellNotes("campaign_alpha", "spell-1")]: "Magic missile notes"
       }
     });
     expect(parsed.state.map.undo).toBeUndefined();

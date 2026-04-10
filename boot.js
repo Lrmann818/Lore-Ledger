@@ -17,7 +17,7 @@ try {
 
   const raw = localStorage.getItem("localCampaignTracker_v1");
   const data = raw ? JSON.parse(raw) : null;
-  const theme = data?.ui?.theme || "system";
+  const theme = data?.appShell?.ui?.theme || data?.ui?.theme || "system";
 
   const prefersDark =
     window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;

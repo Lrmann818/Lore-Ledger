@@ -107,7 +107,7 @@ Export:
 - Export creates a plain JSON backup file.
 - That file can contain campaign data, stored text, and referenced images encoded as data URLs.
 - The file is not encrypted or password-protected by the app.
-- Export currently includes all stored text records from the IndexedDB text store, not only text that is still obviously referenced by the visible state.
+- Export is campaign-level and includes referenced active-campaign text records, not every text record in the IndexedDB text store.
 - Export may still succeed even if one or more images could not be read, so a completed export is not a guarantee that every image made it into the file.
 
 Import:

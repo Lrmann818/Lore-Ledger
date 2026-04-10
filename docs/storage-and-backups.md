@@ -45,7 +45,7 @@ That split matters because some compatibility work needs IndexedDB access, not j
 | Layer | Current use | Why it exists |
 | --- | --- | --- |
 | In-memory runtime state | map undo/redo, dice history, calculator history, DOM/controller state | Fast, ephemeral state that should not survive reloads |
-| `localStorage["localCampaignTracker_v1"]` | sanitized structured app state | Simple synchronous save/load for the core JSON model |
+| `localStorage["localCampaignTracker_v1"]` | campaign vault containing app-shell UI, campaign index, and per-campaign documents | Simple synchronous save/load for the core JSON model while isolating campaigns |
 | `localStorage["localCampaignTracker_activeTab"]` | last top-level tab | Restores tab choice even when no full save has happened yet |
 | IndexedDB `localCampaignTracker_db` / `blobs` | portraits, map backgrounds, map drawing snapshots | Keeps large binary payloads out of the main JSON save |
 | IndexedDB `localCampaignTracker_db` / `texts` | large note text, currently spell notes | Keeps long-form text out of the main JSON save |
@@ -55,13 +55,23 @@ That split matters because some compatibility work needs IndexedDB access, not j
 
 The main state key is `localCampaignTracker_v1`.
 
-It stores the sanitized object returned by `sanitizeForSave(...)`:
+It now stores a campaign vault:
+
+- `vaultVersion`
+- `appShell.activeCampaignId`
+- `appShell.ui`
+- `campaignIndex.order`
+- `campaignIndex.entries`
+- `campaignDocs`
+
+Each `campaignDocs[id]` entry stores one campaign document:
 
 - `schemaVersion`
 - `tracker`
 - `character`
 - `map`
-- `ui`
+
+At runtime, the active campaign document is projected back into `state.tracker`, `state.character`, and `state.map` so existing page modules can operate against one active campaign. App-level UI such as theme and active tab is stored under `appShell.ui`.
 
 Important exclusions from the main JSON payload:
 
@@ -78,11 +88,13 @@ Important inclusions in the main JSON payload:
 - blob references such as `imgBlobId`, `bgBlobId`, and `drawingBlobId`
 - spell IDs, but not spell note bodies
 
+Legacy single-campaign saves are still accepted. Startup wraps them into a one-campaign vault using the stable legacy migration campaign id before saving the normalized shape back.
+
 The separate UI key is `localCampaignTracker_activeTab`.
 
 That key is written immediately by [`js/ui/navigation.js`](../js/ui/navigation.js) when the top tab changes. It does not mark the full save dirty.
 
-`boot.js` also reads `localCampaignTracker_v1` directly on startup to apply the saved theme as early as possible.
+`boot.js` also reads `localCampaignTracker_v1` directly on startup to apply the saved theme as early as possible. It reads the vault-era `appShell.ui.theme` path and falls back to the legacy root `ui.theme` path.
 
 ## 4. IndexedDB responsibilities
 
@@ -103,7 +115,8 @@ The `blobs` store currently holds:
 
 The `texts` store currently holds:
 
-- spell note bodies, keyed as `spell_notes_<spellId>`
+- active-campaign spell note bodies, keyed as `spell_notes_<campaignId>__<spellId>`
+- legacy pre-vault spell note bodies, keyed as `spell_notes_<spellId>`, which startup migration can move into the active legacy campaign scope
 
 IndexedDB records are stored as objects, not raw values:
 
@@ -130,7 +143,8 @@ Text helper behavior:
 - `getText(id)` returns `""` when missing
 - `deleteText(id)` removes one text record
 - `clearAllTexts()` clears the whole text store
-- `getAllTexts()` returns every text record as an object map
+- `getAllTexts()` returns every text record as an object map for maintenance/recovery paths
+- `getTextRecord(id)` reads one text record so campaign backup export can include only referenced active-campaign notes
 
 Current storage-specific nuances:
 
@@ -139,8 +153,7 @@ Current storage-specific nuances:
 - map background uploads are stored as the selected file blob
 - portrait, character-portrait, map-background, and drawing-snapshot replacement now use `replaceStoredBlob(...)` so they stage the new blob, update the saved reference, flush the structured save, and only then delete the old blob
 - spell note bodies save on their own debounce directly to IndexedDB and do not use `SaveManager`
-- backup export includes all text records from `texts`, not just texts referenced by the current state
-- backup export includes only blob IDs that are currently referenced from state
+- backup export includes only blob IDs and text records referenced by the currently active campaign state
 
 ## 6. SaveManager lifecycle
 
@@ -218,18 +231,21 @@ Current flow:
    - tracker NPCs, party members, and locations
    - each map entry's `bgBlobId` and `drawingBlobId`
 3. Read each referenced blob from IndexedDB and convert it to a data URL.
-4. Build a backup object:
+4. Collect referenced active-campaign text IDs from structured spell IDs.
+5. Read each referenced text record from IndexedDB.
+6. Build a backup object:
    - `version: 2`
    - `exportedAt`
    - `state: sanitizeForSave(...)`
    - `blobs`
-   - `texts: await getAllTexts()`
-5. Serialize to JSON and trigger a download named `campaign-backup-YYYY-MM-DD.json`.
+   - `texts`
+7. Serialize to JSON and trigger a download named `campaign-backup-YYYY-MM-DD.json`.
 
 Export safety behavior:
 
 - unreadable blobs are skipped with `console.warn(...)`
 - export does not abort when one blob read fails
+- unreadable text records are skipped with `console.warn(...)`
 - if the download click fails, the user gets an alert
 
 Compatibility note:
@@ -264,6 +280,8 @@ Current flow:
 11. Clone the migrated result and replace the live long-lived `state` object's top-level buckets.
 12. Call `ensureMapManager()`.
 13. Call `saveAll()` and require that write to succeed before the import is accepted.
+    - when a campaign is active, this overwrites the active campaign document
+    - when importing from the Campaign Hub with no active campaign, `app.js` creates a new campaign container and saves the imported state into it
 14. After a successful save, selectively delete old blob/text records that are no longer referenced by the restored state.
 15. If the backup contained no blobs, show the completion notice.
 16. Run `afterImport()`, which currently reloads the page from `app.js`.
@@ -283,6 +301,7 @@ Important current nuances:
 - import does not write `localStorage["localCampaignTracker_activeTab"]` directly; tab restore comes from hash, the separate active-tab key when present, or restored `state.ui.activeTab` on the next boot
 - if a backup contains no blobs, the import does not restore image data from the file; already-present blob records are only kept when the restored state still references them
 - import restores root `ui` values too, including `ui.activeTab`
+- the Campaign Hub has a `Data & Settings` entry point so a previously exported campaign can be re-imported after all in-app campaigns have been deleted
 
 ## 10. Reset Everything behavior
 

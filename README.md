@@ -6,6 +6,7 @@
 
 Lore Ledger brings three working areas into one browser app:
 
+- A `Campaign Hub` for creating, opening, renaming, deleting, and re-importing campaigns
 - A `Tracker` workspace for sessions, NPCs, party members, locations, and general notes
 - A `Character` workspace for a player character sheet and related notes
 - A `Map` workspace for image-backed drawing, pan/zoom, and annotation
@@ -19,6 +20,7 @@ The project exists to keep campaign context in one place without requiring a hos
 That direction is visible in the current structure:
 
 - A single composition root in `app.js`
+- A campaign vault persistence model that separates app-shell UI from per-campaign documents
 - Schema-aware state migration in `js/state.js`
 - A split persistence layer for structured state, images, and long-form text
 - Tracker card panels built around destroyable instance-scoped controllers instead of hidden singleton runtime state
@@ -28,6 +30,7 @@ That direction is visible in the current structure:
 
 ## 3. Feature overview
 
+- Campaign Hub for creating campaigns, switching the active campaign, renaming campaigns, deleting campaigns, and opening `Data & Settings` before any campaign is active
 - Tracker page for campaign title, session tabs and notes, NPC cards, party cards, location cards, and loose notes
 - Sectioned tracker collections with add/rename/delete controls, search inputs, and portrait/image support for cards
 - Character page with portrait, identity fields, vitals, resources, abilities and skills, proficiencies, weapons, spells, equipment, inventory tabs, money, and personality notes
@@ -297,13 +300,14 @@ If the GitHub Pages path ever changes, update the following together:
 
 The app is local-first and stores data in the browser:
 
-- Structured app state is saved to `localStorage` under `localCampaignTracker_v1`
+- Structured app state is saved to `localStorage` under `localCampaignTracker_v1` as a campaign vault with app-shell UI, campaign index metadata, and isolated per-campaign documents
 - The active tab is saved separately under `localCampaignTracker_activeTab`
 - IndexedDB database `localCampaignTracker_db` stores binary assets in `blobs` and large text payloads in `texts`
 - Portraits, map background images, and persisted map drawings are stored as IndexedDB blobs
-- Spell notes are stored separately in IndexedDB text storage
-- `loadAll()` migrates older saved shapes and legacy image data URLs into the current schema/storage model during startup
-- Backup export bundles sanitized state, stored images, and stored text into a JSON file; backup import validates, migrates, stages blob/text writes before the state swap, attempts to restore touched text IDs if a later step fails, and then reloads the app after a successful save
+- Spell notes are stored separately in IndexedDB text storage with campaign-scoped keys
+- `loadAll()` migrates older saved shapes, wraps legacy single-campaign saves into a one-campaign vault, and migrates legacy image data URLs into the current schema/storage model during startup
+- Backup export is campaign-level: it bundles the currently active campaign's sanitized state, referenced images, and referenced text notes into a JSON file
+- Backup import is campaign-level: it validates, migrates, stages blob/text writes before the state swap, attempts to restore touched text IDs if a later step fails, saves into the active campaign or creates a new campaign when importing from the hub, and then reloads the app after a successful save
 - Vitest coverage now protects `migrateState(...)`, startup load/save behavior, backup import/export logic, and the local save lifecycle, which improves confidence in saved-state integrity without replacing manual browser-level verification
 
 Intentionally non-persistent runtime state:

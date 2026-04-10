@@ -40,7 +40,20 @@ Important implementation detail:
 
 ## 3. Top-level state shape
 
-Structured state saved to `localStorage` is always sanitized to this top-level shape:
+Runtime state still exposes one active campaign through this familiar top-level shape:
+
+```js
+{
+  schemaVersion: number,
+  tracker: object,
+  character: object,
+  map: object,
+  ui: object,
+  appShell: { activeCampaignId: string | null }
+}
+```
+
+`sanitizeForSave(...)` emits the campaign-shaped part of that runtime state:
 
 ```js
 {
@@ -52,14 +65,36 @@ Structured state saved to `localStorage` is always sanitized to this top-level s
 }
 ```
 
-Only these five top-level keys are emitted by `sanitizeForSave(...)`.
+The main `localStorage["localCampaignTracker_v1"]` value is now a campaign vault, not that raw sanitized object:
+
+```js
+{
+  vaultVersion: number,
+  appShell: {
+    activeCampaignId: string | null,
+    ui: object
+  },
+  campaignIndex: {
+    order: string[],
+    entries: Record<string, CampaignIndexEntry>
+  },
+  campaignDocs: Record<string, {
+    schemaVersion: number,
+    tracker: object,
+    character: object,
+    map: object
+  }>
+}
+```
+
+`campaignDocs[id]` owns campaign data. `appShell.ui` owns app-level UI preferences such as theme and active tab. Startup projects only the selected active campaign document into the runtime `state.tracker`, `state.character`, and `state.map` buckets.
 
 The app also uses companion persisted stores:
 
-- `localStorage["localCampaignTracker_v1"]`: sanitized structured state
+- `localStorage["localCampaignTracker_v1"]`: campaign vault
 - `localStorage["localCampaignTracker_activeTab"]`: last active top-level tab, mirrored separately from `ui.activeTab`
 - IndexedDB `blobs` store: portraits, map backgrounds, and map drawing images
-- IndexedDB `texts` store: large spell notes, keyed by `spell_notes_<spellId>`
+- IndexedDB `texts` store: large spell notes, keyed by `spell_notes_<campaignId>__<spellId>` for active campaign notes, with legacy `spell_notes_<spellId>` keys migrated forward when possible
 
 State only stores references such as `imgBlobId`, `bgBlobId`, `drawingBlobId`, and spell IDs. It does not inline binary files or long spell note text in the main JSON payload.
 
@@ -381,8 +416,9 @@ Notes:
 - `migrateState(...)` upgrades legacy spell buckets such as `cantrips`, `lvl1`, `lvl2`, and `lvl3` into `spells.levels`.
 - The Spells panel lazily seeds default levels (`Cantrips`, `1st Level`, `2nd Level`, `3rd Level`) if `levels` is empty.
 - The long-form text body for each spell is not stored in structured state.
-  - It lives in IndexedDB `texts`.
-  - Key format: `spell_notes_<spellId>`.
+- It lives in IndexedDB `texts`.
+  - Active campaign key format: `spell_notes_<campaignId>__<spellId>`.
+  - Legacy key format accepted during migration: `spell_notes_<spellId>`.
 
 ### Inventory, equipment, and money
 
@@ -544,7 +580,7 @@ Current fields:
 
 ### Persisted in structured JSON
 
-These survive `sanitizeForSave(...)` and are written to the main state payload:
+These survive `sanitizeForSave(...)` and are written into the active campaign document or app-shell UI inside the campaign vault:
 
 - all normal `tracker`, `character`, `map`, and `ui` content fields
 - UI/search/filter/index state such as `sessionSearch`, `locFilter`, `activeSessionIndex`, `inventorySearch`, and `ui.activeTab`
@@ -640,14 +676,15 @@ This step intentionally removes ephemeral topbar history from full reload/import
 
 Expected behavior:
 
-- load sanitized JSON from localStorage
-- run `migrateState(...)`
-- replace the long-lived root `state` object's top-level buckets via `replaceStateBuckets(...)`
+- load the campaign vault from localStorage, or wrap a legacy single-campaign JSON payload into a one-campaign vault
+- normalize the vault and resolve a valid active campaign id
+- project the active campaign into the long-lived root `state` object's campaign buckets
 - clear `map.undo` and `map.redo`
 - convert legacy `imgDataUrl` fields into blob IDs
 - fold legacy top-level map image and drawing fields into the default map entry
 - fold legacy top-level map brush/color fields into the default map entry
 - fix `tracker.ui.textareaHeigts` typo
+- migrate legacy unscoped spell-note text IDs into the active legacy campaign scope when wrapping old saves
 - mark the save as dirty so the migrated shape is written back once
 
 This startup step is why some compatibility work lives outside `migrateState(...)`: it depends on IndexedDB blob storage, not just JSON reshaping.

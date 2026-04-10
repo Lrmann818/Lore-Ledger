@@ -5,7 +5,6 @@
 // button and data panel init into a focused module.
 
 import { initDataPanel } from "./dataPanel.js";
-import { requireMany } from "../utils/domGuards.js";
 
 /** @typedef {Parameters<typeof initDataPanel>[0]} SettingsPanelDeps */
 
@@ -52,16 +51,20 @@ export function setupSettingsPanel(deps) {
     setStatus,
   });
 
-  // Settings button opens the modal directly
-  const guard = requireMany(
-    { settingsBtn: "#settingsBtn" },
-    { root: document, setStatus, context: "Settings button" }
-  );
-  if (!guard.ok) return guard.destroy;
-  const { settingsBtn } = guard.els;
+  const triggerButtons = [
+    document.getElementById("settingsBtn"),
+    document.getElementById("hubSettingsBtn")
+  ].filter((button) => button instanceof HTMLButtonElement);
 
-  settingsBtn.addEventListener("click", () => {
-    dataPanelApi?.open?.();
+  if (!triggerButtons.length) {
+    setStatus?.("Settings button unavailable.", { stickyMs: 5000 });
+    return dataPanelApi;
+  }
+
+  triggerButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      dataPanelApi?.open?.();
+    });
   });
 
   return dataPanelApi;

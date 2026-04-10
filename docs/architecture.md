@@ -65,11 +65,12 @@ This list is intentionally narrower than the files included by `tsconfig.checkjs
 ### `index.html`
 
 - Defines the app shell, topbar, page sections, modal roots, and all DOM anchors required by page and shared UI modules.
-- Owns the three top-level pages:
+- Owns the top-level pages:
+  - `#page-hub`
   - `#page-tracker`
   - `#page-character`
   - `#page-map`
-- Owns the shared status line (`#statusText`), top navigation tabs, calculator/dice dropdown markup, and the Data & Settings panel shell.
+- Owns the shared status line (`#statusText`), campaign navigation tabs, hub entry points, calculator/dice dropdown markup, and the Data & Settings panel shell.
 - Loads `boot.js` in `<head>`, `styles.css`, and `app.js` at the end of `<body>`.
 - Defines the runtime CSP. This is an architectural constraint, not a cosmetic choice.
 
@@ -114,8 +115,8 @@ This list is intentionally narrower than the files included by `tsconfig.checkjs
 5. Startup state work is wrapped in `withAllowedStateMutationAsync(...)` so guard-protected startup mutations are explicit.
 6. `loadAllPersist(...)`:
    - reads `localStorage["localCampaignTracker_v1"]`
-   - parses and migrates data through `migrateState(...)`
-   - replaces the existing `state` object's top-level buckets via the storage-layer `replaceStateBuckets(...)` helper
+   - normalizes a campaign vault, or wraps legacy single-campaign saves into a one-campaign vault
+   - projects the active campaign document into the existing `state` object's runtime buckets
    - clears map undo/redo
    - migrates legacy image data URLs into IndexedDB blobs
    - folds legacy map fields into the current multi-map structure
@@ -125,14 +126,16 @@ This list is intentionally narrower than the files included by `tsconfig.checkjs
    - `initDialogs()`
    - `Theme.initFromState()`
    - `initTopTabsNavigation(...)`
+   - `initCampaignHubPage(...)`
    - `setupSettingsPanel(...)`
    - `initTopbarUI(...)`
 8. Page/features initialize in this order:
    - `autosizeAllNumbers()`
    - `setupTextareaSizing(...)`
+   - campaign modules only when a campaign is active
    - `initTrackerPage(...)`
    - `setupMapPage(...)`
-9. `initTrackerPage(...)` currently also initializes:
+9. `initTrackerPage(...)`, when active, currently also initializes:
    - tracker campaign title + misc bindings
    - tracker panel reordering
    - tracker panels (sessions, NPCs, party, locations)
@@ -147,7 +150,7 @@ This list is intentionally narrower than the files included by `tsconfig.checkjs
 
 - UI events mutate the guarded `appState` object directly or through `createStateActions(...)`.
 - Save-aware mutations call `SaveManager.markDirty()`.
-- `SaveManager` debounces writes, updates the status line, and serializes the sanitized main state into local storage.
+- `SaveManager` debounces writes, updates the status line, and serializes the active campaign plus app shell into the campaign vault in local storage.
 - Binary assets and long-form spell notes are written to IndexedDB separately; the main save persists only the IDs and structured metadata needed to find them again.
 - Page navigation shows/hides top-level pages, updates `state.ui.activeTab`, updates the URL hash, and also persists the active tab under `localStorage["localCampaignTracker_activeTab"]`.
 - Best-effort save flushes also run on `beforeunload`, `pagehide`, and when the document becomes hidden.
@@ -206,7 +209,7 @@ This list is intentionally narrower than the files included by `tsconfig.checkjs
 
 - `js/state.js` exports a single canonical `state` object.
 - `app.js` wraps that object with the dev mutation guard and uses the guarded `appState` everywhere.
-- Load/import preserve the root `state` object, but they replace its top-level buckets (`tracker`, `character`, `map`, `ui`) via `replaceStateBuckets(...)`.
+- Load/import preserve the root `state` object, but they replace its top-level buckets while keeping the long-lived root reference stable.
 - Code can safely keep the root `state` reference, but it should not assume old references to nested buckets survive a load/import boundary.
 
 Top-level state buckets:
@@ -216,13 +219,14 @@ Top-level state buckets:
 - `state.character`
 - `state.map`
 - `state.ui`
+- `state.appShell`
 
 ### Persisted stores
 
 - Main structured save:
   - `localStorage["localCampaignTracker_v1"]`
   - written by `saveAllLocal(...)`
-  - payload comes from `sanitizeForSave(...)`
+  - payload is a campaign vault with `appShell`, `campaignIndex`, and `campaignDocs`
 - Separate active-tab key:
   - `localStorage["localCampaignTracker_activeTab"]`
   - written by `initTopTabsNavigation(...)`
@@ -234,13 +238,25 @@ Top-level state buckets:
 
 ### Persisted main-save state
 
-Persisted through `sanitizeForSave(...)` into `localStorage["localCampaignTracker_v1"]`:
+Runtime still exposes one active campaign through the familiar top-level buckets:
 
 - `state.schemaVersion`
 - `state.tracker`
 - `state.character`
 - `state.map` except runtime-only history
 - `state.ui` except runtime-only calculator/dice state
+- `state.appShell.activeCampaignId`
+
+The main localStorage payload is now a campaign vault:
+
+- `vaultVersion`
+- `appShell.activeCampaignId`
+- `appShell.ui`
+- `campaignIndex.order`
+- `campaignIndex.entries`
+- `campaignDocs[id]`
+
+Each `campaignDocs[id]` stores the campaign-level `schemaVersion`, `tracker`, `character`, and `map` buckets. App-level UI such as theme, textarea heights, panel collapse, and active tab is stored under `appShell.ui`.
 
 Important persisted UI/state examples:
 
@@ -277,7 +293,7 @@ Important persisted UI/state examples:
   - map background blobs
   - map drawing blobs
 - IndexedDB `texts` stores:
-  - spell notes keyed by `textKey_spellNotes(spellId)`
+  - active-campaign spell notes keyed by `textKey_spellNotes(campaignId, spellId)`
 - `localStorage["localCampaignTracker_activeTab"]` stores the last active top-level page separately from the main save so page restore does not depend on a dirty-save cycle.
 
 ### Runtime-only state
@@ -349,20 +365,20 @@ Not all user-visible data follows the same write path:
   - marks the main state dirty so the new blob ID is persisted
 - Spell notes:
   - saved separately through `putText(...)`
-  - keyed by `textKey_spellNotes(spellId)`
+  - keyed by `textKey_spellNotes(campaignId, spellId)` while a campaign is active
   - deleted separately when spells or spell levels are deleted
   - not embedded in `state.character.spells`
 
 ### Backup/reset lifecycle
 
 - Export:
-  - `exportBackup(...)` bundles sanitized structured state plus all referenced blobs and all stored texts into a versioned JSON file.
+  - `exportBackup(...)` bundles the currently active campaign's sanitized structured state, referenced blobs, and referenced campaign-scoped texts into a versioned JSON file.
 - Import:
   - validates file size and JSON shape
   - migrates incoming state
   - restores blobs/texts first
   - replaces the live state's top-level buckets on the existing root object
-  - saves the imported structured state through `saveAll()`
+  - saves the imported structured state into the active campaign, or creates a new campaign container when importing from the hub/no-active-campaign state
   - selectively removes old blob/text records that are no longer referenced after a successful save
   - reloads the app
 - Reset / clear-images / clear-texts:

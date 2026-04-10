@@ -39,9 +39,9 @@ import {
   textKey_spellNotes,
   putText,
   getText,
+  getTextRecord,
   deleteText,
-  clearAllTexts,
-  getAllTexts
+  clearAllTexts
 } from "./js/storage/texts-idb.js";
 
 import {
@@ -181,7 +181,7 @@ function createExportBackupDeps() {
     ensureMapManager,
     getBlob,
     blobToDataUrl,
-    getAllTexts,
+    getTextRecord,
     sanitizeForSave
   };
 }
@@ -213,7 +213,40 @@ function createImportBackupDeps() {
     ensureMapManager,
     migrateState,
     sanitizeForSave,
-    saveAll,
+    saveAll: () => {
+      const activeCampaignId = typeof appState.appShell?.activeCampaignId === "string"
+        ? appState.appShell.activeCampaignId.trim()
+        : "";
+      if (activeCampaignId) {
+        return saveAll();
+      }
+
+      const baseVault = VaultRuntime.current || normalizeCampaignVault(null, { migrateState, sanitizeForSave }).vault;
+      const created = createCampaignInVault(baseVault, {
+        migrateState,
+        sanitizeForSave,
+        name: appState.tracker?.campaignTitle
+      });
+      const previousCampaignId = appState.appShell.activeCampaignId;
+      const tempVaultRuntime = { current: created.vault };
+
+      appState.appShell.activeCampaignId = created.campaignId;
+      const ok = saveAllLocal({
+        storageKey: STORAGE_KEY,
+        state: appState,
+        migrateState,
+        sanitizeForSave,
+        vaultRuntime: tempVaultRuntime
+      });
+
+      if (ok) {
+        VaultRuntime.current = tempVaultRuntime.current;
+        return true;
+      }
+
+      appState.appShell.activeCampaignId = previousCampaignId;
+      return false;
+    },
     putBlob,
     deleteBlob,
     dataUrlToBlob,
