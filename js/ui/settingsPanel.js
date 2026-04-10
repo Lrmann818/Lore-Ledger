@@ -52,8 +52,7 @@ export function setupSettingsPanel(deps) {
   });
 
   const triggerButtons = [
-    document.getElementById("settingsBtn"),
-    document.getElementById("hubSettingsBtn")
+    document.getElementById("settingsBtn")
   ].filter((button) => button instanceof HTMLButtonElement);
 
   if (!triggerButtons.length) {

@@ -30,7 +30,7 @@ That direction is visible in the current structure:
 
 ## 3. Feature overview
 
-- Campaign Hub for creating campaigns, switching the active campaign, renaming campaigns, deleting campaigns, and opening `Data & Settings` before any campaign is active
+- Campaign Hub for creating campaigns, switching the active campaign, renaming campaigns, and deleting campaigns
 - Tracker page for campaign title, session tabs and notes, NPC cards, party cards, location cards, and loose notes
 - Sectioned tracker collections with add/rename/delete controls, search inputs, and portrait/image support for cards
 - Character page with portrait, identity fields, vitals, resources, abilities and skills, proficiencies, weapons, spells, equipment, inventory tabs, money, and personality notes

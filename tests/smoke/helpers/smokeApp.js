@@ -56,6 +56,7 @@ export async function expectHubShell(page) {
   await expect(page.locator(".hubHeroIconImage")).toBeVisible();
   await expect(page.locator("#campaignTabs")).toBeHidden();
   await expect(page.getByRole("tab", { name: "Hub" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Data & Settings" })).toHaveCount(0);
 }
 
 /**

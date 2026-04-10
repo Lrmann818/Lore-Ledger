@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { readFile } from "node:fs/promises";
-import { expectNoFatalSignals, openSmokeApp } from "./helpers/smokeApp.js";
+import { createCampaignFromHub, expectNoFatalSignals, openSmokeApp } from "./helpers/smokeApp.js";
 
 /**
  * @param {import("@playwright/test").Page} page
@@ -70,6 +70,7 @@ test("backup export round-trips tracker data into a fresh browser context", asyn
     const importSignals = await openSmokeApp(importPage, { ensureCampaign: false });
 
     await expect(importPage.locator("#page-hub")).toBeVisible();
+    await createCampaignFromHub(importPage, "Import Placeholder Chronicle");
     await openDataPanel(importPage);
 
     await importPage.locator("#dataImportFile").setInputFiles(backupPath);

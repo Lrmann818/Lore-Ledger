@@ -301,7 +301,7 @@ Important current nuances:
 - import does not write `localStorage["localCampaignTracker_activeTab"]` directly; tab restore comes from hash, the separate active-tab key when present, or restored `state.ui.activeTab` on the next boot
 - if a backup contains no blobs, the import does not restore image data from the file; already-present blob records are only kept when the restored state still references them
 - import restores root `ui` values too, including `ui.activeTab`
-- the Campaign Hub has a `Data & Settings` entry point so a previously exported campaign can be re-imported after all in-app campaigns have been deleted
+- `Data & Settings` is available from the active campaign shell, so backup import/export stays inside the in-app campaign surface
 
 ## 10. Reset Everything behavior
 
