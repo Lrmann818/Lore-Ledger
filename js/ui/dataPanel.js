@@ -127,6 +127,25 @@ export function initDataPanel(deps) {
 
   const listenerController = new AbortController();
   const listenerSignal = listenerController.signal;
+
+  // Background scroll lock state
+  let lockedScrollY = 0;
+  let scrollLocked = false;
+
+  function lockScroll() {
+    if (scrollLocked) return;
+    lockedScrollY = window.scrollY;
+    scrollLocked = true;
+    document.body.classList.add("modal-open");
+  }
+
+  function unlockScroll() {
+    if (!scrollLocked) return;
+    scrollLocked = false;
+    document.body.classList.remove("modal-open");
+    window.scrollTo(0, lockedScrollY);
+  }
+
   /**
    * @param {{ addEventListener?: EventTarget["addEventListener"] } | null | undefined} target
    * @param {string} type
@@ -167,6 +186,7 @@ export function initDataPanel(deps) {
   }
 
   function open() {
+    lockScroll();
     syncCampaignSection();
     overlay.hidden = false;
     overlay.setAttribute("aria-hidden", "false");
@@ -186,6 +206,7 @@ export function initDataPanel(deps) {
   }
 
   function close() {
+    unlockScroll();
     overlay.hidden = true;
     overlay.setAttribute("aria-hidden", "true");
   }
@@ -199,6 +220,19 @@ export function initDataPanel(deps) {
     const e = /** @type {KeyboardEvent} */ (event);
     if (e.key === "Escape" && !overlay.hidden) close();
   });
+
+  // Gesture trap: block scroll bleed-through to the background page on iOS PWA.
+  // preventDefault() is only called when the gesture originates outside the modal panel,
+  // so internal panel scrolling is unaffected. Listeners must be non-passive to allow
+  // preventDefault(), and they're automatically removed via listenerSignal on destroy().
+  /** @param {Event} e */
+  const trapBackgroundScroll = (e) => {
+    if (!scrollLocked) return;
+    if (panel.contains(/** @type {Node} */ (e.target))) return;
+    e.preventDefault();
+  };
+  addListener(overlay, "wheel", trapBackgroundScroll, { passive: false });
+  addListener(overlay, "touchmove", trapBackgroundScroll, { passive: false });
 
   // Theme change
   if (themeSelect) {
@@ -492,6 +526,7 @@ export function initDataPanel(deps) {
     open,
     close,
     destroy() {
+      unlockScroll();
       listenerController.abort();
       if (_activeDataPanel === api) _activeDataPanel = null;
     }
