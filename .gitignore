@@ -1,8 +1,33 @@
+# Editor
 .vscode/
+
+# OS files
 .DS_Store
+Thumbs.db
+
+# Dependencies and build output
 node_modules/
 dist/
+.vite/
+coverage/
+
+# Test artifacts
 playwright-report/
 test-results/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Archives
 *.zip
-.git
+
+# Private design notes
+docs/design/
