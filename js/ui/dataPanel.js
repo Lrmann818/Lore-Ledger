@@ -18,6 +18,7 @@ import {
 import { requireMany } from "../utils/domGuards.js";
 import { initPwaUpdates } from "../pwa/updates.js";
 import { showUpdateBanner } from "../pwa/updateBanner.js";
+import { getStorageDiagnostics } from "../storage/diagnostics.js";
 
 /** @typedef {import("../state.js").State} State */
 /** @typedef {ReturnType<typeof import("../ui/popovers.js").createPopoverManager>} PopoversApi */
@@ -261,6 +262,7 @@ export function initDataPanel(deps) {
   const aboutBtn = document.getElementById("dataAboutBtn");
   const reportBugBtn = /** @type {HTMLButtonElement|null} */ (document.getElementById("dataReportBugBtn"));
   const copyDebugInfoBtn = /** @type {HTMLButtonElement|null} */ (document.getElementById("dataCopyDebugInfoBtn"));
+  const storageInfoBtn = /** @type {HTMLButtonElement|null} */ (document.getElementById("dataStorageInfoBtn"));
   const supportMeta = /** @type {HTMLElement|null} */ (document.getElementById("dataSupportMeta"));
   const checkUpdatesBtn = /** @type {HTMLButtonElement|null} */ (document.getElementById("checkUpdatesBtn"));
   const settingsUpdateStatus = /** @type {HTMLElement|null} */ (document.getElementById("settingsUpdateStatus"));
@@ -489,6 +491,36 @@ export function initDataPanel(deps) {
     }, (err) => {
       console.error(err);
       notifyStatus(setStatus, "Copy debug info failed.");
+    })
+  );
+
+  if (storageInfoBtn) addListener(storageInfoBtn, "click",
+    safeAsync(async () => {
+      const appKeys = [storageKeys.STORAGE_KEY, storageKeys.ACTIVE_TAB_KEY];
+      const diag = await getStorageDiagnostics(appKeys);
+
+      const lines = [
+        `Lore Ledger data (localStorage): ${diag.appFormatted}`,
+        ""
+      ];
+
+      if (diag.estimateSupported) {
+        lines.push("Browser storage estimate (entire origin, all APIs):");
+        lines.push(`  Used:      ~${diag.browserUsedFormatted ?? "?"}`);
+        lines.push(`  Quota:     ~${diag.browserQuotaFormatted ?? "?"}`);
+        lines.push(`  Available: ~${diag.browserAvailableFormatted ?? "?"}`);
+        lines.push("");
+        lines.push("Browser figures are rough estimates from the browser");
+        lines.push("and cover all storage for this origin (localStorage,");
+        lines.push("IndexedDB, Cache API, etc.), not just Lore Ledger.");
+      } else {
+        lines.push("Browser storage estimate: not supported in this browser.");
+      }
+
+      await uiAlert(lines.join("\n"), { title: "Storage Info" });
+    }, (err) => {
+      console.error(err);
+      notifyStatus(setStatus, "Storage info failed.");
     })
   );
 
