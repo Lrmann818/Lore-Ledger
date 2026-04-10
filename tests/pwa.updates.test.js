@@ -8,13 +8,13 @@ vi.mock("virtual:pwa-register", () => ({
   registerSW: registerSWMock
 }));
 
-function setBrowserGlobals() {
+function setBrowserGlobals(swExtras = {}) {
   Object.defineProperty(globalThis, "window", {
     value: {},
     configurable: true
   });
   Object.defineProperty(globalThis, "navigator", {
-    value: { serviceWorker: {} },
+    value: { serviceWorker: { ...swExtras } },
     configurable: true
   });
 }
@@ -39,9 +39,10 @@ describe("initPwaUpdates", () => {
     const mockRegistration = { update: mockUpdate };
     const updateServiceWorker = vi.fn(async () => {});
 
-    registerSWMock.mockImplementation((options) => {
-      // Simulate vite-plugin-pwa calling onRegisteredSW after SW registration.
-      options.onRegisteredSW?.("/sw.js", mockRegistration);
+    // checkForUpdates uses navigator.serviceWorker.getRegistration() — not onRegisteredSW
+    setBrowserGlobals({ getRegistration: vi.fn(async () => mockRegistration) });
+
+    registerSWMock.mockImplementation(() => {
       return updateServiceWorker;
     });
 
@@ -100,8 +101,9 @@ describe("initPwaUpdates", () => {
     const mockUpdate = vi.fn(async () => {});
     const updateServiceWorker = vi.fn(async () => {});
 
-    registerSWMock.mockImplementation((options) => {
-      options.onRegisteredSW?.("/sw.js", { update: mockUpdate });
+    setBrowserGlobals({ getRegistration: vi.fn(async () => ({ update: mockUpdate })) });
+
+    registerSWMock.mockImplementation(() => {
       return updateServiceWorker;
     });
 
