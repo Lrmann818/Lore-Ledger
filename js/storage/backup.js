@@ -217,6 +217,9 @@ function validateIncomingStateShape(state) {
   if (Object.prototype.hasOwnProperty.call(state, "map") && !isPlainObject(state.map)) {
     throw new Error("Backup state.map must be an object.");
   }
+  if (Object.prototype.hasOwnProperty.call(state, "combat") && !isPlainObject(state.combat)) {
+    throw new Error("Backup state.combat must be an object.");
+  }
   if (Object.prototype.hasOwnProperty.call(state, "ui") && !isPlainObject(state.ui)) {
     throw new Error("Backup state.ui must be an object.");
   }
@@ -248,6 +251,7 @@ function replaceStateBuckets(target, source) {
   target.tracker = /** @type {AppState["tracker"]} */ (source.tracker);
   target.character = /** @type {AppState["character"]} */ (source.character);
   target.map = /** @type {AppState["map"]} */ (source.map);
+  target.combat = /** @type {AppState["combat"]} */ (source.combat);
   target.ui = /** @type {AppState["ui"]} */ (source.ui);
 }
 

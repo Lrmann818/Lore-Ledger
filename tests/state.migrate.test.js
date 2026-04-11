@@ -6,6 +6,25 @@ function cloneState(value) {
   return structuredClone(value);
 }
 
+const DEFAULT_COMBAT_STATE = {
+  workspace: {
+    panelOrder: [],
+    embeddedPanels: [],
+    panelCollapsed: {}
+  },
+  encounter: {
+    id: null,
+    createdAt: null,
+    updatedAt: null,
+    round: 1,
+    activeParticipantId: null,
+    elapsedSeconds: 0,
+    secondsPerTurn: 6,
+    participants: [],
+    undoStack: []
+  }
+};
+
 describe("migrateState", () => {
   describe("backfillInventoryItemsFromLegacyEquipment", () => {
     it("seeds a default inventory item from legacy equipment when inventory is missing", () => {
@@ -88,6 +107,7 @@ describe("migrateState", () => {
       expect(migrated.map.maps).toEqual([]);
       expect(migrated.map.activeMapId).toBeNull();
       expect(migrated.map.ui).toEqual({ activeTool: "brush", brushSize: 6 });
+      expect(migrated.combat).toEqual(DEFAULT_COMBAT_STATE);
       expect(migrated.ui).toEqual(
         expect.objectContaining({
           theme: "dark",
@@ -154,6 +174,106 @@ describe("migrateState", () => {
       ]);
     });
 
+    it("upgrades schema v2 saves into v3 combat workspace state", () => {
+      const migrated = migrateState({
+        schemaVersion: 2,
+        tracker: {
+          campaignTitle: "Moonfall",
+          misc: "Preserve this"
+        },
+        character: {
+          inventoryItems: [{ title: "Inventory", notes: "Rations" }]
+        },
+        map: {
+          activeMapId: null,
+          maps: []
+        },
+        ui: {
+          theme: "forest"
+        }
+      });
+
+      expect(migrated.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
+      expect(CURRENT_SCHEMA_VERSION).toBe(3);
+      expect(migrated.combat).toEqual(DEFAULT_COMBAT_STATE);
+      expect(migrated.tracker.campaignTitle).toBe("Moonfall");
+      expect(migrated.tracker.misc).toBe("Preserve this");
+      expect(migrated.character.inventoryItems).toEqual([{ title: "Inventory", notes: "Rations" }]);
+      expect(migrated.ui.theme).toBe("forest");
+    });
+
+    it("repairs malformed combat state without clobbering valid workspace and encounter values", () => {
+      const preserved = migrateState({
+        schemaVersion: 3,
+        combat: {
+          workspace: {
+            panelOrder: ["combatCardsPanel", "combatRoundPanel"],
+            embeddedPanels: ["vitals"],
+            panelCollapsed: { combatRoundPanel: true },
+            customWorkspaceFlag: "keep"
+          },
+          encounter: {
+            id: "enc_1",
+            createdAt: "2026-04-11T00:00:00.000Z",
+            updatedAt: "2026-04-11T00:05:00.000Z",
+            round: 4.8,
+            activeParticipantId: "cmb_1",
+            elapsedSeconds: 42,
+            secondsPerTurn: 10,
+            participants: [{ id: "cmb_1" }],
+            undoStack: [{ type: "nextTurn" }],
+            customEncounterFlag: "keep"
+          }
+        }
+      });
+      const repaired = migrateState({
+        schemaVersion: 3,
+        combat: {
+          workspace: {
+            panelOrder: "bad",
+            embeddedPanels: null,
+            panelCollapsed: []
+          },
+          encounter: {
+            id: "",
+            createdAt: 12,
+            updatedAt: {},
+            round: 0,
+            activeParticipantId: "",
+            elapsedSeconds: -5,
+            secondsPerTurn: 0,
+            participants: "bad",
+            undoStack: null
+          }
+        }
+      });
+      const replaced = migrateState({
+        schemaVersion: 3,
+        combat: []
+      });
+
+      expect(preserved.combat.workspace).toMatchObject({
+        panelOrder: ["combatCardsPanel", "combatRoundPanel"],
+        embeddedPanels: ["vitals"],
+        panelCollapsed: { combatRoundPanel: true },
+        customWorkspaceFlag: "keep"
+      });
+      expect(preserved.combat.encounter).toMatchObject({
+        id: "enc_1",
+        createdAt: "2026-04-11T00:00:00.000Z",
+        updatedAt: "2026-04-11T00:05:00.000Z",
+        round: 4,
+        activeParticipantId: "cmb_1",
+        elapsedSeconds: 42,
+        secondsPerTurn: 10,
+        participants: [{ id: "cmb_1" }],
+        undoStack: [{ type: "nextTurn" }],
+        customEncounterFlag: "keep"
+      });
+      expect(repaired.combat).toEqual(DEFAULT_COMBAT_STATE);
+      expect(replaced.combat).toEqual(DEFAULT_COMBAT_STATE);
+    });
+
     it("accepts already-current saves and still applies load-time UI normalization", () => {
       const migrated = migrateState({
         schemaVersion: CURRENT_SCHEMA_VERSION,
@@ -192,6 +312,7 @@ describe("migrateState", () => {
       expect(migrated.character.inventoryItems).toEqual([
         { title: "Inventory", notes: "Pack" }
       ]);
+      expect(migrated.combat).toEqual(DEFAULT_COMBAT_STATE);
     });
 
     it("accepts future schema versions as-is and only normalizes load-time UI state", () => {
@@ -331,6 +452,7 @@ describe("migrateState", () => {
 
       expect(migrated.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
       expect(migrated.character.resources).toEqual([{ id: "r1", name: "Rage", cur: 1, max: 2 }]);
+      expect(migrated.combat).toEqual(DEFAULT_COMBAT_STATE);
       expect("resourceName" in migrated.character).toBe(false);
       expect("resourceCur" in migrated.character).toBe(false);
       expect("resourceMax" in migrated.character).toBe(false);
@@ -398,6 +520,7 @@ describe("migrateState", () => {
           maps: [],
           ui: { activeTool: "brush", brushSize: 6 }
         });
+        expect(migrated.combat).toEqual(DEFAULT_COMBAT_STATE);
         expect(migrated.ui).toEqual(
           expect.objectContaining({
             theme: "system",
@@ -424,6 +547,7 @@ describe("migrateState", () => {
       expect(migrated.tracker.sessions).toEqual([{ title: "Session 1", notes: "" }]);
       expect(migrated.character.inventoryItems).toEqual([{ title: "Inventory", notes: "" }]);
       expect(migrated.map.maps).toEqual([]);
+      expect(migrated.combat).toEqual(DEFAULT_COMBAT_STATE);
       expect(migrated.ui.theme).toBe("system");
     });
 
@@ -443,6 +567,7 @@ describe("migrateState", () => {
       expect(migrated.tracker.sessions).toEqual([{ title: "Session 1", notes: "" }]);
       expect(migrated.character.inventoryItems).toEqual([{ title: "Inventory", notes: "" }]);
       expect(migrated.map.ui).toEqual({ activeTool: "brush", brushSize: 6 });
+      expect(migrated.combat).toEqual(DEFAULT_COMBAT_STATE);
       expect(migrated.ui.theme).toBe("system");
       expect(migrated.ui.dice.history).toEqual([]);
       expect(migrated.ui.calc.history).toEqual([]);
@@ -473,6 +598,7 @@ describe("migrateState", () => {
         maps: [],
         ui: { activeTool: "brush", brushSize: 6 }
       });
+      expect(migrated.combat).toEqual(DEFAULT_COMBAT_STATE);
       expect(migrated.ui).toEqual(
         expect.objectContaining({
           theme: "light",
@@ -499,6 +625,7 @@ describe("migrateState", () => {
       expect(migrated.character.inventoryItems).toEqual([{ title: "Inventory", notes: "Rope" }]);
       expect(migrated.map.maps).toEqual([]);
       expect(migrated.map.ui).toEqual({ activeTool: "brush", brushSize: 6 });
+      expect(migrated.combat).toEqual(DEFAULT_COMBAT_STATE);
     });
 
     it("resets malformed spells values to an empty v2 levels array", () => {
@@ -510,6 +637,7 @@ describe("migrateState", () => {
 
       expect(migrated.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
       expect(migrated.character.spells).toEqual({ levels: [] });
+      expect(migrated.combat).toEqual(DEFAULT_COMBAT_STATE);
     });
 
     it("migrates legacy spell text while preserving NaN for non-numeric slot counts", () => {

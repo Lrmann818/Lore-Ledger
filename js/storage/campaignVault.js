@@ -23,7 +23,8 @@ export const LEGACY_MIGRATION_CAMPAIGN_ID = "campaign_legacy";
  *   schemaVersion: number,
  *   tracker: NonNullable<SanitizedState["tracker"]>,
  *   character: NonNullable<SanitizedState["character"]>,
- *   map: SanitizedState["map"]
+ *   map: SanitizedState["map"],
+ *   combat: NonNullable<SanitizedState["combat"]>
  * }} CampaignDoc
  */
 
@@ -159,7 +160,8 @@ export function extractCampaignDoc(source, sanitizeForSave) {
       campaignTitle: campaignName
     })),
     character: /** @type {CampaignDoc["character"]} */ (clone(sanitized.character || {})),
-    map: /** @type {CampaignDoc["map"]} */ (clone(sanitized.map || { activeMapId: null, maps: [] }))
+    map: /** @type {CampaignDoc["map"]} */ (clone(sanitized.map || { activeMapId: null, maps: [] })),
+    combat: /** @type {CampaignDoc["combat"]} */ (clone(sanitized.combat || {}))
   };
 }
 
@@ -388,6 +390,7 @@ export function replaceRuntimeState(target, source) {
   target.tracker = source.tracker;
   target.character = source.character;
   target.map = source.map;
+  target.combat = source.combat;
   target.ui = source.ui;
   target.appShell = source.appShell;
 }
@@ -472,6 +475,7 @@ export function projectActiveCampaignState(vault, migrateState) {
     tracker: doc.tracker,
     character: doc.character,
     map: doc.map,
+    combat: doc.combat,
     ui: appShellUi
   });
   runtime.appShell = { activeCampaignId };

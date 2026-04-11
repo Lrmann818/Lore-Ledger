@@ -13,7 +13,7 @@ The source of truth is the code, primarily:
 
 This is intentionally a maintainer-focused document. It describes the state as it exists today, including a few legacy or duplicated fields that still appear because the app preserves backward compatibility.
 
-Current structured schema version: `2`
+Current structured schema version: `3`
 
 ## 2. Schema versioning policy
 
@@ -31,6 +31,7 @@ Current history:
 - `0`: legacy/unversioned saves before `schemaVersion` existed
 - `1`: normalized top-level buckets; migrated legacy spells, resources, theme, and map shape
 - `2`: ensured `character.inventoryItems` exists and migrated legacy equipment text
+- `3`: added campaign-scoped Combat Workspace state with separate workspace and encounter buckets
 
 Important implementation detail:
 
@@ -48,6 +49,7 @@ Runtime state still exposes one active campaign through this familiar top-level 
   tracker: object,
   character: object,
   map: object,
+  combat: object,
   ui: object,
   appShell: { activeCampaignId: string | null }
 }
@@ -61,6 +63,7 @@ Runtime state still exposes one active campaign through this familiar top-level 
   tracker: object,
   character: object,
   map: object,
+  combat: object,
   ui: object
 }
 ```
@@ -82,12 +85,13 @@ The main `localStorage["localCampaignTracker_v1"]` value is now a campaign vault
     schemaVersion: number,
     tracker: object,
     character: object,
-    map: object
+    map: object,
+    combat: object
   }>
 }
 ```
 
-`campaignDocs[id]` owns campaign data. `appShell.ui` owns app-level UI preferences such as theme and active tab. Startup projects only the selected active campaign document into the runtime `state.tracker`, `state.character`, and `state.map` buckets.
+`campaignDocs[id]` owns campaign data. `appShell.ui` owns app-level UI preferences such as theme and active tab. Startup projects only the selected active campaign document into the runtime `state.tracker`, `state.character`, `state.map`, and `state.combat` buckets.
 
 The app also uses companion persisted stores:
 
@@ -534,7 +538,73 @@ Important nuance:
 - They are intentionally removed by `sanitizeForSave(...)`.
 - They are reset to empty arrays after load/import.
 
-## 7. UI state breakdown
+## 7. Combat state breakdown
+
+`state.combat` is the campaign-scoped foundation for Combat Workspace. Slice 1 only defines and persists the data domain; it does not add a Combat page, tab, cards, HP rules, status timing, or embedded panels yet.
+
+Current structured shape:
+
+```js
+{
+  workspace: {
+    panelOrder: string[],
+    embeddedPanels: string[],
+    panelCollapsed: Record<string, boolean>
+  },
+  encounter: {
+    id: string | null,
+    createdAt: string | null,
+    updatedAt: string | null,
+    round: number,
+    activeParticipantId: string | null,
+    elapsedSeconds: number,
+    secondsPerTurn: number,
+    participants: unknown[],
+    undoStack: unknown[]
+  }
+}
+```
+
+### Workspace
+
+`combat.workspace` owns long-lived per-campaign Combat Workspace layout/configuration:
+
+- `panelOrder`
+  - Ordered panel IDs once Combat panels exist.
+  - Defaults to `[]` in Slice 1 because no Combat page shell exists yet.
+- `embeddedPanels`
+  - Selected embedded combat-relevant panel IDs once the picker exists.
+  - Defaults to `[]`.
+- `panelCollapsed`
+  - Collapsed state for Combat Workspace panels once they exist.
+  - Defaults to `{}`.
+
+### Encounter
+
+`combat.encounter` owns disposable active-encounter state:
+
+- `id: string | null`
+- `createdAt: string | null`
+- `updatedAt: string | null`
+- `round: number`
+  - Defaults to `1`.
+- `activeParticipantId: string | null`
+- `elapsedSeconds: number`
+  - Defaults to `0`.
+- `secondsPerTurn: number`
+  - Defaults to `6`.
+- `participants: unknown[]`
+  - Intentionally undefined beyond being an array in Slice 1.
+- `undoStack: unknown[]`
+  - Intentionally undefined beyond being an array in Slice 1.
+
+Notes:
+
+- Combat is stored in each campaign document, not in app-shell UI.
+- Older campaign docs without `combat` migrate to the default split shape.
+- Malformed `workspace` or `encounter` buckets are repaired defensively by `migrateState(...)`.
+
+## 8. UI state breakdown
 
 Root `state.ui` is the canonical shared UI bucket for app-wide preferences.
 
@@ -576,13 +646,13 @@ Current fields:
     - `dice.last = { count, sides, mod, mode }`
   - Entire `ui.dice` is runtime-only and stripped on save/export.
 
-## 8. Persisted vs runtime-only / derived fields
+## 9. Persisted vs runtime-only / derived fields
 
 ### Persisted in structured JSON
 
 These survive `sanitizeForSave(...)` and are written into the active campaign document or app-shell UI inside the campaign vault:
 
-- all normal `tracker`, `character`, `map`, and `ui` content fields
+- all normal `tracker`, `character`, `map`, `combat`, and `ui` content fields
 - UI/search/filter/index state such as `sessionSearch`, `locFilter`, `activeSessionIndex`, `inventorySearch`, and `ui.activeTab`
 - panel order and collapse preferences
 - blob ID references such as `imgBlobId`, `bgBlobId`, `drawingBlobId`
@@ -618,7 +688,7 @@ These are currently part of saved state, even though they are not clean canonica
 
 When touching these areas, prefer documenting and migrating toward one canonical field rather than adding more duplication.
 
-## 9. Migration expectations
+## 10. Migration expectations
 
 Current migration flow has three layers.
 
@@ -646,6 +716,10 @@ Current structural migrations:
 - `1 -> 2`
   - ensure `character.inventoryItems` exists
   - migrate legacy `character.equipment` text into the first inventory item when needed
+- `2 -> 3`
+  - ensure campaign-scoped `combat.workspace` exists
+  - ensure campaign-scoped `combat.encounter` exists
+  - repair malformed Combat Workspace fields to safe defaults without touching unrelated campaign data
 
 ### Automated migration coverage
 
@@ -689,7 +763,7 @@ Expected behavior:
 
 This startup step is why some compatibility work lives outside `migrateState(...)`: it depends on IndexedDB blob storage, not just JSON reshaping.
 
-## 10. Rules for adding new fields safely
+## 11. Rules for adding new fields safely
 
 1. Pick one canonical owner for each new field.
    Avoid storing the same preference in multiple places unless there is a clear compatibility reason and a documented migration plan.
@@ -721,7 +795,7 @@ This startup step is why some compatibility work lives outside `migrateState(...
 10. Update this document when adding or redefining persisted state.
    The doc should stay aligned with code, including known legacy fields and migration boundaries.
 
-## 11. Backward compatibility guidelines for imports/restores
+## 12. Backward compatibility guidelines for imports/restores
 
 Current import/restore behavior is intentionally permissive.
 
@@ -736,7 +810,7 @@ The backup loader currently accepts:
 Top-level validation is intentionally shallow:
 
 - `schemaVersion` must be numeric when present
-- `tracker`, `character`, `map`, and `ui` must be objects when present
+- `tracker`, `character`, `map`, `combat`, and `ui` must be objects when present
 
 Deep shape repair is left to migration and normal startup logic.
 

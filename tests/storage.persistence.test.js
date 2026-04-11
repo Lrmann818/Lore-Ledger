@@ -298,6 +298,65 @@ describe("multi-campaign persistence foundation", () => {
     expect(vault.campaignIndex.entries.campaign_doc_only.name).toBe("Doc Only Canon");
   });
 
+  it("backfills combat defaults when normalizing old campaign documents", () => {
+    const { vault } = normalizeCampaignVault({
+      vaultVersion: 1,
+      appShell: {
+        activeCampaignId: "campaign_alpha",
+        ui: { theme: "dark" }
+      },
+      campaignIndex: {
+        order: ["campaign_alpha"],
+        entries: {
+          campaign_alpha: {
+            id: "campaign_alpha",
+            name: "Alpha",
+            createdAt: "2026-04-01T00:00:00.000Z",
+            updatedAt: "2026-04-01T00:00:00.000Z",
+            lastOpenedAt: null
+          }
+        }
+      },
+      campaignDocs: {
+        campaign_alpha: {
+          schemaVersion: 2,
+          tracker: { campaignTitle: "Alpha", misc: "old doc" },
+          character: {},
+          map: {}
+        }
+      }
+    }, {
+      migrateState,
+      sanitizeForSave,
+      now: "2026-04-08T00:00:00.000Z"
+    });
+
+    const projected = projectActiveCampaignState(vault, migrateState);
+
+    expect(vault.campaignDocs.campaign_alpha.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
+    expect(vault.campaignDocs.campaign_alpha.combat).toEqual({
+      workspace: {
+        panelOrder: [],
+        embeddedPanels: [],
+        panelCollapsed: {}
+      },
+      encounter: {
+        id: null,
+        createdAt: null,
+        updatedAt: null,
+        round: 1,
+        activeParticipantId: null,
+        elapsedSeconds: 0,
+        secondsPerTurn: 6,
+        participants: [],
+        undoStack: []
+      }
+    });
+    expect(projected.appShell.activeCampaignId).toBe("campaign_alpha");
+    expect(projected.tracker.misc).toBe("old doc");
+    expect(projected.combat).toEqual(vault.campaignDocs.campaign_alpha.combat);
+  });
+
   it("isolates campaign documents by id and projects the selected campaign back into runtime state", () => {
     const { getStoredValue } = installLocalStorageMock();
     const state = makeState();
@@ -306,6 +365,9 @@ describe("multi-campaign persistence foundation", () => {
     state.appShell.activeCampaignId = "campaign_alpha";
     state.tracker.campaignTitle = "Alpha";
     state.tracker.misc = "alpha notes";
+    state.combat.encounter.round = 2;
+    state.combat.encounter.elapsedSeconds = 18;
+    state.combat.workspace.embeddedPanels = ["vitals"];
 
     expect(saveAllLocal({
       storageKey: "test-storage",
@@ -318,6 +380,9 @@ describe("multi-campaign persistence foundation", () => {
     state.appShell.activeCampaignId = "campaign_beta";
     state.tracker.campaignTitle = "Beta";
     state.tracker.misc = "beta notes";
+    state.combat.encounter.round = 7;
+    state.combat.encounter.elapsedSeconds = 144;
+    state.combat.workspace.embeddedPanels = ["spells"];
 
     expect(saveAllLocal({
       storageKey: "test-storage",
@@ -330,6 +395,12 @@ describe("multi-campaign persistence foundation", () => {
     expect(vaultRuntime.current.campaignIndex.order).toEqual(["campaign_alpha", "campaign_beta"]);
     expect(vaultRuntime.current.campaignDocs.campaign_alpha.tracker.misc).toBe("alpha notes");
     expect(vaultRuntime.current.campaignDocs.campaign_beta.tracker.misc).toBe("beta notes");
+    expect(vaultRuntime.current.campaignDocs.campaign_alpha.combat.encounter.round).toBe(2);
+    expect(vaultRuntime.current.campaignDocs.campaign_alpha.combat.encounter.elapsedSeconds).toBe(18);
+    expect(vaultRuntime.current.campaignDocs.campaign_alpha.combat.workspace.embeddedPanels).toEqual(["vitals"]);
+    expect(vaultRuntime.current.campaignDocs.campaign_beta.combat.encounter.round).toBe(7);
+    expect(vaultRuntime.current.campaignDocs.campaign_beta.combat.encounter.elapsedSeconds).toBe(144);
+    expect(vaultRuntime.current.campaignDocs.campaign_beta.combat.workspace.embeddedPanels).toEqual(["spells"]);
 
     switchCampaign({
       state,
@@ -341,6 +412,9 @@ describe("multi-campaign persistence foundation", () => {
     expect(state.appShell.activeCampaignId).toBe("campaign_alpha");
     expect(state.tracker.campaignTitle).toBe("Alpha");
     expect(state.tracker.misc).toBe("alpha notes");
+    expect(state.combat.encounter.round).toBe(2);
+    expect(state.combat.encounter.elapsedSeconds).toBe(18);
+    expect(state.combat.workspace.embeddedPanels).toEqual(["vitals"]);
 
     switchCampaign({
       state,
@@ -352,10 +426,15 @@ describe("multi-campaign persistence foundation", () => {
     expect(state.appShell.activeCampaignId).toBe("campaign_beta");
     expect(state.tracker.campaignTitle).toBe("Beta");
     expect(state.tracker.misc).toBe("beta notes");
+    expect(state.combat.encounter.round).toBe(7);
+    expect(state.combat.encounter.elapsedSeconds).toBe(144);
+    expect(state.combat.workspace.embeddedPanels).toEqual(["spells"]);
 
     const stored = JSON.parse(getStoredValue());
     expect(stored.campaignDocs.campaign_alpha.tracker.misc).toBe("alpha notes");
     expect(stored.campaignDocs.campaign_beta.tracker.misc).toBe("beta notes");
+    expect(stored.campaignDocs.campaign_alpha.combat.encounter.round).toBe(2);
+    expect(stored.campaignDocs.campaign_beta.combat.encounter.round).toBe(7);
   });
 
   it("does not serialize scratch runtime campaign buckets when there is no active campaign", () => {
@@ -422,6 +501,20 @@ describe("multi-campaign persistence foundation", () => {
     });
     expect(created.vault.campaignDocs.campaign_new.tracker.campaignTitle).toBe("Moonfall");
     expect(created.vault.campaignDocs.campaign_new.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
+    expect(created.vault.campaignDocs.campaign_new.combat).toMatchObject({
+      workspace: {
+        panelOrder: [],
+        embeddedPanels: [],
+        panelCollapsed: {}
+      },
+      encounter: {
+        round: 1,
+        elapsedSeconds: 0,
+        secondsPerTurn: 6,
+        participants: [],
+        undoStack: []
+      }
+    });
   });
 
   it("renames the canonical campaign metadata and mirrors the name into the stored campaign doc", () => {

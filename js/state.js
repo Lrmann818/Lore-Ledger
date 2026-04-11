@@ -7,7 +7,7 @@ export const STORAGE_KEY = "localCampaignTracker_v1";
 export const ACTIVE_TAB_KEY = "localCampaignTracker_activeTab";
 
 // Save schema versioning
-export const CURRENT_SCHEMA_VERSION = 2;
+export const CURRENT_SCHEMA_VERSION = 3;
 
 /** @typedef {import("./domain/factories.js").NpcCard & PortraitRef} NpcCard */
 /** @typedef {import("./domain/factories.js").PartyMemberCard & PortraitRef} PartyMemberCard */
@@ -35,6 +35,11 @@ export const SCHEMA_MIGRATION_HISTORY = Object.freeze([
     version: 2,
     date: "2026-02-19",
     changes: "Ensured character.inventoryItems exists and migrated legacy equipment text."
+  },
+  {
+    version: 3,
+    date: "2026-04-11",
+    changes: "Added campaign-scoped Combat Workspace state with separate workspace and encounter buckets."
   }
 ]);
 
@@ -366,6 +371,38 @@ export const SCHEMA_MIGRATION_HISTORY = Object.freeze([
 
 /**
  * @typedef {{
+ *   panelOrder: string[],
+ *   embeddedPanels: string[],
+ *   panelCollapsed: BooleanLookup,
+ *   [key: string]: unknown
+ * }} CombatWorkspaceState
+ */
+
+/**
+ * @typedef {{
+ *   id: string | null,
+ *   createdAt: string | null,
+ *   updatedAt: string | null,
+ *   round: number,
+ *   activeParticipantId: string | null,
+ *   elapsedSeconds: number,
+ *   secondsPerTurn: number,
+ *   participants: unknown[],
+ *   undoStack: unknown[],
+ *   [key: string]: unknown
+ * }} CombatEncounterState
+ */
+
+/**
+ * @typedef {{
+ *   workspace: CombatWorkspaceState,
+ *   encounter: CombatEncounterState,
+ *   [key: string]: unknown
+ * }} CombatState
+ */
+
+/**
+ * @typedef {{
  *   activeCampaignId: string | null,
  *   [key: string]: unknown
  * }} AppShellState
@@ -387,6 +424,7 @@ export const SCHEMA_MIGRATION_HISTORY = Object.freeze([
  *   tracker: TrackerState,
  *   character: CharacterState,
  *   map: MapState,
+ *   combat: CombatState,
  *   ui: RootUiState,
  *   appShell: AppShellState,
  *   [key: string]: unknown
@@ -399,6 +437,7 @@ export const SCHEMA_MIGRATION_HISTORY = Object.freeze([
  *   tracker: TrackerState | undefined,
  *   character: CharacterState | undefined,
  *   map: PersistedMapState,
+ *   combat: CombatState | undefined,
  *   ui: PersistedUiState,
  *   [key: string]: unknown
  * }} SanitizedState
@@ -503,6 +542,24 @@ export const state = {
     undo: [],
     redo: []
   },
+  combat: {
+    workspace: {
+      panelOrder: [],
+      embeddedPanels: [],
+      panelCollapsed: {}
+    },
+    encounter: {
+      id: null,
+      createdAt: null,
+      updatedAt: null,
+      round: 1,
+      activeParticipantId: null,
+      elapsedSeconds: 0,
+      secondsPerTurn: 6,
+      participants: [],
+      undoStack: []
+    }
+  },
   ui: { theme: "system", textareaHeights: {}, panelCollapsed: {} },
   appShell: { activeCampaignId: null }
 };
@@ -600,6 +657,8 @@ export function sanitizeForSave(source, opts = {}) {
   delete serializableMap.undo;
   delete serializableMap.redo;
 
+  const serializableCombat = shallowCopySaveBucket(input.combat);
+
   const serializableUi = { ...(input.ui || {}) };
   delete serializableUi.dice;
   if (serializableUi.calc && typeof serializableUi.calc === "object") {
@@ -617,6 +676,7 @@ export function sanitizeForSave(source, opts = {}) {
     tracker: /** @type {TrackerState | undefined} */ (serializableTracker),
     character: /** @type {CharacterState | undefined} */ (serializableCharacter),
     map: /** @type {PersistedMapState} */ (serializableMap),
+    combat: /** @type {CombatState | undefined} */ (serializableCombat),
     ui: /** @type {PersistedUiState} */ (serializableUi)
   };
 }
@@ -909,9 +969,49 @@ export function migrateState(raw) {
     );
   }
 
+  function migrateToV3() {
+    const combat = ensureObj(data, "combat");
+    const workspace = ensureObj(combat, "workspace");
+    const encounter = ensureObj(combat, "encounter");
+
+    if (!Array.isArray(workspace.panelOrder)) workspace.panelOrder = [];
+    if (!Array.isArray(workspace.embeddedPanels)) workspace.embeddedPanels = [];
+    if (!workspace.panelCollapsed || typeof workspace.panelCollapsed !== "object" || Array.isArray(workspace.panelCollapsed)) {
+      workspace.panelCollapsed = {};
+    }
+
+    encounter.id = typeof encounter.id === "string" && encounter.id.trim() ? encounter.id : null;
+    encounter.createdAt = typeof encounter.createdAt === "string" && encounter.createdAt.trim() ? encounter.createdAt : null;
+    encounter.updatedAt = typeof encounter.updatedAt === "string" && encounter.updatedAt.trim() ? encounter.updatedAt : null;
+
+    const parsedRound = Number(encounter.round);
+    encounter.round = Number.isFinite(parsedRound) && parsedRound >= 1
+      ? Math.trunc(parsedRound)
+      : 1;
+
+    encounter.activeParticipantId =
+      typeof encounter.activeParticipantId === "string" && encounter.activeParticipantId.trim()
+        ? encounter.activeParticipantId
+        : null;
+
+    const parsedElapsedSeconds = Number(encounter.elapsedSeconds);
+    encounter.elapsedSeconds = Number.isFinite(parsedElapsedSeconds) && parsedElapsedSeconds >= 0
+      ? parsedElapsedSeconds
+      : 0;
+
+    const parsedSecondsPerTurn = Number(encounter.secondsPerTurn);
+    encounter.secondsPerTurn = Number.isFinite(parsedSecondsPerTurn) && parsedSecondsPerTurn > 0
+      ? parsedSecondsPerTurn
+      : 6;
+
+    if (!Array.isArray(encounter.participants)) encounter.participants = [];
+    if (!Array.isArray(encounter.undoStack)) encounter.undoStack = [];
+  }
+
   const SCHEMA_MIGRATIONS = Object.freeze({
     0: migrateToV1,
-    1: migrateToV2
+    1: migrateToV2,
+    2: migrateToV3
   });
 
   function applyMigrationStep(version) {
@@ -935,6 +1035,7 @@ export function migrateState(raw) {
   // partial or malformed payloads still regain the required bucket structure.
   migrateToV1();
   migrateToV2();
+  migrateToV3();
 
   data.schemaVersion = CURRENT_SCHEMA_VERSION;
   return normalizeState(/** @type {State} */ (data));

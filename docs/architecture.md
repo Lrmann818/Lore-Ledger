@@ -218,6 +218,7 @@ Top-level state buckets:
 - `state.tracker`
 - `state.character`
 - `state.map`
+- `state.combat`
 - `state.ui`
 - `state.appShell`
 
@@ -244,6 +245,7 @@ Runtime still exposes one active campaign through the familiar top-level buckets
 - `state.tracker`
 - `state.character`
 - `state.map` except runtime-only history
+- `state.combat`
 - `state.ui` except runtime-only calculator/dice state
 - `state.appShell.activeCampaignId`
 
@@ -256,7 +258,7 @@ The main localStorage payload is now a campaign vault:
 - `campaignIndex.entries`
 - `campaignDocs[id]`
 
-Each `campaignDocs[id]` stores the campaign-level `schemaVersion`, `tracker`, `character`, and `map` buckets. App-level UI such as theme, textarea heights, panel collapse, and active tab is stored under `appShell.ui`.
+Each `campaignDocs[id]` stores the campaign-level `schemaVersion`, `tracker`, `character`, `map`, and `combat` buckets. App-level UI such as theme, textarea heights, panel collapse, and active tab is stored under `appShell.ui`.
 
 Important persisted UI/state examples:
 
@@ -277,6 +279,9 @@ Important persisted UI/state examples:
   - `state.map.ui.activeTool`
   - `state.map.ui.brushSize`
   - `state.map.ui.viewScale`
+- Combat Workspace:
+  - `state.combat.workspace`
+  - `state.combat.encounter`
 - Per-map persisted fields:
   - `bgBlobId`
   - `drawingBlobId`

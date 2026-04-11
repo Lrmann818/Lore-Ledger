@@ -1,0 +1,425 @@
+# Combat Workspace Plan
+
+## Status
+
+- **Phase:** 3 — Combat Workspace
+- **Overall status:** In progress
+- **Current next slice:** Slice 2 — Pure combat domain helpers
+
+---
+
+## Purpose
+
+Combat Workspace is a focused combat dashboard for DMs and players.
+
+Its purpose is to reduce page-flipping during encounters by combining:
+
+- combat participants
+- turn order
+- round tracking
+- elapsed encounter time
+- HP / temp HP tracking
+- status effects
+- a small set of embedded combat-relevant panels
+
+Combat Workspace is campaign-bound and should build on Lore Ledger’s existing multi-campaign vault architecture rather than introducing a separate global combat system.
+
+---
+
+## Product decisions locked in
+
+These are approved product decisions for Combat Workspace v1 and should not be changed without an explicit product decision.
+
+### Encounter model
+
+- One active encounter per campaign
+- Workspace layout persists per campaign
+- Encounter state is separate from canonical campaign data
+- Clear Combat resets the encounter but keeps the workspace layout
+
+### Core page structure
+
+Combat Workspace will always include:
+
+- Combat Cards panel
+- Round Controls / Timer panel
+
+### Embedded panels in v1
+
+Supported embedded panels:
+
+- Vitals
+- Spells
+- Weapons / Attacks
+
+Not included in v1:
+
+- Notes
+- Inventory
+- broader panel expansion beyond later Phase 3.2 work
+
+Rules:
+
+- No duplicate embedded panels in v1
+- User manually chooses which supported panels appear
+- No auto-suggestion logic in v1
+
+### Turn / initiative model
+
+- Manual participant ordering only in v1
+- No initiative number field in v1
+- Users arrange combat cards to set order
+
+Next Turn will:
+
+- advance the active participant
+- add configured `secondsPerTurn`
+- increment round when order wraps
+- advance/decrement timed status effects
+
+Undo will reverse the most recent turn advance.
+
+### Writeback rules
+
+Only these combat edits should write back to canonical campaign data:
+
+- current HP
+- temp HP
+- status effects
+
+Combat Workspace should not write back:
+
+- notes
+- names
+- max HP
+- section/category placement
+- portraits
+- spell notes
+- page/layout state
+- combat ordering / timer state
+
+### HP / temp HP rules
+
+- Damage consumes temp HP first, then current HP
+- Heal affects current HP only
+- Temp HP adds to existing temp HP
+- Current HP, max HP, and temp HP remain separate in the data model
+
+Combat card display rule:
+
+- HP number is shown in normal color when no temp HP is active
+- HP number is shown in blue when temp HP is active
+
+### Status effect rules
+
+- Status effects have a label
+- Status effects may optionally have a duration
+- Duration modes:
+  - none
+  - rounds
+  - time
+- Timed effects advance/decrement on Next Turn
+- Undo restores them
+- Expired effects do not auto-delete in v1; they remain visible and marked expired/zero
+
+### Participant rules
+
+- Any tracker-page card can be addable to combat
+- Initial combat role is inferred from source section/category
+- Combat card menu may override role for the encounter only
+- Supported combat roles:
+  - party
+  - enemy
+  - npc
+
+Visual direction:
+
+- party = normal
+- enemy = soft red tint
+- npc = soft blue or grey tint
+
+### Duplicate rules
+
+- Combat duplicates are allowed
+- Duplicates must be encounter-local independent entries for HP/temp HP/status tracking
+- Removing a combat participant removes it from the encounter only
+- Removing it must not delete or remove the source tracker card
+
+---
+
+## Architecture rules locked in
+
+These are implementation rules, not optional preferences.
+
+### 1. Canonical data remains the source of truth
+
+Combat Workspace may present and edit certain canonical values, but it must not duplicate long-lived campaign data unnecessarily.
+
+### 2. Workspace config and encounter state are separate
+
+Persisted Combat state must keep a clear split between:
+
+- `combat.workspace`
+- `combat.encounter`
+
+`workspace` is long-lived per campaign.
+`encounter` is disposable/resettable active combat state.
+
+### 3. Combat is campaign-scoped
+
+Combat state belongs inside each campaign document, not in app-global state.
+
+### 4. Embedded panels are views, not copies
+
+Embedded panels should operate on the same canonical data used elsewhere in the app.
+
+### 5. Combat-specific state is explicit
+
+Turn order, round count, elapsed time, undo history, encounter role overrides, and duplicate encounter entries belong to Combat state, not Tracker/Character page structures.
+
+### 6. Keep v1 bounded
+
+Do not overbuild rules automation, generalized panel systems, or future multi-encounter support in v1.
+
+---
+
+## Persisted state shape
+
+Combat Workspace persistence uses schema version **3**.
+
+Approved persisted shape:
+
+```js
+state.combat = {
+  workspace: {
+    panelOrder: [],
+    embeddedPanels: [],
+    panelCollapsed: {}
+  },
+  encounter: {
+    id: null,
+    createdAt: null,
+    updatedAt: null,
+    round: 1,
+    activeParticipantId: null,
+    elapsedSeconds: 0,
+    secondsPerTurn: 6,
+    participants: [],
+    undoStack: []
+  }
+};
+```
+
+Field names may evolve slightly to fit repo conventions, but the explicit `workspace` + `encounter` split must remain.
+
+---
+
+## Slice plan
+
+### Slice 1 — State and persistence foundation
+
+**Status:** Done
+
+#### Scope
+
+- add combat to persisted campaign state
+- bump schema from 2 to 3
+- add safe defaults for `combat.workspace` and `combat.encounter`
+- migrate older saves/campaign docs defensively
+- preserve combat through sanitize/save
+- keep combat isolated per campaign in vault projection/switching
+- update storage/schema docs
+- add migration/persistence tests
+
+#### Completed notes
+
+- `CURRENT_SCHEMA_VERSION` bumped from 2 to 3
+- added Combat typedefs and default combat bucket
+- added defensive migration/repair for missing or malformed combat buckets
+- wired combat through campaign vault load/save/projection/switching
+- ensured backup restore retains combat
+- updated docs for schema/storage/architecture
+- added/updated migration, sanitize, and persistence isolation tests
+
+#### Files changed in Slice 1
+
+- `js/state.js`
+- `js/storage/campaignVault.js`
+- `js/storage/backup.js`
+- `tests/state.migrate.test.js`
+- `tests/state.sanitize.test.js`
+- `tests/storage.persistence.test.js`
+- `docs/state-schema.md`
+- `docs/storage-and-backups.md`
+- `docs/architecture.md`
+
+#### Verification completed for Slice 1
+
+- targeted tests passed
+- full test suite passed
+- typecheck passed
+- build passed
+
+---
+
+### Slice 2 — Pure combat domain helpers
+
+**Status:** Next
+
+#### Scope
+
+- participant/source helper foundations
+- role inference helpers
+- HP / temp HP math helpers
+- status effect factories and timing helpers
+- turn advance helpers
+- undo entry creation/apply helpers
+- clear encounter helper
+- unit tests only
+
+#### Constraints
+
+- no UI
+- no page shell
+- no route wiring
+- no tracker footer integration
+- no embedded panels
+- no CSS
+
+---
+
+### Slice 3 — Combat page shell
+
+**Status:** Planned
+
+#### Scope
+
+- Combat top-level page/tab shell
+- app init/destroy wiring
+- empty state
+- always-present Combat Cards panel shell
+- always-present Round Controls / Timer panel shell
+- workspace layout persistence hooks
+
+---
+
+### Slice 4 — Tracker add-to-combat flow
+
+**Status:** Planned
+
+#### Scope
+
+- add Combat action into existing tracker card footer dropdown pattern
+- allow add to combat without deleting/moving source cards
+- support duplicate adds
+
+---
+
+### Slice 5 — Combat cards and round controls
+
+**Status:** Planned
+
+#### Scope
+
+- combat card rendering
+- manual order controls
+- active participant marker
+- role menu / override
+- remove action
+- HP/temp HP interactions
+- round/timer controls
+- Next Turn / Undo / Clear Combat
+
+---
+
+### Slice 6 — Status effects UI
+
+**Status:** Planned
+
+#### Scope
+
+- status effect add/remove/edit UI
+- duration gear/settings UI
+- expired styling
+- hook status timing into turn controls
+
+---
+
+### Slice 7 — Embedded panels
+
+**Status:** Planned
+
+#### Scope
+
+- panel picker
+- Vitals embedded panel
+- Spells embedded panel
+- Weapons / Attacks embedded panel
+- prevent duplicate embedded panel selection
+
+---
+
+### Slice 8 — Styling, accessibility, and polish
+
+**Status:** Planned
+
+#### Scope
+
+- role tint styling
+- blue temp HP state styling
+- responsive layout tuning
+- keyboard/accessibility checks
+- browser smoke coverage
+- docs follow-up
+
+---
+
+## Current implementation notes
+
+### What already exists in repo
+
+- multi-campaign vault architecture
+- campaign-scoped persistence
+- migration-aware state handling
+- campaign-level backup/import/export behavior
+- support/debug hardening
+- Tracker / Character / Map page architecture to build alongside
+
+### What Combat v1 should reuse
+
+- existing page/panel styling where safe
+- existing panel collapse behavior where safe
+- existing panel move/reorder patterns where safe
+- tracker card footer dropdown pattern for future add-to-combat action
+
+### What Combat v1 should not reuse directly
+
+- Character page modules that assume fixed DOM IDs or page-wide selectors
+- any UI code that would couple Combat Workspace too tightly to Character page rendering internals
+
+---
+
+## Known deferred items
+
+These are intentionally out of scope for Combat Workspace v1 unless explicitly re-approved.
+
+- initiative number fields
+- multiple simultaneous encounters per campaign
+- duplicate embedded panels
+- notes panel
+- inventory panel
+- generalized rules engine
+- auto-removal of expired statuses
+- per-encounter workspace layouts
+- cross-campaign encounter state
+- broader panel expansion beyond Vitals / Spells / Weapons in v1
+
+---
+
+## UI note to revisit later
+
+Before the main Combat card UI implementation/styling pass:
+
+- ask Willow for the combat card sketch/reference
+
+This is intentionally deferred until the UI slices.

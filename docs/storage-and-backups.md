@@ -70,8 +70,9 @@ Each `campaignDocs[id]` entry stores one campaign document:
 - `tracker`
 - `character`
 - `map`
+- `combat`
 
-At runtime, the active campaign document is projected back into `state.tracker`, `state.character`, and `state.map` so existing page modules can operate against one active campaign. App-level UI such as theme and active tab is stored under `appShell.ui`.
+At runtime, the active campaign document is projected back into `state.tracker`, `state.character`, `state.map`, and `state.combat` so existing page modules can operate against one active campaign. App-level UI such as theme and active tab is stored under `appShell.ui`.
 
 Important exclusions from the main JSON payload:
 
@@ -85,6 +86,7 @@ Important inclusions in the main JSON payload:
 - search/filter/index UI state such as `activeSessionIndex`, `inventorySearch`, and `ui.activeTab`
 - textarea height preferences in `ui.textareaHeights`
 - panel collapse/order preferences
+- Combat Workspace state in `combat.workspace` and `combat.encounter`
 - blob references such as `imgBlobId`, `bgBlobId`, and `drawingBlobId`
 - spell IDs, but not spell note bodies
 
@@ -240,6 +242,8 @@ Current flow:
    - `blobs`
    - `texts`
 7. Serialize to JSON and trigger a download named `campaign-backup-YYYY-MM-DD.json`.
+
+Combat Workspace Slice 1 has no blob or text references. Its `workspace` and `encounter` buckets are preserved through the structured `sanitizeForSave(...)` payload.
 
 Export safety behavior:
 
