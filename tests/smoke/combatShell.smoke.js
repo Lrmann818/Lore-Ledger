@@ -33,3 +33,38 @@ test("combat tab opens the shell panels and records shell layout state", async (
 
   await expectNoFatalSignals(page, fatalSignals);
 });
+
+test("tracker card footer can add duplicate combat participants without removing the source card", async ({ page }) => {
+  const fatalSignals = await openSmokeApp(page, { campaignName: "Combat Add Flow Smoke" });
+
+  await page.locator("#addNpcBtn").click();
+  await expect(page.locator("#npcCards .trackerCard")).toHaveCount(1);
+  const cardId = await page.locator("#npcCards .trackerCard").first().getAttribute("data-card-id");
+
+  const combatButton = page.locator("#npcCards .trackerCard .npcCardFooter button[title='Add to combat']").first();
+  await expect(combatButton).toHaveText("Combat");
+  await combatButton.click();
+  await combatButton.click();
+
+  await expect(page.locator("#npcCards .trackerCard")).toHaveCount(1);
+  await expect.poll(() => page.evaluate(() => {
+    const participants = globalThis.__APP_STATE__?.combat?.encounter?.participants || [];
+    return {
+      count: participants.length,
+      sourceIds: participants.map((participant) => participant.source?.id),
+      ids: participants.map((participant) => participant.id)
+    };
+  })).toEqual(expect.objectContaining({
+    count: 2,
+    sourceIds: [cardId, cardId]
+  }));
+  await expect.poll(() => page.evaluate(() => {
+    const participants = globalThis.__APP_STATE__?.combat?.encounter?.participants || [];
+    return participants.length === 2 && participants[0].id !== participants[1].id;
+  })).toBe(true);
+
+  await page.getByRole("tab", { name: "Combat" }).click();
+  await expect(page.locator("#combatCardsStatus")).toHaveText("2 combatants ready for cards.");
+
+  await expectNoFatalSignals(page, fatalSignals);
+});

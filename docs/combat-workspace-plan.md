@@ -4,7 +4,7 @@
 
 - **Phase:** 3 — Combat Workspace
 - **Overall status:** In progress
-- **Current next slice:** Slice 4 — Tracker add-to-combat flow
+- **Current next slice:** Slice 5 — Combat cards and round controls
 
 ---
 
@@ -358,13 +358,46 @@ Field names may evolve slightly to fit repo conventions, but the explicit `works
 
 ### Slice 4 — Tracker add-to-combat flow
 
-**Status:** Planned
+**Status:** Done
 
 #### Scope
 
 - add Combat action into existing tracker card footer dropdown pattern
 - allow add to combat without deleting/moving source cards
 - support duplicate adds
+
+#### Completed notes
+
+- added a Combat footer action for NPC, Party, and Location tracker cards
+- appended tracker sources into campaign-scoped `combat.encounter.participants`
+- kept source tracker cards in place and unchanged
+- allowed duplicate adds as independent encounter-local participants
+- reused Slice 2 combat participant helpers for source lookup, role inference, HP/temp HP/status initialization, and encounter normalization
+- repaired missing/malformed combat buckets defensively during valid add-to-combat writes
+- refreshed the existing Combat shell count after successful add-to-combat without adding future combat card controls
+
+#### Files changed in Slice 4
+
+- `js/domain/combatTrackerActions.js`
+- `js/pages/combat/combatEvents.js`
+- `js/pages/combat/combatPage.js`
+- `js/pages/tracker/panels/cards/shared/cardFooterShared.js`
+- `js/pages/tracker/panels/npcCards.js`
+- `js/pages/tracker/panels/partyCards.js`
+- `js/pages/tracker/panels/locationCards.js`
+- `tests/combatTrackerActions.test.js`
+- `tests/smoke/combatShell.smoke.js`
+- `docs/combat-workspace-plan.md`
+
+#### Verification completed for Slice 4
+
+- targeted add-to-combat unit tests passed
+- targeted Combat domain/page/add-flow unit tests passed
+- targeted Combat shell smoke tests passed
+- full unit test suite passed
+- full browser smoke suite passed
+- typecheck passed
+- build passed
 
 ---
 

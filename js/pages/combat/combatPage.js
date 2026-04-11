@@ -5,6 +5,7 @@
 // top-level page, core panel shells, empty state, and layout persistence hooks.
 
 import { setupCombatSectionReorder } from "./combatSectionReorder.js";
+import { COMBAT_ENCOUNTER_CHANGED_EVENT } from "./combatEvents.js";
 import { getNoopDestroyApi, requireMany } from "../../utils/domGuards.js";
 import { DEV_MODE } from "../../utils/dev.js";
 
@@ -264,6 +265,8 @@ export function initCombatPage(deps = {}) {
   const addDestroy = (destroyFn) => {
     if (typeof destroyFn === "function") destroyFns.push(destroyFn);
   };
+  const listenerController = new AbortController();
+  addDestroy(() => listenerController.abort());
 
   /**
    * @param {string} featureName
@@ -300,6 +303,7 @@ export function initCombatPage(deps = {}) {
 
   runShellInit("Combat layout persistence", () => setupCombatSectionReorder({ state, SaveManager, setStatus }));
   runShellInit("Combat panel collapse", () => initCombatPanelCollapse({ state, SaveManager, root }));
+  window.addEventListener(COMBAT_ENCOUNTER_CHANGED_EVENT, render, { signal: listenerController.signal });
   render();
 
   const api = {

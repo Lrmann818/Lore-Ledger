@@ -10,6 +10,14 @@
  */
 /**
  * @typedef {{
+ *   onAddToCombat?: () => unknown,
+ *   className?: string,
+ *   text?: string,
+ *   title?: string
+ * }} CombatButtonOptions
+ */
+/**
+ * @typedef {{
  *   id: string,
  *   name: string
  * }} SectionOption
@@ -43,6 +51,29 @@ export function createDeleteButton({ onDelete, className = "", text = "Delete", 
     e.preventDefault();
     e.stopPropagation();
     if (typeof onDelete === "function") onDelete();
+  });
+  return button;
+}
+
+/**
+ * @param {CombatButtonOptions} [options]
+ * @returns {HTMLButtonElement}
+ */
+export function createCombatButton({
+  onAddToCombat,
+  className = "npcSmallBtn",
+  text = "Combat",
+  title = "Add to combat"
+} = {}) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = className;
+  button.textContent = text;
+  button.title = title;
+  button.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (typeof onAddToCombat === "function") onAddToCombat();
   });
   return button;
 }

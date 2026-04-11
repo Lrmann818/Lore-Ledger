@@ -10,9 +10,11 @@ import { makeFieldSearchMatcher } from "./cards/shared/cardSearchShared.js";
 import { attachCardSearchHighlights } from "./cards/shared/cardSearchHighlightShared.js";
 import { createMoveButton, createCollapseButton } from "./cards/shared/cardHeaderControlsShared.js";
 import { enhanceSelectOnce } from "./cards/shared/cardSelectShared.js";
-import { createDeleteButton, createSectionSelectRow } from "./cards/shared/cardFooterShared.js";
+import { createCombatButton, createDeleteButton, createSectionSelectRow } from "./cards/shared/cardFooterShared.js";
 import { renderCardPortrait } from "./cards/shared/cardPortraitRenderShared.js";
 import { createCardIncrementalDomPatcher } from "./cards/shared/cardIncrementalPatchShared.js";
+import { notifyCombatEncounterChanged } from "../../combat/combatEvents.js";
+import { addTrackerCardToCombatEncounter } from "../../../domain/combatTrackerActions.js";
 import { createStateActions } from "../../../domain/stateActions.js";
 import { requireMany } from "../../../utils/domGuards.js";
 import { startJumpDebugRun, queueJumpDebugCheckpoints } from "../../../ui/jumpDebug.js";
@@ -59,6 +61,7 @@ function createNpcCardsController(deps = {}) {
     addTrackerCard,
     removeTrackerCard,
     swapTrackerCards,
+    mutateState,
     mutateTracker,
   } = deps;
 
@@ -222,6 +225,22 @@ function createNpcCardsController(deps = {}) {
     renderNpcCards();
     jumpRun?.log("after-render");
     queueJumpDebugCheckpoints(jumpRun);
+  }
+
+  function addNpcToCombat(id) {
+    const result = mutateState((draft) => {
+      const added = addTrackerCardToCombatEncounter(draft, { type: "npc", id });
+      return added.added ? added : false;
+    });
+
+    if (result && typeof result === "object") {
+      const name = result.participant?.name || "Participant";
+      notifyCombatEncounterChanged({ sourceType: "npc", sourceId: id, participantId: result.participant?.id || null });
+      if (typeof setStatus === "function") setStatus(`${name} added to combat.`, { stickyMs: 2000 });
+      return;
+    }
+
+    if (typeof setStatus === "function") setStatus("Could not add this NPC to combat.", { stickyMs: 3000 });
   }
 
   async function pickNpcImage(npcId) {
@@ -487,8 +506,12 @@ function createNpcCardsController(deps = {}) {
       text: "Delete",
       onDelete: () => deleteNpc(npc.id),
     });
+    const combat = createCombatButton({
+      onAddToCombat: () => addNpcToCombat(npc.id),
+    });
 
     footer.appendChild(sectionWrap);
+    footer.appendChild(combat);
     footer.appendChild(del);
 
     collapsible.appendChild(classBlock);
@@ -651,6 +674,7 @@ export function initNpcsPanel(deps = {}) {
     addTrackerCard,
     removeTrackerCard,
     swapTrackerCards,
+    mutateState,
     mutateTracker,
   } = createStateActions({ state, SaveManager });
 
@@ -746,6 +770,7 @@ export function initNpcsPanel(deps = {}) {
     addTrackerCard,
     removeTrackerCard,
     swapTrackerCards,
+    mutateState,
     mutateTracker,
   });
 
