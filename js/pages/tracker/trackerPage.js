@@ -10,6 +10,7 @@ import { initNpcsPanel } from "./panels/npcCards.js";
 import { initPartyPanel } from "./panels/partyCards.js";
 import { initLocationsPanel } from "./panels/locationCards.js";
 import { initCharacterPageUI } from "../character/characterPage.js";
+import { COMBAT_ENCOUNTER_CHANGED_EVENT } from "../combat/combatEvents.js";
 import { initPanelHeaderCollapse } from "../../ui/panelHeaderCollapse.js";
 import { requireMany, getNoopDestroyApi } from "../../utils/domGuards.js";
 import { DEV_MODE } from "../../utils/dev.js";
@@ -78,10 +79,18 @@ import { DEV_MODE } from "../../utils/dev.js";
  */
 /** @typedef {{ destroy: () => void }} TrackerPageApi */
 /** @typedef {"misc"} TrackerTextFieldKey */
-/** @typedef {{ destroy?: () => void } | Record<string, unknown> | void} TrackerPanelInitResult */
+/** @typedef {{ destroy?: () => void, render?: () => void } | Record<string, unknown> | void} TrackerPanelInitResult */
 
 /** @type {TrackerPageApi | null} */
 let _activeTrackerPageController = null;
+
+/**
+ * @param {unknown} value
+ * @returns {value is { render: () => void }}
+ */
+function hasRenderApi(value) {
+  return !!value && typeof value === "object" && "render" in value && typeof value.render === "function";
+}
 
 /**
  * @param {TrackerPageDeps} [deps]
@@ -150,6 +159,8 @@ export function initTrackerPage(deps = {}) {
 
   /** @type {Array<() => void>} */
   const destroyFns = [];
+  /** @type {Array<() => void>} */
+  const cardPanelRenderFns = [];
   /**
    * @param {(() => void) | undefined} destroyFn
    * @returns {void}
@@ -248,7 +259,7 @@ export function initTrackerPage(deps = {}) {
   }));
 
   // ----- Cards UIs -----
-  runPanelInit("NPCs panel", () => initNpcsPanel({
+  const npcPanelApi = runPanelInit("NPCs panel", () => initNpcsPanel({
     state,
     SaveManager,
     Popovers,
@@ -269,7 +280,7 @@ export function initTrackerPage(deps = {}) {
     autoSizeInput,
   }));
 
-  runPanelInit("Party panel", () => initPartyPanel({
+  const partyPanelApi = runPanelInit("Party panel", () => initPartyPanel({
     state,
     SaveManager,
     Popovers,
@@ -290,7 +301,7 @@ export function initTrackerPage(deps = {}) {
     autoSizeInput,
   }));
 
-  runPanelInit("Locations panel", () => initLocationsPanel({
+  const locationsPanelApi = runPanelInit("Locations panel", () => initLocationsPanel({
     state,
     SaveManager,
     Popovers,
@@ -308,6 +319,16 @@ export function initTrackerPage(deps = {}) {
     blobIdToObjectUrl,
     autoSizeInput,
   }));
+
+  [npcPanelApi, partyPanelApi, locationsPanelApi].forEach((panelApi) => {
+    if (hasRenderApi(panelApi)) {
+      cardPanelRenderFns.push(() => panelApi.render());
+    }
+  });
+  addListener(window, COMBAT_ENCOUNTER_CHANGED_EVENT, (event) => {
+    if (!(event instanceof CustomEvent) || event.detail?.canonicalWriteback !== true) return;
+    cardPanelRenderFns.forEach((renderPanel) => renderPanel());
+  });
 
   // ----- Character sheet UI -----
   runPanelInit("Character page", () => initCharacterPageUI({

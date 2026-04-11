@@ -64,7 +64,75 @@ test("tracker card footer can add duplicate combat participants without removing
   })).toBe(true);
 
   await page.getByRole("tab", { name: "Combat" }).click();
-  await expect(page.locator("#combatCardsStatus")).toHaveText("2 combatants ready for cards.");
+  await expect(page.locator("#combatCardsStatus")).toHaveText("2 combatants in combat.");
+  await expect(page.locator(".combatCard")).toHaveCount(2);
+
+  await expectNoFatalSignals(page, fatalSignals);
+});
+
+test("combat cards support Slice 5 turn, role, HP, order, remove, undo, and clear flows", async ({ page }) => {
+  const fatalSignals = await openSmokeApp(page, { campaignName: "Combat Cards Smoke" });
+
+  await page.locator("#addNpcBtn").click();
+  await expect(page.locator("#npcCards .trackerCard")).toHaveCount(1);
+  await page.locator("#npcCards .trackerCard .npcHpInput").nth(0).fill("10");
+  await page.locator("#npcCards .trackerCard .npcHpInput").nth(1).fill("12");
+
+  const combatButton = page.locator("#npcCards .trackerCard .npcCardFooter button[title='Add to combat']").first();
+  await combatButton.click();
+  await combatButton.click();
+
+  await page.getByRole("tab", { name: "Combat" }).click();
+  await expect(page.locator(".combatCard")).toHaveCount(2);
+  await expect(page.locator("#combatNextTurnBtn")).toBeEnabled();
+  await expect(page.locator("#combatClearBtn")).toBeEnabled();
+
+  await page.locator(".combatCard").first().locator(".combatRoleSelect").selectOption("enemy");
+  await expect.poll(() => page.evaluate(() => ({
+    role: globalThis.__APP_STATE__?.combat?.encounter?.participants?.[0]?.role,
+    sourceGroup: globalThis.__APP_STATE__?.tracker?.npcs?.[0]?.group
+  }))).toEqual({ role: "enemy", sourceGroup: "undecided" });
+
+  await page.locator(".combatCard").first().locator(".combatHpAmountInput").fill("4");
+  await page.locator(".combatCard").first().getByRole("button", { name: "Damage" }).click();
+  await expect(page.locator(".combatCard").first().locator(".combatHpValue")).toHaveText("6 / 12");
+  await expect.poll(() => page.evaluate(() => ({
+    firstHp: globalThis.__APP_STATE__?.combat?.encounter?.participants?.[0]?.hpCurrent,
+    duplicateHp: globalThis.__APP_STATE__?.combat?.encounter?.participants?.[1]?.hpCurrent,
+    sourceHp: globalThis.__APP_STATE__?.tracker?.npcs?.[0]?.hpCurrent
+  }))).toEqual({ firstHp: 6, duplicateHp: 10, sourceHp: 6 });
+  await page.getByRole("tab", { name: "Tracker" }).click();
+  await expect(page.locator("#npcCards .trackerCard .npcHpInput").nth(0)).toHaveValue("6");
+  await page.getByRole("tab", { name: "Combat" }).click();
+
+  await page.locator(".combatCard").first().getByRole("button", { name: "Down" }).click();
+  await expect.poll(() => page.evaluate(() => globalThis.__APP_STATE__?.combat?.encounter?.participants?.map((p) => p.hpCurrent)))
+    .toEqual([10, 6]);
+
+  await page.locator(".combatCard").first().getByRole("button", { name: "Make Active" }).click();
+  await expect(page.locator(".combatCard").first().locator(".combatActiveBadge")).toHaveText("Active");
+
+  await page.locator("#combatTurnSecondsInput").fill("9");
+  await page.locator("#combatTurnSecondsInput").blur();
+  await page.locator("#combatNextTurnBtn").click();
+  await expect(page.locator("#combatElapsedValue")).toHaveText("00:09");
+  await expect(page.locator("#combatUndoBtn")).toBeEnabled();
+
+  await page.locator("#combatUndoBtn").click();
+  await expect(page.locator("#combatElapsedValue")).toHaveText("00:00");
+
+  await page.locator(".combatCard").last().getByRole("button", { name: "Remove" }).click();
+  await expect(page.locator(".combatCard")).toHaveCount(1);
+  await expect(page.locator("#npcCards .trackerCard")).toHaveCount(1);
+
+  const workspaceOrderBeforeClear = await page.evaluate(() => globalThis.__APP_STATE__?.combat?.workspace?.panelOrder);
+  await page.locator("#combatClearBtn").click();
+  await expect(page.locator("#uiDialogTitle")).toHaveText("Clear Combat");
+  await page.locator("#uiDialogOk").click();
+  await expect(page.locator("#combatEmptyState")).toBeVisible();
+  await expect(page.locator(".combatCard")).toHaveCount(0);
+  await expect.poll(() => page.evaluate(() => globalThis.__APP_STATE__?.combat?.workspace?.panelOrder))
+    .toEqual(workspaceOrderBeforeClear);
 
   await expectNoFatalSignals(page, fatalSignals);
 });

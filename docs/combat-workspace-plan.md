@@ -4,7 +4,7 @@
 
 - **Phase:** 3 — Combat Workspace
 - **Overall status:** In progress
-- **Current next slice:** Slice 5 — Combat cards and round controls
+- **Current next slice:** Slice 6 — Status effects UI
 
 ---
 
@@ -403,7 +403,7 @@ Field names may evolve slightly to fit repo conventions, but the explicit `works
 
 ### Slice 5 — Combat cards and round controls
 
-**Status:** Planned
+**Status:** Done
 
 #### Scope
 
@@ -415,6 +415,42 @@ Field names may evolve slightly to fit repo conventions, but the explicit `works
 - HP/temp HP interactions
 - round/timer controls
 - Next Turn / Undo / Clear Combat
+
+#### Completed notes
+
+- rendered encounter-local combat cards from `combat.encounter.participants`
+- added simple up/down manual ordering without introducing drag/drop systems
+- added active participant marker and per-card Make Active control
+- added encounter-only role override menu without mutating tracker section/category placement
+- added encounter-only remove action for combat participants
+- added damage/heal/temp HP controls using Slice 2 HP math helpers
+- kept HP/temp HP canonical writeback explicit and limited to direct combat-card HP edits
+- preserved duplicate participant independence inside the encounter
+- added seconds-per-turn control plus Next Turn / Undo / Clear Combat behavior through Slice 2 turn helpers
+- kept Clear Combat scoped to disposable encounter state while preserving workspace layout
+- refreshed hidden tracker card panels only after canonical HP/temp HP writeback so tracker UI stays in sync
+
+#### Files changed in Slice 5
+
+- `app.js`
+- `index.html`
+- `styles.css`
+- `js/domain/combatEncounterActions.js`
+- `js/pages/combat/combatPage.js`
+- `js/pages/tracker/trackerPage.js`
+- `tests/combatEncounterActions.test.js`
+- `tests/combatPage.test.js`
+- `tests/smoke/combatShell.smoke.js`
+- `docs/combat-workspace-plan.md`
+
+#### Verification completed for Slice 5
+
+- targeted Combat unit tests passed
+- targeted Combat smoke tests passed
+- full unit test suite passed
+- full browser smoke suite passed
+- typecheck passed
+- build passed
 
 ---
 

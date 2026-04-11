@@ -437,7 +437,7 @@
             <div class="panelHeader combatRoundHeader">
               <div>
                 <h2 class="m0" id="combatRoundTitle">Round Controls / Timer</h2>
-                <p class="mutedSmall m0">Manual combat controls are coming in the next slice.</p>
+                <p class="mutedSmall m0">Manual turns for this encounter.</p>
               </div>
             </div>
 
@@ -454,6 +454,11 @@
                 <div class="combatStatLabel">Turn</div>
                 <div class="combatStatValue" id="combatTurnSecondsValue">6s</div>
               </div>
+            </div>
+
+            <div class="combatTurnConfig">
+              <label for="combatTurnSecondsInput">Seconds per turn</label>
+              <input type="number" min="1" step="1" inputmode="numeric" id="combatTurnSecondsInput" value="6" />
             </div>
 
             <div class="combatControlRow" aria-label="Combat controls">

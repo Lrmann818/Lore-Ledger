@@ -2679,6 +2679,141 @@ button.panelSelectBtn:hover {
 
 .combatCardsShell {
   min-height: 12px;
+  display: grid;
+  gap: 8px;
+}
+
+.combatCard {
+  display: grid;
+  gap: 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-1);
+  padding: 10px;
+  min-width: 0;
+}
+
+.combatCard.isActive {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+.combatRole-enemy {
+  background: color-mix(in srgb, var(--danger) 10%, var(--surface-1));
+}
+
+.combatRole-npc {
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface-1));
+}
+
+.combatCardHeader,
+.combatHpRow,
+.combatHpActionRow,
+.combatCardControls,
+.combatTurnConfig {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.combatCardHeader {
+  justify-content: space-between;
+}
+
+.combatCardTitleWrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  flex: 1 1 180px;
+}
+
+.combatCardName {
+  font-weight: 700;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.combatOrderBadge,
+.combatActiveBadge,
+.combatTempHp,
+.combatStatusChip {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+  padding: 3px 6px;
+  font-size: var(--small-font-size);
+  line-height: 1.2;
+}
+
+.combatActiveBadge {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.combatRoleSelect,
+.combatHpAmountInput,
+#combatTurnSecondsInput {
+  min-height: 32px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--text);
+  padding: 4px 8px;
+  font: inherit;
+}
+
+.combatRoleSelect {
+  flex: 0 0 auto;
+}
+
+.combatHpLabel {
+  color: var(--muted);
+  font-size: var(--small-font-size);
+}
+
+.combatHpValue {
+  font-weight: 800;
+}
+
+.combatHpValue.hasTempHp {
+  color: var(--accent);
+}
+
+.combatHpAmountInput {
+  width: 76px;
+}
+
+.combatStatusRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  min-height: 24px;
+}
+
+.combatStatusChip.isExpired {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.combatNoStatus {
+  color: var(--muted);
+  font-size: var(--small-font-size);
+}
+
+.combatTurnConfig {
+  margin-bottom: 8px;
+}
+
+.combatTurnConfig label {
+  color: var(--muted);
+  font-size: var(--small-font-size);
+}
+
+#combatTurnSecondsInput {
+  width: 88px;
 }
 
 .combatRoundStats {

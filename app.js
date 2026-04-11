@@ -385,6 +385,7 @@ function createCombatPageDeps() {
   return {
     state: appState,
     SaveManager,
+    uiConfirm,
     setStatus: StatusApi.setStatus
   };
 }
