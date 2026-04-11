@@ -2710,7 +2710,10 @@ button.panelSelectBtn:hover {
 .combatHpRow,
 .combatHpActionRow,
 .combatCardControls,
-.combatTurnConfig {
+.combatTurnConfig,
+.combatStatusEffect,
+.combatStatusComposer,
+.combatStatusDurationSettings {
   display: flex;
   gap: 6px;
   align-items: center;
@@ -2755,6 +2758,10 @@ button.panelSelectBtn:hover {
 
 .combatRoleSelect,
 .combatHpAmountInput,
+.combatStatusLabelInput,
+.combatStatusAddLabelInput,
+.combatStatusModeSelect,
+.combatStatusDurationInput,
 #combatTurnSecondsInput {
   min-height: 32px;
   border: 1px solid var(--border);
@@ -2787,10 +2794,40 @@ button.panelSelectBtn:hover {
 }
 
 .combatStatusRow {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
+  display: grid;
+  gap: 6px;
   min-height: 24px;
+}
+
+.combatStatusHeading {
+  color: var(--muted);
+  font-size: var(--small-font-size);
+  font-weight: 700;
+}
+
+.combatStatusEffect,
+.combatStatusComposer {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface-2) 72%, transparent);
+  padding: 6px;
+}
+
+.combatStatusEffect.isExpired {
+  border-color: color-mix(in srgb, var(--danger) 45%, var(--border));
+}
+
+.combatStatusLabelInput,
+.combatStatusAddLabelInput {
+  flex: 1 1 150px;
+}
+
+.combatStatusModeSelect {
+  flex: 0 0 auto;
+}
+
+.combatStatusDurationInput {
+  width: 84px;
 }
 
 .combatStatusChip.isExpired {
@@ -2798,7 +2835,18 @@ button.panelSelectBtn:hover {
   text-decoration: line-through;
 }
 
+.combatStatusExpiredLabel {
+  color: var(--danger);
+  font-size: var(--small-font-size);
+  font-weight: 700;
+}
+
 .combatNoStatus {
+  color: var(--muted);
+  font-size: var(--small-font-size);
+}
+
+.combatStatusDurationSettings span {
   color: var(--muted);
   font-size: var(--small-font-size);
 }

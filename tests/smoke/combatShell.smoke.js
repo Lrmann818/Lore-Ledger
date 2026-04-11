@@ -136,3 +136,57 @@ test("combat cards support Slice 5 turn, role, HP, order, remove, undo, and clea
 
   await expectNoFatalSignals(page, fatalSignals);
 });
+
+test("combat status effects can be added, edited, expired by turns, undone, and removed", async ({ page }) => {
+  const fatalSignals = await openSmokeApp(page, { campaignName: "Combat Status Smoke" });
+
+  await page.locator("#addNpcBtn").click();
+  await page.locator("#npcCards .trackerCard .npcCardFooter button[title='Add to combat']").first().click();
+  await page.getByRole("tab", { name: "Combat" }).click();
+  await expect(page.locator(".combatCard")).toHaveCount(1);
+
+  const card = page.locator(".combatCard").first();
+  const composer = card.locator(".combatStatusComposer");
+  await composer.locator(".combatStatusAddLabelInput").fill("Burning");
+  await composer.locator(".combatStatusModeSelect").selectOption("time");
+  await composer.locator(".combatStatusDurationInput").fill("6");
+  await composer.getByRole("button", { name: "Add Status" }).click();
+  await expect(card.locator(".combatStatusChip")).toHaveText("Burning (6s)");
+  await expect.poll(() => page.evaluate(() => ({
+    statusEffects: globalThis.__APP_STATE__?.combat?.encounter?.participants?.[0]?.statusEffects,
+    sourceStatus: globalThis.__APP_STATE__?.tracker?.npcs?.[0]?.status
+  }))).toEqual(expect.objectContaining({
+    sourceStatus: "Burning"
+  }));
+
+  const effectRow = card.locator(".combatStatusEffect").first();
+  await effectRow.locator(".combatStatusLabelInput").fill("Burning Fast");
+  await effectRow.locator(".combatStatusDurationInput").fill("6");
+  await effectRow.getByRole("button", { name: "Save" }).click();
+  await expect(card.locator(".combatStatusChip")).toHaveText("Burning Fast (6s)");
+  await expect.poll(() => page.evaluate(() => globalThis.__APP_STATE__?.tracker?.npcs?.[0]?.status))
+    .toBe("Burning Fast");
+
+  await page.locator("#combatNextTurnBtn").click();
+  await expect(card.locator(".combatStatusChip")).toHaveText("Burning Fast (0s)");
+  await expect(card.locator(".combatStatusEffect")).toHaveClass(/isExpired/);
+  await expect.poll(() => page.evaluate(() => globalThis.__APP_STATE__?.combat?.encounter?.participants?.[0]?.statusEffects?.[0]))
+    .toEqual(expect.objectContaining({ remaining: 0, expired: true }));
+
+  await page.locator("#combatUndoBtn").click();
+  await expect(card.locator(".combatStatusChip")).toHaveText("Burning Fast (6s)");
+  await expect.poll(() => page.evaluate(() => globalThis.__APP_STATE__?.combat?.encounter?.participants?.[0]?.statusEffects?.[0]))
+    .toEqual(expect.objectContaining({ remaining: 6, expired: false }));
+
+  await card.locator(".combatStatusEffect").first().getByRole("button", { name: "Remove" }).click();
+  await expect(card.locator(".combatNoStatus")).toHaveText("No status effects");
+  await expect.poll(() => page.evaluate(() => ({
+    effects: globalThis.__APP_STATE__?.combat?.encounter?.participants?.[0]?.statusEffects,
+    sourceStatus: globalThis.__APP_STATE__?.tracker?.npcs?.[0]?.status
+  }))).toEqual({
+    effects: [],
+    sourceStatus: ""
+  });
+
+  await expectNoFatalSignals(page, fatalSignals);
+});

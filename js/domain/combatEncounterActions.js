@@ -8,8 +8,10 @@ import {
   clearCombatEncounter,
   findCombatSource,
   makeCombatId,
+  makeStatusEffect,
   normalizeCombatEncounter,
   normalizeCombatRole,
+  normalizeStatusDurationMode,
   undoLastTurnAdvance
 } from "./combat.js";
 import { withAllowedStateMutation } from "../utils/dev.js";
@@ -17,6 +19,7 @@ import { withAllowedStateMutation } from "../utils/dev.js";
 /** @typedef {import("../state.js").State} State */
 /** @typedef {import("./combat.js").CombatEncounter} CombatEncounter */
 /** @typedef {import("./combat.js").CombatParticipant} CombatParticipant */
+/** @typedef {import("./combat.js").CombatStatusEffect} CombatStatusEffect */
 
 const DEFAULT_WORKSPACE = Object.freeze({
   panelOrder: [],
@@ -47,6 +50,17 @@ function cleanString(value) {
 function nonNegativeNumber(value) {
   const n = Number(value);
   if (!Number.isFinite(n)) return 0;
+  return Math.max(0, Math.trunc(n));
+}
+
+/**
+ * @param {unknown} value
+ * @returns {number | null}
+ */
+function nonNegativeNumberOrNull(value) {
+  if (value === "" || value == null) return null;
+  const n = Number(value);
+  if (!Number.isFinite(n)) return null;
   return Math.max(0, Math.trunc(n));
 }
 
@@ -118,6 +132,30 @@ function writeParticipantHpToCanonicalSource(state, participant) {
 }
 
 /**
+ * This is the Slice 6 canonical status writeback path.
+ *
+ * Combat status effects are structured on encounter participants. The current
+ * tracker card model stores a simple status text field, so direct combat status
+ * edits mirror only the visible labels back to that existing field. Duration
+ * timing stays encounter-local and duplicate participants stay independent.
+ *
+ * @param {State | Record<string, unknown>} state
+ * @param {CombatParticipant} participant
+ * @returns {boolean}
+ */
+function writeParticipantStatusToCanonicalSource(state, participant) {
+  const tracker = isPlainObject(state.tracker) ? state.tracker : null;
+  const source = findCombatSource(tracker, participant.source);
+  if (!source || source.type === "location") return false;
+
+  source.card.status = participant.statusEffects
+    .map((effect) => cleanString(effect.label))
+    .filter(Boolean)
+    .join(", ");
+  return true;
+}
+
+/**
  * @param {State | Record<string, unknown>} state
  * @param {(encounter: CombatEncounter) => CombatEncounter | null | false} updater
  * @returns {{ changed: boolean, encounter: CombatEncounter }}
@@ -149,6 +187,27 @@ function findParticipantIndex(encounter, participantId) {
   const id = cleanString(participantId);
   if (!id) return -1;
   return encounter.participants.findIndex((participant) => participant.id === id);
+}
+
+/**
+ * @param {unknown} input
+ * @returns {CombatStatusEffect | null}
+ */
+function makeStatusEffectFromInput(input) {
+  if (!isPlainObject(input)) return null;
+  const label = cleanString(input.label);
+  if (!label) return null;
+
+  const durationMode = normalizeStatusDurationMode(input.durationMode);
+  const rawDuration = nonNegativeNumberOrNull(input.remaining ?? input.duration);
+  const remaining = durationMode === "none" ? null : rawDuration ?? 0;
+  return makeStatusEffect({
+    ...input,
+    label,
+    durationMode,
+    duration: durationMode === "none" ? null : remaining,
+    remaining
+  });
 }
 
 /**
@@ -280,6 +339,133 @@ export function applyCombatParticipantHpAction(state, participantId, mode, amoun
   });
 
   return { ...result, participant: updatedParticipant, wroteCanonical };
+}
+
+/**
+ * @param {State | Record<string, unknown>} state
+ * @param {string} participantId
+ * @param {{ label?: unknown, durationMode?: unknown, duration?: unknown, remaining?: unknown }} input
+ * @param {{ now?: string | null, id?: string }} [options]
+ * @returns {{ changed: boolean, encounter: CombatEncounter, participant: CombatParticipant | null, effect: CombatStatusEffect | null, wroteCanonical: boolean }}
+ */
+export function addCombatParticipantStatusEffect(state, participantId, input, options = {}) {
+  let updatedParticipant = /** @type {CombatParticipant | null} */ (null);
+  let addedEffect = /** @type {CombatStatusEffect | null} */ (null);
+  let wroteCanonical = false;
+  const effect = makeStatusEffectFromInput({ ...input, id: options.id });
+  if (!effect) {
+    return { changed: false, encounter: getCombatEncounter(state), participant: null, effect: null, wroteCanonical: false };
+  }
+
+  const result = mutateEncounter(state, (encounter) => {
+    const index = findParticipantIndex(encounter, participantId);
+    if (index < 0) return false;
+
+    const participant = {
+      ...encounter.participants[index],
+      statusEffects: [...encounter.participants[index].statusEffects, effect]
+    };
+    updatedParticipant = participant;
+    addedEffect = effect;
+    wroteCanonical = writeParticipantStatusToCanonicalSource(state, participant);
+    const participants = encounter.participants.map((entry, i) => (i === index ? participant : entry));
+    return touchEncounter({ ...encounter, participants }, options.now);
+  });
+
+  return { ...result, participant: updatedParticipant, effect: addedEffect, wroteCanonical };
+}
+
+/**
+ * @param {State | Record<string, unknown>} state
+ * @param {string} participantId
+ * @param {string} statusEffectId
+ * @param {{ label?: unknown, durationMode?: unknown, duration?: unknown, remaining?: unknown }} input
+ * @param {{ now?: string | null }} [options]
+ * @returns {{ changed: boolean, encounter: CombatEncounter, participant: CombatParticipant | null, effect: CombatStatusEffect | null, wroteCanonical: boolean }}
+ */
+export function updateCombatParticipantStatusEffect(state, participantId, statusEffectId, input, options = {}) {
+  const id = cleanString(statusEffectId);
+  let updatedParticipant = /** @type {CombatParticipant | null} */ (null);
+  let updatedEffect = /** @type {CombatStatusEffect | null} */ (null);
+  let wroteCanonical = false;
+  if (!id) {
+    return { changed: false, encounter: getCombatEncounter(state), participant: null, effect: null, wroteCanonical: false };
+  }
+
+  const result = mutateEncounter(state, (encounter) => {
+    const participantIndex = findParticipantIndex(encounter, participantId);
+    if (participantIndex < 0) return false;
+
+    const current = encounter.participants[participantIndex];
+    const effectIndex = current.statusEffects.findIndex((effect) => effect.id === id);
+    if (effectIndex < 0) return false;
+
+    const effect = makeStatusEffectFromInput({
+      ...current.statusEffects[effectIndex],
+      ...input,
+      id
+    });
+    if (!effect) return false;
+
+    const previous = current.statusEffects[effectIndex];
+    if (
+      previous.label === effect.label
+      && previous.durationMode === effect.durationMode
+      && previous.remaining === effect.remaining
+      && previous.duration === effect.duration
+      && previous.expired === effect.expired
+    ) {
+      return false;
+    }
+
+    const statusEffects = current.statusEffects.map((entry, i) => (i === effectIndex ? effect : entry));
+    const participant = { ...current, statusEffects };
+    updatedParticipant = participant;
+    updatedEffect = effect;
+    wroteCanonical = writeParticipantStatusToCanonicalSource(state, participant);
+    const participants = encounter.participants.map((entry, i) => (i === participantIndex ? participant : entry));
+    return touchEncounter({ ...encounter, participants }, options.now);
+  });
+
+  return { ...result, participant: updatedParticipant, effect: updatedEffect, wroteCanonical };
+}
+
+/**
+ * @param {State | Record<string, unknown>} state
+ * @param {string} participantId
+ * @param {string} statusEffectId
+ * @param {{ now?: string | null }} [options]
+ * @returns {{ changed: boolean, encounter: CombatEncounter, participant: CombatParticipant | null, removed: CombatStatusEffect | null, wroteCanonical: boolean }}
+ */
+export function removeCombatParticipantStatusEffect(state, participantId, statusEffectId, options = {}) {
+  const id = cleanString(statusEffectId);
+  let updatedParticipant = /** @type {CombatParticipant | null} */ (null);
+  let removed = /** @type {CombatStatusEffect | null} */ (null);
+  let wroteCanonical = false;
+  if (!id) {
+    return { changed: false, encounter: getCombatEncounter(state), participant: null, removed: null, wroteCanonical: false };
+  }
+
+  const result = mutateEncounter(state, (encounter) => {
+    const participantIndex = findParticipantIndex(encounter, participantId);
+    if (participantIndex < 0) return false;
+
+    const current = encounter.participants[participantIndex];
+    const effectIndex = current.statusEffects.findIndex((effect) => effect.id === id);
+    if (effectIndex < 0) return false;
+
+    removed = current.statusEffects[effectIndex];
+    const participant = {
+      ...current,
+      statusEffects: current.statusEffects.filter((_, i) => i !== effectIndex)
+    };
+    updatedParticipant = participant;
+    wroteCanonical = writeParticipantStatusToCanonicalSource(state, participant);
+    const participants = encounter.participants.map((entry, i) => (i === participantIndex ? participant : entry));
+    return touchEncounter({ ...encounter, participants }, options.now);
+  });
+
+  return { ...result, participant: updatedParticipant, removed, wroteCanonical };
 }
 
 /**

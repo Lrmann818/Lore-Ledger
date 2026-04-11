@@ -7,16 +7,19 @@ import { setupCombatSectionReorder } from "./combatSectionReorder.js";
 import { COMBAT_ENCOUNTER_CHANGED_EVENT, notifyCombatEncounterChanged } from "./combatEvents.js";
 import {
   advanceCombatTurn,
+  addCombatParticipantStatusEffect,
   applyCombatParticipantHpAction,
   clearCombat,
   moveCombatParticipant,
+  removeCombatParticipantStatusEffect,
   removeCombatParticipant,
   setActiveCombatParticipant,
   setCombatParticipantRole,
   setCombatSecondsPerTurn,
+  updateCombatParticipantStatusEffect,
   undoCombatTurn
 } from "../../domain/combatEncounterActions.js";
-import { COMBAT_ROLES, normalizeCombatEncounter } from "../../domain/combat.js";
+import { COMBAT_ROLES, STATUS_DURATION_MODES, normalizeCombatEncounter } from "../../domain/combat.js";
 import { getNoopDestroyApi, requireMany } from "../../utils/domGuards.js";
 import { DEV_MODE } from "../../utils/dev.js";
 
@@ -60,7 +63,7 @@ import { DEV_MODE } from "../../utils/dev.js";
  *   hpMaxLabel: string,
  *   tempHp: number,
  *   hasTempHp: boolean,
- *   statusEffects: Array<{ id: string, label: string, detail: string, expired: boolean }>
+ *   statusEffects: Array<{ id: string, label: string, detail: string, durationMode: "none" | "rounds" | "time", durationInputValue: string, expired: boolean }>
  * }} CombatCardViewModel
  */
 /**
@@ -76,6 +79,11 @@ export const COMBAT_ROLE_OPTIONS = Object.freeze([
   { value: COMBAT_ROLES.PARTY, label: "Party" },
   { value: COMBAT_ROLES.ENEMY, label: "Enemy" },
   { value: COMBAT_ROLES.NPC, label: "NPC" }
+]);
+export const COMBAT_STATUS_DURATION_OPTIONS = Object.freeze([
+  { value: STATUS_DURATION_MODES.NONE, label: "No duration" },
+  { value: STATUS_DURATION_MODES.ROUNDS, label: "Rounds" },
+  { value: STATUS_DURATION_MODES.TIME, label: "Seconds" }
 ]);
 
 /** @type {CombatPageApi | null} */
@@ -169,6 +177,17 @@ function formatStatusEffectDetail(remaining, mode) {
 }
 
 /**
+ * @param {unknown} remaining
+ * @param {unknown} mode
+ * @returns {string}
+ */
+function formatStatusDurationInputValue(remaining, mode) {
+  if (mode !== "rounds" && mode !== "time") return "";
+  const value = Math.max(0, Math.trunc(Number(remaining) || 0));
+  return String(value);
+}
+
+/**
  * @param {unknown} state
  * @returns {CombatCardViewModel[]}
  */
@@ -194,6 +213,8 @@ export function getCombatCardViewModels(state) {
         id: effect.id,
         label: effect.label,
         detail: formatStatusEffectDetail(effect.remaining, effect.durationMode),
+        durationMode: effect.durationMode,
+        durationInputValue: formatStatusDurationInputValue(effect.remaining, effect.durationMode),
         expired: effect.expired === true
       }))
     };
@@ -309,6 +330,129 @@ function createCombatActionButton({ action, text, className = "", disabled = fal
 }
 
 /**
+ * @param {HTMLSelectElement} select
+ * @param {string} selectedValue
+ * @returns {void}
+ */
+function appendStatusDurationOptions(select, selectedValue) {
+  COMBAT_STATUS_DURATION_OPTIONS.forEach((option) => {
+    const optionEl = document.createElement("option");
+    optionEl.value = option.value;
+    optionEl.textContent = option.label;
+    optionEl.selected = option.value === selectedValue;
+    select.appendChild(optionEl);
+  });
+}
+
+/**
+ * @param {HTMLSelectElement} select
+ * @returns {HTMLInputElement}
+ */
+function createStatusDurationInput(select) {
+  const input = document.createElement("input");
+  input.className = "combatStatusDurationInput";
+  input.type = "number";
+  input.min = "0";
+  input.step = "1";
+  input.inputMode = "numeric";
+  input.placeholder = select.value === "time" ? "Seconds" : "Rounds";
+  input.disabled = select.value === "none";
+  input.setAttribute("aria-label", "Status duration remaining");
+  return input;
+}
+
+/**
+ * @param {HTMLSelectElement} select
+ * @param {HTMLInputElement} input
+ * @returns {void}
+ */
+function syncStatusDurationInput(select, input) {
+  const hasDuration = select.value === "rounds" || select.value === "time";
+  input.disabled = !hasDuration;
+  input.placeholder = select.value === "time" ? "Seconds" : "Rounds";
+  if (!hasDuration) input.value = "";
+}
+
+/**
+ * @param {string} labelText
+ * @param {string} selectedMode
+ * @param {string} durationValue
+ * @returns {HTMLElement}
+ */
+function createStatusDurationSettings(labelText, selectedMode, durationValue) {
+  const wrap = document.createElement("div");
+  wrap.className = "combatStatusDurationSettings";
+
+  const label = document.createElement("span");
+  label.textContent = labelText;
+
+  const select = document.createElement("select");
+  select.className = "combatStatusModeSelect";
+  select.dataset.combatStatusMode = "true";
+  select.setAttribute("aria-label", "Status duration mode");
+  appendStatusDurationOptions(select, selectedMode);
+
+  const durationInput = createStatusDurationInput(select);
+  durationInput.value = durationValue;
+  syncStatusDurationInput(select, durationInput);
+
+  wrap.appendChild(label);
+  wrap.appendChild(select);
+  wrap.appendChild(durationInput);
+  return wrap;
+}
+
+/**
+ * @param {CombatCardViewModel["statusEffects"][number]} effect
+ * @returns {HTMLElement}
+ */
+function renderStatusEffectEditor(effect) {
+  const row = document.createElement("div");
+  row.className = "combatStatusEffect";
+  row.classList.toggle("isExpired", effect.expired);
+  row.dataset.combatStatusEffectId = effect.id;
+
+  const chip = document.createElement("span");
+  chip.className = "combatStatusChip";
+  chip.classList.toggle("isExpired", effect.expired);
+  chip.textContent = effect.detail ? `${effect.label} ${effect.detail}` : effect.label;
+  row.appendChild(chip);
+
+  if (effect.expired) row.appendChild(createTextEl("Expired", "combatStatusExpiredLabel"));
+
+  const labelInput = document.createElement("input");
+  labelInput.className = "combatStatusLabelInput";
+  labelInput.value = effect.label;
+  labelInput.placeholder = "Status label";
+  labelInput.setAttribute("aria-label", `Edit status label for ${effect.label}`);
+  row.appendChild(labelInput);
+
+  row.appendChild(createStatusDurationSettings("Duration", effect.durationMode, effect.durationInputValue));
+  row.appendChild(createCombatActionButton({ action: "save-status", text: "Save", className: "panelBtn panelBtnSm" }));
+  row.appendChild(createCombatActionButton({ action: "remove-status", text: "Remove", className: "danger panelBtn panelBtnSm" }));
+  return row;
+}
+
+/**
+ * @param {CombatCardViewModel} card
+ * @returns {HTMLElement}
+ */
+function renderStatusComposer(card) {
+  const row = document.createElement("div");
+  row.className = "combatStatusComposer";
+
+  const labelInput = document.createElement("input");
+  labelInput.className = "combatStatusAddLabelInput";
+  labelInput.placeholder = "Status label";
+  labelInput.setAttribute("aria-label", `New status label for ${card.name}`);
+  row.appendChild(labelInput);
+
+  row.appendChild(createStatusDurationSettings("Duration", "none", ""));
+  row.appendChild(createCombatActionButton({ action: "add-status", text: "Add Status", className: "panelBtn panelBtnSm" }));
+  return row;
+}
+
+/**
  * @param {CombatCardViewModel} card
  * @returns {HTMLElement}
  */
@@ -362,17 +506,18 @@ function renderCombatCard(card) {
 
   const statusRow = document.createElement("div");
   statusRow.className = "combatStatusRow";
+  const statusLabel = document.createElement("div");
+  statusLabel.className = "combatStatusHeading";
+  statusLabel.textContent = "Status";
+  statusRow.appendChild(statusLabel);
   if (card.statusEffects.length === 0) {
     statusRow.appendChild(createTextEl("No status effects", "combatNoStatus"));
   } else {
     card.statusEffects.forEach((effect) => {
-      const chip = document.createElement("span");
-      chip.className = "combatStatusChip";
-      chip.classList.toggle("isExpired", effect.expired);
-      chip.textContent = effect.detail ? `${effect.label} ${effect.detail}` : effect.label;
-      statusRow.appendChild(chip);
+      statusRow.appendChild(renderStatusEffectEditor(effect));
     });
   }
+  statusRow.appendChild(renderStatusComposer(card));
 
   const amountRow = document.createElement("div");
   amountRow.className = "combatHpActionRow";
@@ -604,6 +749,56 @@ export function initCombatPage(deps = {}) {
   };
 
   /**
+   * @param {HTMLElement} container
+   * @param {string} labelSelector
+   * @returns {{ input: { label: string, durationMode: string, duration: number | null, remaining: number | null } | null, error: string }}
+   */
+  const getStatusInputValues = (container, labelSelector) => {
+    const labelInput = container.querySelector(labelSelector);
+    const modeSelect = container.querySelector(".combatStatusModeSelect");
+    const durationInput = container.querySelector(".combatStatusDurationInput");
+    if (!(labelInput instanceof HTMLInputElement) || !(modeSelect instanceof HTMLSelectElement)) {
+      return { input: null, error: "Status controls are not ready." };
+    }
+
+    const label = labelInput.value.trim();
+    if (!label) return { input: null, error: "Status effects need a label." };
+
+    const durationMode = modeSelect.value;
+    if (durationMode !== "rounds" && durationMode !== "time") {
+      return {
+        input: {
+          label,
+          durationMode: "none",
+          duration: null,
+          remaining: null
+        },
+        error: ""
+      };
+    }
+
+    if (!(durationInput instanceof HTMLInputElement) || durationInput.value.trim() === "") {
+      return { input: null, error: "Enter a duration for timed status effects." };
+    }
+
+    const duration = Number(durationInput.value);
+    if (!Number.isFinite(duration) || duration < 0) {
+      return { input: null, error: "Status duration must be zero or more." };
+    }
+
+    const remaining = Math.max(0, Math.trunc(duration));
+    return {
+      input: {
+        label,
+        durationMode,
+        duration: remaining,
+        remaining
+      },
+      error: ""
+    };
+  };
+
+  /**
    * @param {Event} event
    * @returns {void}
    */
@@ -635,6 +830,49 @@ export function initCombatPage(deps = {}) {
       commitCombatResult(result, result.removed ? `${result.removed.name} removed from combat.` : "Combatant removed.");
       return;
     }
+    if (action === "add-status") {
+      const composer = button.closest(".combatStatusComposer");
+      if (!(composer instanceof HTMLElement)) return;
+      const parsed = getStatusInputValues(composer, ".combatStatusAddLabelInput");
+      if (!parsed.input) {
+        setStatus(parsed.error || "Status could not be added.", { stickyMs: 2500 });
+        return;
+      }
+      commitCombatResult(
+        addCombatParticipantStatusEffect(state, participantId, parsed.input),
+        "Status effect added."
+      );
+      return;
+    }
+    if (action === "save-status") {
+      const statusEl = button.closest("[data-combat-status-effect-id]");
+      if (!(statusEl instanceof HTMLElement)) return;
+      const statusEffectId = cleanIdOrNull(statusEl.dataset.combatStatusEffectId);
+      if (!statusEffectId) return;
+      const parsed = getStatusInputValues(statusEl, ".combatStatusLabelInput");
+      if (!parsed.input) {
+        setStatus(parsed.error || "Status could not be saved.", { stickyMs: 2500 });
+        return;
+      }
+      if (!commitCombatResult(
+        updateCombatParticipantStatusEffect(state, participantId, statusEffectId, parsed.input),
+        "Status effect updated."
+      )) {
+        setStatus("No status changes to save.", { stickyMs: 1800 });
+      }
+      return;
+    }
+    if (action === "remove-status") {
+      const statusEl = button.closest("[data-combat-status-effect-id]");
+      if (!(statusEl instanceof HTMLElement)) return;
+      const statusEffectId = cleanIdOrNull(statusEl.dataset.combatStatusEffectId);
+      if (!statusEffectId) return;
+      commitCombatResult(
+        removeCombatParticipantStatusEffect(state, participantId, statusEffectId),
+        "Status effect removed."
+      );
+      return;
+    }
     if (action === "damage" || action === "heal" || action === "temp") {
       const amount = getCardAmount(cardEl);
       if (amount == null) {
@@ -661,6 +899,18 @@ export function initCombatPage(deps = {}) {
     const participantId = cleanIdOrNull(cardEl.dataset.combatParticipantId);
     if (!participantId) return;
     commitCombatResult(setCombatParticipantRole(state, participantId, target.value), "Combat role updated.");
+  };
+
+  /**
+   * @param {Event} event
+   * @returns {void}
+   */
+  const handleStatusModeChange = (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLSelectElement) || target.dataset.combatStatusMode !== "true") return;
+    const settings = target.closest(".combatStatusDurationSettings");
+    const durationInput = settings?.querySelector(".combatStatusDurationInput");
+    if (durationInput instanceof HTMLInputElement) syncStatusDurationInput(target, durationInput);
   };
 
   /**
@@ -714,6 +964,7 @@ export function initCombatPage(deps = {}) {
   runShellInit("Combat panel collapse", () => initCombatPanelCollapse({ state, SaveManager, root }));
   cardsShell.addEventListener("click", handleCombatCardClick, { signal });
   cardsShell.addEventListener("change", handleCombatRoleChange, { signal });
+  cardsShell.addEventListener("change", handleStatusModeChange, { signal });
   turnSecondsInput.addEventListener("change", handleSecondsChange, { signal });
   turnSecondsInput.addEventListener("blur", handleSecondsChange, { signal });
   nextTurnBtn.addEventListener("click", () => {

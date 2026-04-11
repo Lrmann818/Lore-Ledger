@@ -151,8 +151,22 @@ describe("combat page shell helpers", () => {
         tempHp: 4,
         hasTempHp: true,
         statusEffects: [
-          { id: "s_1", label: "Haste", detail: "(6s)", expired: false },
-          { id: "s_2", label: "Bless", detail: "(0 rd)", expired: true }
+          {
+            id: "s_1",
+            label: "Haste",
+            detail: "(6s)",
+            durationMode: "time",
+            durationInputValue: "6",
+            expired: false
+          },
+          {
+            id: "s_2",
+            label: "Bless",
+            detail: "(0 rd)",
+            durationMode: "rounds",
+            durationInputValue: "0",
+            expired: true
+          }
         ]
       })
     ]);

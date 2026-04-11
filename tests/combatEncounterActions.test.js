@@ -1,12 +1,15 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  addCombatParticipantStatusEffect,
   advanceCombatTurn,
   applyCombatParticipantHpAction,
   clearCombat,
   moveCombatParticipant,
+  removeCombatParticipantStatusEffect,
   removeCombatParticipant,
   setCombatParticipantRole,
+  updateCombatParticipantStatusEffect,
   undoCombatTurn
 } from "../js/domain/combatEncounterActions.js";
 import {
@@ -106,6 +109,85 @@ describe("combat encounter actions", () => {
     });
   });
 
+  it("adds, edits, and removes participant statuses while writing back only canonical status text", () => {
+    const state = makeState();
+
+    const added = addCombatParticipantStatusEffect(
+      state,
+      "cmb_1",
+      { label: "Bless", durationMode: "rounds", remaining: 2 },
+      { id: "s_bless", now: "2026-04-11T12:03:00.000Z" }
+    );
+
+    expect(added).toMatchObject({
+      changed: true,
+      wroteCanonical: true,
+      effect: {
+        id: "s_bless",
+        label: "Bless",
+        durationMode: "rounds",
+        remaining: 2,
+        expired: false
+      }
+    });
+    expect(state.combat.encounter.participants[0].statusEffects.map((effect) => effect.label)).toEqual([
+      "Haste",
+      "Bless"
+    ]);
+    expect(state.combat.encounter.participants[1].statusEffects).toEqual([]);
+    expect(state.tracker.npcs[0]).toMatchObject({
+      name: "Bandit",
+      hpCurrent: 10,
+      hpMax: 12,
+      tempHp: 3,
+      notes: "canonical notes stay put",
+      status: "Haste, Bless"
+    });
+
+    const edited = updateCombatParticipantStatusEffect(
+      state,
+      "cmb_1",
+      "s_bless",
+      { label: "Blessed", durationMode: "time", remaining: 0 },
+      { now: "2026-04-11T12:04:00.000Z" }
+    );
+
+    expect(edited).toMatchObject({
+      changed: true,
+      wroteCanonical: true,
+      effect: {
+        id: "s_bless",
+        label: "Blessed",
+        durationMode: "time",
+        remaining: 0,
+        expired: true
+      }
+    });
+    expect(state.tracker.npcs[0].status).toBe("Haste, Blessed");
+
+    const removed = removeCombatParticipantStatusEffect(state, "cmb_1", "s_time", {
+      now: "2026-04-11T12:05:00.000Z"
+    });
+
+    expect(removed).toMatchObject({
+      changed: true,
+      wroteCanonical: true,
+      removed: expect.objectContaining({ id: "s_time", label: "Haste" })
+    });
+    expect(state.combat.encounter.participants[0].statusEffects.map((effect) => effect.label)).toEqual(["Blessed"]);
+    expect(state.tracker.npcs[0].status).toBe("Blessed");
+  });
+
+  it("rejects status changes without labels", () => {
+    const state = makeState();
+
+    const result = addCombatParticipantStatusEffect(state, "cmb_1", { label: "  ", durationMode: "time", remaining: 12 });
+
+    expect(result).toMatchObject({ changed: false, wroteCanonical: false, effect: null });
+    expect(state.combat.encounter.participants[0].statusEffects).toHaveLength(1);
+    expect(state.tracker.npcs[0].status).toBe("Poisoned");
+  });
+
   it("keeps role overrides and order changes encounter-only", () => {
     const state = makeState();
 
@@ -136,6 +218,9 @@ describe("combat encounter actions", () => {
   it("advances and undoes turn timing through the Slice 2 helper model", () => {
     const state = makeState();
     state.combat.encounter.activeParticipantId = "cmb_2";
+    state.combat.encounter.participants[1].statusEffects = [
+      makeStatusEffect({ id: "s_round", label: "Shield", durationMode: "rounds", remaining: 1 })
+    ];
 
     const advanced = advanceCombatTurn(state, {
       now: "2026-04-11T12:02:00.000Z",
@@ -157,6 +242,11 @@ describe("combat encounter actions", () => {
       remaining: 6,
       expired: false
     });
+    expect(state.combat.encounter.participants[1].statusEffects[0]).toMatchObject({
+      id: "s_round",
+      remaining: 0,
+      expired: true
+    });
     expect(state.combat.encounter.undoStack).toHaveLength(1);
 
     state.combat.encounter.participants[0].hpCurrent = 1;
@@ -174,6 +264,11 @@ describe("combat encounter actions", () => {
       statusEffects: [
         expect.objectContaining({ id: "s_time", remaining: 12, expired: false })
       ]
+    });
+    expect(state.combat.encounter.participants[1].statusEffects[0]).toMatchObject({
+      id: "s_round",
+      remaining: 1,
+      expired: false
     });
   });
 

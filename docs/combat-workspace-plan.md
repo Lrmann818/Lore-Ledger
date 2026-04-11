@@ -4,7 +4,7 @@
 
 - **Phase:** 3 — Combat Workspace
 - **Overall status:** In progress
-- **Current next slice:** Slice 6 — Status effects UI
+- **Current next slice:** Slice 7 — Embedded panels
 
 ---
 
@@ -456,7 +456,7 @@ Field names may evolve slightly to fit repo conventions, but the explicit `works
 
 ### Slice 6 — Status effects UI
 
-**Status:** Planned
+**Status:** Done
 
 #### Scope
 
@@ -464,6 +464,35 @@ Field names may evolve slightly to fit repo conventions, but the explicit `works
 - duration gear/settings UI
 - expired styling
 - hook status timing into turn controls
+
+#### Completed notes
+
+- added explicit combat-card status effect add, edit, and remove controls
+- added duration settings controls for the locked `none`, `rounds`, and `time` modes
+- kept status effects label-required and defensively normalized
+- rendered expired timed effects as visible zero-duration effects instead of auto-removing them
+- reused Slice 2 timing helpers through existing Next Turn / Undo flows so timed status state advances and restores with turn history
+- kept canonical status writeback narrow by mirroring direct combat status edits to existing tracker status text only
+- preserved duplicate participant independence inside the encounter
+
+#### Files changed in Slice 6
+
+- `js/domain/combatEncounterActions.js`
+- `js/pages/combat/combatPage.js`
+- `styles.css`
+- `tests/combatEncounterActions.test.js`
+- `tests/combatPage.test.js`
+- `tests/smoke/combatShell.smoke.js`
+- `docs/combat-workspace-plan.md`
+
+#### Verification completed for Slice 6
+
+- targeted Combat unit tests passed
+- targeted Combat smoke tests passed
+- full unit test suite passed
+- full browser smoke suite passed
+- typecheck passed
+- build passed
 
 ---
 
