@@ -81,6 +81,7 @@ import { initTopTabsNavigation } from "./js/ui/navigation.js";
 import { createPopoverManager } from "./js/ui/popovers.js";
 import { initTopbarUI } from "./js/ui/topbar/topbar.js";
 import { createThemeManager } from "./js/ui/theme.js";
+import { playHubOpenSoundForState } from "./js/audio/hubOpenSound.js";
 
 import { setupSettingsPanel } from "./js/ui/settingsPanel.js";
 import { initTrackerPage } from "./js/pages/tracker/trackerPage.js";
@@ -523,7 +524,10 @@ const NOOP_HUB_PAGE_API = {
 
   const hasActiveCampaign = () => !!appState.appShell?.activeCampaignId;
   const isCampaignContentTab = (tabName) => ["tracker", "combat", "character", "map"].includes(tabName);
-  const canActivateTab = (tabName) => !isCampaignContentTab(tabName) || hasActiveCampaign();
+  const canActivateTab = (tabName) => {
+    if (tabName === "hub") return !hasActiveCampaign();
+    return !isCampaignContentTab(tabName) || hasActiveCampaign();
+  };
   const getDefaultLandingTab = () => (hasActiveCampaign() ? "tracker" : "hub");
 
   const ensureVaultRuntime = () => {
@@ -732,7 +736,10 @@ const NOOP_HUB_PAGE_API = {
         setStatus: StatusApi.setStatus,
         activeTabStorageKey: ACTIVE_TAB_KEY,
         defaultTab: getDefaultLandingTab(),
-        canActivateTab
+        canActivateTab,
+        onHubEntry: () => {
+          void playHubOpenSoundForState(appState);
+        }
       });
     } catch (err) {
       _reportModuleInitError("Top navigation", err);

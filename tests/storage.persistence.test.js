@@ -130,6 +130,7 @@ describe("multi-campaign persistence foundation", () => {
 
     const stored = JSON.parse(getStoredValue());
     expect(stored.vaultVersion).toBe(1);
+    expect(stored.app.preferences.playHubOpenSound).toBe(false);
     expect(stored.appShell.activeCampaignId).toBe(activeCampaignId);
     expect(stored.appShell.ui.theme).toBe("light");
     expect(stored.campaignIndex.entries[activeCampaignId]).toMatchObject({
@@ -240,6 +241,7 @@ describe("multi-campaign persistence foundation", () => {
 
     expect(ok).toBe(true);
     expect(state.appShell.activeCampaignId).toBe("campaign_beta");
+    expect(state.app.preferences.playHubOpenSound).toBe(false);
     expect(state.tracker.campaignTitle).toBe("Beta Canon");
     expect(state.tracker.misc).toBe("beta");
     expect(state.ui.theme).toBe("dark");
@@ -292,6 +294,7 @@ describe("multi-campaign persistence foundation", () => {
     });
 
     expect(vault.appShell.activeCampaignId).toBe("campaign_valid");
+    expect(vault.app.preferences.playHubOpenSound).toBe(false);
     expect(vault.campaignIndex.order).toEqual(["campaign_valid", "campaign_doc_only"]);
     expect(vault.campaignIndex.entries.campaign_broken).toBeUndefined();
     expect(vault.campaignDocs.campaign_broken).toBeUndefined();
@@ -458,6 +461,7 @@ describe("multi-campaign persistence foundation", () => {
     state.tracker.campaignTitle = "Scratch Campaign";
     state.tracker.misc = "scratch only";
     state.ui.theme = "dark";
+    state.app.preferences.playHubOpenSound = true;
 
     expect(saveAllLocal({
       storageKey: "test-storage",
@@ -473,6 +477,50 @@ describe("multi-campaign persistence foundation", () => {
     expect(stored.campaignDocs.campaign_saved.tracker.campaignTitle).toBe("Saved Campaign");
     expect(stored.campaignDocs.campaign_saved.tracker.misc).toBe("keep me");
     expect(stored.appShell.ui.theme).toBe("dark");
+    expect(stored.app.preferences.playHubOpenSound).toBe(true);
+  });
+
+  it("keeps app preferences app-scoped when switching between campaigns", () => {
+    installLocalStorageMock();
+    const state = makeState();
+    const vaultRuntime = { current: null };
+
+    state.appShell.activeCampaignId = "campaign_alpha";
+    state.tracker.campaignTitle = "Alpha";
+    state.app.preferences.playHubOpenSound = true;
+
+    expect(saveAllLocal({
+      storageKey: "test-storage",
+      state,
+      migrateState,
+      sanitizeForSave,
+      vaultRuntime
+    })).toBe(true);
+
+    state.appShell.activeCampaignId = "campaign_beta";
+    state.tracker.campaignTitle = "Beta";
+    state.app.preferences.playHubOpenSound = false;
+
+    expect(saveAllLocal({
+      storageKey: "test-storage",
+      state,
+      migrateState,
+      sanitizeForSave,
+      vaultRuntime
+    })).toBe(true);
+
+    switchCampaign({
+      state,
+      vaultRuntime,
+      campaignId: "campaign_alpha",
+      migrateState,
+      sanitizeForSave
+    });
+
+    expect(state.app.preferences.playHubOpenSound).toBe(false);
+    expect(vaultRuntime.current.app.preferences.playHubOpenSound).toBe(false);
+    expect(vaultRuntime.current.campaignDocs.campaign_alpha.app).toBeUndefined();
+    expect(vaultRuntime.current.campaignDocs.campaign_beta.app).toBeUndefined();
   });
 
   it("creates a new campaign with canonical metadata and default document content", () => {

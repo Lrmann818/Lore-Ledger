@@ -410,6 +410,20 @@ export const SCHEMA_MIGRATION_HISTORY = Object.freeze([
 
 /**
  * @typedef {{
+ *   playHubOpenSound: boolean,
+ *   [key: string]: unknown
+ * }} AppPreferencesState
+ */
+
+/**
+ * @typedef {{
+ *   preferences: AppPreferencesState,
+ *   [key: string]: unknown
+ * }} AppRuntimeState
+ */
+
+/**
+ * @typedef {{
  *   theme: string,
  *   textareaHeights: NumberLookup,
  *   panelCollapsed: BooleanLookup,
@@ -426,6 +440,7 @@ export const SCHEMA_MIGRATION_HISTORY = Object.freeze([
  *   map: MapState,
  *   combat: CombatState,
  *   ui: RootUiState,
+ *   app: AppRuntimeState,
  *   appShell: AppShellState,
  *   [key: string]: unknown
  * }} State
@@ -439,6 +454,7 @@ export const SCHEMA_MIGRATION_HISTORY = Object.freeze([
  *   map: PersistedMapState,
  *   combat: CombatState | undefined,
  *   ui: PersistedUiState,
+ *   app: AppRuntimeState,
  *   [key: string]: unknown
  * }} SanitizedState
  */
@@ -561,6 +577,11 @@ export const state = {
     }
   },
   ui: { theme: "system", textareaHeights: {}, panelCollapsed: {} },
+  app: {
+    preferences: {
+      playHubOpenSound: false
+    }
+  },
   appShell: { activeCampaignId: null }
 };
 
@@ -570,6 +591,40 @@ const DICE_LAST_DEFAULTS = Object.freeze({
   mod: 0,
   mode: "normal"
 });
+
+const APP_PREFERENCES_DEFAULTS = Object.freeze({
+  playHubOpenSound: false
+});
+
+/**
+ * @param {unknown} value
+ * @returns {value is Record<string, unknown>}
+ */
+function isPlainObject(value) {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+/**
+ * @param {unknown} rawPreferences
+ * @returns {AppPreferencesState}
+ */
+function normalizeAppPreferences(rawPreferences) {
+  const preferences = isPlainObject(rawPreferences) ? { ...rawPreferences } : {};
+  preferences.playHubOpenSound = preferences.playHubOpenSound === true
+    ? true
+    : APP_PREFERENCES_DEFAULTS.playHubOpenSound;
+  return /** @type {AppPreferencesState} */ (preferences);
+}
+
+/**
+ * @param {unknown} rawApp
+ * @returns {AppRuntimeState}
+ */
+export function normalizeAppState(rawApp) {
+  const app = isPlainObject(rawApp) ? { ...rawApp } : {};
+  app.preferences = normalizeAppPreferences(app.preferences);
+  return /** @type {AppRuntimeState} */ (app);
+}
 
 function clampDiceSides(value) {
   const n = Math.trunc(Number(value));
@@ -588,6 +643,8 @@ function normalizeDiceMode(mode) {
  * @returns {State}
  */
 export function normalizeState(data) {
+  data.app = normalizeAppState(data.app);
+
   if (!data.appShell || typeof data.appShell !== "object" || Array.isArray(data.appShell)) {
     data.appShell = { activeCampaignId: null };
   }
@@ -671,13 +728,16 @@ export function sanitizeForSave(source, opts = {}) {
     }
   }
 
+  const serializableApp = normalizeAppState(input.app);
+
   return {
     schemaVersion: input.schemaVersion ?? currentSchemaVersion,
     tracker: /** @type {TrackerState | undefined} */ (serializableTracker),
     character: /** @type {CharacterState | undefined} */ (serializableCharacter),
     map: /** @type {PersistedMapState} */ (serializableMap),
     combat: /** @type {CombatState | undefined} */ (serializableCombat),
-    ui: /** @type {PersistedUiState} */ (serializableUi)
+    ui: /** @type {PersistedUiState} */ (serializableUi),
+    app: serializableApp
   };
 }
 

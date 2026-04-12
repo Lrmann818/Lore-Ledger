@@ -108,6 +108,7 @@ describe("migrateState", () => {
       expect(migrated.map.activeMapId).toBeNull();
       expect(migrated.map.ui).toEqual({ activeTool: "brush", brushSize: 6 });
       expect(migrated.combat).toEqual(DEFAULT_COMBAT_STATE);
+      expect(migrated.app.preferences.playHubOpenSound).toBe(false);
       expect(migrated.ui).toEqual(
         expect.objectContaining({
           theme: "dark",
@@ -313,6 +314,36 @@ describe("migrateState", () => {
         { title: "Inventory", notes: "Pack" }
       ]);
       expect(migrated.combat).toEqual(DEFAULT_COMBAT_STATE);
+      expect(migrated.app.preferences.playHubOpenSound).toBe(false);
+    });
+
+    it("sanitizes existing app preferences without treating missing legacy values as enabled", () => {
+      const missing = migrateState({
+        schemaVersion: CURRENT_SCHEMA_VERSION,
+        app: {}
+      });
+      const malformed = migrateState({
+        schemaVersion: CURRENT_SCHEMA_VERSION,
+        app: {
+          preferences: {
+            playHubOpenSound: "yes",
+            retainedPreference: "keep"
+          }
+        }
+      });
+      const enabled = migrateState({
+        schemaVersion: CURRENT_SCHEMA_VERSION,
+        app: {
+          preferences: {
+            playHubOpenSound: true
+          }
+        }
+      });
+
+      expect(missing.app.preferences.playHubOpenSound).toBe(false);
+      expect(malformed.app.preferences.playHubOpenSound).toBe(false);
+      expect(malformed.app.preferences.retainedPreference).toBe("keep");
+      expect(enabled.app.preferences.playHubOpenSound).toBe(true);
     });
 
     it("accepts future schema versions as-is and only normalizes load-time UI state", () => {

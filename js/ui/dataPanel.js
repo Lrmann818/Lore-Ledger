@@ -19,6 +19,7 @@ import { requireMany } from "../utils/domGuards.js";
 import { initPwaUpdates } from "../pwa/updates.js";
 import { showUpdateBanner } from "../pwa/updateBanner.js";
 import { getStorageDiagnostics } from "../storage/diagnostics.js";
+import { normalizeAppState } from "../state.js";
 
 /** @typedef {import("../state.js").State} State */
 /** @typedef {ReturnType<typeof import("../ui/popovers.js").createPopoverManager>} PopoversApi */
@@ -87,6 +88,15 @@ function ensureRootUiState(state) {
     state.ui.theme = "system";
   }
   return state.ui;
+}
+
+/**
+ * @param {State} state
+ * @returns {State["app"]["preferences"]}
+ */
+function ensureAppPreferences(state) {
+  state.app = normalizeAppState(state.app);
+  return state.app.preferences;
 }
 
 /**
@@ -164,6 +174,8 @@ export function initDataPanel(deps) {
   };
 
   const themeSelect = /** @type {HTMLSelectElement|null} */ (document.getElementById("dataPanelThemeSelect"));
+  const playHubOpenSoundToggle = /** @type {HTMLInputElement|null} */ (document.getElementById("dataPlayHubOpenSoundToggle"));
+  const settingsBtn = /** @type {HTMLElement|null} */ (document.getElementById("settingsBtn"));
 
   // Populate the Theme dropdown groups once.
   if (themeSelect && !themeSelect.dataset.built) {
@@ -189,6 +201,7 @@ export function initDataPanel(deps) {
   function open() {
     lockScroll();
     syncCampaignSection();
+    syncPreferences();
     overlay.hidden = false;
     overlay.setAttribute("aria-hidden", "false");
     // Sync theme select
@@ -206,14 +219,50 @@ export function initDataPanel(deps) {
     (closeBtn || panel).focus?.();
   }
 
-  function close() {
+  /**
+   * @param {unknown} value
+   * @returns {boolean}
+   */
+  function isInsideOverlay(value) {
+    try {
+      return !!value && typeof overlay.contains === "function" && overlay.contains(/** @type {Node} */ (value));
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /**
+   * @param {HTMLElement | null | undefined} fallback
+   * @returns {void}
+   */
+  function moveFocusOutOfOverlay(fallback) {
+    const active = /** @type {(Element & { blur?: () => void }) | null} */ (document.activeElement);
+    if (!isInsideOverlay(active)) return;
+
+    const target = fallback || settingsBtn || document.body;
+    try {
+      target?.focus?.({ preventScroll: true });
+    } catch (_) {
+      target?.focus?.();
+    }
+
+    if (isInsideOverlay(document.activeElement)) {
+      active?.blur?.();
+    }
+  }
+
+  /**
+   * @param {{ focusFallback?: HTMLElement | null }} [opts]
+   */
+  function close({ focusFallback = settingsBtn || document.body } = {}) {
+    moveFocusOutOfOverlay(focusFallback);
     unlockScroll();
     overlay.hidden = true;
     overlay.setAttribute("aria-hidden", "true");
   }
 
   // Close interactions
-  if (closeBtn) addListener(closeBtn, "click", close);
+  if (closeBtn) addListener(closeBtn, "click", () => close());
   addListener(overlay, "click", (e) => {
     if (e.target === overlay) close();
   });
@@ -287,6 +336,11 @@ export function initDataPanel(deps) {
     settingsUpdateStatus.textContent = message;
   };
 
+  const syncPreferences = () => {
+    if (!playHubOpenSoundToggle) return;
+    playHubOpenSoundToggle.checked = !!ensureAppPreferences(state).playHubOpenSound;
+  };
+
   const syncCampaignSection = () => {
     const activeCampaignId = typeof state?.appShell?.activeCampaignId === "string"
       ? state.appShell.activeCampaignId.trim()
@@ -302,13 +356,21 @@ export function initDataPanel(deps) {
   let updatesApi = null;
 
   syncCampaignSection();
+  syncPreferences();
+
+  if (playHubOpenSoundToggle) {
+    addListener(playHubOpenSoundToggle, "change", () => {
+      ensureAppPreferences(state).playHubOpenSound = !!playHubOpenSoundToggle.checked;
+      markDirty();
+    });
+  }
 
   if (exportBtn) addListener(exportBtn, "click", () => exportBackup());
   if (importFile) addListener(importFile, "change", (e) => importBackup(e));
   if (openHubBtn) addListener(openHubBtn, "click",
     safeAsync(async () => {
       if (typeof openCampaignHub !== "function") return;
-      close();
+      close({ focusFallback: document.body });
       await openCampaignHub();
     }, (err) => {
       console.error(err);

@@ -21,7 +21,8 @@ import { createStateActions } from "../domain/stateActions.js";
  *   pageIdPrefix?: string,
  *   defaultTab?: string,
  *   updateHash?: boolean,
- *   canActivateTab?: (tabName: string) => boolean
+ *   canActivateTab?: (tabName: string) => boolean,
+ *   onHubEntry?: () => void
  * }} TopTabsNavigationDeps
  */
 /**
@@ -67,7 +68,8 @@ export function initTopTabsNavigation(deps = {}) {
     pageIdPrefix = "page-",
     defaultTab = "hub",
     updateHash = true,
-    canActivateTab = () => true
+    canActivateTab = () => true,
+    onHubEntry
   } = deps;
 
   if (typeof activeTopTabsNavigationDestroy === "function") {
@@ -91,6 +93,7 @@ export function initTopTabsNavigation(deps = {}) {
   const ac = new AbortController();
   const { signal } = ac;
   let destroyed = false;
+  let currentActiveTab = "";
 
   // Build the page registry from the DOM so adding pages is declarative.
   /** @type {Record<string, HTMLElement>} */
@@ -101,6 +104,10 @@ export function initTopTabsNavigation(deps = {}) {
     const el = document.getElementById(`${pageIdPrefix}${name}`);
     if (el) pages[name] = el;
   });
+  if (defaultTab && !pages[defaultTab]) {
+    const defaultPage = document.getElementById(`${pageIdPrefix}${defaultTab}`);
+    if (defaultPage) pages[defaultTab] = defaultPage;
+  }
   if (!Object.keys(pages).length) {
     const message = "Top navigation unavailable (no matching page sections found).";
     if (typeof setStatus === "function") setStatus(message, { stickyMs: 5000 });
@@ -200,6 +207,10 @@ export function initTopTabsNavigation(deps = {}) {
 
     if (!active) return;
 
+    const previousActiveTab = currentActiveTab;
+    const activeChanged = active !== previousActiveTab;
+    currentActiveTab = active;
+
     if (actions) {
       actions.setPath(["ui", "activeTab"], active, { queueSave: false });
     }
@@ -208,6 +219,9 @@ export function initTopTabsNavigation(deps = {}) {
     persistActiveTab(active);
 
     setHash(active);
+    if (activeChanged && active === "hub" && typeof onHubEntry === "function") {
+      onHubEntry();
+    }
     if (doMarkDirty && typeof markDirty === "function") markDirty();
   }
 

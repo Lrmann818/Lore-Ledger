@@ -38,6 +38,7 @@ export const LEGACY_MIGRATION_CAMPAIGN_ID = "campaign_legacy";
 /**
  * @typedef {{
  *   vaultVersion: number,
+ *   app: SanitizedState["app"],
  *   appShell: VaultAppShell,
  *   campaignIndex: {
  *     order: string[],
@@ -136,12 +137,32 @@ function createDefaultVaultUi(migrateState, sanitizeForSave) {
 /**
  * @param {typeof import("../state.js").migrateState} migrateState
  * @param {typeof import("../state.js").sanitizeForSave} sanitizeForSave
+ * @returns {SanitizedState["app"]}
+ */
+function createDefaultVaultApp(migrateState, sanitizeForSave) {
+  return clone(sanitizeForSave(migrateState(undefined)).app);
+}
+
+/**
+ * @param {typeof import("../state.js").migrateState} migrateState
+ * @param {typeof import("../state.js").sanitizeForSave} sanitizeForSave
  * @param {unknown} rawUi
  * @returns {SanitizedState["ui"]}
  */
 export function normalizeVaultUi(migrateState, sanitizeForSave, rawUi) {
   const seeded = migrateState({ ui: isPlainObject(rawUi) ? rawUi : {} });
   return clone(sanitizeForSave(seeded).ui);
+}
+
+/**
+ * @param {typeof import("../state.js").migrateState} migrateState
+ * @param {typeof import("../state.js").sanitizeForSave} sanitizeForSave
+ * @param {unknown} rawApp
+ * @returns {SanitizedState["app"]}
+ */
+export function normalizeVaultApp(migrateState, sanitizeForSave, rawApp) {
+  const seeded = migrateState({ app: isPlainObject(rawApp) ? rawApp : {} });
+  return clone(sanitizeForSave(seeded).app);
 }
 
 /**
@@ -228,6 +249,7 @@ export function resolveActiveCampaignId(vault, preferredId = vault?.appShell?.ac
 export function createEmptyVault(migrateState, sanitizeForSave) {
   return {
     vaultVersion: VAULT_VERSION,
+    app: createDefaultVaultApp(migrateState, sanitizeForSave),
     appShell: {
       activeCampaignId: null,
       ui: createDefaultVaultUi(migrateState, sanitizeForSave)
@@ -301,6 +323,7 @@ export function normalizeCampaignVault(rawVault, deps) {
   }
 
   const rawAppShell = isPlainObject(rawVault.appShell) ? rawVault.appShell : {};
+  const rawApp = isPlainObject(rawVault.app) ? rawVault.app : rawAppShell.app;
   const rawCampaignIndex = isPlainObject(rawVault.campaignIndex) ? rawVault.campaignIndex : {};
   const rawEntries = isPlainObject(rawCampaignIndex.entries) ? rawCampaignIndex.entries : {};
   const rawDocs = isPlainObject(rawVault.campaignDocs) ? rawVault.campaignDocs : {};
@@ -358,6 +381,7 @@ export function normalizeCampaignVault(rawVault, deps) {
       ? null
       : resolveActiveCampaignId({
         vaultVersion: VAULT_VERSION,
+        app: defaultVault.app,
         appShell: { activeCampaignId: null, ui: defaultVault.appShell.ui },
         campaignIndex: { order, entries },
         campaignDocs: docs
@@ -366,6 +390,7 @@ export function normalizeCampaignVault(rawVault, deps) {
   return {
     vault: {
       vaultVersion: VAULT_VERSION,
+      app: normalizeVaultApp(migrateState, sanitizeForSave, rawApp),
       appShell: {
         activeCampaignId,
         ui: normalizeVaultUi(migrateState, sanitizeForSave, rawAppShell.ui)
@@ -392,6 +417,7 @@ export function replaceRuntimeState(target, source) {
   target.map = source.map;
   target.combat = source.combat;
   target.ui = source.ui;
+  target.app = source.app;
   target.appShell = source.appShell;
 }
 
@@ -457,11 +483,13 @@ export function deleteCampaignFromVault(vault, campaignId) {
 export function projectActiveCampaignState(vault, migrateState) {
   const activeCampaignId = resolveActiveCampaignId(vault, vault?.appShell?.activeCampaignId);
   const appShellUi = clone(vault?.appShell?.ui || sanitizeUiFallback(migrateState));
+  const appState = clone(vault?.app || sanitizeAppFallback(migrateState));
   const runtimeUi = migrateState({ ui: appShellUi }).ui;
   const base = migrateState(undefined);
 
   if (!activeCampaignId) {
     base.ui = runtimeUi;
+    base.app = migrateState({ app: appState }).app;
     base.appShell = { activeCampaignId: null };
     base.map.undo = [];
     base.map.redo = [];
@@ -476,7 +504,8 @@ export function projectActiveCampaignState(vault, migrateState) {
     character: doc.character,
     map: doc.map,
     combat: doc.combat,
-    ui: appShellUi
+    ui: appShellUi,
+    app: appState
   });
   runtime.appShell = { activeCampaignId };
   runtime.map.undo = [];
@@ -491,6 +520,14 @@ export function projectActiveCampaignState(vault, migrateState) {
  */
 function sanitizeUiFallback(migrateState) {
   return clone(migrateState(undefined).ui);
+}
+
+/**
+ * @param {typeof import("../state.js").migrateState} migrateState
+ * @returns {SanitizedState["app"]}
+ */
+function sanitizeAppFallback(migrateState) {
+  return clone(migrateState(undefined).app);
 }
 
 /**
@@ -520,6 +557,7 @@ export function persistRuntimeStateToVault(vault, state, deps) {
     activeCampaignId,
     ui: clone(sanitized.ui)
   };
+  nextVault.app = clone(sanitized.app);
 
   if (!activeCampaignId) {
     return nextVault;
@@ -595,6 +633,7 @@ export function wrapLegacyStateInVault(deps) {
   return {
     vault: {
       vaultVersion: VAULT_VERSION,
+      app: clone(sanitizeForSave(migrated).app),
       appShell: {
         activeCampaignId,
         ui: clone(sanitizeForSave(migrated).ui)

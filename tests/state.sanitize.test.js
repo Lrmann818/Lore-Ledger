@@ -77,4 +77,32 @@ describe("sanitizeForSave", () => {
       undoStack: [{ type: "nextTurn" }]
     });
   });
+
+  it("includes sanitized app-level preferences without mutating live state", () => {
+    const state = makeState();
+    state.app.preferences.playHubOpenSound = true;
+
+    const sanitized = sanitizeForSave(state);
+
+    expect(sanitized.app).not.toBe(state.app);
+    expect(sanitized.app.preferences).toEqual({
+      playHubOpenSound: true
+    });
+
+    sanitized.app.preferences.playHubOpenSound = false;
+    expect(state.app.preferences.playHubOpenSound).toBe(true);
+  });
+
+  it("defaults missing app-level preferences to false in the save payload", () => {
+    const sanitized = sanitizeForSave({
+      schemaVersion: 3,
+      tracker: {},
+      character: {},
+      map: {},
+      combat: {},
+      ui: {}
+    });
+
+    expect(sanitized.app.preferences.playHubOpenSound).toBe(false);
+  });
 });

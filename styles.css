@@ -2297,6 +2297,14 @@ label.settingsItem {
   gap: 8px;
 }
 
+.settingsToggleItem {
+  min-height: 36px;
+}
+
+.settingsToggleItem input[type="checkbox"] {
+  flex: 0 0 auto;
+}
+
 .settingsItem:hover {
   background: var(--surface-3-hover);
 }
@@ -4846,7 +4854,8 @@ select.npcField:focus {
 
 .skillRow input[type="checkbox"],
 .abilityStat input[type="checkbox"],
-.skillMenuRow input[type="checkbox"] {
+.skillMenuRow input[type="checkbox"],
+.settingsToggleItem input[type="checkbox"] {
   appearance: none;
   -webkit-appearance: none;
   width: 14px;
@@ -4859,7 +4868,8 @@ select.npcField:focus {
 
 .skillRow input[type="checkbox"]:checked,
 .abilityStat input[type="checkbox"]:checked,
-.skillMenuRow input[type="checkbox"]:checked {
+.skillMenuRow input[type="checkbox"]:checked,
+.settingsToggleItem input[type="checkbox"]:checked {
   background: var(--skill-prof-dot);
   border-color: var(--skill-prof-dot);
 }

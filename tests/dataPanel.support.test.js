@@ -26,6 +26,13 @@ class FakeClassList {
     tokens.forEach((token) => this._values.delete(token));
   }
 
+  toggle(token, force) {
+    const shouldAdd = typeof force === "boolean" ? force : !this._values.has(token);
+    if (shouldAdd) this._values.add(token);
+    else this._values.delete(token);
+    return shouldAdd;
+  }
+
   contains(token) {
     return this._values.has(token);
   }
@@ -43,6 +50,7 @@ class FakeElement extends EventTarget {
     this.className = "";
     this.classList = new FakeClassList();
     this.attributes = new Map();
+    this.ownerDocument = null;
   }
 
   setAttribute(name, value) {
@@ -63,7 +71,23 @@ class FakeElement extends EventTarget {
     return nextValue;
   }
 
-  focus() {}
+  focus() {
+    if (this.ownerDocument) {
+      this.ownerDocument.activeElement = this;
+    }
+  }
+
+  blur() {
+    if (this.ownerDocument?.activeElement === this) {
+      this.ownerDocument.activeElement = this.ownerDocument.body;
+    }
+  }
+
+  contains(node) {
+    if (node === this) return true;
+    if (this.id !== "dataPanelOverlay") return false;
+    return node instanceof FakeElement && node.id.startsWith("data");
+  }
 }
 
 class FakeDocument extends EventTarget {
@@ -72,6 +96,11 @@ class FakeDocument extends EventTarget {
     this._elements = new Map(elements.map((element) => [element.id, element]));
     this.lastModified = "2026-04-08";
     this.body = new FakeElement("body");
+    this.activeElement = this.body;
+    this.body.ownerDocument = this;
+    elements.forEach((element) => {
+      element.ownerDocument = this;
+    });
   }
 
   getElementById(id) {
@@ -89,13 +118,16 @@ function installFakeDom() {
     new FakeElement("dataPanelOverlay"),
     new FakeElement("dataPanelPanel"),
     new FakeElement("dataPanelClose"),
+    new FakeElement("dataPlayHubOpenSoundToggleItem"),
+    new FakeElement("dataPlayHubOpenSoundToggle"),
     new FakeElement("dataCampaignSection"),
     new FakeElement("dataCampaignDivider"),
     new FakeElement("dataOpenHubBtn"),
     new FakeElement("dataReportBugBtn"),
     new FakeElement("dataCopyDebugInfoBtn"),
     new FakeElement("dataSupportMeta"),
-    new FakeElement("dataAboutBtn")
+    new FakeElement("dataAboutBtn"),
+    new FakeElement("settingsBtn")
   ];
   const document = new FakeDocument(elements);
   const location = {
@@ -117,7 +149,9 @@ function installFakeDom() {
   });
   Object.defineProperty(globalThis, "window", {
     value: {
-      matchMedia: vi.fn(() => ({ matches: false }))
+      matchMedia: vi.fn(() => ({ matches: false })),
+      scrollY: 0,
+      scrollTo: vi.fn()
     },
     configurable: true
   });
@@ -136,6 +170,8 @@ function installFakeDom() {
     navigator,
     campaignSection: document.getElementById("dataCampaignSection"),
     campaignDivider: document.getElementById("dataCampaignDivider"),
+    playHubOpenSoundToggleItem: document.getElementById("dataPlayHubOpenSoundToggleItem"),
+    playHubOpenSoundToggle: document.getElementById("dataPlayHubOpenSoundToggle"),
     openHubBtn: document.getElementById("dataOpenHubBtn"),
     reportBugBtn: document.getElementById("dataReportBugBtn"),
     copyDebugInfoBtn: document.getElementById("dataCopyDebugInfoBtn"),
@@ -147,6 +183,7 @@ function createDeps() {
   return {
     state: {
       appShell: { activeCampaignId: null },
+      app: { preferences: { playHubOpenSound: false } },
       ui: { activeTab: "tracker", theme: "system", textareaHeights: {}, panelCollapsed: {} },
       tracker: { ui: {} }
     },
@@ -314,5 +351,52 @@ describe("initDataPanel support actions", () => {
     expect(dom.campaignSection.hidden).toBe(true);
     expect(dom.campaignDivider.hidden).toBe(true);
     expect(dom.openHubBtn.disabled).toBe(true);
+  });
+
+  it("updates the app-scoped Hub intro music preference from the settings toggle", async () => {
+    const deps = createDeps();
+    const { initDataPanel } = await import("../js/ui/dataPanel.js");
+
+    initDataPanel(deps);
+
+    expect(dom.playHubOpenSoundToggle.checked).toBe(false);
+    expect(dom.playHubOpenSoundToggleItem.classList.contains("is-checked")).toBe(false);
+
+    dom.playHubOpenSoundToggle.checked = true;
+    dom.playHubOpenSoundToggle.dispatchEvent(new Event("change"));
+
+    expect(deps.state.app.preferences.playHubOpenSound).toBe(true);
+    expect(dom.playHubOpenSoundToggleItem.classList.contains("is-checked")).toBe(false);
+    expect(deps.markDirty).toHaveBeenCalledTimes(1);
+
+    deps.state.app.preferences.playHubOpenSound = false;
+    dom.playHubOpenSoundToggle.checked = true;
+
+    const panel = initDataPanel(deps);
+    panel.open?.();
+
+    expect(dom.playHubOpenSoundToggle.checked).toBe(false);
+    expect(dom.playHubOpenSoundToggleItem.classList.contains("is-checked")).toBe(false);
+  });
+
+  it("moves focus out of the settings modal before returning to the Campaign Hub", async () => {
+    const deps = createDeps();
+    deps.state.appShell.activeCampaignId = "campaign_alpha";
+    const { initDataPanel } = await import("../js/ui/dataPanel.js");
+
+    const panel = initDataPanel(deps);
+    panel.open?.();
+    dom.openHubBtn.focus();
+    expect(dom.document.activeElement).toBe(dom.openHubBtn);
+
+    dom.openHubBtn.dispatchEvent(new Event("click"));
+
+    await vi.waitFor(() => {
+      expect(deps.openCampaignHub).toHaveBeenCalledTimes(1);
+    });
+
+    expect(dom.document.activeElement).toBe(dom.document.body);
+    expect(dom.openHubBtn.getAttribute("aria-hidden")).toBeNull();
+    expect(dom.document.getElementById("dataPanelOverlay").getAttribute("aria-hidden")).toBe("true");
   });
 });
