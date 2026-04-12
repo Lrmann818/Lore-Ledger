@@ -498,7 +498,7 @@ Field names may evolve slightly to fit repo conventions, but the explicit `works
 
 ### Slice 7 — Embedded panels
 
-**Status:** In Progress
+**Status:** Done
 
 #### Scope
 
@@ -510,14 +510,15 @@ Field names may evolve slightly to fit repo conventions, but the explicit `works
 
 #### Completed notes
 
-- added panel picker in `#combatEmbeddedPanels` container (in `combatCol1` after the Round Controls panel)
+- added panel picker in `#combatEmbeddedPanels` container, which stays in the non-Combat Cards column after the Round Controls panel
 - picker renders add-buttons only for panels not yet active; disappears when all three are added
 - added collapsible embedded panel sections for Vitals, Spells, and Weapons / Attacks
-- each panel is a read-only view onto `state.character` — no copied data, no sync layers
-- panel content re-renders on `COMBAT_ENCOUNTER_CHANGED_EVENT` so HP writeback from combat cards stays live in Vitals
+- each embedded panel hosts the scoped Character-page source panel behavior against `state.character` — no copied data, no sync layers
+- Vitals resource tracking, Spells editing/toggles/notes, and Weapons / Attacks editing remain usable and source-faithful inside Combat Workspace
 - panel selection persists in `combat.workspace.embeddedPanels`; collapse state persists in `combat.workspace.panelCollapsed` under the `combatEmbeddedPanel_*` id prefix
 - duplicate panel prevention is enforced by `addEmbeddedPanel()` which rejects unknown and duplicate ids
-- embedded panel module (`combatEmbeddedPanels.js`) is self-contained; does not import Character-page panel modules
+- embedded panel reorder persists in `combat.workspace.embeddedPanels` and keeps FLIP swap animation behavior
+- embedded panel module (`combatEmbeddedPanels.js`) owns the Combat host chrome and initializes the scoped Character-page panel modules for source-faithful behavior
 
 #### Files changed in Slice 7
 
@@ -531,11 +532,12 @@ Field names may evolve slightly to fit repo conventions, but the explicit `works
 
 #### Verification completed for Slice 7
 
-- targeted embedded panel unit tests passed (35/35)
-- all existing combat unit tests passed
-- full unit test suite passed (207/207)
-- typecheck passed
+- targeted Combat/embedded panel unit tests passed (66/66)
+- targeted Combat shell smoke tests passed (9/9)
+- full unit test suite passed (223/223)
+- full browser smoke suite passed (33/33)
 - build passed
+- typecheck passed
 
 ---
 
