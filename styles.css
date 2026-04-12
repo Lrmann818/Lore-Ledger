@@ -1956,6 +1956,10 @@ body[data-shell-mode="hub"] main {
   min-width: 0;
 }
 
+#combatCardsPanel {
+  flex: 1 1 auto;
+}
+
 @media (max-width: 600px) {
   .charColumns {
     grid-template-columns: 1fr;
@@ -3116,19 +3120,18 @@ button.panelSelectBtn:hover {
   margin-top: 0;
 }
 
-.combatEmbeddedPanelChrome {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 8px;
-  min-height: var(--panel-control-h);
-  padding: 0 2px;
-}
-
 .combatEmbeddedMoves {
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+.combatEmbeddedPanelControls {
+  margin-left: auto;
+}
+
+.combatEmbeddedPanelControls>.headerAddBtn {
+  margin-left: 0;
 }
 
 .combatEmbeddedPanelBody {

@@ -4,8 +4,28 @@ import {
   openSmokeApp
 } from "./helpers/smokeApp.js";
 
-test("combat tab opens the shell panels and records shell layout state", async ({ page }) => {
+async function writeStoredCombatPanelOrder(page, panelOrder) {
+  // Campaign creation saves through the app's debounced SaveManager; let that
+  // initial write settle before seeding the persisted Combat workspace layout.
+  await page.waitForTimeout(700);
+  await expect.poll(async () => page.evaluate((nextPanelOrder) => {
+    const storageKey = "localCampaignTracker_v1";
+    const raw = window.localStorage.getItem(storageKey);
+    const vault = raw ? JSON.parse(raw) : null;
+    const activeCampaignId = vault?.appShell?.activeCampaignId;
+    if (!activeCampaignId || !vault?.campaignDocs?.[activeCampaignId]?.combat?.workspace) return false;
+    vault.campaignDocs[activeCampaignId].combat.workspace.panelOrder = nextPanelOrder;
+    window.localStorage.setItem(storageKey, JSON.stringify(vault));
+    return true;
+  }, panelOrder)).toBe(true);
+}
+
+test("combat tab keeps Combat Cards as a movable full-column owner", async ({ page }) => {
   const fatalSignals = await openSmokeApp(page, { campaignName: "Combat Shell Smoke" });
+
+  await writeStoredCombatPanelOrder(page, ["combatRoundPanel", "combatCardsPanel"]);
+  await page.reload();
+  await expect(page.locator("main")).toBeVisible();
 
   await page.getByRole("tab", { name: "Combat" }).click();
   await expect(page.getByRole("tab", { name: "Combat" })).toHaveAttribute("aria-selected", "true");
@@ -22,14 +42,67 @@ test("combat tab opens the shell panels and records shell layout state", async (
   await expect(page.locator("#combatUndoBtn")).toBeDisabled();
   await expect(page.locator("#combatClearBtn")).toBeDisabled();
 
-  await page.locator("#combatCardsPanel .sectionMoves button[title='Move section down']").click();
+  await expect(page.locator("#combatCol1 > #combatCardsPanel")).toBeVisible();
+  await expect(page.locator("#combatCol0 > #combatRoundPanel")).toBeVisible();
+  await expect(page.locator("#combatCol0 > #combatEmbeddedPanels")).toBeAttached();
+  await expect(page.locator("#combatCol1 > #combatRoundPanel")).toHaveCount(0);
+  await expect(page.locator("#combatCol1 > #combatEmbeddedPanels")).toHaveCount(0);
+  await expect(page.locator("#combatCardsPanel .sectionMoves")).toHaveCount(1);
+  await expect(page.locator("#combatRoundPanel .sectionMoves")).toHaveCount(1);
   await expect.poll(() => page.evaluate(() => globalThis.__APP_STATE__?.combat?.workspace?.panelOrder))
     .toEqual(["combatRoundPanel", "combatCardsPanel"]);
+
+  await page.locator("#combatCardsPanel .sectionMoves button[title='Move section up']").click();
+  await expect(page.locator("#combatCol0 > #combatCardsPanel")).toBeVisible();
+  await expect(page.locator("#combatCol1 > #combatRoundPanel")).toBeVisible();
+  await expect(page.locator("#combatCol1 > #combatEmbeddedPanels")).toBeAttached();
+  await expect(page.locator("#combatCol0 > #combatRoundPanel")).toHaveCount(0);
+  await expect(page.locator("#combatCol0 > #combatEmbeddedPanels")).toHaveCount(0);
+  await expect.poll(() => page.evaluate(() => globalThis.__APP_STATE__?.combat?.workspace?.panelOrder))
+    .toEqual(["combatCardsPanel", "combatRoundPanel"]);
 
   await page.locator("#combatRoundPanel > .panelHeader").click();
   await expect(page.locator("#combatRoundPanel")).toHaveAttribute("aria-expanded", "false");
   await expect.poll(() => page.evaluate(() => globalThis.__APP_STATE__?.combat?.workspace?.panelCollapsed))
     .toEqual({ combatRoundPanel: true });
+
+  await expectNoFatalSignals(page, fatalSignals);
+});
+
+test("combat owned columns keep the intended mobile stacking order", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 820 });
+  const fatalSignals = await openSmokeApp(page, { campaignName: "Combat Mobile Layout Smoke" });
+
+  await writeStoredCombatPanelOrder(page, ["combatRoundPanel", "combatCardsPanel"]);
+  await page.reload();
+  await expect(page.locator("main")).toBeVisible();
+
+  await page.getByRole("tab", { name: "Combat" }).click();
+  await page.locator("[data-add-embedded-panel='vitals']").click();
+
+  const layout = await page.evaluate(() => {
+    const cards = document.getElementById("combatCardsPanel");
+    const round = document.getElementById("combatRoundPanel");
+    const embedded = document.getElementById("combatEmbeddedPanels");
+    const columns = document.getElementById("combatColumns");
+    return {
+      cardsParent: cards?.parentElement?.id || "",
+      roundParent: round?.parentElement?.id || "",
+      embeddedParent: embedded?.parentElement?.id || "",
+      columnsTemplate: columns ? getComputedStyle(columns).gridTemplateColumns : "",
+      cardsTop: cards?.getBoundingClientRect().top || 0,
+      roundTop: round?.getBoundingClientRect().top || 0,
+      embeddedTop: embedded?.getBoundingClientRect().top || 0
+    };
+  });
+
+  expect(layout.cardsParent).toBe("combatCol1");
+  expect(layout.roundParent).toBe("combatCol0");
+  expect(layout.embeddedParent).toBe("combatCol0");
+  expect(layout.columnsTemplate.trim().split(/\s+/)).toHaveLength(1);
+  expect(layout.cardsTop).toBeGreaterThan(layout.roundTop);
+  expect(layout.embeddedTop).toBeGreaterThan(layout.roundTop);
+  expect(layout.cardsTop).toBeGreaterThan(layout.embeddedTop);
 
   await expectNoFatalSignals(page, fatalSignals);
 });
@@ -371,6 +444,8 @@ test("combat workspace panel picker adds embedded panels, persists selection, pr
   // Add Vitals
   await page.locator("[data-add-embedded-panel='vitals']").click();
   await expect(page.locator("#combatEmbeddedPanel_vitals")).toBeVisible();
+  await expect(page.locator("#combatCol1 > #combatEmbeddedPanels > #combatEmbeddedPanel_vitals")).toBeVisible();
+  await expect(page.locator("#combatCol0 #combatEmbeddedPanel_vitals")).toHaveCount(0);
 
   // Vitals button disappears from picker (duplicate prevention)
   await expect(page.locator("[data-add-embedded-panel='vitals']")).not.toBeVisible();
@@ -387,7 +462,7 @@ test("combat workspace panel picker adds embedded panels, persists selection, pr
     page.evaluate(() => globalThis.__APP_STATE__?.combat?.workspace?.embeddedPanels)
   ).toEqual(["vitals", "spells"]);
 
-  // Reorder active embedded panels without affecting the locked core panels.
+  // Reorder active embedded panels without affecting the core column-owner panels.
   const moveAnimation = await page.evaluate(async () => {
     const button = document.querySelector("#combatEmbeddedPanel_spells [data-move-embedded-panel='-1']");
     if (!(button instanceof HTMLButtonElement)) return { transition: "", order: [] };
@@ -402,6 +477,9 @@ test("combat workspace panel picker adds embedded panels, persists selection, pr
   });
   expect(moveAnimation.transition).toContain("transform");
   expect(moveAnimation.order).toEqual(["spells", "vitals"]);
+  await expect(page.locator("#combatCol1 > #combatEmbeddedPanels > #combatEmbeddedPanel_spells")).toBeVisible();
+  await expect(page.locator("#combatCol1 > #combatEmbeddedPanels > #combatEmbeddedPanel_vitals")).toBeVisible();
+  await expect(page.locator("#combatCol0 [data-embedded-panel-id]")).toHaveCount(0);
   await expect.poll(() =>
     page.evaluate(() => globalThis.__APP_STATE__?.combat?.workspace?.embeddedPanels)
   ).toEqual(["spells", "vitals"]);
@@ -413,8 +491,12 @@ test("combat workspace panel picker adds embedded panels, persists selection, pr
     page.evaluate(() => globalThis.__APP_STATE__?.combat?.workspace?.panelOrder)
   ).toEqual(["combatCardsPanel", "combatRoundPanel"]);
 
-  // The embedded host keeps reorder/remove chrome separate from source headers.
+  // Reorder/remove controls live in the source panel header controls, not in
+  // separate floating host chrome.
   await expect(page.locator("#combatEmbeddedPanel_vitals > .panelHeader")).toHaveCount(0);
+  await expect(page.locator("#combatEmbeddedPanel_vitals > .combatEmbeddedPanelChrome")).toHaveCount(0);
+  await expect(page.locator("#combatEmbeddedPanel_vitals [data-panel-header] .panelControls [data-move-embedded-panel]")).toHaveCount(2);
+  await expect(page.locator("#combatEmbeddedPanel_vitals [data-panel-header] .panelControls [data-remove-embedded-panel='vitals']")).toBeVisible();
   await expect(page.locator("#combatEmbeddedPanel_vitals [data-toggle-embedded-panel]")).toHaveCount(0);
 
   // Remove the Vitals panel
@@ -469,7 +551,24 @@ test("combat embedded panels preserve source-panel interactions against canonica
   await expect(vitals.locator("#combatEmbeddedVitalsSource > .panelHeader h2")).toHaveText("Vitals");
   await expect(spells.locator("#combatEmbeddedSpellsSource > .row h2")).toHaveText("Spells");
   await expect(weapons.locator("#combatEmbeddedWeaponsSource > .row h2")).toHaveText("Weapons");
+  await expect(vitals.locator("#combatEmbeddedVitalsSource h2")).toHaveCount(1);
+  await expect(spells.locator("#combatEmbeddedSpellsSource h2")).toHaveCount(1);
+  await expect(weapons.locator("#combatEmbeddedWeaponsSource h2")).toHaveCount(1);
+  await expect(vitals.locator("#combatEmbeddedVitalsSource > [data-panel-header] .panelControls [data-move-embedded-panel]")).toHaveCount(2);
+  await expect(spells.locator("#combatEmbeddedSpellsSource > [data-panel-header] .panelControls [data-move-embedded-panel]")).toHaveCount(2);
+  await expect(weapons.locator("#combatEmbeddedWeaponsSource > [data-panel-header] .panelControls [data-move-embedded-panel]")).toHaveCount(2);
   await expect(page.locator("#combatEmbeddedPanels [data-toggle-embedded-panel]")).toHaveCount(0);
+
+  // Embedded panels collapse/expand from the real source header and persist via
+  // the existing combat workspace collapsed-state bucket.
+  await vitals.locator("#combatEmbeddedVitalsSource > [data-panel-header] h2").click();
+  await expect(vitals.locator("#combatEmbeddedVitalsSource")).toHaveAttribute("aria-expanded", "false");
+  await expect(vitals.locator("#combatEmbeddedVitalsTiles")).not.toBeVisible();
+  await expect.poll(() => page.evaluate(() => globalThis.__APP_STATE__?.combat?.workspace?.panelCollapsed))
+    .toEqual({ combatEmbeddedPanel_vitals: true });
+  await vitals.locator("#combatEmbeddedVitalsSource > [data-panel-header] h2").click();
+  await expect(vitals.locator("#combatEmbeddedVitalsSource")).toHaveAttribute("aria-expanded", "true");
+  await expect(vitals.locator("#combatEmbeddedVitalsTiles")).toBeVisible();
 
   // Vitals resource tracker interaction writes canonical character.resources.
   const resourceCountBefore = await page.evaluate(() => globalThis.__APP_STATE__?.character?.resources?.length ?? 0);

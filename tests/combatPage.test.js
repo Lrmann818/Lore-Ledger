@@ -11,10 +11,39 @@ import {
   getCombatRoundControlsViewModel,
   getCombatShellViewModel
 } from "../js/pages/combat/combatPage.js";
+import {
+  COMBAT_CARDS_PANEL_ID,
+  COMBAT_COLUMN_OWNER_PANEL_ORDER,
+  COMBAT_EMBEDDED_PANEL_HOST_ID,
+  COMBAT_ROUND_PANEL_ID,
+  normalizeCombatColumnOwnerPanelOrder
+} from "../js/pages/combat/combatSectionReorder.js";
 
 describe("combat page shell helpers", () => {
   it("defines the always-present core combat panels", () => {
     expect(COMBAT_CORE_PANEL_IDS).toEqual(["combatCardsPanel", "combatRoundPanel"]);
+  });
+
+  it("defines Combat Cards as the column-owning panel and keeps embedded panels with the other core panel", () => {
+    expect(COMBAT_CARDS_PANEL_ID).toBe("combatCardsPanel");
+    expect(COMBAT_ROUND_PANEL_ID).toBe("combatRoundPanel");
+    expect(COMBAT_EMBEDDED_PANEL_HOST_ID).toBe("combatEmbeddedPanels");
+    expect(COMBAT_COLUMN_OWNER_PANEL_ORDER).toEqual(["combatCardsPanel", "combatRoundPanel"]);
+  });
+
+  it("normalizes persisted combat core panel order while preserving the chosen Combat Cards side", () => {
+    expect(normalizeCombatColumnOwnerPanelOrder(["combatCardsPanel", "combatRoundPanel"]))
+      .toEqual(["combatCardsPanel", "combatRoundPanel"]);
+    expect(normalizeCombatColumnOwnerPanelOrder(["combatRoundPanel", "combatCardsPanel"]))
+      .toEqual(["combatRoundPanel", "combatCardsPanel"]);
+    expect(normalizeCombatColumnOwnerPanelOrder(["combatCardsPanel"]))
+      .toEqual(["combatCardsPanel", "combatRoundPanel"]);
+    expect(normalizeCombatColumnOwnerPanelOrder(["combatRoundPanel"]))
+      .toEqual(["combatRoundPanel", "combatCardsPanel"]);
+    expect(normalizeCombatColumnOwnerPanelOrder(["notesPanel", "combatRoundPanel"]))
+      .toEqual(["combatRoundPanel", "combatCardsPanel"]);
+    expect(normalizeCombatColumnOwnerPanelOrder(["combatCardsPanel", "notesPanel"]))
+      .toEqual(["combatCardsPanel", "combatRoundPanel"]);
   });
 
   it("formats elapsed encounter time for the shell timer", () => {
