@@ -9,7 +9,7 @@ The standard shipping path is:
 3. merge or push the release commit to `main`
 4. let GitHub Pages deploy the built `dist/` output through [`.github/workflows/pages.yml`](../.github/workflows/pages.yml)
 
-There is no dedicated release automation beyond the GitHub Pages workflow. Today that workflow runs `npm ci` and `npm run verify` in its `Verify and build` job before any Pages deploy, but releases still remain evidence-driven and still rely on manual validation alongside automated checks.
+There is no dedicated release automation beyond the GitHub Pages workflow. Today that workflow runs `npm ci`, `npm run verify`, installs Playwright Chromium, and runs `npm run test:smoke` in its `Verify and build` job before any Pages deploy, but releases still remain evidence-driven and still rely on manual validation alongside automated checks.
 
 ## 1. Release philosophy
 
@@ -27,12 +27,12 @@ User-visible app versioning is computed in [`vite.config.js`](../vite.config.js)
 - Production build version is computed as `MAJOR.MINOR.(tagPatch + commitsSinceTag)`.
 - Dev builds append `-dev`.
 - The short Git SHA is also exposed to the app UI through `__APP_BUILD__` / `APP_BUILD`.
-- If Git metadata is unavailable, the build falls back to the `package.json` version, which is currently `0.0.0` and should be treated as fallback-only metadata.
+- If Git metadata is unavailable, the build falls back to the `package.json` version, which is currently `0.5.0` and should be treated as fallback-only metadata.
 
 Important distinction:
 
 - App release version is separate from persisted data schema versioning.
-- The structured save schema is currently version `2`; if a release changes schema or backup format, update migrations and the storage/schema docs in the same change.
+- The structured save schema is currently version `3`; if a release changes schema or backup format, update migrations and the storage/schema docs in the same change.
 
 ## 3. Tagging expectations
 
@@ -107,7 +107,7 @@ Use preview or a deployed production build for PWA and offline checks. `npm run 
 
 ## 6. Required smoke/testing steps
 
-The repository now defines targeted automated checks in [`package.json`](../package.json). The Pages workflow currently runs `npm run verify` before deploy, which covers `npm run test:run`, `npm run typecheck`, and the production build. A focused 16-test Playwright browser smoke suite also exists locally in `tests/smoke/*.smoke.js`; keeping that suite out of CI is the current release-process decision for this version, and CI browser integration remains roadmap work rather than unresolved release debt. Release validation still requires the manual checklist in addition to those automated checks.
+The repository now defines targeted automated checks in [`package.json`](../package.json). The Pages workflow currently runs `npm run verify` before deploy, which covers `npm run test:run`, `npm run typecheck`, and the production build. It then installs Playwright Chromium and runs the focused 33-test browser smoke suite in `tests/smoke/*.smoke.js` before uploading the Pages artifact. Release validation still requires the manual checklist in addition to those automated checks because PWA/offline, installed-app, and broader cross-browser behavior remain outside the CI gate.
 
 Primary sources:
 
@@ -127,7 +127,7 @@ If Chromium is not installed for Playwright on that machine yet, run `npx playwr
 
 That means covering at least:
 
-- local Chromium browser smoke for app shell boot, one reload-persistence path, backup export/import in a fresh browser context, invalid import feedback, tracker-page re-init safety, character-page re-init safety, targeted NPC/Party/Location panel regressions around portrait toggles, search/filter, section moves, reorder, collapse, and focus restoration, plus shared dropdown/popover regressions around enhanced selects and card-menu clickability
+- local Chromium browser smoke for app shell and Campaign Hub boot/layout flows, one reload-persistence path, backup export/import in a fresh browser context, invalid import feedback, tracker-page re-init safety, character-page re-init safety, targeted NPC/Party/Location panel regressions around portrait toggles, search/filter, section moves, reorder, collapse, and focus restoration, Combat Workspace card/round/status/embedded-panel flows, plus shared dropdown/popover regressions around enhanced selects and card-menu clickability
 - persistence durability across refresh
 - Tracker, Character, and Map baseline flows
 - backup export, `Reset Everything`, and backup import
@@ -140,9 +140,9 @@ Any data-loss, restore, offline-shell, or CSP regression should block release.
 
 Intentional difference from CI:
 
-- CI runs `npm ci`, then `npm run verify`, uploads `dist/`, and only then deploys.
-- CI does not provision Chromium or run `npm run test:smoke`; that stays off the critical path for this version by design, with CI browser integration tracked as roadmap hardening rather than release-quality debt.
-- Local release validation must continue with `npm run preview`, `npm run test:smoke`, and the manual checklist because CI does not validate browser-only persistence, backup/restore, PWA/offline, or cross-browser behavior.
+- CI runs `npm ci`, `npm run verify`, installs Playwright Chromium, runs `npm run test:smoke`, uploads `dist/`, and only then deploys.
+- CI browser coverage is intentionally limited to the current Chromium smoke suite; it does not run preview-based service-worker checks, PWA install/offline validation, or broader cross-browser/device coverage.
+- Local release validation must continue with `npm run preview` and the manual checklist because CI does not validate PWA/offline, installed-app, full restore, map/touch, or cross-browser behavior.
 
 ## 7. Packaging steps
 
@@ -221,13 +221,15 @@ What it does today:
 - in that job, uses Node `20`
 - in that job, runs `npm ci`
 - in that job, runs `npm run verify`
+- in that job, installs Playwright Chromium
+- in that job, runs `npm run test:smoke`
 - in that job, uploads `dist/`
 - runs a separate `Deploy` job only after `Verify and build` succeeds
 
 Release-specific implications:
 
 - a failing automated check blocks deploy because the `build` job stops before artifact upload
-- local release validation should still run `npm ci` and `npm run verify` so failures are caught before pushing or manually dispatching
+- local release validation should still run `npm ci`, `npm run verify`, and `npm run test:smoke` so failures are caught before pushing or manually dispatching
 - pushing a tag does not deploy on its own
 - the built version depends on which tags are available when the workflow runs
 - if version metadata is wrong because the tag arrived late, rerun the workflow manually
@@ -262,6 +264,7 @@ Capture and keep the following evidence for each production release:
 - release commit SHA
 - release tag name
 - successful `npm run verify` output
+- successful `npm run test:smoke` output
 - preview or deployed URL used for validation
 - browser coverage used for the release check
 - confirmation that backup export, reset, and import all worked
@@ -281,10 +284,11 @@ For failures, follow the evidence guidance in [`docs/testing-guide.md`](./testin
 
 ## 10. Changelog update expectations
 
-This repository does not currently maintain a committed `CHANGELOG.md`.
+This repository maintains a committed [`CHANGELOG.md`](../CHANGELOG.md).
 
 Current expectation for each release:
 
+- update the `[Unreleased]` section before tagging a release
 - summarize user-visible changes in the GitHub release notes, tag notes, or release PR description
 - update [`README.md`](../README.md) when release behavior, build behavior, or deployment expectations change
 - update this document when the release workflow changes

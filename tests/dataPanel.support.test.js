@@ -118,6 +118,7 @@ function installFakeDom() {
     new FakeElement("dataPanelOverlay"),
     new FakeElement("dataPanelPanel"),
     new FakeElement("dataPanelClose"),
+    new FakeElement("dataResetUiBtn"),
     new FakeElement("dataPlayHubOpenSoundToggleItem"),
     new FakeElement("dataPlayHubOpenSoundToggle"),
     new FakeElement("dataCampaignSection"),
@@ -134,13 +135,30 @@ function installFakeDom() {
     href: "https://example.test/#tracker",
     hash: "#tracker",
     pathname: "/",
-    search: ""
+    search: "",
+    reload: vi.fn()
   };
   const navigator = {
     userAgent: "LoreLedgerTest/1.0",
     clipboard: {
       writeText: vi.fn(async () => {})
     }
+  };
+  const store = new Map();
+  const localStorage = {
+    getItem: vi.fn((key) => store.has(key) ? store.get(key) : null),
+    setItem: vi.fn((key, value) => {
+      store.set(key, String(value));
+    }),
+    removeItem: vi.fn((key) => {
+      store.delete(key);
+    })
+  };
+  const history = {
+    replaceState: vi.fn((_state, _title, url) => {
+      location.href = `https://example.test${url}`;
+      location.hash = "";
+    })
   };
 
   Object.defineProperty(globalThis, "document", {
@@ -163,11 +181,22 @@ function installFakeDom() {
     value: location,
     configurable: true
   });
+  Object.defineProperty(globalThis, "localStorage", {
+    value: localStorage,
+    configurable: true
+  });
+  Object.defineProperty(globalThis, "history", {
+    value: history,
+    configurable: true
+  });
 
   return {
     document,
+    history,
     location,
+    localStorage,
     navigator,
+    resetUiBtn: document.getElementById("dataResetUiBtn"),
     campaignSection: document.getElementById("dataCampaignSection"),
     campaignDivider: document.getElementById("dataCampaignDivider"),
     playHubOpenSoundToggleItem: document.getElementById("dataPlayHubOpenSoundToggleItem"),
@@ -218,6 +247,8 @@ describe("initDataPanel support actions", () => {
     delete globalThis.window;
     delete globalThis.navigator;
     delete globalThis.location;
+    delete globalThis.localStorage;
+    delete globalThis.history;
   });
 
   it("shows support metadata and launches a bug-report mailto URL", async () => {
@@ -327,6 +358,109 @@ describe("initDataPanel support actions", () => {
 
     expect(dom.navigator.clipboard.writeText.mock.calls[0][0]).toContain("Current page: #map");
     expect(dom.navigator.clipboard.writeText.mock.calls[0][0]).toContain("Campaign state: active campaign");
+  });
+
+  it("resets UI-only preferences while preserving campaign and encounter data", async () => {
+    const applySectionOrder = vi.fn();
+    const deps = createDeps();
+    deps.state.ui = {
+      activeTab: "combat",
+      theme: "forest",
+      textareaHeights: { sessionNotes: 140 },
+      panelCollapsed: { partyPanel: true },
+      dice: { history: [{ text: "1d20" }] }
+    };
+    deps.state.tracker = {
+      campaignTitle: "Keep Me",
+      sessions: [{ title: "Session 1", notes: "still here" }],
+      ui: {
+        textareaHeights: { legacyNotes: 120 },
+        textareaHeigts: { typoNotes: 99 },
+        sectionOrder: ["miscPanel", "sessionPanel"],
+        theme: "forest",
+        customFlag: true
+      }
+    };
+    deps.state.character = {
+      name: "Ava",
+      ui: {
+        textareaHeights: { traits: 160 },
+        sectionOrder: ["charSpellsPanel", "charBasicsPanel"],
+        vitalsOrder: ["speed", "ac"],
+        abilityOrder: ["cha", "str"],
+        abilityCollapse: { dex: true },
+        textareaCollapse: { personalityNotes: true },
+        _applySectionOrder: applySectionOrder,
+        customFlag: true
+      }
+    };
+    deps.state.combat = {
+      workspace: {
+        panelOrder: ["combatRoundPanel", "combatCardsPanel"],
+        embeddedPanels: ["vitals", "spells"],
+        panelCollapsed: { combatRoundPanel: true, combatEmbeddedPanel_vitals: true },
+        customFlag: true
+      },
+      encounter: {
+        round: 4,
+        participants: [{ id: "pc-1", name: "Ava" }]
+      }
+    };
+    dom.localStorage.setItem("tab", "combat");
+    uiConfirmMock.mockResolvedValueOnce(true);
+    const { initDataPanel } = await import("../js/ui/dataPanel.js");
+
+    initDataPanel(deps);
+    dom.resetUiBtn.dispatchEvent(new Event("click"));
+
+    await vi.waitFor(() => {
+      expect(dom.location.reload).toHaveBeenCalledTimes(1);
+    });
+
+    expect(uiConfirmMock.mock.calls[0][0]).toContain("reset theme + UI layout prefs");
+    expect(dom.localStorage.removeItem).toHaveBeenCalledWith("tab");
+    expect(dom.localStorage.getItem("tab")).toBeNull();
+    expect(dom.history.replaceState).toHaveBeenCalledWith(null, "", "/");
+    expect(dom.location.hash).toBe("");
+    expect(deps.applyTheme).toHaveBeenCalledWith("system");
+    expect(deps.markDirty).toHaveBeenCalledTimes(1);
+    expect(deps.flush).toHaveBeenCalledTimes(2);
+
+    expect(deps.state.ui).toEqual({
+      theme: "system",
+      textareaHeights: {},
+      panelCollapsed: {},
+      dice: { history: [{ text: "1d20" }] }
+    });
+    expect(deps.state.tracker.campaignTitle).toBe("Keep Me");
+    expect(deps.state.tracker.sessions[0].notes).toBe("still here");
+    expect(deps.state.tracker.ui).toEqual({
+      textareaHeights: {},
+      sectionOrder: [],
+      theme: "system",
+      customFlag: true
+    });
+    expect(deps.state.character.name).toBe("Ava");
+    expect(deps.state.character.ui).toEqual({
+      textareaHeights: {},
+      sectionOrder: [],
+      vitalsOrder: [],
+      abilityOrder: [],
+      abilityCollapse: {},
+      textareaCollapse: {},
+      _applySectionOrder: applySectionOrder,
+      customFlag: true
+    });
+    expect(deps.state.combat.workspace).toEqual({
+      panelOrder: [],
+      embeddedPanels: [],
+      panelCollapsed: {},
+      customFlag: true
+    });
+    expect(deps.state.combat.encounter).toEqual({
+      round: 4,
+      participants: [{ id: "pc-1", name: "Ava" }]
+    });
   });
 
   it("shows the Campaign Hub return action only while a campaign is active", async () => {

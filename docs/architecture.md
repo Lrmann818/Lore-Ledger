@@ -134,6 +134,7 @@ This list is intentionally narrower than the files included by `tsconfig.checkjs
    - `setupTextareaSizing(...)`
    - campaign modules only when a campaign is active
    - `initTrackerPage(...)`
+   - `initCombatPage(...)`
    - `setupMapPage(...)`
 9. `initTrackerPage(...)`, when active, currently also initializes:
    - tracker campaign title + misc bindings
@@ -142,9 +143,10 @@ This list is intentionally narrower than the files included by `tsconfig.checkjs
    - `initCharacterPageUI(...)`
    - `initPanelHeaderCollapse(...)`
    - number stepper enhancement
-10. `setupMapPage(...)` creates a map controller, loads `state.map`, and initializes the live map canvas/controller runtime.
-11. `SaveManager.flush()` runs once after startup so migrations and normalization writes are persisted.
-12. `SaveManager.init()` resets the save lifecycle UI to a clean saved state.
+10. `initCombatPage(...)`, when active, initializes Combat Cards, round controls, Combat Workspace section ordering, and embedded character panels.
+11. `setupMapPage(...)` creates a map controller, loads `state.map`, and initializes the live map canvas/controller runtime.
+12. `SaveManager.flush()` runs once after startup so migrations and normalization writes are persisted.
+13. `SaveManager.init()` resets the save lifecycle UI to a clean saved state.
 
 ### Steady-state runtime flow
 
@@ -326,7 +328,7 @@ Important rule: a field living on `state` does **not** guarantee that it is pers
 
 ### Schema migration rules
 
-- Current schema version: `2`
+- Current schema version: `3`
 - Migration lives in `migrateState(...)` in `js/state.js`.
 - `normalizeState(...)` restores runtime-only UI defaults after migration/load/import.
 - Unknown future schema versions are accepted as-is to avoid destructive downgrade behavior.

@@ -4,10 +4,11 @@
 
 ## 1. Project overview
 
-Lore Ledger brings three working areas into one browser app:
+Lore Ledger brings Campaign Hub plus four working areas into one browser app:
 
 - A `Campaign Hub` for creating, opening, renaming, deleting, and re-importing campaigns
 - A `Tracker` workspace for sessions, NPCs, party members, locations, and general notes
+- A `Combat` workspace for encounter cards, round controls, status timing, and embedded character panels
 - A `Character` workspace for a player character sheet and related notes
 - A `Map` workspace for image-backed drawing, pan/zoom, and annotation
 
@@ -33,6 +34,7 @@ That direction is visible in the current structure:
 - Campaign Hub for creating campaigns, switching the active campaign, renaming campaigns, and deleting campaigns
 - Tracker page for campaign title, session tabs and notes, NPC cards, party cards, location cards, and loose notes
 - Sectioned tracker collections with add/rename/delete controls, search inputs, and portrait/image support for cards
+- Combat Workspace with participant cards sourced from tracker entries, HP/temp HP actions, role/order controls, status effects, round timing, undo for turn advances, and embedded Vitals, Spells, and Weapons / Attacks panels
 - Character page with portrait, identity fields, vitals, resources, abilities and skills, proficiencies, weapons, spells, equipment, inventory tabs, money, and personality notes
 - Spell management with dynamic spell levels and per-spell notes
 - Map page with multiple maps, background image upload/removal, mouse/touch drawing, pan/zoom gestures, brush and eraser tools, brush size and color controls, and persisted drawings
@@ -64,7 +66,7 @@ At a high level, the app is wired as a modular vanilla JS application:
 - `js/storage/*` handles `localStorage`, IndexedDB blobs, IndexedDB text storage, backup import/export, and save lifecycle management
 - `js/ui/*` contains shared interface systems such as dialogs, navigation, settings, popovers, theme handling, and topbar widgets
 - `js/features/*` holds reusable flows such as image picking/cropping, portrait handling, autosizing, and number steppers
-- `js/pages/*` contains page-specific orchestration for `tracker`, `character`, and `map`
+- `js/pages/*` contains page-specific orchestration for `hub`, `tracker`, `combat`, `character`, and `map`
 - `js/domain/*` contains explicit state action helpers and entity factories
 
 For a deeper maintainer view, see [`docs/architecture.md`](docs/architecture.md).
@@ -128,6 +130,7 @@ The repo now includes targeted automation in two layers:
 - `tests/storage.backup.test.js` covers backup export/import validation, staged blob/text writes, text rollback on failed imports, and blob-ID remap behavior during import.
 - `tests/smoke/app.smoke.js` covers app shell boot, opening the Map workspace, and a simple reload-persistence check in Chromium.
 - `tests/smoke/backup.smoke.js` covers backup export, import into a fresh browser context, and visible failure handling for invalid backup files in Chromium.
+- `tests/smoke/combatShell.smoke.js` covers the Combat tab shell, Combat Cards, round controls, HP/temp HP actions, status effects, turn undo, tracker writeback for HP/status labels, role/order/remove/clear flows, mobile stacking, and embedded panel selection/reorder/source-panel behavior.
 - `tests/smoke/npcPortrait.smoke.js` covers NPC portrait crop/save plus incremental tracker-card patch behavior for search, section moves, reorder, collapse, and focus restoration.
 - `tests/smoke/partyLocationPanels.smoke.js` covers the same tracker-card behavior for Party and Location panels, including location type filtering.
 - `tests/smoke/trackerPanelLifecycle.smoke.js` covers repeated `initTrackerPage(...)` calls so tracker panel lifecycle cleanup stays single-bound after re-init.
@@ -146,7 +149,7 @@ Run the suite once:
 npm run test:run
 ```
 
-Run the same automated verification CI uses:
+Run the same build-and-unit verification CI uses:
 
 ```bash
 npm run verify
@@ -176,13 +179,13 @@ Run one suite directly:
 npm run test:run -- tests/state.migrate.test.js
 ```
 
-`npm run test:smoke` runs the current 16-test Playwright suite against a controlled Vite server started in production mode on the repo's GitHub Pages base path. Keeping that suite local-only is the current release-process decision for this version; preview-based PWA/offline validation remains manual, and CI/browser-expansion work is roadmap hardening rather than unresolved release debt.
+`npm run test:smoke` runs the current 33-test Playwright suite against a controlled Vite server started in production mode on the repo's GitHub Pages base path. GitHub Pages CI now installs Playwright Chromium and runs this smoke suite after `npm run verify`; preview-based PWA/offline validation remains manual, and broader browser/PWA automation is roadmap hardening rather than unresolved release debt.
 
-This is intentionally targeted coverage, not full-app automation. Automation now covers migration, `sanitizeForSave(...)`, `createStateActions(...)`, safe asset replacement ordering, local save/load, a representative structured save/load round trip, save-manager behavior, backup/import logic, basic browser boot, one reload-persistence path, a file-based backup round trip into a fresh browser context, tracker-page re-init safety, character-page re-init safety, targeted NPC/Party/Location panel regression paths, and shared dropdown/popover regressions. `Reset Everything`, broader Character-page coverage beyond the current lifecycle smoke, map drawing/touch behavior, and PWA/offline behavior remain manual release checks today; broader automation for those areas is roadmap work, while broader automated cross-browser coverage remains out of scope for this version.
+This is intentionally targeted coverage, not full-app automation. Automation now covers migration, `sanitizeForSave(...)`, `createStateActions(...)`, safe asset replacement ordering, local save/load, a representative structured save/load round trip, save-manager behavior, backup/import logic, basic browser boot, Campaign Hub first-run/layout/rename/delete paths, one reload-persistence path, a file-based backup round trip into a fresh browser context, tracker-page re-init safety, character-page re-init safety, targeted NPC/Party/Location panel regression paths, Combat Workspace card/round/status/embedded-panel paths, and shared dropdown/popover regressions. `Reset Everything`, broader Character-page coverage beyond the current lifecycle smoke, map drawing/touch behavior, and PWA/offline behavior remain manual release checks today; broader automation for those areas is roadmap work, while broader automated cross-browser coverage remains out of scope for this version.
 
-`npm run verify` is the canonical local readiness check. It runs `npm run test:run`, `npm run typecheck`, and `npm run build`, matching the automated checks in CI. It does not replace `npm run preview` or the browser-level manual checks needed for release validation.
+`npm run verify` is the canonical local build-and-unit readiness check. It runs `npm run test:run`, `npm run typecheck`, and `npm run build`, matching the first automated gate in CI. It does not replace `npm run test:smoke`, `npm run preview`, or the browser-level manual checks needed for release validation.
 
-For the closest local match to CI, start from a clean install with `npm ci`, then run `npm run verify`. CI does not currently run `npm run test:smoke`.
+For the closest local match to CI, start from a clean install with `npm ci`, then run `npm run verify` and `npm run test:smoke`. If Playwright Chromium is not installed locally yet, run `npx playwright install chromium` once first.
 
 Static validation is also available directly through `npm run typecheck` for the vanilla-JS codebase via `tsconfig.checkjs.json`. That repo-wide CheckJS pass is currently clean and now ships as part of `npm run verify` and the current CI gate.
 
@@ -286,8 +289,8 @@ git push origin v0.4.0
 - The repo tracks [`public/CNAME`](public/CNAME) so Vite copies `lore-ledger.com` into the built artifact as `dist/CNAME`
 - Hash-based navigation is preserved for `#tracker`, `#character`, and `#map`
 - The Pages workflow is defined in [`.github/workflows/pages.yml`](.github/workflows/pages.yml)
-- On pushes to `main` and on manual dispatch, the workflow runs a `Verify and build` job that does `npm ci` and `npm run verify`, uploads `dist/`, and only then runs `Deploy`
-- Local equivalent: `npm ci`, then `npm run verify`; release validation still also needs `npm run preview` plus the manual checks in [`docs/testing-guide.md`](docs/testing-guide.md)
+- On pushes to `main` and on manual dispatch, the workflow runs a `Verify and build` job that does `npm ci`, `npm run verify`, installs Playwright Chromium, runs `npm run test:smoke`, uploads `dist/`, and only then runs `Deploy`
+- Local equivalent: `npm ci`, then `npm run verify` and `npm run test:smoke`; release validation still also needs `npm run preview` plus the manual checks in [`docs/testing-guide.md`](docs/testing-guide.md)
 - If you deploy manually, publish the contents of `dist/`, not the repository root
 
 If the GitHub Pages path ever changes, update the following together:
@@ -366,4 +369,4 @@ Branch planning/history notes kept in `docs/`:
 - Offline support is a production-build feature; `npm run dev` does not exercise the service worker path.
 - Map undo/redo is intentionally in-memory only and resets on refresh.
 - GitHub Pages custom-domain deployment assumes the site root `/` and the target host `lore-ledger.com`.
-- Automated tests now cover migration, local persistence, backup/import, and save-manager behavior; broader UI, real browser-storage, backup/restore end-to-end, and PWA validation is still manual.
+- Automated tests now cover migration, local persistence, backup/import, save-manager behavior, and targeted Chromium smoke coverage; full manual release validation is still required for broader UI, full restore runs with images/drawings/text-backed assets, PWA/offline behavior, and cross-browser coverage.

@@ -30,10 +30,11 @@ Treat any data-loss, restore, offline-shell, or CSP regression as a merge/releas
 
 ## 2. Current automated coverage
 
-Vitest is the current unit test runner, and Playwright provides a focused local browser smoke layer. The automated story is split intentionally:
+Vitest is the current unit test runner, and Playwright provides a focused Chromium browser smoke layer. The automated story is split intentionally:
 
-- `npm run verify` is the canonical build-and-unit gate and matches what GitHub Pages CI runs today.
-- `npm run test:smoke` is a separate local Chromium smoke pass for browser-only regressions. Keeping it out of CI is the current release-process decision for this version; CI browser provisioning is roadmap work, not release-quality debt.
+- `npm run verify` is the canonical build-and-unit gate and is the first automated gate GitHub Pages CI runs today.
+- `npm run test:smoke` is the focused Chromium smoke pass for browser-only regressions. It now runs locally and in GitHub Pages CI after Playwright Chromium is installed.
+- PWA/offline, preview-based service-worker behavior, and broader cross-browser coverage are still manual release checks, not CI-gated automation in this version.
 
 Canonical local verification commands:
 
@@ -46,7 +47,7 @@ Canonical local verification commands:
 - `npm run preview`
   Expected: serves the production build for browser-only validation that CI does not cover.
 - `npm run test:smoke`
-  Expected: starts a controlled Vite server in production mode on the repo's GitHub Pages base path and runs the current 16-test local Chromium smoke suite covering app boot, map-shell rendering, reload persistence, backup export/import in a fresh browser context, invalid import feedback, tracker-page re-init safety, character-page re-init safety, targeted tracker card-panel behavior, and recent dropdown/popover regression coverage.
+  Expected: starts a controlled Vite server in production mode on the repo's GitHub Pages base path and runs the current 33-test local Chromium smoke suite covering app boot, Campaign Hub flows/layouts, map-shell rendering, reload persistence, backup export/import in a fresh browser context, invalid import feedback, tracker-page re-init safety, character-page re-init safety, targeted tracker card-panel behavior, Combat Workspace card/round/status/embedded-panel behavior, and recent dropdown/popover regression coverage.
 
 Focused dev commands:
 
@@ -71,6 +72,7 @@ Current automated scope is intentionally targeted:
 - `tests/dataPanel.support.test.js` covers `Data & Settings` -> `Support` wiring, support summary display, `Report Bug`, `Copy Debug Info`, hub-versus-active-campaign debug snapshots, clipboard success, and both copy/mailto fallback paths when platform features are unavailable.
 - `tests/smoke/app.smoke.js` covers top-level shell boot in Chromium, opening the Map workspace, and a campaign-title reload-persistence check against the dedicated production-mode Vite server.
 - `tests/smoke/backup.smoke.js` covers backup export to a real download, import of that backup into a fresh Chromium browser context, and visible failure handling for invalid JSON import input.
+- `tests/smoke/combatShell.smoke.js` covers the Combat tab shell, Combat Cards, round controls, HP/temp HP actions, status effects, turn undo, tracker writeback for HP/status labels, role/order/remove/clear flows, mobile stacking, and embedded panel selection/reorder/source-panel behavior.
 - `tests/smoke/npcPortrait.smoke.js` covers NPC portrait crop/save behavior plus incremental tracker-card patch paths for portrait toggles, search, section moves, reorder, collapse, and focus restoration.
 - `tests/smoke/partyLocationPanels.smoke.js` covers the same controller-scoped tracker-card behaviors for Party and Location panels, including location type filtering.
 - `tests/smoke/trackerPanelLifecycle.smoke.js` covers repeated `initTrackerPage(...)` calls and checks that tracker panel listeners stay single-bound after re-init.
@@ -88,11 +90,12 @@ Critical paths currently protected by automation:
 - save-manager failure handling that keeps unsaved-state warnings and recovery behavior honest
 - backup import/export invariants, including covered failure cleanup/rollback paths and imported asset preservation on those paths
 - one representative structured save/load round trip for the current persisted state shape
-- one real-browser boot path through a Vite production-mode server plus one simple reload-persistence check
+- real-browser Campaign Hub first-run, layout, rename/delete, app boot, and one simple reload-persistence path through a Vite production-mode server
 - one real file download/upload backup round trip in Chromium using the production base path
 - tracker panel lifecycle cleanup that makes repeated tracker-page init safer
 - character page lifecycle cleanup that makes repeated character-page init safer for the current destroyable panel/controller surface
 - tracker incremental DOM patch paths for portrait toggles, reorder, collapse, section moves, search/filter-visible lists, and focus restoration in the tracker card panels
+- Combat Workspace behavior for combat tab layout, card actions, HP/temp HP, status timing, turn undo, tracker HP/status-label writeback exceptions, mobile stacking, and embedded character panels
 - shared dropdown/popover interaction paths for enhanced selects and tracker card menus after rerender
 
 Manual release checks that remain by decision:
@@ -110,10 +113,11 @@ Use `npm run verify` as the default automated pre-merge and pre-release check. T
 
 Intentional differences between local verification and CI:
 
-- CI always starts from a clean Ubuntu runner with Node `20` and runs `npm ci` before the automated gate.
-- Local verification can reuse an existing install; run `npm ci && npm run verify` when you want the closest local CI match.
-- CI stops after the automated gate. The Pages workflow does not currently install Chromium or run `npm run test:smoke`.
-- Local release validation should still include `npm run test:smoke` when browser-level behavior changed, plus the manual browser checks below.
+- CI always starts from a clean Ubuntu runner with Node `20`, runs `npm ci`, then runs `npm run verify`.
+- CI installs Playwright Chromium and runs `npm run test:smoke` before uploading the Pages artifact.
+- Local verification can reuse an existing install; run `npm ci`, `npm run verify`, and `npm run test:smoke` when you want the closest local CI match. Install Chromium once with `npx playwright install chromium` if needed.
+- CI stops after the automated browser smoke gate. It does not run `npm run preview`, install/check the PWA, force offline mode, or run the manual cross-browser/device matrix.
+- Local release validation should still include the preview/manual browser checks below.
 
 ### Conventions for future automated tests
 
@@ -144,7 +148,7 @@ npm run typecheck
 Run these before merging any user-visible change:
 
 1. Run `npm run verify`.
-   Expected: the same automated gate CI uses passes locally.
+   Expected: the same build-and-unit gate CI runs first passes locally.
 2. If the change touched an existing `@ts-check` module, JSDoc typedefs, `types/*.d.ts`, or module boundary contracts, use `npm run typecheck` directly when you want a faster isolated typing pass during iteration.
    Expected: the current broad pass stays clean when you run it.
 3. Open the app in `npm run dev` or another local served environment.
@@ -176,9 +180,9 @@ Before any release candidate or production deploy, run the full set below in a c
 
 Intentional difference from CI:
 
-- CI runs `npm ci`, then the same automated gate as `npm run verify`, and stops before any browser-level validation.
-- The current browser smoke suite is intentionally local-only in this version; CI does not provision Chromium or run `npm run test:smoke`, and changing that is roadmap work rather than unresolved release debt.
-- Local release validation must continue with the preview/manual sections because CI does not exercise real browser persistence, offline/PWA behavior, or cross-browser interaction flows.
+- CI runs `npm ci`, `npm run verify`, installs Playwright Chromium, and runs `npm run test:smoke`.
+- CI stops after the focused Chromium smoke suite. It does not exercise preview-based service-worker behavior, offline/PWA behavior, installed-app behavior, or cross-browser interaction flows.
+- Local release validation must continue with the preview/manual sections because those browser/PWA checks remain outside the CI gate.
 
 ## 5. Persistence regression checks
 

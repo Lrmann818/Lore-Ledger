@@ -540,7 +540,7 @@ Important nuance:
 
 ## 7. Combat state breakdown
 
-`state.combat` is the campaign-scoped foundation for Combat Workspace. Slice 1 only defines and persists the data domain; it does not add a Combat page, tab, cards, HP rules, status timing, or embedded panels yet.
+`state.combat` is the campaign-scoped state bucket for Combat Workspace. It backs the Combat tab, Combat Cards, round controls, status timing, workspace layout, and the selected embedded character panels.
 
 Current structured shape:
 
@@ -570,13 +570,16 @@ Current structured shape:
 `combat.workspace` owns long-lived per-campaign Combat Workspace layout/configuration:
 
 - `panelOrder`
-  - Ordered panel IDs once Combat panels exist.
-  - Defaults to `[]` in Slice 1 because no Combat page shell exists yet.
+  - Ordered core Combat panel IDs.
+  - Current core panel IDs are `combatCardsPanel` and `combatRoundPanel`.
+  - Defaults to `[]`, which lets the page use its default ordering.
 - `embeddedPanels`
-  - Selected embedded combat-relevant panel IDs once the picker exists.
+  - Selected embedded character panel IDs.
+  - Current supported IDs are `vitals`, `spells`, and `weapons`.
   - Defaults to `[]`.
 - `panelCollapsed`
-  - Collapsed state for Combat Workspace panels once they exist.
+  - Collapsed state for core Combat panels and embedded panel DOM IDs.
+  - Core keys use panel IDs such as `combatRoundPanel`; embedded keys use `combatEmbeddedPanel_${panelId}`.
   - Defaults to `{}`.
 
 ### Encounter
@@ -594,13 +597,20 @@ Current structured shape:
 - `secondsPerTurn: number`
   - Defaults to `6`.
 - `participants: unknown[]`
-  - Intentionally undefined beyond being an array in Slice 1.
+  - Current entries are Combat participants normalized by `js/domain/combat.js`.
+  - Each participant stores an encounter-local `id`, display `name`, `role`, `source` reference, `hpCurrent`, `hpMax`, `tempHp`, and structured `statusEffects`.
+  - Multiple participants may point at the same tracker source card.
 - `undoStack: unknown[]`
-  - Intentionally undefined beyond being an array in Slice 1.
+  - Current entries are turn-advance undo records.
+  - Undo records store before/after round, active participant, elapsed time, and participant status-effect snapshots.
 
 Notes:
 
 - Combat is stored in each campaign document, not in app-shell UI.
+- Combat participants are encounter-local. Role, order, active participant, timer state, duplicate participant entries, and status timing do not write back to tracker cards.
+- Direct Combat HP/temp HP actions intentionally write `hpCurrent` and `tempHp` back to the source tracker card when the source still exists.
+- Direct Combat status edits intentionally mirror visible status labels back to the source tracker card's text status field for NPC and party sources; duration timing remains encounter-local.
+- Embedded Combat panels host the canonical Character page Vitals, Spells, and Weapons / Attacks panel modules. They read and write `state.character` directly rather than copying data into `state.combat`.
 - Older campaign docs without `combat` migrate to the default split shape.
 - Malformed `workspace` or `encounter` buckets are repaired defensively by `migrateState(...)`.
 

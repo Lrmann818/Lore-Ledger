@@ -92,6 +92,61 @@ function ensureRootUiState(state) {
 
 /**
  * @param {State} state
+ * @returns {void}
+ */
+function resetUiOnlyPreferences(state) {
+  const rootUi = ensureRootUiState(state);
+  rootUi.theme = "system";
+  rootUi.textareaHeights = {};
+  rootUi.panelCollapsed = {};
+  delete rootUi.activeTab;
+
+  if (state.tracker) {
+    state.tracker.ui = {
+      ...(state.tracker.ui || {}),
+      textareaHeights: {},
+      sectionOrder: [],
+      theme: "system"
+    };
+    delete state.tracker.ui.textareaHeigts;
+  }
+
+  if (state.character) {
+    state.character.ui = {
+      ...(state.character.ui || {}),
+      textareaHeights: {},
+      sectionOrder: [],
+      vitalsOrder: [],
+      abilityOrder: [],
+      abilityCollapse: {},
+      textareaCollapse: {}
+    };
+  }
+
+  if (state.combat?.workspace) {
+    state.combat.workspace = {
+      ...state.combat.workspace,
+      panelOrder: [],
+      embeddedPanels: [],
+      panelCollapsed: {}
+    };
+  }
+}
+
+function clearActiveTabHashForUiReset() {
+  try {
+    if (!location.hash) return;
+    const nextUrl = `${location.pathname || "/"}${location.search || ""}`;
+    if (typeof history !== "undefined" && typeof history.replaceState === "function") {
+      history.replaceState(null, "", nextUrl);
+    } else {
+      location.hash = "";
+    }
+  } catch { }
+}
+
+/**
+ * @param {State} state
  * @returns {State["app"]["preferences"]}
  */
 function ensureAppPreferences(state) {
@@ -442,15 +497,8 @@ export function initDataPanel(deps) {
 
       // Clear UI-only localStorage keys
       try { localStorage.removeItem(storageKeys.ACTIVE_TAB_KEY); } catch {}
-      // Reset UI subtree
-      if (state?.tracker?.ui) {
-        state.tracker.ui = { ...state.tracker.ui, textareaHeights: {} };
-      } else if (state?.ui) {
-        state.ui = {
-          ...ensureRootUiState(state),
-          textareaHeights: {}
-        };
-      }
+      resetUiOnlyPreferences(state);
+      clearActiveTabHashForUiReset();
       applyTheme("system");
       markDirty();
       await flush?.();

@@ -328,7 +328,11 @@ If any wipe step throws, reset shows an alert and stops instead of reloading int
 
 Related but narrower flows in the data panel:
 
-- `Reset UI Only` clears UI-only preferences and reloads
+- `Reset UI Only` clears saved UI preferences and reloads:
+  - app-level theme, textarea heights, panel collapse state, and last active tab
+  - legacy tracker textarea heights, tracker panel order, and legacy tracker theme
+  - character panel order, vitals order, ability order/collapse, textarea collapse, and legacy textarea heights
+  - Combat Workspace panel order, embedded panel selection, and panel collapse state
 - `Clear Images Only` nulls all `*BlobId` references in state, flushes that state, clears the blob store, then reloads
 - `Clear Text Notes Only` clears the text store and reloads
 
