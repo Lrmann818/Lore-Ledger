@@ -11,7 +11,13 @@ vi.mock("../js/utils/dev.js", () => ({
 
 import { createStateActions } from "../js/domain/stateActions.js";
 
+const DEFAULT_CHAR_ID = "char_test";
+
 function makeState(overrides = {}) {
+  // Support legacy `character` override by wrapping it as an active entry.
+  const charEntry = overrides.character
+    ? { id: DEFAULT_CHAR_ID, ...overrides.character }
+    : { id: DEFAULT_CHAR_ID };
   return {
     tracker: {
       npcs: [],
@@ -19,8 +25,9 @@ function makeState(overrides = {}) {
       locationsList: [],
       ...overrides.tracker
     },
-    character: {
-      ...overrides.character
+    characters: overrides.characters ?? {
+      activeId: DEFAULT_CHAR_ID,
+      entries: [charEntry]
     },
     map: {
       ...overrides.map
@@ -97,7 +104,7 @@ describe("createStateActions", () => {
       actions.updateCharacterField(["", "stats", "hp", "current", " "], 17, { queueSave: false })
     ).toBe(true);
 
-    expect(state.character).toEqual({
+    expect(state.characters.entries[0]).toMatchObject({
       stats: {
         hp: {
           current: 17
@@ -121,7 +128,7 @@ describe("createStateActions", () => {
     expect(actions.updateCharacterField(null, "ignored")).toBe(false);
     expect(actions.updateCharacterField([], "ignored")).toBe(false);
 
-    expect(state.character).toEqual({ existing: true });
+    expect(state.characters.entries[0]).toMatchObject({ existing: true });
     expect(withAllowedStateMutationSpy).toHaveBeenCalledTimes(3);
     expect(SaveManager.markDirty).not.toHaveBeenCalled();
   });
@@ -137,7 +144,7 @@ describe("createStateActions", () => {
 
     expect(() => actions.updateCharacterField("hitDieAmount", 7)).toThrow(/hitDieAmt/);
     expect(() => actions.setPath("character.hitDieAmount", 7)).toThrow(/hitDieAmt/);
-    expect(state.character).toEqual({ hitDieAmt: 4 });
+    expect(state.characters.entries[0]).toMatchObject({ hitDieAmt: 4 });
     expect(withAllowedStateMutationSpy).toHaveBeenCalledTimes(2);
     expect(SaveManager.markDirty).not.toHaveBeenCalled();
   });

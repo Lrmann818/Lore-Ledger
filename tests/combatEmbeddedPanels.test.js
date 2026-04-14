@@ -187,6 +187,11 @@ describe("embeddedPanelDomId", () => {
   });
 });
 
+/** Creates a minimal state with an active character entry for view model tests. */
+function makeStateWithChar(charData) {
+  return { characters: { activeId: "char_test", entries: [{ id: "char_test", ...charData }] } };
+}
+
 // ─── getVitalsEmbeddedViewModel ──────────────────────────────────────────────
 
 describe("getVitalsEmbeddedViewModel", () => {
@@ -203,20 +208,18 @@ describe("getVitalsEmbeddedViewModel", () => {
     expect(vm.resources).toEqual([]);
   });
 
-  it("reads all numeric stat fields from state.character", () => {
-    const state = {
-      character: {
-        hpCur: 8,
-        hpMax: 12,
-        ac: 15,
-        initiative: 3,
-        speed: 30,
-        proficiency: 4,
-        spellAttack: 7,
-        spellDC: 15,
-        resources: []
-      }
-    };
+  it("reads all numeric stat fields from the active character", () => {
+    const state = makeStateWithChar({
+      hpCur: 8,
+      hpMax: 12,
+      ac: 15,
+      initiative: 3,
+      speed: 30,
+      proficiency: 4,
+      spellAttack: 7,
+      spellDC: 15,
+      resources: []
+    });
     const vm = getVitalsEmbeddedViewModel(state);
     expect(vm.hp).toBe("8");
     expect(vm.hpMax).toBe("12");
@@ -229,21 +232,19 @@ describe("getVitalsEmbeddedViewModel", () => {
   });
 
   it("converts zero values to strings (does not treat 0 as null)", () => {
-    const vm = getVitalsEmbeddedViewModel({ character: { hpCur: 0, hpMax: 10, ac: 0 } });
+    const vm = getVitalsEmbeddedViewModel(makeStateWithChar({ hpCur: 0, hpMax: 10, ac: 0 }));
     expect(vm.hp).toBe("0");
     expect(vm.ac).toBe("0");
   });
 
   it("maps resources correctly", () => {
-    const state = {
-      character: {
-        hpCur: 5, hpMax: 10,
-        resources: [
-          { id: "res_1", name: "Ki", cur: 3, max: 5 },
-          { id: "res_2", name: "", cur: null, max: null }
-        ]
-      }
-    };
+    const state = makeStateWithChar({
+      hpCur: 5, hpMax: 10,
+      resources: [
+        { id: "res_1", name: "Ki", cur: 3, max: 5 },
+        { id: "res_2", name: "", cur: null, max: null }
+      ]
+    });
     const vm = getVitalsEmbeddedViewModel(state);
     expect(vm.resources).toEqual([
       { name: "Ki", cur: "3", max: "5" },
@@ -254,8 +255,8 @@ describe("getVitalsEmbeddedViewModel", () => {
   it("handles null, undefined, and missing character defensively", () => {
     expect(() => getVitalsEmbeddedViewModel(null)).not.toThrow();
     expect(() => getVitalsEmbeddedViewModel(undefined)).not.toThrow();
-    expect(() => getVitalsEmbeddedViewModel({ character: null })).not.toThrow();
-    const vm = getVitalsEmbeddedViewModel({ character: null });
+    expect(() => getVitalsEmbeddedViewModel({})).not.toThrow();
+    const vm = getVitalsEmbeddedViewModel({});
     expect(vm.hp).toBe("—");
     expect(vm.resources).toEqual([]);
   });
@@ -269,30 +270,28 @@ describe("getSpellsEmbeddedViewModel", () => {
   });
 
   it("returns empty levels when spells object is missing levels", () => {
-    expect(getSpellsEmbeddedViewModel({ character: { spells: {} } }).levels).toEqual([]);
+    expect(getSpellsEmbeddedViewModel(makeStateWithChar({ spells: {} })).levels).toEqual([]);
   });
 
   it("maps a spell level and its spells", () => {
-    const state = {
-      character: {
-        spells: {
-          levels: [
-            {
-              id: "lvl_1",
-              label: "1st Level",
-              hasSlots: true,
-              used: 1,
-              total: 3,
-              collapsed: false,
-              spells: [
-                { id: "sp_1", name: "Magic Missile", known: true, prepared: true, expended: false },
-                { id: "sp_2", name: "Shield", known: true, prepared: false, expended: true }
-              ]
-            }
-          ]
-        }
+    const state = makeStateWithChar({
+      spells: {
+        levels: [
+          {
+            id: "lvl_1",
+            label: "1st Level",
+            hasSlots: true,
+            used: 1,
+            total: 3,
+            collapsed: false,
+            spells: [
+              { id: "sp_1", name: "Magic Missile", known: true, prepared: true, expended: false },
+              { id: "sp_2", name: "Shield", known: true, prepared: false, expended: true }
+            ]
+          }
+        ]
       }
-    };
+    });
     const vm = getSpellsEmbeddedViewModel(state);
     expect(vm.levels).toHaveLength(1);
     expect(vm.levels[0]).toEqual({
@@ -310,27 +309,23 @@ describe("getSpellsEmbeddedViewModel", () => {
   });
 
   it("renders null slots as dashes", () => {
-    const state = {
-      character: {
-        spells: {
-          levels: [{
-            id: "l1", label: "Cantrips", hasSlots: false,
-            used: null, total: null, collapsed: false, spells: []
-          }]
-        }
+    const state = makeStateWithChar({
+      spells: {
+        levels: [{
+          id: "l1", label: "Cantrips", hasSlots: false,
+          used: null, total: null, collapsed: false, spells: []
+        }]
       }
-    };
+    });
     const vm = getSpellsEmbeddedViewModel(state);
     expect(vm.levels[0].used).toBe("—");
     expect(vm.levels[0].total).toBe("—");
   });
 
   it("defaults known to true when missing", () => {
-    const state = {
-      character: {
-        spells: { levels: [{ id: "l1", label: "1st", hasSlots: true, collapsed: false, spells: [{ id: "sp_1", name: "Foo" }] }] }
-      }
-    };
+    const state = makeStateWithChar({
+      spells: { levels: [{ id: "l1", label: "1st", hasSlots: true, collapsed: false, spells: [{ id: "sp_1", name: "Foo" }] }] }
+    });
     const vm = getSpellsEmbeddedViewModel(state);
     expect(vm.levels[0].spells[0].known).toBe(true);
   });
@@ -348,14 +343,12 @@ describe("getWeaponsEmbeddedViewModel", () => {
     expect(getWeaponsEmbeddedViewModel({}).attacks).toEqual([]);
   });
 
-  it("maps weapons from state.character.attacks", () => {
-    const state = {
-      character: {
-        attacks: [
-          { id: "atk_1", name: "Dagger", bonus: "+5", damage: "1d4+3", range: "20/60", type: "Piercing" }
-        ]
-      }
-    };
+  it("maps weapons from the active character's attacks", () => {
+    const state = makeStateWithChar({
+      attacks: [
+        { id: "atk_1", name: "Dagger", bonus: "+5", damage: "1d4+3", range: "20/60", type: "Piercing" }
+      ]
+    });
     const vm = getWeaponsEmbeddedViewModel(state);
     expect(vm.attacks).toEqual([
       { id: "atk_1", name: "Dagger", bonus: "+5", damage: "1d4+3", range: "20/60", type: "Piercing" }
@@ -363,11 +356,9 @@ describe("getWeaponsEmbeddedViewModel", () => {
   });
 
   it("handles malformed attack entries defensively", () => {
-    const state = {
-      character: {
-        attacks: [null, undefined, {}, { id: "atk_2", name: "Sword" }]
-      }
-    };
+    const state = makeStateWithChar({
+      attacks: [null, undefined, {}, { id: "atk_2", name: "Sword" }]
+    });
     const vm = getWeaponsEmbeddedViewModel(state);
     expect(vm.attacks).toHaveLength(4);
     expect(vm.attacks[0]).toEqual({ id: "", name: "", bonus: "", damage: "", range: "", type: "" });

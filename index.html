@@ -472,6 +472,18 @@
 
     <!-- CHARACTER PAGE -->
     <section class="page" id="page-character">
+      <div class="charEmptyState" id="charEmptyState" hidden>
+        <p class="charEmptyStateMsg">No characters yet. Create your first character?</p>
+        <div class="charEmptyStateActions">
+          <button type="button" class="panelBtn" id="charEmptyStateYes">Create Character</button>
+          <button type="button" class="panelBtn" id="charEmptyStateNo">Not Now</button>
+        </div>
+      </div>
+      <div class="charSelectorBar" id="charSelectorBar">
+        <select id="charSelector" class="charSelectorSelect" aria-label="Select character"></select>
+        <button type="button" class="panelBtnSm charMenuBtn" id="charMenuBtn"
+          title="Character options" aria-haspopup="true" aria-expanded="false">⋯</button>
+      </div>
       <div class="charColumns" id="charColumns">
         <div class="charCol" id="charCol0">
           <section class="panel" id="charBasicsPanel">

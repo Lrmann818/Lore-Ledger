@@ -7,7 +7,7 @@ export const STORAGE_KEY = "localCampaignTracker_v1";
 export const ACTIVE_TAB_KEY = "localCampaignTracker_activeTab";
 
 // Save schema versioning
-export const CURRENT_SCHEMA_VERSION = 3;
+export const CURRENT_SCHEMA_VERSION = 4;
 
 /** @typedef {import("./domain/factories.js").NpcCard & PortraitRef} NpcCard */
 /** @typedef {import("./domain/factories.js").PartyMemberCard & PortraitRef} PartyMemberCard */
@@ -40,6 +40,11 @@ export const SCHEMA_MIGRATION_HISTORY = Object.freeze([
     version: 3,
     date: "2026-04-11",
     changes: "Added campaign-scoped Combat Workspace state with separate workspace and encounter buckets."
+  },
+  {
+    version: 4,
+    date: "2026-04-14",
+    changes: "Migrated singleton character to characters collection { activeId, entries[] } for multi-character support."
   }
 ]);
 
@@ -337,6 +342,18 @@ export const SCHEMA_MIGRATION_HISTORY = Object.freeze([
  */
 
 /**
+ * A CharacterState with a mandatory id field.
+ * @typedef {CharacterState & { id: string }} CharacterEntry
+ */
+
+/**
+ * @typedef {{
+ *   activeId: string | null,
+ *   entries: CharacterEntry[]
+ * }} CharactersCollection
+ */
+
+/**
  * @typedef {{
  *   activeMapId: string | null,
  *   maps: MapEntry[],
@@ -436,7 +453,7 @@ export const SCHEMA_MIGRATION_HISTORY = Object.freeze([
  * @typedef {{
  *   schemaVersion: number,
  *   tracker: TrackerState,
- *   character: CharacterState,
+ *   characters: CharactersCollection,
  *   map: MapState,
  *   combat: CombatState,
  *   ui: RootUiState,
@@ -450,7 +467,7 @@ export const SCHEMA_MIGRATION_HISTORY = Object.freeze([
  * @typedef {{
  *   schemaVersion: number,
  *   tracker: TrackerState | undefined,
- *   character: CharacterState | undefined,
+ *   characters: CharactersCollection | undefined,
  *   map: PersistedMapState,
  *   combat: CombatState | undefined,
  *   ui: PersistedUiState,
@@ -487,67 +504,9 @@ export const state = {
     misc: "",
     ui: { textareaHeights: {} }
   },
-  character: {
-    imgBlobId: null,
-    name: "",
-    classLevel: "",
-    race: "",
-    background: "",
-    alignment: "",
-    experience: null,
-    features: "",
-
-    hpCur: null,
-    hpMax: null,
-    hitDieAmt: null,
-    hitDieSize: null,
-    ac: null,
-    initiative: null,
-    speed: null,
-    proficiency: null,
-    spellAttack: null,
-    spellDC: null,
-
-
-    // New: multiple resource trackers in Vitals
-    resources: [], // array of { id, name, cur, max }
-
-    abilities: {
-      str: { score: null, mod: null, save: null },
-      dex: { score: null, mod: null, save: null },
-      con: { score: null, mod: null, save: null },
-      int: { score: null, mod: null, save: null },
-      wis: { score: null, mod: null, save: null },
-      cha: { score: null, mod: null, save: null }
-    },
-    skills: {},
-    skillsNotes: "",
-
-    armorProf: "",
-    weaponProf: "",
-    toolProf: "",
-    languages: "",
-
-    attacks: [], // {id,name,bonus,damage,range,type,notes}
-
-    spells: {
-      // Spells v2 (dynamic levels). Legacy spell fields are migrated in migrateState.
-      levels: []
-    },
-
-    inventoryItems: [{ title: "Inventory", notes: "" }],
-    activeInventoryIndex: 0,
-    inventorySearch: "",
-    equipment: "",
-    money: { pp: 0, gp: 0, ep: 0, sp: 0, cp: 0 },
-
-    personality: {
-      traits: "",
-      ideals: "",
-      bonds: "",
-      flaws: "",
-      notes: ""
-    }
+  characters: {
+    activeId: null,
+    entries: []
   },
   map: {
     // Multi-map support
@@ -735,18 +694,26 @@ export function sanitizeForSave(source, opts = {}) {
 
   const serializableTracker = shallowCopySaveBucket(input.tracker);
 
-  const serializableCharacter = shallowCopySaveBucket(input.character);
-  if (
-    devAssertLegacyAliases &&
-    serializableCharacter &&
-    typeof serializableCharacter === "object" &&
-    !Array.isArray(serializableCharacter) &&
-    ("hitDieAmount" in serializableCharacter)
-  ) {
-    console.warn(
-      "[state] Unexpected character.hitDieAmount found during save/export. " +
-      "migrateState() is the canonical normalization point; runtime writes should use hitDieAmt."
-    );
+  // Serialize the characters collection (new shape). Shallow-copy the container,
+  // but leave entries as-is (they are plain data objects).
+  const inputCharacters = /** @type {Partial<StateLike> & { characters?: CharactersCollection }} */ (input).characters;
+  const serializableCharacters = (
+    inputCharacters &&
+    typeof inputCharacters === "object" &&
+    !Array.isArray(inputCharacters)
+  )
+    ? { ...inputCharacters }
+    : undefined;
+
+  if (devAssertLegacyAliases && serializableCharacters?.entries) {
+    for (const entry of serializableCharacters.entries) {
+      if (entry && typeof entry === "object" && "hitDieAmount" in entry) {
+        console.warn(
+          "[state] Unexpected character entry.hitDieAmount found during save/export. " +
+          "migrateState() is the canonical normalization point; runtime writes should use hitDieAmt."
+        );
+      }
+    }
   }
 
   const serializableMap = { ...(input.map || {}) };
@@ -775,7 +742,7 @@ export function sanitizeForSave(source, opts = {}) {
   return {
     schemaVersion: input.schemaVersion ?? currentSchemaVersion,
     tracker: /** @type {TrackerState | undefined} */ (serializableTracker),
-    character: /** @type {CharacterState | undefined} */ (serializableCharacter),
+    characters: /** @type {CharactersCollection | undefined} */ (serializableCharacters),
     map: /** @type {PersistedMapState} */ (serializableMap),
     combat: /** @type {CombatState | undefined} */ (serializableCombat),
     ui: /** @type {PersistedUiState} */ (serializableUi),
@@ -925,14 +892,21 @@ export function migrateState(raw) {
 
   function migrateToV1() {
     // --- Legacy: character sheet accidentally stored inside map.character ---
-    if (!data.character && data.map && data.map.character) {
+    // Only lift map.character if we're still in the old shape (no `characters` yet).
+    if (!data.characters && !data.character && data.map && data.map.character) {
       data.character = data.map.character;
+      delete data.map.character;
+    } else if (data.map && data.map.character) {
+      // map.character is a legacy artifact; remove it regardless
       delete data.map.character;
     }
 
-    // Ensure top-level buckets exist
+    // Ensure top-level buckets exist.
+    // Only create `character` if we haven't already migrated to `characters`.
     ensureObj(data, "tracker");
-    ensureObj(data, "character");
+    if (!data.characters) {
+      ensureObj(data, "character");
+    }
     ensureObj(data, "map");
 
     // Tracker UI defaults + typo fix
@@ -949,7 +923,10 @@ export function migrateState(raw) {
     if (typeof t.campaignTitle !== "string") t.campaignTitle = "My Campaign";
     if (typeof t.activeSessionIndex !== "number") t.activeSessionIndex = 0;
 
-    // Character defaults (only fill missing, never overwrite)
+    // Character defaults — only run if there is still a legacy `character` key to normalize.
+    // After migrateToV4, `character` will be deleted and `characters` used instead.
+    // Map defaults, UI, and theme migration always run regardless.
+    if (data.character) {
     const c = /** @type {Partial<CharacterState> & Record<string, unknown>} */ (data.character);
     if (!("imgBlobId" in c)) c.imgBlobId = null;
     if (!c.money || typeof c.money !== "object") c.money = { pp: 0, gp: 0, ep: 0, sp: 0, cp: 0 };
@@ -1031,6 +1008,7 @@ export function migrateState(raw) {
     if (!("hitDieAmt" in c)) c.hitDieAmt = null;
     delete c.hitDieAmount;
     if (!("hitDieSize" in c)) c.hitDieSize = null;
+    } // end if (data.character)
 
     // Map defaults (multi-map manager expects these)
     const m = /** @type {Partial<MapState> & Record<string, unknown>} */ (data.map);
@@ -1061,7 +1039,9 @@ export function migrateState(raw) {
   }
 
   function migrateToV2() {
-    // Ensure inventoryItems exists even for v1 saves (schemaVersion already 1)
+    // Ensure inventoryItems exists even for v1 saves (schemaVersion already 1).
+    // Skip if already migrated to the new `characters` shape.
+    if (data.characters) return;
     if (!data.character) {
       data.character = /** @type {Partial<CharacterState> & Record<string, unknown>} */ ({});
     }
@@ -1105,10 +1085,106 @@ export function migrateState(raw) {
     if (!Array.isArray(encounter.undoStack)) encounter.undoStack = [];
   }
 
+  /**
+   * Returns true if the character object has any meaningful user data
+   * (as opposed to being a freshly-initialized empty default).
+   * @param {unknown} c
+   * @returns {boolean}
+   */
+  function isCharacterMeaningful(c) {
+    if (!c || typeof c !== "object" || Array.isArray(c)) return false;
+    const ch = /** @type {Record<string, unknown>} */ (c);
+    const nonEmptyStr = (v) => typeof v === "string" && v.trim().length > 0;
+    const nonNull = (v) => v != null;
+
+    if (nonEmptyStr(ch.name)) return true;
+    if (nonEmptyStr(ch.classLevel)) return true;
+    if (nonEmptyStr(ch.race)) return true;
+    if (nonEmptyStr(ch.background)) return true;
+    if (nonEmptyStr(ch.alignment)) return true;
+    if (nonEmptyStr(ch.features)) return true;
+    if (nonEmptyStr(ch.armorProf)) return true;
+    if (nonEmptyStr(ch.weaponProf)) return true;
+    if (nonEmptyStr(ch.toolProf)) return true;
+    if (nonEmptyStr(ch.languages)) return true;
+    if (nonEmptyStr(ch.skillsNotes)) return true;
+    if (nonEmptyStr(ch.equipment)) return true;
+    if (nonNull(ch.hpCur) || nonNull(ch.hpMax)) return true;
+    if (nonNull(ch.hitDieAmt) || nonNull(ch.hitDieSize)) return true;
+    if (nonNull(ch.ac) || nonNull(ch.initiative) || nonNull(ch.speed)) return true;
+    if (nonNull(ch.proficiency) || nonNull(ch.spellAttack) || nonNull(ch.spellDC)) return true;
+    if (nonNull(ch.experience)) return true;
+    if (nonNull(ch.imgBlobId) && typeof ch.imgBlobId === "string") return true;
+    if (Array.isArray(ch.resources) && ch.resources.length > 0) return true;
+    if (Array.isArray(ch.attacks) && ch.attacks.length > 0) return true;
+    if (ch.spells && typeof ch.spells === "object" && !Array.isArray(ch.spells)) {
+      const spells = /** @type {Record<string, unknown>} */ (ch.spells);
+      if (Array.isArray(spells.levels) && spells.levels.length > 0) return true;
+      // Legacy spells shape
+      if (nonEmptyStr(spells.cantrips) || spells.lvl1 || spells.lvl2 || spells.lvl3) return true;
+    }
+    if (ch.abilities && typeof ch.abilities === "object") {
+      const abilities = /** @type {Record<string, unknown>} */ (ch.abilities);
+      for (const val of Object.values(abilities)) {
+        if (val && typeof val === "object" && !Array.isArray(val)) {
+          const row = /** @type {Record<string, unknown>} */ (val);
+          if (row.score != null) return true;
+        }
+      }
+    }
+    if (ch.personality && typeof ch.personality === "object" && !Array.isArray(ch.personality)) {
+      const p = /** @type {Record<string, unknown>} */ (ch.personality);
+      if (nonEmptyStr(p.traits) || nonEmptyStr(p.ideals) || nonEmptyStr(p.bonds) ||
+          nonEmptyStr(p.flaws) || nonEmptyStr(p.notes)) return true;
+    }
+    if (Array.isArray(ch.inventoryItems)) {
+      if (ch.inventoryItems.length > 1) return true;
+      if (ch.inventoryItems.length === 1) {
+        const item = ch.inventoryItems[0];
+        if (item && typeof item === "object" && !Array.isArray(item)) {
+          const inv = /** @type {Record<string, unknown>} */ (item);
+          if (nonEmptyStr(inv.notes)) return true;
+          if (nonEmptyStr(inv.title) && inv.title !== "Inventory") return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  function migrateToV4() {
+    // If the new `characters` shape already exists and is valid, we're already migrated.
+    // Clean up any stale `character` key (may be re-created by migrateToV1's ensureObj).
+    const existing = data.characters;
+    if (existing && typeof existing === "object" && !Array.isArray(existing) && Array.isArray(existing.entries)) {
+      // Already new shape — ensure shape integrity and remove stale character key.
+      if (existing.activeId !== null && typeof existing.activeId !== "string") {
+        existing.activeId = null;
+      }
+      // Validate activeId points to a real entry
+      if (existing.activeId !== null) {
+        const hasEntry = existing.entries.some((e) => e && e.id === existing.activeId);
+        if (!hasEntry) existing.activeId = existing.entries.length > 0 ? existing.entries[0].id : null;
+      }
+      if ("character" in data) delete data.character;
+      return;
+    }
+
+    // Migrate from old character key to new characters shape.
+    const c = data.character;
+    if (isCharacterMeaningful(c)) {
+      const id = `char_${Math.random().toString(36).slice(2)}_${Date.now().toString(36)}`;
+      data.characters = { activeId: id, entries: [{ id, .../** @type {object} */ (c) }] };
+    } else {
+      data.characters = { activeId: null, entries: [] };
+    }
+    if ("character" in data) delete data.character;
+  }
+
   const SCHEMA_MIGRATIONS = Object.freeze({
     0: migrateToV1,
     1: migrateToV2,
-    2: migrateToV3
+    2: migrateToV3,
+    3: migrateToV4
   });
 
   function applyMigrationStep(version) {
@@ -1133,6 +1209,9 @@ export function migrateState(raw) {
   migrateToV1();
   migrateToV2();
   migrateToV3();
+  // migrateToV4 is idempotent: if characters already exists, it normalizes it
+  // and removes any stale character key that migrateToV1 may have re-created.
+  migrateToV4();
 
   data.schemaVersion = CURRENT_SCHEMA_VERSION;
   return normalizeState(/** @type {State} */ (data));

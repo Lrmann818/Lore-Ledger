@@ -1936,6 +1936,68 @@ body[data-shell-mode="hub"] main {
 }
 
 
+/* Character page empty state */
+.charEmptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 40px 20px;
+  text-align: center;
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+  background: var(--surface-2);
+  margin-bottom: 12px;
+}
+
+.charEmptyStateMsg {
+  margin: 0;
+  font-size: 1.05em;
+  color: var(--text-muted, var(--text));
+}
+
+.charEmptyStateActions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+/* Character selector sub-toolbar */
+.charSelectorBar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  min-width: 0;
+}
+
+.charSelectorSelect {
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 320px;
+  height: var(--panel-control-h);
+  padding: 0 8px;
+  border-radius: var(--panel-control-radius);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: var(--panel-control-font);
+  cursor: pointer;
+}
+
+.charSelectorSelect:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.charMenuBtn {
+  flex: 0 0 auto;
+  font-size: 1.1em;
+  letter-spacing: 1px;
+}
+
 .charColumns {
   display: grid;
   gap: 10px;

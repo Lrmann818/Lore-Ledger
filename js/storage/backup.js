@@ -150,8 +150,14 @@ export function collectReferencedBlobIds(stateLike) {
     collectPortraitBlobIds(ids, tracker.locationsList);
   }
 
-  const character = isPlainObject(stateLike.character) ? stateLike.character : null;
-  if (character) addReferencedId(ids, character.imgBlobId);
+  // Support both new shape (characters.entries[]) and legacy shape (character).
+  const charactersCollection = isPlainObject(stateLike.characters) ? stateLike.characters : null;
+  const characterEntries = Array.isArray(charactersCollection?.entries) ? charactersCollection.entries : [];
+  const legacySingleChar = characterEntries.length === 0 && isPlainObject(stateLike.character) ? stateLike.character : null;
+  const allCharEntries = characterEntries.length > 0 ? characterEntries : (legacySingleChar ? [legacySingleChar] : []);
+  for (const ch of allCharEntries) {
+    if (isPlainObject(ch)) addReferencedId(ids, ch.imgBlobId);
+  }
 
   const map = isPlainObject(stateLike.map) ? stateLike.map : null;
   if (map) {
@@ -183,23 +189,30 @@ export function collectReferencedTextIds(stateLike) {
     ? stateLike.appShell.activeCampaignId.trim()
     : "";
 
-  const character = isPlainObject(stateLike.character) ? stateLike.character : null;
-  const spells = isPlainObject(character?.spells) ? character.spells : null;
-  const levels = Array.isArray(spells?.levels) ? spells.levels : [];
+  // Support both new shape (characters.entries[]) and legacy shape (character).
+  const charsCollection = isPlainObject(stateLike.characters) ? stateLike.characters : null;
+  const chEntries = Array.isArray(charsCollection?.entries) ? charsCollection.entries : [];
+  const legacyChar = chEntries.length === 0 && isPlainObject(stateLike.character) ? stateLike.character : null;
+  const allChars = chEntries.length > 0 ? chEntries : (legacyChar ? [legacyChar] : []);
 
-  for (const level of levels) {
-    if (!isPlainObject(level) || !Array.isArray(level.spells)) continue;
-    for (const spell of level.spells) {
-      if (!isPlainObject(spell)) continue;
-      if (typeof spell.id !== "string") continue;
-      const spellId = spell.id.trim();
-      if (!spellId) continue;
-      addReferencedId(
-        ids,
-        activeCampaignId
-          ? textKey_spellNotes(activeCampaignId, spellId)
-          : textKey_spellNotes(spellId)
-      );
+  for (const ch of allChars) {
+    if (!isPlainObject(ch)) continue;
+    const spells = isPlainObject(ch.spells) ? ch.spells : null;
+    const levels = Array.isArray(spells?.levels) ? spells.levels : [];
+    for (const level of levels) {
+      if (!isPlainObject(level) || !Array.isArray(level.spells)) continue;
+      for (const spell of level.spells) {
+        if (!isPlainObject(spell)) continue;
+        if (typeof spell.id !== "string") continue;
+        const spellId = spell.id.trim();
+        if (!spellId) continue;
+        addReferencedId(
+          ids,
+          activeCampaignId
+            ? textKey_spellNotes(activeCampaignId, spellId)
+            : textKey_spellNotes(spellId)
+        );
+      }
     }
   }
 
@@ -214,16 +227,23 @@ function collectSpellIds(stateLike) {
   const ids = new Set();
   if (!isPlainObject(stateLike)) return ids;
 
-  const character = isPlainObject(stateLike.character) ? stateLike.character : null;
-  const spells = isPlainObject(character?.spells) ? character.spells : null;
-  const levels = Array.isArray(spells?.levels) ? spells.levels : [];
+  // Support both new shape (characters.entries[]) and legacy shape (character).
+  const cCollection = isPlainObject(stateLike.characters) ? stateLike.characters : null;
+  const cEntries = Array.isArray(cCollection?.entries) ? cCollection.entries : [];
+  const legacyCh = cEntries.length === 0 && isPlainObject(stateLike.character) ? stateLike.character : null;
+  const allCh = cEntries.length > 0 ? cEntries : (legacyCh ? [legacyCh] : []);
 
-  for (const level of levels) {
-    if (!isPlainObject(level) || !Array.isArray(level.spells)) continue;
-    for (const spell of level.spells) {
-      if (!isPlainObject(spell)) continue;
-      const spellId = cleanString(spell.id);
-      if (spellId) ids.add(spellId);
+  for (const ch of allCh) {
+    if (!isPlainObject(ch)) continue;
+    const spells = isPlainObject(ch.spells) ? ch.spells : null;
+    const levels = Array.isArray(spells?.levels) ? spells.levels : [];
+    for (const level of levels) {
+      if (!isPlainObject(level) || !Array.isArray(level.spells)) continue;
+      for (const spell of level.spells) {
+        if (!isPlainObject(spell)) continue;
+        const spellId = cleanString(spell.id);
+        if (spellId) ids.add(spellId);
+      }
     }
   }
 
@@ -308,8 +328,12 @@ function validateIncomingStateShape(state) {
   if (Object.prototype.hasOwnProperty.call(state, "tracker") && !isPlainObject(state.tracker)) {
     throw new Error("Backup state.tracker must be an object.");
   }
+  // Accept both legacy `character` and new `characters` shapes.
   if (Object.prototype.hasOwnProperty.call(state, "character") && !isPlainObject(state.character)) {
     throw new Error("Backup state.character must be an object.");
+  }
+  if (Object.prototype.hasOwnProperty.call(state, "characters") && !isPlainObject(state.characters)) {
+    throw new Error("Backup state.characters must be an object.");
   }
   if (Object.prototype.hasOwnProperty.call(state, "map") && !isPlainObject(state.map)) {
     throw new Error("Backup state.map must be an object.");
@@ -349,7 +373,7 @@ function cloneSanitizedState(source) {
 function replaceStateBuckets(target, source) {
   target.schemaVersion = source.schemaVersion;
   target.tracker = /** @type {AppState["tracker"]} */ (source.tracker);
-  target.character = /** @type {AppState["character"]} */ (source.character);
+  target.characters = /** @type {AppState["characters"]} */ (source.characters);
   target.map = /** @type {AppState["map"]} */ (source.map);
   target.combat = /** @type {AppState["combat"]} */ (source.combat);
   target.ui = /** @type {AppState["ui"]} */ (source.ui);
@@ -381,7 +405,12 @@ function remapBlobIds(target, idMap) {
     if (mapEntry.bgBlobId) mapEntry.bgBlobId = remap(mapEntry.bgBlobId);
     if (mapEntry.drawingBlobId) mapEntry.drawingBlobId = remap(mapEntry.drawingBlobId);
   }
-  if (target.character.imgBlobId) target.character.imgBlobId = remap(target.character.imgBlobId);
+  // Remap character portrait blobs in all character entries.
+  if (target.characters && Array.isArray(target.characters.entries)) {
+    for (const entry of target.characters.entries) {
+      if (entry && entry.imgBlobId) entry.imgBlobId = remap(entry.imgBlobId);
+    }
+  }
 }
 
 /**

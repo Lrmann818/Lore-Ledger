@@ -6,41 +6,54 @@ function makeState() {
   return migrateState(undefined);
 }
 
+/** Returns the first (and only) character entry from a migrated state. */
+function activeEntry(state) {
+  return state.characters?.entries?.[0] ?? null;
+}
+
 describe("sanitizeForSave", () => {
-  it("shallow-copies tracker and character top-level buckets before returning the save payload", () => {
+  it("shallow-copies tracker and characters top-level buckets before returning the save payload", () => {
     const state = makeState();
+
+    // Populate a character entry via direct manipulation (simulating Task 7 UI)
+    const charEntry = {
+      id: "char_test",
+      name: "Arlen",
+      inventoryItems: [{ title: "Inventory", notes: "50 ft. rope" }]
+    };
+    state.characters = { activeId: "char_test", entries: [charEntry] };
     state.tracker.campaignTitle = "Moonfall";
     state.tracker.npcs = [{ id: "npc_1", name: "Miri" }];
-    state.character.name = "Arlen";
-    state.character.inventoryItems = [{ title: "Inventory", notes: "50 ft. rope" }];
 
     const sanitized = sanitizeForSave(state);
 
     expect(sanitized.tracker).not.toBe(state.tracker);
-    expect(sanitized.character).not.toBe(state.character);
+    expect(sanitized.characters).not.toBe(state.characters);
     expect(sanitized.tracker).toEqual(state.tracker);
-    expect(sanitized.character).toEqual(state.character);
+    expect(sanitized.characters).toEqual(state.characters);
 
     sanitized.tracker.campaignTitle = "Changed in payload";
-    sanitized.character.name = "Changed in payload";
+    sanitized.characters.activeId = "changed";
 
     expect(state.tracker.campaignTitle).toBe("Moonfall");
-    expect(state.character.name).toBe("Arlen");
+    expect(state.characters.activeId).toBe("char_test");
   });
 
-  it("leaves legacy hitDieAmount untouched so migration remains the canonical normalization layer", () => {
+  it("leaves legacy hitDieAmount in an entry untouched so migration remains the canonical normalization layer", () => {
     const state = makeState();
-    delete state.character.hitDieAmt;
-    state.character.hitDieAmount = 7;
+    const entry = {
+      id: "char_test",
+      hitDieAmount: 7
+    };
+    state.characters = { activeId: "char_test", entries: [entry] };
 
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     const sanitized = sanitizeForSave(state, { devAssertLegacyAliases: true });
 
-    expect("hitDieAmt" in sanitized.character).toBe(false);
-    expect(sanitized.character.hitDieAmount).toBe(7);
-    expect(state.character.hitDieAmount).toBe(7);
+    expect(sanitized.characters.entries[0].hitDieAmount).toBe(7);
+    expect(state.characters.entries[0].hitDieAmount).toBe(7);
     expect(warnSpy).toHaveBeenCalledWith(
-      expect.stringContaining("character.hitDieAmount")
+      expect.stringContaining("hitDieAmount")
     );
   });
 
@@ -98,9 +111,9 @@ describe("sanitizeForSave", () => {
 
   it("defaults missing app-level preferences to false in the save payload", () => {
     const sanitized = sanitizeForSave({
-      schemaVersion: 3,
+      schemaVersion: 4,
       tracker: {},
-      character: {},
+      characters: { activeId: null, entries: [] },
       map: {},
       combat: {},
       ui: {}

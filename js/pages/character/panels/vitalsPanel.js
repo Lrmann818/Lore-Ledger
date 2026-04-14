@@ -6,6 +6,7 @@ import { safeAsync } from "../../../ui/safeAsync.js";
 import { createStateActions } from "../../../domain/stateActions.js";
 import { requireMany, getNoopDestroyApi } from "../../../utils/domGuards.js";
 import { flipSwapTwo } from "../../../ui/flipSwap.js";
+import { getActiveCharacter } from "../../../domain/characterHelpers.js";
 
 function notifyStatus(setStatus, message) {
   if (typeof setStatus === "function") {
@@ -40,7 +41,7 @@ function setupVitalsTileReorder({ state, SaveManager, panelEl, gridEl, actions =
   }, { queueSave: false });
 
   function applyOrder() {
-    const order = state.character.ui.vitalsOrder || defaultOrder;
+    const order = char.ui.vitalsOrder || defaultOrder;
     const map = new Map(Array.from(grid.querySelectorAll(".charTile")).map((t) => [t.dataset.vitalKey, t]));
     order.forEach((k) => {
       const el = map.get(k);
@@ -112,6 +113,8 @@ export function initVitalsPanel(deps = {}) {
   } = deps;
 
   if (!state || !SaveManager) return getNoopDestroyApi();
+  const char = getActiveCharacter(state);
+  if (!char) return getNoopDestroyApi();
   const { updateCharacterField, mutateCharacter } = createStateActions({ state, SaveManager });
   mutateCharacter(() => true, { queueSave: false });
 
@@ -161,16 +164,16 @@ export function initVitalsPanel(deps = {}) {
   }
 
   const vitalNumberFields = [
-    { id: "charHpCur", path: "hpCur", getValue: () => state.character.hpCur },
-    { id: "charHpMax", path: "hpMax", getValue: () => state.character.hpMax },
-    { id: "hitDieAmt", path: "hitDieAmt", getValue: () => state.character.hitDieAmt },
-    { id: "hitDieSize", path: "hitDieSize", getValue: () => state.character.hitDieSize },
-    { id: "charAC", path: "ac", getValue: () => state.character.ac },
-    { id: "charInit", path: "initiative", getValue: () => state.character.initiative },
-    { id: "charSpeed", path: "speed", getValue: () => state.character.speed },
-    { id: "charProf", path: "proficiency", getValue: () => state.character.proficiency },
-    { id: "charSpellAtk", path: "spellAttack", getValue: () => state.character.spellAttack },
-    { id: "charSpellDC", path: "spellDC", getValue: () => state.character.spellDC },
+    { id: "charHpCur", path: "hpCur", getValue: () => char.hpCur },
+    { id: "charHpMax", path: "hpMax", getValue: () => char.hpMax },
+    { id: "hitDieAmt", path: "hitDieAmt", getValue: () => char.hitDieAmt },
+    { id: "hitDieSize", path: "hitDieSize", getValue: () => char.hitDieSize },
+    { id: "charAC", path: "ac", getValue: () => char.ac },
+    { id: "charInit", path: "initiative", getValue: () => char.initiative },
+    { id: "charSpeed", path: "speed", getValue: () => char.speed },
+    { id: "charProf", path: "proficiency", getValue: () => char.proficiency },
+    { id: "charSpellAtk", path: "spellAttack", getValue: () => char.spellAttack },
+    { id: "charSpellDC", path: "spellDC", getValue: () => char.spellDC },
   ];
 
   function bindVitalsNumbers() {
@@ -229,7 +232,7 @@ export function initVitalsPanel(deps = {}) {
   function moveVital(key, dir, focusBtn = null) {
     if (destroyed) return;
 
-    const currentOrder = state.character.ui?.vitalsOrder;
+    const currentOrder = char.ui?.vitalsOrder;
     const i = Array.isArray(currentOrder) ? currentOrder.indexOf(key) : -1;
     const j = i + dir;
     if (i === -1 || j < 0 || !Array.isArray(currentOrder) || j >= currentOrder.length) return;
@@ -282,7 +285,7 @@ export function initVitalsPanel(deps = {}) {
 
     Array.from(wrap.querySelectorAll('.charTile[data-vital-key^="res:"]')).forEach((el) => el.remove());
 
-    (state.character.resources || []).forEach((r, idx) => {
+    (char.resources || []).forEach((r, idx) => {
       const tile = document.createElement("div");
       tile.className = "charTile resourceTile";
       tile.dataset.resourceId = r.id;
@@ -329,14 +332,14 @@ export function initVitalsPanel(deps = {}) {
       del.className = "iconBtn danger resourceDeleteBtn";
       del.title = "Remove this resource";
       del.textContent = "X";
-      del.disabled = (state.character.resources.length <= 1);
+      del.disabled = (char.resources.length <= 1);
       addListener(
         del,
         "click",
         safeAsync(async (e) => {
           e.preventDefault();
           e.stopPropagation();
-          if (state.character.resources.length <= 1) return;
+          if (char.resources.length <= 1) return;
           const name = (r.name || "").trim();
           const label = name ? `"${name}"` : "this resource tracker";
           if (!(await uiConfirm(`Delete ${label}?`, { title: "Delete Resource", okText: "Delete" }))) return;

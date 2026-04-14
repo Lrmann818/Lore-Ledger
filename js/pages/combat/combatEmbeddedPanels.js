@@ -18,6 +18,7 @@ import { initAttacksPanel } from "../character/panels/attackPanel.js";
 import { initSpellsPanel } from "../character/panels/spellsPanel.js";
 import { initVitalsPanel } from "../character/panels/vitalsPanel.js";
 import { flipSwapTwo } from "../../ui/flipSwap.js";
+import { getActiveCharacter } from "../../domain/characterHelpers.js";
 
 /** @typedef {import("../../state.js").State} State */
 /** @typedef {{ markDirty?: () => void }} SaveManagerLike */
@@ -209,7 +210,7 @@ function strOrNull(value) {
  * @returns {VitalsEmbeddedViewModel}
  */
 export function getVitalsEmbeddedViewModel(state) {
-  const c = objectOrEmpty(objectOrEmpty(state).character);
+  const c = objectOrEmpty(getActiveCharacter(/** @type {any} */ (state)));
 
   const rawResources = Array.isArray(c.resources) ? c.resources : [];
   const resources = rawResources.map((r) => {
@@ -267,7 +268,7 @@ export function getVitalsEmbeddedViewModel(state) {
  * @returns {SpellsEmbeddedViewModel}
  */
 export function getSpellsEmbeddedViewModel(state) {
-  const c = objectOrEmpty(objectOrEmpty(state).character);
+  const c = objectOrEmpty(getActiveCharacter(/** @type {any} */ (state)));
   const spellsObj = objectOrEmpty(c.spells);
   const rawLevels = Array.isArray(spellsObj.levels) ? spellsObj.levels : [];
 
@@ -319,7 +320,7 @@ export function getSpellsEmbeddedViewModel(state) {
  * @returns {WeaponsEmbeddedViewModel}
  */
 export function getWeaponsEmbeddedViewModel(state) {
-  const c = objectOrEmpty(objectOrEmpty(state).character);
+  const c = objectOrEmpty(getActiveCharacter(/** @type {any} */ (state)));
   const rawAttacks = Array.isArray(c.attacks) ? c.attacks : [];
 
   const attacks = rawAttacks.map((rawAtk) => {

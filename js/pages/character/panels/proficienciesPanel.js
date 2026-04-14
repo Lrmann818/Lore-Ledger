@@ -1,12 +1,14 @@
 // js/pages/character/panels/proficienciesPanel.js
 // Character page Proficiencies panel (armor/weapon/tool/language textareas)
 import { requireMany } from "../../../utils/domGuards.js";
+import { getActiveCharacter } from "../../../domain/characterHelpers.js";
 
 export function initProficienciesPanel(deps = {}) {
   const { state, SaveManager, bindText, setStatus } = deps;
 
   if (!state || !SaveManager || !bindText) return;
-  if (!state.character) return;
+  const char = getActiveCharacter(state);
+  if (!char) return;
 
   const required = {
     panel: "#charProfPanel",
@@ -18,8 +20,8 @@ export function initProficienciesPanel(deps = {}) {
   const guard = requireMany(required, { root: document, setStatus, context: "Proficiencies panel" });
   if (!guard.ok) return guard.destroy;
 
-  bindText("charArmorProf", () => state.character.armorProf, (v) => state.character.armorProf = v);
-  bindText("charWeaponProf", () => state.character.weaponProf, (v) => state.character.weaponProf = v);
-  bindText("charToolProf", () => state.character.toolProf, (v) => state.character.toolProf = v);
-  bindText("charLanguages", () => state.character.languages, (v) => state.character.languages = v);
+  bindText("charArmorProf", () => char.armorProf, (v) => char.armorProf = v);
+  bindText("charWeaponProf", () => char.weaponProf, (v) => char.weaponProf = v);
+  bindText("charToolProf", () => char.toolProf, (v) => char.toolProf = v);
+  bindText("charLanguages", () => char.languages, (v) => char.languages = v);
 }

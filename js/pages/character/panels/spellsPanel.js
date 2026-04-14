@@ -1,6 +1,7 @@
 import { safeAsync } from "../../../ui/safeAsync.js";
 import { notifyPanelDataChanged, subscribePanelDataChanged } from "../../../ui/panelInvalidation.js";
 import { requireMany } from "../../../utils/domGuards.js";
+import { getActiveCharacter } from "../../../domain/characterHelpers.js";
 
 const SPELL_NOTES_SAVE_DEBOUNCE_MS = 250;
 
@@ -115,6 +116,8 @@ export function initSpellsPanel(deps = {}) {
 
   if (!state) throw new Error("initSpellsPanel requires state");
   if (!SaveManager) throw new Error("initSpellsPanel requires SaveManager");
+  const char = getActiveCharacter(state);
+  if (!char) return null;
 
   const required = {
     panelEl: "#charSpellsPanel",
@@ -161,10 +164,10 @@ export function initSpellsPanel(deps = {}) {
   }
 
   function ensureSpellsV2Shape() {
-    if (!state.character.spells || typeof state.character.spells !== "object") {
-      state.character.spells = { levels: [] };
+    if (!char.spells || typeof char.spells !== "object") {
+      char.spells = { levels: [] };
     }
-    if (!Array.isArray(state.character.spells.levels)) state.character.spells.levels = [];
+    if (!Array.isArray(char.spells.levels)) char.spells.levels = [];
   }
 
   function newSpellLevel(label, hasSlots = true) {
@@ -369,7 +372,7 @@ export function initSpellsPanel(deps = {}) {
           }
         }
 
-        state.character.spells.levels.splice(levelIndex, 1);
+        char.spells.levels.splice(levelIndex, 1);
         markSpellsChanged({ renderSource: true });
       }, (err) => {
         console.error(err);
@@ -597,7 +600,7 @@ export function initSpellsPanel(deps = {}) {
     spellNotesRenderUnsubscribers.forEach((unsubscribe) => unsubscribe());
     spellNotesRenderUnsubscribers = [];
     containerEl.replaceChildren();
-    const levels = state.character.spells.levels;
+    const levels = char.spells.levels;
 
     if (!levels.length) {
       const empty = document.createElement("div");
@@ -613,8 +616,8 @@ export function initSpellsPanel(deps = {}) {
 
   function setupSpellsV2() {
     ensureSpellsV2Shape();
-    if (!state.character.spells.levels.length) {
-      state.character.spells.levels = [
+    if (!char.spells.levels.length) {
+      char.spells.levels = [
         newSpellLevel("Cantrips", false),
         newSpellLevel("1st Level", true),
         newSpellLevel("2nd Level", true),
@@ -627,7 +630,7 @@ export function initSpellsPanel(deps = {}) {
       "click",
       safeAsync(async () => {
         const suggested = (() => {
-          const levels = (state.character?.spells?.levels || []).map((level) => String(level.label || ""));
+          const levels = (char?.spells?.levels || []).map((level) => String(level.label || ""));
           let max = 0;
           for (const label of levels) {
             const match = label.match(/\b(\d+)\s*(st|nd|rd|th)?\s*level\b/i);
@@ -652,7 +655,7 @@ export function initSpellsPanel(deps = {}) {
         if (destroyed || !label) return;
 
         const isCantrip = label.toLowerCase().includes("cantrip");
-        state.character.spells.levels.push(newSpellLevel(label, !isCantrip));
+        char.spells.levels.push(newSpellLevel(label, !isCantrip));
         markSpellsChanged({ renderSource: true });
       }, (err) => {
         console.error(err);

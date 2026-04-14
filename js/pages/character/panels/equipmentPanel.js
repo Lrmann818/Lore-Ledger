@@ -11,6 +11,7 @@ import { safeAsync } from "../../../ui/safeAsync.js";
 import { createStateActions } from "../../../domain/stateActions.js";
 import { requireMany, getNoopDestroyApi } from "../../../utils/domGuards.js";
 import { numberOrNull } from "../../../utils/number.js";
+import { getActiveCharacter } from "../../../domain/characterHelpers.js";
 
 function notifyStatus(setStatus, message) {
   if (typeof setStatus === "function") {
@@ -81,6 +82,8 @@ export function initEquipmentPanel(deps = {}) {
     return getNoopDestroyApi();
   }
 
+  const char = getActiveCharacter(state);
+  if (!char) return getNoopDestroyApi();
   const { updateCharacterField, mutateCharacter } = createStateActions({ state, SaveManager });
 
   const required = {
@@ -174,8 +177,8 @@ export function initEquipmentPanel(deps = {}) {
 
     tabsEl.replaceChildren();
 
-    const query = (state.character.inventorySearch || "").trim().toLowerCase();
-    const items = Array.isArray(state.character.inventoryItems) ? state.character.inventoryItems : [];
+    const query = (char.inventorySearch || "").trim().toLowerCase();
+    const items = Array.isArray(char.inventoryItems) ? char.inventoryItems : [];
     const itemsToShow = items
       .map((item, idx) => ({ item, idx }))
       .filter(({ item }) => {
@@ -187,14 +190,14 @@ export function initEquipmentPanel(deps = {}) {
 
     itemsToShow.forEach(({ item, idx }) => {
       const btn = document.createElement("button");
-      btn.className = "sessionTab" + (idx === state.character.activeInventoryIndex ? " active" : "");
+      btn.className = "sessionTab" + (idx === char.activeInventoryIndex ? " active" : "");
       btn.type = "button";
-      appendHighlightedText(btn, item.title || `Item ${idx + 1}`, state.character.inventorySearch || "");
+      appendHighlightedText(btn, item.title || `Item ${idx + 1}`, char.inventorySearch || "");
       btn.addEventListener("click", () => switchInventoryItem(idx));
       tabsEl.appendChild(btn);
     });
 
-    const current = items[state.character.activeInventoryIndex];
+    const current = items[char.activeInventoryIndex];
     notesBoxEl.value = current?.notes || "";
     notesHighlight.update();
 
@@ -233,7 +236,7 @@ export function initEquipmentPanel(deps = {}) {
     if (!input) return;
 
     const autosizeOpts = { min: 30, max: 320 };
-    input.value = state.character.money?.[key] == null ? "" : String(state.character.money[key]);
+    input.value = char.money?.[key] == null ? "" : String(char.money[key]);
 
     if (typeof autoSizeInput === "function") {
       input.classList.add("autosize");
@@ -249,11 +252,11 @@ export function initEquipmentPanel(deps = {}) {
   }
 
   ensureInventoryDefaults();
-  searchEl.value = state.character.inventorySearch || "";
+  searchEl.value = char.inventorySearch || "";
 
   const notesHighlight = attachSearchHighlightOverlay(
     notesBoxEl,
-    () => state.character.inventorySearch || ""
+    () => char.inventorySearch || ""
   );
   addDestroy(() => notesHighlight.destroy());
 
@@ -285,7 +288,7 @@ export function initEquipmentPanel(deps = {}) {
         return true;
       }, { queueSave: false });
 
-      const nextNum = (state.character.inventoryItems?.length || 0) + 1;
+      const nextNum = (char.inventoryItems?.length || 0) + 1;
       const defaultTitle = `Item ${nextNum}`;
       const proposed = await uiPrompt?.("Name this item:", {
         defaultValue: defaultTitle,
@@ -320,7 +323,7 @@ export function initEquipmentPanel(deps = {}) {
     renameBtn,
     "click",
     safeAsync(async () => {
-      const current = state.character.inventoryItems?.[state.character.activeInventoryIndex];
+      const current = char.inventoryItems?.[char.activeInventoryIndex];
       if (!current) return;
 
       const proposed = await uiPrompt?.("Rename item tab to:", {
@@ -349,7 +352,7 @@ export function initEquipmentPanel(deps = {}) {
     deleteBtn,
     "click",
     safeAsync(async (event) => {
-      if ((state.character.inventoryItems?.length || 0) <= 1) {
+      if ((char.inventoryItems?.length || 0) <= 1) {
         await uiAlert?.("You need at least one inventory item.", { title: "Notice" });
         const target = event?.target;
         if (target && typeof target === "object" && "value" in target) target.value = "";

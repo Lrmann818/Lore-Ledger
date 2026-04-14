@@ -6,6 +6,13 @@ function cloneState(value) {
   return structuredClone(value);
 }
 
+/** Returns the first (and typically only) active character entry from a migrated state. */
+function activeEntry(migrated) {
+  return migrated.characters?.entries?.[0] ?? null;
+}
+
+const EMPTY_CHARACTERS = { activeId: null, entries: [] };
+
 const DEFAULT_COMBAT_STATE = {
   workspace: {
     panelOrder: [],
@@ -72,12 +79,13 @@ describe("migrateState", () => {
         }
       });
 
-      const [cantrips, level1, level2, level3] = migrated.character.spells.levels;
+      const entry = activeEntry(migrated);
+      const [cantrips, level1, level2, level3] = entry.spells.levels;
 
       expect(migrated.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
       expect(migrated.map.character).toBeUndefined();
-      expect(migrated.character.equipment).toBe("Rope and grappling hook");
-      expect(migrated.character.inventoryItems).toEqual([
+      expect(entry.equipment).toBe("Rope and grappling hook");
+      expect(entry.inventoryItems).toEqual([
         { title: "Inventory", notes: "Rope and grappling hook" }
       ]);
       expect(migrated.tracker.sessions).toEqual([{ title: "Session 1", notes: "" }]);
@@ -87,16 +95,16 @@ describe("migrateState", () => {
       expect(migrated.tracker.campaignTitle).toBe("My Campaign");
       expect(migrated.tracker.activeSessionIndex).toBe(0);
       expect(migrated.tracker.ui.textareaHeights).toEqual({ sessionNotes: 88 });
-      expect(migrated.character.resources).toHaveLength(1);
-      expect(migrated.character.resources[0]).toMatchObject({
+      expect(entry.resources).toHaveLength(1);
+      expect(entry.resources[0]).toMatchObject({
         name: "Ki",
         cur: 2,
         max: 5
       });
-      expect("resourceName" in migrated.character).toBe(false);
-      expect("resourceCur" in migrated.character).toBe(false);
-      expect("resourceMax" in migrated.character).toBe(false);
-      expect(migrated.character.spells.levels).toHaveLength(4);
+      expect("resourceName" in entry).toBe(false);
+      expect("resourceCur" in entry).toBe(false);
+      expect("resourceMax" in entry).toBe(false);
+      expect(entry.spells.levels).toHaveLength(4);
       expect(cantrips).toMatchObject({ label: "Cantrips", hasSlots: false });
       expect(cantrips.spells.map((spell) => spell.name)).toEqual(["Light", "Mage Hand"]);
       expect(level1).toMatchObject({ label: "1st Level", hasSlots: true, used: 1, total: 4 });
@@ -133,11 +141,11 @@ describe("migrateState", () => {
       });
 
       expect(malformedVersion.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
-      expect(malformedVersion.character.inventoryItems).toEqual([
+      expect(activeEntry(malformedVersion).inventoryItems).toEqual([
         { title: "Inventory", notes: "Bedroll" }
       ]);
       expect(negativeVersion.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
-      expect(negativeVersion.character.inventoryItems).toEqual([
+      expect(activeEntry(negativeVersion).inventoryItems).toEqual([
         { title: "Inventory", notes: "Lantern" }
       ]);
     });
@@ -164,13 +172,13 @@ describe("migrateState", () => {
       });
 
       expect(missingInventory.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
-      expect(missingInventory.character.inventoryItems).toEqual([
+      expect(activeEntry(missingInventory).inventoryItems).toEqual([
         { title: "Inventory", notes: "Bedroll" }
       ]);
-      expect(blankNotes.character.inventoryItems).toEqual([
+      expect(activeEntry(blankNotes).inventoryItems).toEqual([
         { title: "Inventory", notes: "Lantern" }
       ]);
-      expect(fractionalVersion.character.inventoryItems).toEqual([
+      expect(activeEntry(fractionalVersion).inventoryItems).toEqual([
         { title: "Inventory", notes: "Tinderbox" }
       ]);
     });
@@ -195,11 +203,11 @@ describe("migrateState", () => {
       });
 
       expect(migrated.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
-      expect(CURRENT_SCHEMA_VERSION).toBe(3);
+      expect(CURRENT_SCHEMA_VERSION).toBe(4);
       expect(migrated.combat).toEqual(DEFAULT_COMBAT_STATE);
       expect(migrated.tracker.campaignTitle).toBe("Moonfall");
       expect(migrated.tracker.misc).toBe("Preserve this");
-      expect(migrated.character.inventoryItems).toEqual([{ title: "Inventory", notes: "Rations" }]);
+      expect(activeEntry(migrated).inventoryItems).toEqual([{ title: "Inventory", notes: "Rations" }]);
       expect(migrated.ui.theme).toBe("forest");
     });
 
@@ -312,7 +320,7 @@ describe("migrateState", () => {
         mode: "normal"
       });
       expect(migrated.ui.calc.history).toEqual([]);
-      expect(migrated.character.inventoryItems).toEqual([
+      expect(activeEntry(migrated).inventoryItems).toEqual([
         { title: "Inventory", notes: "Pack" }
       ]);
       expect(migrated.combat).toEqual(DEFAULT_COMBAT_STATE);
@@ -402,29 +410,31 @@ describe("migrateState", () => {
         ui: {}
       });
 
+      const entry = activeEntry(migrated);
+
       expect(migrated.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
       expect(migrated.tracker.campaignTitle).toBe("Vault 13");
       expect(migrated.tracker.sessions).toEqual([{ title: "Session 1", notes: "" }]);
       expect(migrated.tracker.ui.textareaHeights).toEqual({});
-      expect(migrated.character.imgBlobId).toBe("portrait_1");
-      expect(migrated.character.money).toEqual({ pp: 0, gp: 0, ep: 0, sp: 0, cp: 0 });
-      expect(migrated.character.personality).toEqual({
+      expect(entry.imgBlobId).toBe("portrait_1");
+      expect(entry.money).toEqual({ pp: 0, gp: 0, ep: 0, sp: 0, cp: 0 });
+      expect(entry.personality).toEqual({
         traits: "",
         ideals: "",
         bonds: "",
         flaws: "",
         notes: ""
       });
-      expect(migrated.character.resources).toEqual([]);
-      expect(migrated.character.abilities).toEqual({});
-      expect(migrated.character.skills).toEqual({});
-      expect(migrated.character.ui.textareaHeights).toEqual({});
-      expect(migrated.character.spells).toEqual({ levels: [] });
-      expect(migrated.character.inventoryItems).toEqual([{ title: "Inventory", notes: "" }]);
-      expect(migrated.character.activeInventoryIndex).toBe(0);
-      expect(migrated.character.inventorySearch).toBe("");
-      expect(migrated.character.hitDieAmt).toBeNull();
-      expect(migrated.character.hitDieSize).toBeNull();
+      expect(entry.resources).toEqual([]);
+      expect(entry.abilities).toEqual({});
+      expect(entry.skills).toEqual({});
+      expect(entry.ui.textareaHeights).toEqual({});
+      expect(entry.spells).toEqual({ levels: [] });
+      expect(entry.inventoryItems).toEqual([{ title: "Inventory", notes: "" }]);
+      expect(entry.activeInventoryIndex).toBe(0);
+      expect(entry.inventorySearch).toBe("");
+      expect(entry.hitDieAmt).toBeNull();
+      expect(entry.hitDieSize).toBeNull();
       expect(migrated.map.maps).toEqual([]);
       expect(migrated.map.activeMapId).toBeNull();
       expect(migrated.map.ui).toEqual({ activeTool: "brush", brushSize: 6 });
@@ -454,8 +464,8 @@ describe("migrateState", () => {
         }
       });
 
-      expect(negativeIndex.character.activeInventoryIndex).toBe(0);
-      expect(tooLargeIndex.character.activeInventoryIndex).toBe(1);
+      expect(activeEntry(negativeIndex).activeInventoryIndex).toBe(0);
+      expect(activeEntry(tooLargeIndex).activeInventoryIndex).toBe(1);
     });
 
     it("preserves existing root ui.theme over legacy tracker theme duplicates", () => {
@@ -483,12 +493,14 @@ describe("migrateState", () => {
         }
       });
 
+      const entry = activeEntry(migrated);
+
       expect(migrated.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
-      expect(migrated.character.resources).toEqual([{ id: "r1", name: "Rage", cur: 1, max: 2 }]);
+      expect(entry.resources).toEqual([{ id: "r1", name: "Rage", cur: 1, max: 2 }]);
       expect(migrated.combat).toEqual(DEFAULT_COMBAT_STATE);
-      expect("resourceName" in migrated.character).toBe(false);
-      expect("resourceCur" in migrated.character).toBe(false);
-      expect("resourceMax" in migrated.character).toBe(false);
+      expect("resourceName" in entry).toBe(false);
+      expect("resourceCur" in entry).toBe(false);
+      expect("resourceMax" in entry).toBe(false);
     });
 
     it("drops empty legacy single-resource fields instead of creating a blank resource", () => {
@@ -500,11 +512,9 @@ describe("migrateState", () => {
         }
       });
 
+      // Character has no meaningful data, so no entry is created.
       expect(migrated.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
-      expect(migrated.character.resources).toEqual([]);
-      expect("resourceName" in migrated.character).toBe(false);
-      expect("resourceCur" in migrated.character).toBe(false);
-      expect("resourceMax" in migrated.character).toBe(false);
+      expect(migrated.characters).toEqual(EMPTY_CHARACTERS);
     });
 
     it("normalizes hit-die aliases to canonical hitDieAmt without dropping legacy saves", () => {
@@ -528,12 +538,12 @@ describe("migrateState", () => {
         }
       });
 
-      expect(canonicalOnly.character.hitDieAmt).toBe(4);
-      expect("hitDieAmount" in canonicalOnly.character).toBe(false);
-      expect(legacyAliasOnly.character.hitDieAmt).toBe(5);
-      expect("hitDieAmount" in legacyAliasOnly.character).toBe(false);
-      expect(bothPresent.character.hitDieAmt).toBe(6);
-      expect("hitDieAmount" in bothPresent.character).toBe(false);
+      expect(activeEntry(canonicalOnly).hitDieAmt).toBe(4);
+      expect("hitDieAmount" in activeEntry(canonicalOnly)).toBe(false);
+      expect(activeEntry(legacyAliasOnly).hitDieAmt).toBe(5);
+      expect("hitDieAmount" in activeEntry(legacyAliasOnly)).toBe(false);
+      expect(activeEntry(bothPresent).hitDieAmt).toBe(6);
+      expect("hitDieAmount" in activeEntry(bothPresent)).toBe(false);
     });
   });
 
@@ -546,8 +556,8 @@ describe("migrateState", () => {
 
         expect(migrated.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
         expect(migrated.tracker.sessions).toEqual([{ title: "Session 1", notes: "" }]);
-        expect(migrated.character.inventoryItems).toEqual([{ title: "Inventory", notes: "" }]);
-        expect(migrated.character.spells).toEqual({ levels: [] });
+        // No character data — collection should be empty.
+        expect(migrated.characters).toEqual(EMPTY_CHARACTERS);
         expect(migrated.map).toMatchObject({
           activeMapId: null,
           maps: [],
@@ -574,11 +584,10 @@ describe("migrateState", () => {
 
       expect(migrated.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
       expect(Array.isArray(migrated.tracker)).toBe(false);
-      expect(Array.isArray(migrated.character)).toBe(false);
+      expect(migrated.characters).toEqual(EMPTY_CHARACTERS);
       expect(Array.isArray(migrated.map)).toBe(false);
       expect(Array.isArray(migrated.ui)).toBe(false);
       expect(migrated.tracker.sessions).toEqual([{ title: "Session 1", notes: "" }]);
-      expect(migrated.character.inventoryItems).toEqual([{ title: "Inventory", notes: "" }]);
       expect(migrated.map.maps).toEqual([]);
       expect(migrated.combat).toEqual(DEFAULT_COMBAT_STATE);
       expect(migrated.ui.theme).toBe("system");
@@ -594,11 +603,10 @@ describe("migrateState", () => {
 
       expect(migrated.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
       expect(Array.isArray(migrated.tracker)).toBe(false);
-      expect(Array.isArray(migrated.character)).toBe(false);
+      expect(migrated.characters).toEqual(EMPTY_CHARACTERS);
       expect(Array.isArray(migrated.map)).toBe(false);
       expect(Array.isArray(migrated.ui)).toBe(false);
       expect(migrated.tracker.sessions).toEqual([{ title: "Session 1", notes: "" }]);
-      expect(migrated.character.inventoryItems).toEqual([{ title: "Inventory", notes: "" }]);
       expect(migrated.map.ui).toEqual({ activeTool: "brush", brushSize: 6 });
       expect(migrated.combat).toEqual(DEFAULT_COMBAT_STATE);
       expect(migrated.ui.theme).toBe("system");
@@ -624,8 +632,8 @@ describe("migrateState", () => {
       expect(migrated.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
       expect(migrated.tracker.campaignTitle).toBe("Vault 13");
       expect(migrated.tracker.sessions).toEqual([{ title: "Session 1", notes: "" }]);
-      expect(migrated.character.resources).toEqual([]);
-      expect(migrated.character.ui.textareaHeights).toEqual({});
+      // Character has no meaningful data (resources null, ui array) — empty collection.
+      expect(migrated.characters).toEqual(EMPTY_CHARACTERS);
       expect(migrated.map).toMatchObject({
         activeMapId: null,
         maps: [],
@@ -652,10 +660,12 @@ describe("migrateState", () => {
         }
       });
 
+      const entry = activeEntry(migrated);
+
       expect(migrated.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
       expect(migrated.map.character).toBeUndefined();
-      expect(migrated.character.equipment).toBe("Rope");
-      expect(migrated.character.inventoryItems).toEqual([{ title: "Inventory", notes: "Rope" }]);
+      expect(entry.equipment).toBe("Rope");
+      expect(entry.inventoryItems).toEqual([{ title: "Inventory", notes: "Rope" }]);
       expect(migrated.map.maps).toEqual([]);
       expect(migrated.map.ui).toEqual({ activeTool: "brush", brushSize: 6 });
       expect(migrated.combat).toEqual(DEFAULT_COMBAT_STATE);
@@ -668,8 +678,9 @@ describe("migrateState", () => {
         }
       });
 
+      // Character has no meaningful data after spells reset — empty collection.
       expect(migrated.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
-      expect(migrated.character.spells).toEqual({ levels: [] });
+      expect(migrated.characters).toEqual(EMPTY_CHARACTERS);
       expect(migrated.combat).toEqual(DEFAULT_COMBAT_STATE);
     });
 
@@ -683,7 +694,8 @@ describe("migrateState", () => {
         }
       });
 
-      const [cantrips, level1] = migrated.character.spells.levels;
+      const entry = activeEntry(migrated);
+      const [cantrips, level1] = entry.spells.levels;
 
       expect(migrated.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
       expect(cantrips.spells.map((spell) => spell.name)).toEqual(["Light"]);

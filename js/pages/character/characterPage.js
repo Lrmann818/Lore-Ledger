@@ -13,6 +13,9 @@ import { initPersonalityPanel, setupCharacterCollapsibleTextareas } from "../cha
 import { numberOrNull } from "../../utils/number.js";
 import { requireMany, getNoopDestroyApi } from "../../utils/domGuards.js";
 import { DEV_MODE } from "../../utils/dev.js";
+import { getActiveCharacter } from "../../domain/characterHelpers.js";
+import { createStateActions } from "../../domain/stateActions.js";
+import { safeAsync } from "../../ui/safeAsync.js";
 
 let _activeCharacterPageController = null;
 
@@ -154,12 +157,8 @@ export function initCharacterPageUI(deps) {
 
   /************************ Character Sheet page ***********************/
   function initCharacterUI() {
-    // Ensure shape exists (older saves/backups)
-    if (!state.character) state.character = {};
-    if (!state.character.abilities) state.character.abilities = {};
-    if (!state.character.spells) state.character.spells = {};
-    if (!state.character.money) state.character.money = { pp: 0, gp: 0, ep: 0, sp: 0, cp: 0 };
-    if (!state.character.personality) state.character.personality = {};
+    // Each panel resolves the active character independently via getActiveCharacter().
+    // If no active character exists, panels return early and render empty.
 
     runPanelInit("Spells panel", () => initSpellsPanel(deps));
     runPanelInit("Attacks panel", () => initAttacksPanel(deps));
@@ -195,7 +194,172 @@ export function initCharacterPageUI(deps) {
     runPanelInit("Character textarea collapse", () => setupCharacterCollapsibleTextareas({ state, SaveManager }));
   }
 
+  /** Re-initializes the entire character page (selector + panels) after a character CRUD action. */
+  function rerender() {
+    initCharacterPageUI(deps);
+  }
+
+  /**
+   * Populates the character selector and wires the overflow menu (New / Rename / Delete).
+   */
+  function initCharacterSelectorBar() {
+    const selectorEl = /** @type {HTMLSelectElement | null} */ (document.getElementById("charSelector"));
+    const menuBtnEl = document.getElementById("charMenuBtn");
+    if (!selectorEl || !menuBtnEl) return;
+
+    const { mutateState } = createStateActions({ state, SaveManager });
+
+    // --- populate selector ---
+    const entries = state.characters?.entries ?? [];
+    const activeId = state.characters?.activeId ?? null;
+
+    selectorEl.innerHTML = "";
+    if (entries.length === 0) {
+      const opt = document.createElement("option");
+      opt.value = "";
+      opt.textContent = "No characters";
+      opt.disabled = true;
+      selectorEl.appendChild(opt);
+      selectorEl.disabled = true;
+    } else {
+      selectorEl.disabled = false;
+      for (const entry of entries) {
+        const opt = document.createElement("option");
+        opt.value = entry.id;
+        opt.textContent = entry.name || "Unnamed Character";
+        opt.selected = entry.id === activeId;
+        selectorEl.appendChild(opt);
+      }
+    }
+
+    // --- wire selector change ---
+    addListener(selectorEl, "change", () => {
+      const newId = selectorEl.value;
+      if (!newId || newId === state.characters?.activeId) return;
+      mutateState((s) => { s.characters.activeId = newId; });
+      rerender();
+    });
+
+    // --- build overflow menu ---
+    const menu = document.createElement("div");
+    menu.className = "popoverMenu charMenu";
+
+    function generateCharId() {
+      return `char_${Math.random().toString(36).slice(2)}_${Date.now().toString(36)}`;
+    }
+
+    function addMenuItem(label, handler, isDanger = false) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "popoverMenuItem" + (isDanger ? " danger" : "");
+      btn.textContent = label;
+      addListener(btn, "click", safeAsync(handler, (err) => {
+        console.error(label, "failed:", err);
+        if (typeof setStatus === "function") setStatus(`${label} failed.`);
+      }));
+      menu.appendChild(btn);
+    }
+
+    addMenuItem("New Character", async () => {
+      const id = generateCharId();
+      mutateState((s) => {
+        s.characters.entries.push({ id, name: "New Character" });
+        s.characters.activeId = id;
+      });
+      rerender();
+    });
+
+    addMenuItem("Rename Character", async () => {
+      const activeChar = getActiveCharacter(state);
+      if (!activeChar) return;
+      const proposed = await uiPrompt?.("Rename character to:", {
+        defaultValue: activeChar.name || "",
+        title: "Rename Character"
+      });
+      if (proposed === null || proposed === undefined) return;
+      const name = String(proposed).trim() || activeChar.name || "Unnamed Character";
+      mutateState((s) => {
+        const entry = s.characters.entries.find((e) => e.id === s.characters.activeId);
+        if (entry) entry.name = name;
+      });
+      rerender();
+    });
+
+    addMenuItem("Delete Character", async () => {
+      const activeChar = getActiveCharacter(state);
+      const charName = activeChar?.name ? `"${activeChar.name}"` : "this character";
+      const ok = await uiConfirm?.(`Delete ${charName}? This cannot be undone.`, {
+        title: "Delete Character",
+        okText: "Delete"
+      });
+      if (!ok) return;
+      mutateState((s) => {
+        const idx = s.characters.entries.findIndex((e) => e.id === s.characters.activeId);
+        if (idx !== -1) s.characters.entries.splice(idx, 1);
+        const remaining = s.characters.entries;
+        s.characters.activeId = remaining.length > 0 ? remaining[0].id : null;
+      });
+      rerender();
+    }, true);
+
+    document.body.appendChild(menu);
+    addDestroy(() => menu.remove());
+
+    if (Popovers) {
+      const popoverHandle = Popovers.register({
+        button: menuBtnEl,
+        menu,
+        preferRight: false,
+        closeOnOutside: true,
+        closeOnEsc: true,
+        stopInsideClick: false,
+        wireButton: true
+      });
+      addDestroy(() => {
+        try { popoverHandle?.destroy?.(); } catch { /* noop */ }
+      });
+    }
+  }
+
+  /**
+   * Shows/hides the empty-state prompt based on whether any character entries exist.
+   * "Yes" creates a blank character. "No" dismisses without creating.
+   * Both buttons hide the prompt so it doesn't reappear during this page session.
+   */
+  function initCharacterEmptyState() {
+    const emptyEl = document.getElementById("charEmptyState");
+    const yesBtn = document.getElementById("charEmptyStateYes");
+    const noBtn = document.getElementById("charEmptyStateNo");
+    if (!emptyEl || !yesBtn || !noBtn) return;
+
+    const hasEntries = (state.characters?.entries?.length ?? 0) > 0;
+    if (hasEntries) {
+      emptyEl.hidden = true;
+      return;
+    }
+
+    emptyEl.hidden = false;
+    const { mutateState } = createStateActions({ state, SaveManager });
+
+    function dismiss() {
+      emptyEl.hidden = true;
+    }
+
+    addListener(yesBtn, "click", () => {
+      const id = `char_${Math.random().toString(36).slice(2)}_${Date.now().toString(36)}`;
+      mutateState((s) => {
+        s.characters.entries.push({ id, name: "New Character" });
+        s.characters.activeId = id;
+      });
+      rerender();
+    });
+
+    addListener(noBtn, "click", dismiss);
+  }
+
   // Boot character page bindings
+  initCharacterEmptyState();
+  initCharacterSelectorBar();
   initCharacterUI();
 
   const api = {

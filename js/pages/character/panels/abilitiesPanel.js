@@ -5,6 +5,7 @@
 import { enhanceSelectDropdown } from "../../../ui/selectDropdown.js";
 import { flipSwapTwo } from "../../../ui/flipSwap.js";
 import { getNoopDestroyApi, requireMany } from "../../../utils/domGuards.js";
+import { getActiveCharacter } from "../../../domain/characterHelpers.js";
 
 /** @typedef {import("../../../storage/saveManager.js").SaveManager} SaveManager */
 /** @typedef {import("../../../ui/popovers.js").PopoversApi} PopoversApi */
@@ -197,9 +198,9 @@ export function initAbilitiesPanel(deps = {}) {
   const abilityGrid = guard.els.abilityGrid instanceof HTMLElement ? guard.els.abilityGrid : null;
   if (!panelEl || !abilityGrid) return getNoopDestroyApi();
 
-  const character = isRecord(state.character)
-    ? /** @type {CharacterPanelState} */ (state.character)
-    : (state.character = /** @type {CharacterPanelState} */ ({}));
+  const activeChar = getActiveCharacter(state);
+  if (!activeChar) return getNoopDestroyApi();
+  const character = /** @type {CharacterPanelState} */ (activeChar);
 
   if (!isRecord(character.abilities)) character.abilities = {};
   if (!isRecord(character.skills)) character.skills = {};

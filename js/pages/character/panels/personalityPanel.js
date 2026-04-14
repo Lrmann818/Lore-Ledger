@@ -3,6 +3,7 @@
 
 import { initCollapsibleTextareas } from "../../../ui/collapsibleTextareas.js";
 import { requireMany } from "../../../utils/domGuards.js";
+import { getActiveCharacter } from "../../../domain/characterHelpers.js";
 
 /**
  * @typedef {{
@@ -19,6 +20,8 @@ function ensureStringField(obj, key) {
 export function initPersonalityPanel(deps = {}) {
   const { state, bindText, setStatus } = deps;
   if (!state || !bindText) return;
+  const char = getActiveCharacter(state);
+  if (!char) return;
 
   const required = {
     panel: "#charPersonalityPanel",
@@ -31,12 +34,11 @@ export function initPersonalityPanel(deps = {}) {
   const guard = requireMany(required, { root: document, setStatus, context: "Personality panel" });
   if (!guard.ok) return guard.destroy;
 
-  if (!state.character) state.character = {};
-  if (!state.character.personality || typeof state.character.personality !== "object") {
-    state.character.personality = {};
+  if (!char.personality || typeof char.personality !== "object") {
+    char.personality = {};
   }
 
-  const p = state.character.personality;
+  const p = char.personality;
   ensureStringField(p, "traits");
   ensureStringField(p, "ideals");
   ensureStringField(p, "bonds");

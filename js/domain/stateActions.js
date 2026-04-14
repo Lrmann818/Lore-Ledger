@@ -17,7 +17,7 @@ import { DEV_MODE, withAllowedStateMutation } from "../utils/dev.js";
 /**
  * @typedef {{
  *   mutateState: (mutator: (state: State) => unknown, options?: MutationOptions) => unknown,
- *   mutateCharacter: (mutator: (character: State["character"], state: State) => unknown, options?: MutationOptions) => unknown,
+ *   mutateCharacter: (mutator: (character: State["characters"]["entries"][number], state: State) => unknown, options?: MutationOptions) => unknown,
  *   mutateTracker: (mutator: (tracker: State["tracker"], state: State) => unknown, options?: MutationOptions) => unknown,
  *   setPath: (path: string | readonly unknown[], value: unknown, options?: MutationOptions) => boolean,
  *   updateCharacterField: (path: string | readonly unknown[], value: unknown, options?: MutationOptions) => boolean,
@@ -180,17 +180,26 @@ export function createStateActions({ state, SaveManager } = {}) {
   }
 
   /**
-   * @param {(character: State["character"], state: State) => unknown} mutator
+   * Returns the active character entry from state.characters, or null if none.
+   * @returns {State["characters"]["entries"][number] | null}
+   */
+  function getActiveCharacterEntry() {
+    const characters = state.characters;
+    if (!characters || !Array.isArray(characters.entries) || !characters.activeId) return null;
+    return characters.entries.find((e) => e && e.id === characters.activeId) ?? null;
+  }
+
+  /**
+   * @param {(character: State["characters"]["entries"][number], state: State) => unknown} mutator
    * @param {MutationOptions} [options]
    * @returns {unknown}
    */
   function mutateCharacter(mutator, options = {}) {
     if (typeof mutator !== "function") return false;
     const result = withAllowedStateMutation(() => {
-      if (!state.character || typeof state.character !== "object") {
-        state.character = /** @type {State["character"]} */ ({});
-      }
-      return mutator(state.character, state);
+      const entry = getActiveCharacterEntry();
+      if (!entry) return false;
+      return mutator(entry, state);
     });
     if (result === false) return false;
     maybeQueueSave(SaveManager, options);
@@ -240,10 +249,9 @@ export function createStateActions({ state, SaveManager } = {}) {
   function updateCharacterField(path, value, options = {}) {
     const updated = withAllowedStateMutation(() => {
       assertNoLegacyHitDieAliasPath(path, "character");
-      if (!state.character || typeof state.character !== "object") {
-        state.character = /** @type {State["character"]} */ ({});
-      }
-      return setPathValue(state.character, path, value);
+      const entry = getActiveCharacterEntry();
+      if (!entry) return false;
+      return setPathValue(entry, path, value);
     });
     if (!updated) return false;
     maybeQueueSave(SaveManager, options);

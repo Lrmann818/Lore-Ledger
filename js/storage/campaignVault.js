@@ -22,7 +22,7 @@ export const LEGACY_MIGRATION_CAMPAIGN_ID = "campaign_legacy";
  * @typedef {{
  *   schemaVersion: number,
  *   tracker: NonNullable<SanitizedState["tracker"]>,
- *   character: NonNullable<SanitizedState["character"]>,
+ *   characters: NonNullable<SanitizedState["characters"]>,
  *   map: SanitizedState["map"],
  *   combat: NonNullable<SanitizedState["combat"]>
  * }} CampaignDoc
@@ -180,7 +180,7 @@ export function extractCampaignDoc(source, sanitizeForSave) {
       ...(sanitized.tracker || {}),
       campaignTitle: campaignName
     })),
-    character: /** @type {CampaignDoc["character"]} */ (clone(sanitized.character || {})),
+    characters: /** @type {CampaignDoc["characters"]} */ (clone(sanitized.characters || { activeId: null, entries: [] })),
     map: /** @type {CampaignDoc["map"]} */ (clone(sanitized.map || { activeMapId: null, maps: [] })),
     combat: /** @type {CampaignDoc["combat"]} */ (clone(sanitized.combat || {}))
   };
@@ -413,7 +413,7 @@ export function normalizeCampaignVault(rawVault, deps) {
 export function replaceRuntimeState(target, source) {
   target.schemaVersion = source.schemaVersion;
   target.tracker = source.tracker;
-  target.character = source.character;
+  target.characters = source.characters;
   target.map = source.map;
   target.combat = source.combat;
   target.ui = source.ui;
@@ -501,7 +501,7 @@ export function projectActiveCampaignState(vault, migrateState) {
   const runtime = migrateState({
     schemaVersion: doc.schemaVersion,
     tracker: doc.tracker,
-    character: doc.character,
+    characters: doc.characters,
     map: doc.map,
     combat: doc.combat,
     ui: appShellUi,
@@ -592,16 +592,25 @@ export function collectCampaignSpellIds(stateLike) {
   const ids = new Set();
   if (!isPlainObject(stateLike)) return ids;
 
-  const character = isPlainObject(stateLike.character) ? stateLike.character : null;
-  const spells = isPlainObject(character?.spells) ? character.spells : null;
-  const levels = Array.isArray(spells?.levels) ? spells.levels : [];
+  // Support both new shape (characters.entries[]) and old shape (character) for robustness.
+  const charactersCollection = isPlainObject(stateLike.characters) ? stateLike.characters : null;
+  const entries = Array.isArray(charactersCollection?.entries) ? charactersCollection.entries : [];
 
-  for (const level of levels) {
-    if (!isPlainObject(level) || !Array.isArray(level.spells)) continue;
-    for (const spell of level.spells) {
-      if (!isPlainObject(spell) || typeof spell.id !== "string") continue;
-      const spellId = spell.id.trim();
-      if (spellId) ids.add(spellId);
+  // Fallback: legacy single character field (e.g., during import of old backups)
+  const legacyCharacter = entries.length === 0 && isPlainObject(stateLike.character) ? stateLike.character : null;
+  const allCharacters = entries.length > 0 ? entries : (legacyCharacter ? [legacyCharacter] : []);
+
+  for (const ch of allCharacters) {
+    if (!isPlainObject(ch)) continue;
+    const spells = isPlainObject(ch.spells) ? ch.spells : null;
+    const levels = Array.isArray(spells?.levels) ? spells.levels : [];
+    for (const level of levels) {
+      if (!isPlainObject(level) || !Array.isArray(level.spells)) continue;
+      for (const spell of level.spells) {
+        if (!isPlainObject(spell) || typeof spell.id !== "string") continue;
+        const spellId = spell.id.trim();
+        if (spellId) ids.add(spellId);
+      }
     }
   }
 

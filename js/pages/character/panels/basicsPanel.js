@@ -5,6 +5,7 @@ import { safeAsync } from "../../../ui/safeAsync.js";
 import { createStateActions } from "../../../domain/stateActions.js";
 import { requireMany } from "../../../utils/domGuards.js";
 import { replaceStoredBlob } from "../../../storage/blobReplacement.js";
+import { getActiveCharacter } from "../../../domain/characterHelpers.js";
 
 function formatPossessive(name) {
   const n = (name || "").trim();
@@ -15,7 +16,7 @@ function formatPossessive(name) {
 
 function updateTabTitle(state) {
   const base = "Campaign Tracker";
-  const name = state.character?.name || "";
+  const name = getActiveCharacter(state)?.name || "";
   const poss = formatPossessive(name);
   document.title = poss ? `${poss} ${base}` : base;
 }
@@ -96,13 +97,14 @@ function setupCharacterPortrait(deps, refs = {}) {
     // wipe the box and rebuild contents like NPC
     boxEl.innerHTML = "";
 
-    if (state.character.imgBlobId && typeof blobIdToObjectUrl === "function") {
+    const activeChar = getActiveCharacter(state);
+    if (activeChar?.imgBlobId && typeof blobIdToObjectUrl === "function") {
       const img = document.createElement("img");
-      img.alt = state.character.name || "Character Portrait";
+      img.alt = activeChar.name || "Character Portrait";
       boxEl.appendChild(img);
 
       let url = null;
-      try { url = await blobIdToObjectUrl(state.character.imgBlobId); }
+      try { url = await blobIdToObjectUrl(activeChar.imgBlobId); }
       catch (err) {
         console.warn("Failed to load character portrait blob:", err);
       }
@@ -137,7 +139,7 @@ function setupCharacterPortrait(deps, refs = {}) {
           if (typeof portraitBlob === "undefined") return;
 
           await replaceStoredBlob({
-            oldBlobId: state.character.imgBlobId,
+            oldBlobId: getActiveCharacter(state)?.imgBlobId ?? null,
             nextBlob: portraitBlob,
             putBlob,
             deleteBlob,
@@ -201,17 +203,18 @@ export function initBasicsPanel(deps = {}) {
     portraitTopEl
   } = guard.els;
 
-  if (!state.character) state.character = {};
+  const char = getActiveCharacter(state);
+  if (!char) return;
   const { updateCharacterField } = createStateActions({ state, SaveManager });
 
   // bindText/bindNumber already queue saves via SaveManager; actions only mutate here.
-  bindText("charName", () => state.character.name, (v) => updateCharacterField("name", v, { queueSave: false }));
-  bindText("charClassLevel", () => state.character.classLevel, (v) => updateCharacterField("classLevel", v, { queueSave: false }));
-  bindText("charRace", () => state.character.race, (v) => updateCharacterField("race", v, { queueSave: false }));
-  bindText("charBackground", () => state.character.background, (v) => updateCharacterField("background", v, { queueSave: false }));
-  bindText("charAlignment", () => state.character.alignment, (v) => updateCharacterField("alignment", v, { queueSave: false }));
-  bindNumber("charExperience", () => state.character.experience, (v) => updateCharacterField("experience", v, { queueSave: false }));
-  bindText("charFeatures", () => state.character.features, (v) => updateCharacterField("features", v, { queueSave: false }));
+  bindText("charName", () => char.name, (v) => updateCharacterField("name", v, { queueSave: false }));
+  bindText("charClassLevel", () => char.classLevel, (v) => updateCharacterField("classLevel", v, { queueSave: false }));
+  bindText("charRace", () => char.race, (v) => updateCharacterField("race", v, { queueSave: false }));
+  bindText("charBackground", () => char.background, (v) => updateCharacterField("background", v, { queueSave: false }));
+  bindText("charAlignment", () => char.alignment, (v) => updateCharacterField("alignment", v, { queueSave: false }));
+  bindNumber("charExperience", () => char.experience, (v) => updateCharacterField("experience", v, { queueSave: false }));
+  bindText("charFeatures", () => char.features, (v) => updateCharacterField("features", v, { queueSave: false }));
 
   setupTitleSync(state, nameInput);
   setupAutosizeInputs(autoSizeInput, {

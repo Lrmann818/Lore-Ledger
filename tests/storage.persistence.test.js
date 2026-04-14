@@ -111,7 +111,7 @@ describe("multi-campaign persistence foundation", () => {
     expect(markDirty).toHaveBeenCalledTimes(1);
     expect(state.appShell.activeCampaignId).toEqual(expect.any(String));
     expect(state.tracker.campaignTitle).toBe("Moonfall");
-    expect(state.character.inventoryItems[0].notes).toBe("50 ft rope");
+    expect(state.characters.entries[0].inventoryItems[0].notes).toBe("50 ft rope");
 
     const activeCampaignId = state.appShell.activeCampaignId;
     expect(vaultRuntime.current.campaignIndex.order).toEqual([activeCampaignId]);

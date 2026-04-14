@@ -20,7 +20,21 @@ import { deleteText, getTextRecord, textKey_spellNotes } from "../js/storage/tex
 import { uiAlert } from "../js/ui/dialogs.js";
 
 function makeState() {
-  return migrateState(undefined);
+  const s = migrateState(undefined);
+  // Ensure there's an active character entry for test setup convenience.
+  const charEntry = {
+    id: "char_test",
+    spells: { levels: [] },
+    inventoryItems: [{ title: "Inventory", notes: "" }],
+    imgBlobId: null
+  };
+  s.characters = { activeId: "char_test", entries: [charEntry] };
+  return s;
+}
+
+/** Returns the active character entry from a test state. */
+function charOf(state) {
+  return state.characters?.entries?.[0];
 }
 
 function jsonClone(value) {
@@ -187,9 +201,9 @@ describe("exportBackup", () => {
     state.appShell.activeCampaignId = "campaign_alpha";
     state.tracker.campaignTitle = "Exported Campaign";
     state.tracker.npcs = [{ name: "Scout", imgBlobId: "npc-blob" }];
-    state.character.imgBlobId = "char-blob";
+    charOf(state).imgBlobId = "char-blob";
     state.map.bgBlobId = "map-bg";
-    state.character.spells.levels = [
+    charOf(state).spells.levels = [
       {
         id: "level-1",
         label: "Cantrips",
@@ -365,7 +379,7 @@ describe("importBackup", () => {
 
     expect(state.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
     expect(state.tracker.campaignTitle).toBe("Legacy Campaign");
-    expect(state.character.inventoryItems[0].notes).toBe("50 ft rope");
+    expect(charOf(state).inventoryItems[0].notes).toBe("50 ft rope");
     expect(uiAlert).toHaveBeenCalledWith(
       "This backup did not include images. Existing portraits were kept.",
       { title: "Import complete" }
@@ -378,7 +392,7 @@ describe("importBackup", () => {
     state.appShell.activeCampaignId = "campaign_current";
     state.tracker.campaignTitle = "Old Campaign";
     state.tracker.npcs = [{ name: "Old NPC", imgBlobId: "old-npc-blob" }];
-    state.character.spells.levels = [
+    charOf(state).spells.levels = [
       {
         id: "level-old",
         label: "Cantrips",
@@ -393,7 +407,7 @@ describe("importBackup", () => {
     const importedState = makeState();
     importedState.tracker.campaignTitle = "Imported Campaign";
     importedState.tracker.npcs = [{ name: "New NPC", imgBlobId: "new-npc-blob" }];
-    importedState.character.spells.levels = [
+    charOf(importedState).spells.levels = [
       {
         id: "level-new",
         label: "Cantrips",
@@ -476,7 +490,7 @@ describe("importBackup", () => {
     const exportedSharedNotesKey = textKey_spellNotes("campaign_exported", "shared-spell");
     const state = makeState();
     state.appShell.activeCampaignId = "campaign_current";
-    state.character.spells.levels = [
+    charOf(state).spells.levels = [
       {
         id: "level-old",
         label: "Cantrips",
@@ -490,7 +504,7 @@ describe("importBackup", () => {
 
     const importedState = makeState();
     importedState.tracker.campaignTitle = "Imported Campaign";
-    importedState.character.spells.levels = [
+    charOf(importedState).spells.levels = [
       {
         id: "level-new",
         label: "Cantrips",
@@ -539,7 +553,7 @@ describe("importBackup", () => {
 
     const importedState = makeState();
     importedState.tracker.campaignTitle = "Imported Campaign";
-    importedState.character.spells.levels = [
+    charOf(importedState).spells.levels = [
       {
         id: "level-new",
         label: "Cantrips",
@@ -710,7 +724,7 @@ describe("importBackup", () => {
   it("restores previous text data when save fails after text writes begin", async () => {
     const state = makeState();
     state.tracker.campaignTitle = "Old Campaign";
-    state.character.spells.levels = [
+    charOf(state).spells.levels = [
       {
         id: "level-old",
         label: "Cantrips",
@@ -724,7 +738,7 @@ describe("importBackup", () => {
 
     const importedState = makeState();
     importedState.tracker.campaignTitle = "Imported Campaign";
-    importedState.character.spells.levels = [
+    charOf(importedState).spells.levels = [
       {
         id: "level-new",
         label: "Cantrips",

@@ -9,6 +9,7 @@ import { safeAsync } from "../../../ui/safeAsync.js";
 import { createStateActions } from "../../../domain/stateActions.js";
 import { flipSwapTwo } from "../../../ui/flipSwap.js";
 import { requireMany } from "../../../utils/domGuards.js";
+import { getActiveCharacter } from "../../../domain/characterHelpers.js";
 
 const ATTACK_FIELD_BY_CLASS = Object.freeze({
   attackName: "name",
@@ -32,8 +33,9 @@ export function initAttacksPanel(deps = {}) {
   if (!state) throw new Error("initAttacksPanel requires state");
   if (!SaveManager) throw new Error("initAttacksPanel requires SaveManager");
 
-  if (!state.character) state.character = {};
-  if (!Array.isArray(state.character.attacks)) state.character.attacks = [];
+  const char = getActiveCharacter(state);
+  if (!char) return null;
+  if (!Array.isArray(char.attacks)) char.attacks = [];
 
   const { mutateCharacter } = createStateActions({ state, SaveManager });
 
@@ -73,7 +75,7 @@ export function initAttacksPanel(deps = {}) {
   }
 
   function getAttacks() {
-    return Array.isArray(state.character?.attacks) ? state.character.attacks : [];
+    return Array.isArray(char?.attacks) ? char.attacks : [];
   }
 
   function createMoveButton(direction, disabled) {
