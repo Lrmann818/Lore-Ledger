@@ -41,7 +41,8 @@ function setupVitalsTileReorder({ state, SaveManager, panelEl, gridEl, actions =
   }, { queueSave: false });
 
   function applyOrder() {
-    const order = char.ui.vitalsOrder || defaultOrder;
+    const active = getActiveCharacter(state);
+    const order = active?.ui?.vitalsOrder || defaultOrder;
     const map = new Map(Array.from(grid.querySelectorAll(".charTile")).map((t) => [t.dataset.vitalKey, t]));
     order.forEach((k) => {
       const el = map.get(k);
