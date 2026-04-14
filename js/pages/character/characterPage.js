@@ -13,7 +13,7 @@ import { initPersonalityPanel, setupCharacterCollapsibleTextareas } from "../cha
 import { numberOrNull } from "../../utils/number.js";
 import { requireMany, getNoopDestroyApi } from "../../utils/domGuards.js";
 import { DEV_MODE } from "../../utils/dev.js";
-import { getActiveCharacter } from "../../domain/characterHelpers.js";
+import { getActiveCharacter, makeDefaultCharacterEntry } from "../../domain/characterHelpers.js";
 import { createStateActions } from "../../domain/stateActions.js";
 import { safeAsync } from "../../ui/safeAsync.js";
 
@@ -244,10 +244,6 @@ export function initCharacterPageUI(deps) {
     const menu = document.createElement("div");
     menu.className = "popoverMenu charMenu";
 
-    function generateCharId() {
-      return `char_${Math.random().toString(36).slice(2)}_${Date.now().toString(36)}`;
-    }
-
     function addMenuItem(label, handler, isDanger = false) {
       const btn = document.createElement("button");
       btn.type = "button";
@@ -261,10 +257,10 @@ export function initCharacterPageUI(deps) {
     }
 
     addMenuItem("New Character", async () => {
-      const id = generateCharId();
+      const entry = makeDefaultCharacterEntry();
       mutateState((s) => {
-        s.characters.entries.push({ id, name: "New Character" });
-        s.characters.activeId = id;
+        s.characters.entries.push(entry);
+        s.characters.activeId = entry.id;
       });
       rerender();
     });
@@ -346,10 +342,10 @@ export function initCharacterPageUI(deps) {
     }
 
     addListener(yesBtn, "click", () => {
-      const id = `char_${Math.random().toString(36).slice(2)}_${Date.now().toString(36)}`;
+      const entry = makeDefaultCharacterEntry();
       mutateState((s) => {
-        s.characters.entries.push({ id, name: "New Character" });
-        s.characters.activeId = id;
+        s.characters.entries.push(entry);
+        s.characters.activeId = entry.id;
       });
       rerender();
     });
