@@ -12,6 +12,25 @@ async function readActiveCampaignSpellNote(page, spellId) {
   }, spellId);
 }
 
+async function readSpellPanelRows(page, rootSelector) {
+  return page.evaluate((selector) => {
+    const root = document.querySelector(selector);
+    if (!root) return [];
+    return Array.from(root.querySelectorAll(".spellRow")).map((row) => {
+      const name = row.querySelector(".spellName");
+      const toggle = (label) => Array.from(row.querySelectorAll(".spellToggle"))
+        .find((button) => button.textContent?.trim() === label)
+        ?.getAttribute("aria-pressed") === "true";
+      return {
+        name: name instanceof HTMLInputElement ? name.value : "",
+        known: toggle("Known"),
+        prepared: toggle("Prepared"),
+        cast: toggle("Cast")
+      };
+    });
+  }, rootSelector);
+}
+
 async function writeStoredCombatPanelOrder(page, panelOrder) {
   // Campaign creation saves through the app's debounced SaveManager; let that
   // initial write settle before seeding the persisted Combat workspace layout.
@@ -530,6 +549,90 @@ test("combat workspace panel picker adds embedded panels, persists selection, pr
   await expect.poll(() =>
     page.evaluate(() => globalThis.__APP_STATE__?.combat?.encounter?.participants?.length ?? 0)
   ).toBe(0);
+
+  await expectNoFatalSignals(page, fatalSignals);
+});
+
+test("combat embedded spells stay live-synced with the character spells panel without reload", async ({ page }) => {
+  const fatalSignals = await openSmokeApp(page, { campaignName: "Combat Embedded Spell Sync Smoke" });
+  const characterRows = "#spellLevels";
+  const combatRows = "#combatEmbeddedSpellLevels";
+
+  await page.getByRole("tab", { name: "Combat" }).click();
+  await page.locator("[data-add-embedded-panel='spells']").click();
+  await expect(page.locator("#combatEmbeddedPanel_spells")).toBeVisible();
+  await expect.poll(() => readSpellPanelRows(page, combatRows)).toEqual([]);
+
+  await page.getByRole("tab", { name: "Character" }).click();
+  const characterFirstLevel = page.locator("#spellLevels .spellLevel").first();
+  await characterFirstLevel.getByRole("button", { name: "+ Spell" }).click();
+  await characterFirstLevel.locator(".spellRow").last().locator(".spellName").fill("Shield");
+
+  await page.getByRole("tab", { name: "Combat" }).click();
+  await expect.poll(() => readSpellPanelRows(page, combatRows)).toEqual([
+    { name: "Shield", known: true, prepared: false, cast: false }
+  ]);
+
+  const combatFirstLevel = page.locator("#combatEmbeddedSpellLevels .spellLevel").first();
+  await combatFirstLevel.getByRole("button", { name: "+ Spell" }).click();
+  await combatFirstLevel.locator(".spellRow").last().locator(".spellName").fill("Aid");
+
+  await page.getByRole("tab", { name: "Character" }).click();
+  await expect.poll(() => readSpellPanelRows(page, characterRows)).toEqual([
+    { name: "Shield", known: true, prepared: false, cast: false },
+    { name: "Aid", known: true, prepared: false, cast: false }
+  ]);
+
+  await page.locator("#spellLevels .spellLevel").first().locator(".spellRow").nth(1).locator(".spellName").fill("Bless");
+
+  await page.getByRole("tab", { name: "Combat" }).click();
+  await expect.poll(() => readSpellPanelRows(page, combatRows)).toEqual([
+    { name: "Shield", known: true, prepared: false, cast: false },
+    { name: "Bless", known: true, prepared: false, cast: false }
+  ]);
+
+  const combatBless = page.locator("#combatEmbeddedSpellLevels .spellLevel").first().locator(".spellRow").nth(1);
+  await combatBless.getByRole("button", { name: "Known" }).click();
+  await combatBless.getByRole("button", { name: "Prepared" }).click();
+  await combatBless.getByRole("button", { name: "Cast" }).click();
+
+  await page.getByRole("tab", { name: "Character" }).click();
+  await expect.poll(() => readSpellPanelRows(page, characterRows)).toEqual([
+    { name: "Shield", known: true, prepared: false, cast: false },
+    { name: "Bless", known: false, prepared: true, cast: true }
+  ]);
+
+  await page.locator("#spellLevels .spellLevel").first().locator(".spellRow").nth(1).locator("button[title='Move up']").click();
+
+  await page.getByRole("tab", { name: "Combat" }).click();
+  await expect.poll(() => readSpellPanelRows(page, combatRows)).toEqual([
+    { name: "Bless", known: false, prepared: true, cast: true },
+    { name: "Shield", known: true, prepared: false, cast: false }
+  ]);
+
+  await page.locator("#combatEmbeddedSpellLevels .spellLevel").first().locator(".spellRow").nth(1).getByRole("button", { name: "X" }).click();
+  await expect(page.locator("#uiDialogOverlay")).toBeVisible();
+  await page.locator("#uiDialogOk").click();
+  await expect.poll(() => readSpellPanelRows(page, combatRows)).toEqual([
+    { name: "Bless", known: false, prepared: true, cast: true }
+  ]);
+
+  await page.getByRole("tab", { name: "Character" }).click();
+  await expect.poll(() => readSpellPanelRows(page, characterRows)).toEqual([
+    { name: "Bless", known: false, prepared: true, cast: true }
+  ]);
+
+  await page.getByRole("tab", { name: "Combat" }).click();
+  await page.locator("#combatEmbeddedPanel_spells [data-remove-embedded-panel='spells']").click();
+  await expect(page.locator("#combatEmbeddedPanel_spells")).not.toBeVisible();
+  await expect.poll(() => page.evaluate(() =>
+    globalThis.__APP_STATE__?.character?.spells?.levels?.flatMap((level) => level.spells || []).map((spell) => spell.name)
+  )).toEqual(["Bless"]);
+
+  await page.getByRole("tab", { name: "Character" }).click();
+  await expect.poll(() => readSpellPanelRows(page, characterRows)).toEqual([
+    { name: "Bless", known: false, prepared: true, cast: true }
+  ]);
 
   await expectNoFatalSignals(page, fatalSignals);
 });

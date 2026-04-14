@@ -1,4 +1,5 @@
 import { safeAsync } from "../../../ui/safeAsync.js";
+import { notifyPanelDataChanged, subscribePanelDataChanged } from "../../../ui/panelInvalidation.js";
 import { requireMany } from "../../../utils/domGuards.js";
 
 const SPELL_NOTES_SAVE_DEBOUNCE_MS = 250;
@@ -135,6 +136,7 @@ export function initSpellsPanel(deps = {}) {
   addDestroy(() => listenerController.abort());
 
   let destroyed = false;
+  const panelInstance = {};
   const spellNotesCampaignId = (() => {
     const normalized = typeof state?.appShell?.activeCampaignId === "string"
       ? state.appShell.activeCampaignId.trim()
@@ -245,6 +247,12 @@ export function initSpellsPanel(deps = {}) {
     }
   }
 
+  function markSpellsChanged({ renderSource = false } = {}) {
+    SaveManager.markDirty();
+    if (renderSource) render();
+    notifyPanelDataChanged("spells", { source: panelInstance });
+  }
+
   function renderLevel(level, levelIndex) {
     if (!Array.isArray(level.spells)) level.spells = [];
 
@@ -267,8 +275,7 @@ export function initSpellsPanel(deps = {}) {
       event.preventDefault();
       level.collapsed = !level.collapsed;
       collapseBtn.setAttribute("aria-expanded", level.collapsed ? "false" : "true");
-      SaveManager.markDirty();
-      render();
+      markSpellsChanged({ renderSource: true });
     });
 
     const titleWrap = document.createElement("div");
@@ -278,7 +285,7 @@ export function initSpellsPanel(deps = {}) {
     titleInput.placeholder = "Level name";
     titleInput.addEventListener("input", () => {
       level.label = titleInput.value;
-      SaveManager.markDirty();
+      markSpellsChanged();
     });
     titleWrap.appendChild(titleInput);
 
@@ -298,7 +305,7 @@ export function initSpellsPanel(deps = {}) {
       used.value = level.used ?? "";
       used.addEventListener("input", () => {
         level.used = used.value === "" ? null : Number(used.value);
-        SaveManager.markDirty();
+        markSpellsChanged();
       });
       const sep = document.createElement("span");
       sep.className = "muted";
@@ -310,7 +317,7 @@ export function initSpellsPanel(deps = {}) {
       total.value = level.total ?? "";
       total.addEventListener("input", () => {
         level.total = total.value === "" ? null : Number(total.value);
-        SaveManager.markDirty();
+        markSpellsChanged();
       });
       slots.appendChild(used);
       slots.appendChild(sep);
@@ -327,8 +334,7 @@ export function initSpellsPanel(deps = {}) {
     addSpellBtn.addEventListener("click", () => {
       if (!Array.isArray(level.spells)) level.spells = [];
       level.spells.push(newSpell(""));
-      SaveManager.markDirty();
-      render();
+      markSpellsChanged({ renderSource: true });
     });
 
     const resetExpBtn = document.createElement("button");
@@ -337,8 +343,7 @@ export function initSpellsPanel(deps = {}) {
     resetExpBtn.title = "Clear expended/cast flags for this level";
     resetExpBtn.addEventListener("click", () => {
       level.spells.forEach((spell) => spell.expended = false);
-      SaveManager.markDirty();
-      render();
+      markSpellsChanged({ renderSource: true });
     });
 
     const deleteLevelBtn = document.createElement("button");
@@ -365,8 +370,7 @@ export function initSpellsPanel(deps = {}) {
         }
 
         state.character.spells.levels.splice(levelIndex, 1);
-        SaveManager.markDirty();
-        render();
+        markSpellsChanged({ renderSource: true });
       }, (err) => {
         console.error(err);
         notifyStatus(setStatus, "Delete spell level failed.");
@@ -423,8 +427,7 @@ export function initSpellsPanel(deps = {}) {
           if (destroyed) return;
         }
         collapseBtn.setAttribute("aria-expanded", spell.notesCollapsed ? "false" : "true");
-        SaveManager.markDirty();
-        render();
+        markSpellsChanged({ renderSource: true });
       }, (err) => {
         console.error(err);
         notifyStatus(setStatus, "Toggle spell notes failed.");
@@ -437,7 +440,7 @@ export function initSpellsPanel(deps = {}) {
     name.value = spell.name || "";
     name.addEventListener("input", () => {
       spell.name = name.value;
-      SaveManager.markDirty();
+      markSpellsChanged();
     });
 
     const toggles = document.createElement("div");
@@ -460,7 +463,7 @@ export function initSpellsPanel(deps = {}) {
       button.addEventListener("click", () => {
         spell[key] = !spell[key];
         refresh();
-        SaveManager.markDirty();
+        markSpellsChanged();
       });
 
       return button;
@@ -483,8 +486,7 @@ export function initSpellsPanel(deps = {}) {
       if (spellIndex === 0) return;
       const spells = level.spells;
       spells.splice(spellIndex - 1, 0, spells.splice(spellIndex, 1)[0]);
-      SaveManager.markDirty();
-      render();
+      markSpellsChanged({ renderSource: true });
     });
 
     const down = document.createElement("button");
@@ -497,8 +499,7 @@ export function initSpellsPanel(deps = {}) {
       if (spellIndex >= level.spells.length - 1) return;
       const spells = level.spells;
       spells.splice(spellIndex + 1, 0, spells.splice(spellIndex, 1)[0]);
-      SaveManager.markDirty();
-      render();
+      markSpellsChanged({ renderSource: true });
     });
 
     const del = document.createElement("button");
@@ -523,8 +524,7 @@ export function initSpellsPanel(deps = {}) {
           if (textKey) await deleteText(textKey);
         }
         if (destroyed) return;
-        SaveManager.markDirty();
-        render();
+        markSpellsChanged({ renderSource: true });
       }, (err) => {
         console.error(err);
         notifyStatus(setStatus, "Delete spell failed.");
@@ -653,8 +653,7 @@ export function initSpellsPanel(deps = {}) {
 
         const isCantrip = label.toLowerCase().includes("cantrip");
         state.character.spells.levels.push(newSpellLevel(label, !isCantrip));
-        SaveManager.markDirty();
-        render();
+        markSpellsChanged({ renderSource: true });
       }, (err) => {
         console.error(err);
         notifyStatus(setStatus, "Add spell level failed.");
@@ -665,6 +664,11 @@ export function initSpellsPanel(deps = {}) {
   }
 
   setupSpellsV2();
+
+  addDestroy(subscribePanelDataChanged("spells", (detail) => {
+    if (destroyed || detail.source === panelInstance) return;
+    render();
+  }));
 
   return {
     destroy() {
