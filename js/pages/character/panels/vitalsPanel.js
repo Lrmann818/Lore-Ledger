@@ -42,7 +42,7 @@ function setupVitalsTileReorder({ state, SaveManager, panelEl, gridEl, actions =
 
   function applyOrder() {
     const active = getActiveCharacter(state);
-    const order = active?.ui?.vitalsOrder || defaultOrder;
+    const order = Array.isArray(active?.ui?.vitalsOrder) ? active.ui.vitalsOrder : defaultOrder;
     const map = new Map(Array.from(grid.querySelectorAll(".charTile")).map((t) => [t.dataset.vitalKey, t]));
     order.forEach((k) => {
       const el = map.get(k);
@@ -114,8 +114,7 @@ export function initVitalsPanel(deps = {}) {
   } = deps;
 
   if (!state || !SaveManager) return getNoopDestroyApi();
-  const char = getActiveCharacter(state);
-  if (!char) return getNoopDestroyApi();
+  if (!getActiveCharacter(state)) return getNoopDestroyApi();
   const { updateCharacterField, mutateCharacter } = createStateActions({ state, SaveManager });
   mutateCharacter(() => true, { queueSave: false });
 
@@ -164,17 +163,21 @@ export function initVitalsPanel(deps = {}) {
     try { SaveManager.markDirty(); } catch { /* ignore */ }
   }
 
+  function getCurrentCharacter() {
+    return getActiveCharacter(state);
+  }
+
   const vitalNumberFields = [
-    { id: "charHpCur", path: "hpCur", getValue: () => char.hpCur },
-    { id: "charHpMax", path: "hpMax", getValue: () => char.hpMax },
-    { id: "hitDieAmt", path: "hitDieAmt", getValue: () => char.hitDieAmt },
-    { id: "hitDieSize", path: "hitDieSize", getValue: () => char.hitDieSize },
-    { id: "charAC", path: "ac", getValue: () => char.ac },
-    { id: "charInit", path: "initiative", getValue: () => char.initiative },
-    { id: "charSpeed", path: "speed", getValue: () => char.speed },
-    { id: "charProf", path: "proficiency", getValue: () => char.proficiency },
-    { id: "charSpellAtk", path: "spellAttack", getValue: () => char.spellAttack },
-    { id: "charSpellDC", path: "spellDC", getValue: () => char.spellDC },
+    { id: "charHpCur", path: "hpCur", getValue: () => getCurrentCharacter()?.hpCur },
+    { id: "charHpMax", path: "hpMax", getValue: () => getCurrentCharacter()?.hpMax },
+    { id: "hitDieAmt", path: "hitDieAmt", getValue: () => getCurrentCharacter()?.hitDieAmt },
+    { id: "hitDieSize", path: "hitDieSize", getValue: () => getCurrentCharacter()?.hitDieSize },
+    { id: "charAC", path: "ac", getValue: () => getCurrentCharacter()?.ac },
+    { id: "charInit", path: "initiative", getValue: () => getCurrentCharacter()?.initiative },
+    { id: "charSpeed", path: "speed", getValue: () => getCurrentCharacter()?.speed },
+    { id: "charProf", path: "proficiency", getValue: () => getCurrentCharacter()?.proficiency },
+    { id: "charSpellAtk", path: "spellAttack", getValue: () => getCurrentCharacter()?.spellAttack },
+    { id: "charSpellDC", path: "spellDC", getValue: () => getCurrentCharacter()?.spellDC },
   ];
 
   function bindVitalsNumbers() {
@@ -233,7 +236,7 @@ export function initVitalsPanel(deps = {}) {
   function moveVital(key, dir, focusBtn = null) {
     if (destroyed) return;
 
-    const currentOrder = char.ui?.vitalsOrder;
+    const currentOrder = getCurrentCharacter()?.ui?.vitalsOrder;
     const i = Array.isArray(currentOrder) ? currentOrder.indexOf(key) : -1;
     const j = i + dir;
     if (i === -1 || j < 0 || !Array.isArray(currentOrder) || j >= currentOrder.length) return;
@@ -283,10 +286,13 @@ export function initVitalsPanel(deps = {}) {
     if (destroyed) return;
 
     ensureResourceArray();
+    const currentCharacter = getCurrentCharacter();
+    if (!currentCharacter) return;
 
     Array.from(wrap.querySelectorAll('.charTile[data-vital-key^="res:"]')).forEach((el) => el.remove());
 
-    (char.resources || []).forEach((r, idx) => {
+    const resources = Array.isArray(currentCharacter.resources) ? currentCharacter.resources : [];
+    resources.forEach((r, idx) => {
       const tile = document.createElement("div");
       tile.className = "charTile resourceTile";
       tile.dataset.resourceId = r.id;
@@ -333,14 +339,15 @@ export function initVitalsPanel(deps = {}) {
       del.className = "iconBtn danger resourceDeleteBtn";
       del.title = "Remove this resource";
       del.textContent = "X";
-      del.disabled = (char.resources.length <= 1);
+      del.disabled = resources.length <= 1;
       addListener(
         del,
         "click",
         safeAsync(async (e) => {
           e.preventDefault();
           e.stopPropagation();
-          if (char.resources.length <= 1) return;
+          const currentResources = getCurrentCharacter()?.resources;
+          if (!Array.isArray(currentResources) || currentResources.length <= 1) return;
           const name = (r.name || "").trim();
           const label = name ? `"${name}"` : "this resource tracker";
           if (!(await uiConfirm(`Delete ${label}?`, { title: "Delete Resource", okText: "Delete" }))) return;

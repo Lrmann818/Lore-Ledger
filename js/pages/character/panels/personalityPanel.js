@@ -4,6 +4,7 @@
 import { initCollapsibleTextareas } from "../../../ui/collapsibleTextareas.js";
 import { requireMany } from "../../../utils/domGuards.js";
 import { getActiveCharacter } from "../../../domain/characterHelpers.js";
+import { createStateActions } from "../../../domain/stateActions.js";
 
 /**
  * @typedef {{
@@ -18,10 +19,10 @@ function ensureStringField(obj, key) {
 }
 
 export function initPersonalityPanel(deps = {}) {
-  const { state, bindText, setStatus } = deps;
-  if (!state || !bindText) return;
-  const char = getActiveCharacter(state);
-  if (!char) return;
+  const { state, SaveManager, bindText, setStatus } = deps;
+  if (!state || !SaveManager || !bindText) return;
+  if (!getActiveCharacter(state)) return;
+  const { updateCharacterField, mutateCharacter } = createStateActions({ state, SaveManager });
 
   const required = {
     panel: "#charPersonalityPanel",
@@ -34,22 +35,23 @@ export function initPersonalityPanel(deps = {}) {
   const guard = requireMany(required, { root: document, setStatus, context: "Personality panel" });
   if (!guard.ok) return guard.destroy;
 
-  if (!char.personality || typeof char.personality !== "object") {
-    char.personality = {};
-  }
+  mutateCharacter((character) => {
+    if (!character.personality || typeof character.personality !== "object") {
+      character.personality = { traits: "", ideals: "", bonds: "", flaws: "", notes: "" };
+    }
+    ensureStringField(character.personality, "traits");
+    ensureStringField(character.personality, "ideals");
+    ensureStringField(character.personality, "bonds");
+    ensureStringField(character.personality, "flaws");
+    ensureStringField(character.personality, "notes");
+    return true;
+  }, { queueSave: false });
 
-  const p = char.personality;
-  ensureStringField(p, "traits");
-  ensureStringField(p, "ideals");
-  ensureStringField(p, "bonds");
-  ensureStringField(p, "flaws");
-  ensureStringField(p, "notes");
-
-  bindText("charTraits", () => p.traits, (v) => p.traits = v);
-  bindText("charIdeals", () => p.ideals, (v) => p.ideals = v);
-  bindText("charBonds", () => p.bonds, (v) => p.bonds = v);
-  bindText("charFlaws", () => p.flaws, (v) => p.flaws = v);
-  bindText("charCharNotes", () => p.notes, (v) => p.notes = v);
+  bindText("charTraits", () => getActiveCharacter(state)?.personality?.traits, (v) => updateCharacterField("personality.traits", v, { queueSave: false }));
+  bindText("charIdeals", () => getActiveCharacter(state)?.personality?.ideals, (v) => updateCharacterField("personality.ideals", v, { queueSave: false }));
+  bindText("charBonds", () => getActiveCharacter(state)?.personality?.bonds, (v) => updateCharacterField("personality.bonds", v, { queueSave: false }));
+  bindText("charFlaws", () => getActiveCharacter(state)?.personality?.flaws, (v) => updateCharacterField("personality.flaws", v, { queueSave: false }));
+  bindText("charCharNotes", () => getActiveCharacter(state)?.personality?.notes, (v) => updateCharacterField("personality.notes", v, { queueSave: false }));
 }
 
 /**

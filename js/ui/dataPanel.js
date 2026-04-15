@@ -111,9 +111,10 @@ function resetUiOnlyPreferences(state) {
     delete state.tracker.ui.textareaHeigts;
   }
 
-  if (state.character) {
-    state.character.ui = {
-      ...(state.character.ui || {}),
+  const characterEntries = Array.isArray(state.characters?.entries) ? state.characters.entries : [];
+  for (const character of characterEntries) {
+    character.ui = {
+      ...(character.ui || {}),
       textareaHeights: {},
       sectionOrder: [],
       vitalsOrder: [],

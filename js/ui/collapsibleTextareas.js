@@ -1,10 +1,9 @@
+import { getActiveCharacter } from "../domain/characterHelpers.js";
+import { createStateActions } from "../domain/stateActions.js";
+
 /**
  * @typedef {{
- *   character?: {
- *     ui?: {
- *       textareaCollapse?: Record<string, boolean>
- *     }
- *   }
+ *   characters?: { activeId?: string | null, entries?: Array<{ ui?: { textareaCollapse?: Record<string, boolean> } }> }
  * }} CollapsibleTextareasState
  */
 
@@ -20,9 +19,14 @@
  * @param {CollapsibleTextareasDeps} [deps]
  */
 export function initCollapsibleTextareas({ state, SaveManager, root = document } = {}) {
-    if (!state?.character) state.character = {};
-    if (!state.character.ui) state.character.ui = {};
-    if (!state.character.ui.textareaCollapse) state.character.ui.textareaCollapse = {};
+    if (!state) return;
+    const { mutateCharacter } = createStateActions({ state: /** @type {any} */ (state), SaveManager });
+    mutateCharacter((character) => {
+        const currentCharacter = /** @type {{ ui?: { textareaCollapse?: Record<string, boolean> } }} */ (character);
+        if (!currentCharacter.ui) currentCharacter.ui = {};
+        if (!currentCharacter.ui.textareaCollapse) currentCharacter.ui.textareaCollapse = {};
+        return true;
+    }, { queueSave: false });
 
     const btns = /** @type {HTMLButtonElement[]} */ (Array.from(root.querySelectorAll("button[data-collapse-target]")));
     btns.forEach((btn) => {
@@ -30,7 +34,7 @@ export function initCollapsibleTextareas({ state, SaveManager, root = document }
         const target = document.getElementById(id);
         if (!id || !target) return;
 
-        const collapsed = !!state.character.ui.textareaCollapse[id];
+        const collapsed = !!getActiveCharacter(/** @type {any} */ (state))?.ui?.textareaCollapse?.[id];
         target.hidden = collapsed;
         btn.textContent = collapsed ? "▸" : "▾";
         btn.setAttribute("aria-expanded", (!collapsed).toString());
@@ -48,7 +52,14 @@ export function initCollapsibleTextareas({ state, SaveManager, root = document }
             const nowCollapsed = !currentTarget.hidden;
             currentTarget.hidden = nowCollapsed;
 
-            state.character.ui.textareaCollapse[id] = nowCollapsed;
+            const updated = mutateCharacter((character) => {
+                const currentCharacter = /** @type {{ ui?: { textareaCollapse?: Record<string, boolean> } }} */ (character);
+                if (!currentCharacter.ui) currentCharacter.ui = {};
+                if (!currentCharacter.ui.textareaCollapse) currentCharacter.ui.textareaCollapse = {};
+                currentCharacter.ui.textareaCollapse[id] = nowCollapsed;
+                return true;
+            }, { queueSave: false });
+            if (!updated) return;
             btn.textContent = nowCollapsed ? "▸" : "▾";
             btn.setAttribute("aria-expanded", (!nowCollapsed).toString());
 

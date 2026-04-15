@@ -2,10 +2,11 @@
 // js/pages/character/characterSectionReorder.js
 
 import { setupPagePanelReorder } from "../../ui/pagePanelReorder.js";
+import { getActiveCharacter } from "../../domain/characterHelpers.js";
 
 /** @typedef {{ sectionOrder?: string[], _applySectionOrder?: () => void }} CharacterPanelOrderUiState */
 /** @typedef {{ ui?: CharacterPanelOrderUiState | undefined }} CharacterSectionUiState */
-/** @typedef {{ character?: CharacterSectionUiState | undefined }} CharacterSectionReorderState */
+/** @typedef {{ characters?: { activeId?: string | null, entries?: CharacterSectionUiState[] } | undefined }} CharacterSectionReorderState */
 /** @typedef {{ markDirty?: () => void }} SaveManagerLike */
 /**
  * @typedef {{
@@ -82,9 +83,11 @@ export function setupCharacterSectionReorder({ state, SaveManager } = {}) {
 
     getUiState: (s) => {
       const reorderState = asCharacterSectionReorderState(s);
-      if (!reorderState?.character) return null;
-      if (!reorderState.character.ui) reorderState.character.ui = {};
-      return reorderState.character.ui;
+      const activeCharacter = getActiveCharacter(/** @type {any} */ (reorderState));
+      if (!activeCharacter) return null;
+      const character = /** @type {CharacterSectionUiState} */ (activeCharacter);
+      if (!character.ui) character.ui = {};
+      return character.ui;
     },
 
     // Character-specific: panels sometimes start as <section><h2>...</h2>...</section>

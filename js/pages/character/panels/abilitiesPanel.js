@@ -6,6 +6,7 @@ import { enhanceSelectDropdown } from "../../../ui/selectDropdown.js";
 import { flipSwapTwo } from "../../../ui/flipSwap.js";
 import { getNoopDestroyApi, requireMany } from "../../../utils/domGuards.js";
 import { getActiveCharacter } from "../../../domain/characterHelpers.js";
+import { createStateActions } from "../../../domain/stateActions.js";
 
 /** @typedef {import("../../../storage/saveManager.js").SaveManager} SaveManager */
 /** @typedef {import("../../../ui/popovers.js").PopoversApi} PopoversApi */
@@ -198,13 +199,16 @@ export function initAbilitiesPanel(deps = {}) {
   const abilityGrid = guard.els.abilityGrid instanceof HTMLElement ? guard.els.abilityGrid : null;
   if (!panelEl || !abilityGrid) return getNoopDestroyApi();
 
-  const activeChar = getActiveCharacter(state);
-  if (!activeChar) return getNoopDestroyApi();
-  const character = /** @type {CharacterPanelState} */ (activeChar);
+  if (!getActiveCharacter(/** @type {any} */ (state))) return getNoopDestroyApi();
+  const { mutateCharacter } = createStateActions({ state: /** @type {any} */ (state), SaveManager });
 
-  if (!isRecord(character.abilities)) character.abilities = {};
-  if (!isRecord(character.skills)) character.skills = {};
-  if (!isRecord(character.ui)) character.ui = {};
+  mutateCharacter((character) => {
+    const panelCharacter = /** @type {CharacterPanelState} */ (character);
+    if (!isRecord(panelCharacter.abilities)) panelCharacter.abilities = {};
+    if (!isRecord(panelCharacter.skills)) panelCharacter.skills = {};
+    if (!isRecord(panelCharacter.ui)) panelCharacter.ui = {};
+    return true;
+  }, { queueSave: false });
 
   /** @type {Array<() => void>} */
   const destroyFns = [];
@@ -242,6 +246,13 @@ export function initAbilitiesPanel(deps = {}) {
     try { SaveManager.markDirty(); } catch { /* noop */ }
   }
 
+  /**
+   * @returns {CharacterPanelState | null}
+   */
+  function getCharacter() {
+    return /** @type {CharacterPanelState | null} */ (getActiveCharacter(/** @type {any} */ (state)));
+  }
+
   function closeOpenSkillMenu() {
     if (!openSkillHandle) return;
     try { openSkillHandle.close(); } catch { /* noop */ }
@@ -254,6 +265,8 @@ export function initAbilitiesPanel(deps = {}) {
    * @returns {Record<string, unknown>}
    */
   function ensureAbilityMap() {
+    const character = getCharacter();
+    if (!character) return {};
     if (!isRecord(character.abilities)) character.abilities = {};
     return /** @type {Record<string, unknown>} */ (character.abilities);
   }
@@ -262,6 +275,8 @@ export function initAbilitiesPanel(deps = {}) {
    * @returns {Record<string, unknown>}
    */
   function ensureSkillMap() {
+    const character = getCharacter();
+    if (!character) return {};
     if (!isRecord(character.skills)) character.skills = {};
     return /** @type {Record<string, unknown>} */ (character.skills);
   }
@@ -270,6 +285,8 @@ export function initAbilitiesPanel(deps = {}) {
    * @returns {Record<string, unknown>}
    */
   function ensureCharacterUi() {
+    const character = getCharacter();
+    if (!character) return {};
     if (!isRecord(character.ui)) character.ui = {};
     return /** @type {Record<string, unknown>} */ (character.ui);
   }
@@ -287,6 +304,8 @@ export function initAbilitiesPanel(deps = {}) {
    * @returns {SaveOptionsState}
    */
   function ensureSaveOptionsShape() {
+    const character = getCharacter();
+    if (!character) return /** @type {SaveOptionsState} */ ({ misc: { ...DEFAULT_SAVE_MISC }, modToAll: "" });
     if (!isRecord(character.saveOptions)) character.saveOptions = {};
     const saveOptions = /** @type {Record<string, unknown>} */ (character.saveOptions);
     if (!isRecord(saveOptions.misc)) saveOptions.misc = { ...DEFAULT_SAVE_MISC };
@@ -436,10 +455,15 @@ export function initAbilitiesPanel(deps = {}) {
 
   const skillsNotesEl = getTextFieldById("charSkillsNotes");
   if (skillsNotesEl) {
-    skillsNotesEl.value = typeof character.skillsNotes === "string" ? character.skillsNotes : "";
+    const character = getCharacter();
+    skillsNotesEl.value = typeof character?.skillsNotes === "string" ? character.skillsNotes : "";
     addListener(skillsNotesEl, "input", () => {
       if (destroyed) return;
-      character.skillsNotes = skillsNotesEl.value;
+      const updated = mutateCharacter((currentCharacter) => {
+        currentCharacter.skillsNotes = skillsNotesEl.value;
+        return true;
+      }, { queueSave: false });
+      if (!updated) return;
       markDirty();
     });
   }
@@ -810,18 +834,24 @@ export function initAbilitiesPanel(deps = {}) {
       .map((blockEl) => blockEl.dataset.ability)
       .filter((value) => typeof value === "string");
 
-    const ui = ensureCharacterUi();
-    const currentOrder = Array.isArray(ui.abilityOrder)
-      ? ui.abilityOrder.filter((value) => typeof value === "string")
-      : [];
-    const defaultSet = new Set(defaultOrder);
-    const cleaned = currentOrder.filter((key) => defaultSet.has(key));
-    for (const key of defaultOrder) {
-      if (!cleaned.includes(key)) cleaned.push(key);
-    }
-    ui.abilityOrder = cleaned;
+    mutateCharacter((character) => {
+      const panelCharacter = /** @type {CharacterPanelState} */ (character);
+      if (!isRecord(panelCharacter.ui)) panelCharacter.ui = {};
+      const ui = /** @type {Record<string, unknown>} */ (panelCharacter.ui);
+      const currentOrder = Array.isArray(ui.abilityOrder)
+        ? ui.abilityOrder.filter((value) => typeof value === "string")
+        : [];
+      const defaultSet = new Set(defaultOrder);
+      const cleaned = currentOrder.filter((key) => defaultSet.has(key));
+      for (const key of defaultOrder) {
+        if (!cleaned.includes(key)) cleaned.push(key);
+      }
+      ui.abilityOrder = cleaned;
+      return true;
+    }, { queueSave: false });
 
     const applyOrder = () => {
+      const ui = ensureCharacterUi();
       const order = Array.isArray(ui.abilityOrder) ? ui.abilityOrder : defaultOrder;
       const blockMap = new Map(
         blocks.map((blockEl) => [blockEl.dataset.ability, blockEl])
@@ -840,6 +870,7 @@ export function initAbilitiesPanel(deps = {}) {
      */
     const moveAbility = (key, dir, focusBtn = null) => {
       if (destroyed) return;
+      const ui = ensureCharacterUi();
       const order = Array.isArray(ui.abilityOrder) ? ui.abilityOrder : [];
       const from = order.indexOf(key);
       const to = from + dir;
@@ -849,7 +880,17 @@ export function initAbilitiesPanel(deps = {}) {
       const movedEl = abilityGrid.querySelector(`.abilityBlock[data-ability="${key}"]`);
       const adjacentEl = abilityGrid.querySelector(`.abilityBlock[data-ability="${adjacentKey}"]`);
 
-      [order[from], order[to]] = [order[to], order[from]];
+      const moved = mutateCharacter((character) => {
+        const panelCharacter = /** @type {CharacterPanelState} */ (character);
+        if (!isRecord(panelCharacter.ui)) return false;
+        const freshOrder = Array.isArray(panelCharacter.ui.abilityOrder) ? panelCharacter.ui.abilityOrder : [];
+        const freshFrom = freshOrder.indexOf(key);
+        const freshTo = freshFrom + dir;
+        if (freshFrom === -1 || freshTo < 0 || freshTo >= freshOrder.length) return false;
+        [freshOrder[freshFrom], freshOrder[freshTo]] = [freshOrder[freshTo], freshOrder[freshFrom]];
+        return true;
+      }, { queueSave: false });
+      if (!moved) return;
       markDirty();
 
       if (!(movedEl instanceof HTMLElement) || !(adjacentEl instanceof HTMLElement)) {

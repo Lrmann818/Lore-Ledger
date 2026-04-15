@@ -33,11 +33,12 @@ export function initAttacksPanel(deps = {}) {
   if (!state) throw new Error("initAttacksPanel requires state");
   if (!SaveManager) throw new Error("initAttacksPanel requires SaveManager");
 
-  const char = getActiveCharacter(state);
-  if (!char) return null;
-  if (!Array.isArray(char.attacks)) char.attacks = [];
-
   const { mutateCharacter } = createStateActions({ state, SaveManager });
+  if (!getActiveCharacter(state)) return null;
+  mutateCharacter((character) => {
+    if (!Array.isArray(character.attacks)) character.attacks = [];
+    return true;
+  }, { queueSave: false });
 
   const required = {
     panelEl: "#charAttacksPanel",
@@ -75,7 +76,8 @@ export function initAttacksPanel(deps = {}) {
   }
 
   function getAttacks() {
-    return Array.isArray(char?.attacks) ? char.attacks : [];
+    const currentCharacter = getActiveCharacter(state);
+    return Array.isArray(currentCharacter?.attacks) ? currentCharacter.attacks : [];
   }
 
   function createMoveButton(direction, disabled) {

@@ -1,7 +1,7 @@
 // Character Equipment panel (Inventory + Money).
 // Inventory uses tabbed notes + toolbar actions (add/rename/delete/search).
 //
-// State shape (stored in state.character):
+// State shape (stored on the active character entry):
 //   inventoryItems: [{ title, notes }]
 //   activeInventoryIndex: number
 //   inventorySearch: string
@@ -82,8 +82,7 @@ export function initEquipmentPanel(deps = {}) {
     return getNoopDestroyApi();
   }
 
-  const char = getActiveCharacter(state);
-  if (!char) return getNoopDestroyApi();
+  if (!getActiveCharacter(state)) return getNoopDestroyApi();
   const { updateCharacterField, mutateCharacter } = createStateActions({ state, SaveManager });
 
   const required = {
@@ -172,13 +171,19 @@ export function initEquipmentPanel(deps = {}) {
     try { SaveManager.markDirty(); } catch { /* ignore */ }
   }
 
+  function getCurrentCharacter() {
+    return getActiveCharacter(state);
+  }
+
   function renderInventoryTabs() {
     if (destroyed) return;
 
     tabsEl.replaceChildren();
 
-    const query = (char.inventorySearch || "").trim().toLowerCase();
-    const items = Array.isArray(char.inventoryItems) ? char.inventoryItems : [];
+    const currentCharacter = getCurrentCharacter();
+    if (!currentCharacter) return;
+    const query = (currentCharacter.inventorySearch || "").trim().toLowerCase();
+    const items = Array.isArray(currentCharacter.inventoryItems) ? currentCharacter.inventoryItems : [];
     const itemsToShow = items
       .map((item, idx) => ({ item, idx }))
       .filter(({ item }) => {
@@ -190,14 +195,14 @@ export function initEquipmentPanel(deps = {}) {
 
     itemsToShow.forEach(({ item, idx }) => {
       const btn = document.createElement("button");
-      btn.className = "sessionTab" + (idx === char.activeInventoryIndex ? " active" : "");
+      btn.className = "sessionTab" + (idx === currentCharacter.activeInventoryIndex ? " active" : "");
       btn.type = "button";
-      appendHighlightedText(btn, item.title || `Item ${idx + 1}`, char.inventorySearch || "");
+      appendHighlightedText(btn, item.title || `Item ${idx + 1}`, currentCharacter.inventorySearch || "");
       btn.addEventListener("click", () => switchInventoryItem(idx));
       tabsEl.appendChild(btn);
     });
 
-    const current = items[char.activeInventoryIndex];
+    const current = items[currentCharacter.activeInventoryIndex];
     notesBoxEl.value = current?.notes || "";
     notesHighlight.update();
 
@@ -236,7 +241,8 @@ export function initEquipmentPanel(deps = {}) {
     if (!input) return;
 
     const autosizeOpts = { min: 30, max: 320 };
-    input.value = char.money?.[key] == null ? "" : String(char.money[key]);
+    const currentCharacter = getCurrentCharacter();
+    input.value = currentCharacter?.money?.[key] == null ? "" : String(currentCharacter.money[key]);
 
     if (typeof autoSizeInput === "function") {
       input.classList.add("autosize");
@@ -252,11 +258,11 @@ export function initEquipmentPanel(deps = {}) {
   }
 
   ensureInventoryDefaults();
-  searchEl.value = char.inventorySearch || "";
+  searchEl.value = getCurrentCharacter()?.inventorySearch || "";
 
   const notesHighlight = attachSearchHighlightOverlay(
     notesBoxEl,
-    () => char.inventorySearch || ""
+    () => getCurrentCharacter()?.inventorySearch || ""
   );
   addDestroy(() => notesHighlight.destroy());
 
@@ -288,7 +294,7 @@ export function initEquipmentPanel(deps = {}) {
         return true;
       }, { queueSave: false });
 
-      const nextNum = (char.inventoryItems?.length || 0) + 1;
+      const nextNum = (getCurrentCharacter()?.inventoryItems?.length || 0) + 1;
       const defaultTitle = `Item ${nextNum}`;
       const proposed = await uiPrompt?.("Name this item:", {
         defaultValue: defaultTitle,
@@ -323,7 +329,8 @@ export function initEquipmentPanel(deps = {}) {
     renameBtn,
     "click",
     safeAsync(async () => {
-      const current = char.inventoryItems?.[char.activeInventoryIndex];
+      const currentCharacter = getCurrentCharacter();
+      const current = currentCharacter?.inventoryItems?.[currentCharacter.activeInventoryIndex];
       if (!current) return;
 
       const proposed = await uiPrompt?.("Rename item tab to:", {
@@ -352,7 +359,8 @@ export function initEquipmentPanel(deps = {}) {
     deleteBtn,
     "click",
     safeAsync(async (event) => {
-      if ((char.inventoryItems?.length || 0) <= 1) {
+      const currentCharacter = getCurrentCharacter();
+      if ((currentCharacter?.inventoryItems?.length || 0) <= 1) {
         await uiAlert?.("You need at least one inventory item.", { title: "Notice" });
         const target = event?.target;
         if (target && typeof target === "object" && "value" in target) target.value = "";

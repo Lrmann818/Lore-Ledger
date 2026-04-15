@@ -48,6 +48,24 @@ Do not assume the app is only Tracker / Character / Map anymore.
 
 ---
 
+## Active work
+
+Multi-character system (Step 1) is in progress.
+
+Before making changes to character state, character panels, combat embedded character panels, backup/import/export, or campaign vault persistence, read `MULTI_CHARACTER_DESIGN.md` and `STEP1_TASKS.md` in the project root.
+
+Do not restore the legacy singleton `state.character` model. The target model is:
+
+```js
+characters: {
+  activeId: string | null,
+  entries: CharacterEntry[]
+}
+
+Panel reads should resolve the active character via getActiveCharacter(state). Character writes should go through the existing state action helpers where possible.
+
+---
+
 ## 2) Application structure
 
 ### Pages / workspaces

@@ -2,13 +2,14 @@
 // Character page Proficiencies panel (armor/weapon/tool/language textareas)
 import { requireMany } from "../../../utils/domGuards.js";
 import { getActiveCharacter } from "../../../domain/characterHelpers.js";
+import { createStateActions } from "../../../domain/stateActions.js";
 
 export function initProficienciesPanel(deps = {}) {
   const { state, SaveManager, bindText, setStatus } = deps;
 
   if (!state || !SaveManager || !bindText) return;
-  const char = getActiveCharacter(state);
-  if (!char) return;
+  if (!getActiveCharacter(state)) return;
+  const { updateCharacterField } = createStateActions({ state, SaveManager });
 
   const required = {
     panel: "#charProfPanel",
@@ -20,8 +21,8 @@ export function initProficienciesPanel(deps = {}) {
   const guard = requireMany(required, { root: document, setStatus, context: "Proficiencies panel" });
   if (!guard.ok) return guard.destroy;
 
-  bindText("charArmorProf", () => char.armorProf, (v) => char.armorProf = v);
-  bindText("charWeaponProf", () => char.weaponProf, (v) => char.weaponProf = v);
-  bindText("charToolProf", () => char.toolProf, (v) => char.toolProf = v);
-  bindText("charLanguages", () => char.languages, (v) => char.languages = v);
+  bindText("charArmorProf", () => getActiveCharacter(state)?.armorProf, (v) => updateCharacterField("armorProf", v, { queueSave: false }));
+  bindText("charWeaponProf", () => getActiveCharacter(state)?.weaponProf, (v) => updateCharacterField("weaponProf", v, { queueSave: false }));
+  bindText("charToolProf", () => getActiveCharacter(state)?.toolProf, (v) => updateCharacterField("toolProf", v, { queueSave: false }));
+  bindText("charLanguages", () => getActiveCharacter(state)?.languages, (v) => updateCharacterField("languages", v, { queueSave: false }));
 }

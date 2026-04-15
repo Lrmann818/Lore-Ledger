@@ -7,8 +7,8 @@
 // embedded panels: Vitals, Spells, and Weapons / Attacks.
 //
 // Architecture rules:
-//  - Hosted Character panel modules read/write state.character directly — no
-//    copied data, no sync layers.
+//  - Hosted Character panel modules read/write the active character entry
+//    through state.characters — no copied data, no sync layers.
 //  - Panel selection and order persist via combat.workspace.
 //  - Combat encounter changes do not create a separate embedded-panel sync
 //    store; hosted panels operate directly against canonical character state.
@@ -204,7 +204,7 @@ function strOrNull(value) {
  */
 
 /**
- * Build a read-only view model for the Vitals embedded panel from state.character.
+ * Build a read-only view model for the Vitals embedded panel from the active character.
  * Safe against missing or malformed state.
  * @param {unknown} state
  * @returns {VitalsEmbeddedViewModel}
@@ -262,7 +262,7 @@ export function getVitalsEmbeddedViewModel(state) {
  */
 
 /**
- * Build a view model for the Spells embedded panel from state.character.spells.
+ * Build a view model for the Spells embedded panel from the active character's spells.
  * Safe against missing or malformed state.
  * @param {unknown} state
  * @returns {SpellsEmbeddedViewModel}
@@ -315,7 +315,7 @@ export function getSpellsEmbeddedViewModel(state) {
 
 /**
  * Build a view model for the Weapons / Attacks embedded panel from
- * state.character.attacks. Safe against missing or malformed state.
+ * the active character's attacks. Safe against missing or malformed state.
  * @param {unknown} state
  * @returns {WeaponsEmbeddedViewModel}
  */
@@ -694,7 +694,7 @@ export function initCombatEmbeddedPanels({
 
   /**
    * Re-render the content body of a single embedded panel.
-   * Reads fresh data from state.character each time.
+   * Hosted panels resolve fresh active character data each time they render.
    * @param {EmbeddedPanelDef} def
    * @param {number} index
    * @param {number} total

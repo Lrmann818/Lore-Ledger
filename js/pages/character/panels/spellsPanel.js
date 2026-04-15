@@ -2,6 +2,7 @@ import { safeAsync } from "../../../ui/safeAsync.js";
 import { notifyPanelDataChanged, subscribePanelDataChanged } from "../../../ui/panelInvalidation.js";
 import { requireMany } from "../../../utils/domGuards.js";
 import { getActiveCharacter } from "../../../domain/characterHelpers.js";
+import { createStateActions } from "../../../domain/stateActions.js";
 
 const SPELL_NOTES_SAVE_DEBOUNCE_MS = 250;
 
@@ -116,8 +117,8 @@ export function initSpellsPanel(deps = {}) {
 
   if (!state) throw new Error("initSpellsPanel requires state");
   if (!SaveManager) throw new Error("initSpellsPanel requires SaveManager");
-  const char = getActiveCharacter(state);
-  if (!char) return null;
+  if (!getActiveCharacter(state)) return null;
+  const { mutateCharacter } = createStateActions({ state, SaveManager });
 
   const required = {
     panelEl: "#charSpellsPanel",
@@ -163,11 +164,27 @@ export function initSpellsPanel(deps = {}) {
     return `${prefix}_${Math.random().toString(36).slice(2)}_${Date.now().toString(36)}`;
   }
 
+  function getCurrentCharacter() {
+    return getActiveCharacter(state);
+  }
+
   function ensureSpellsV2Shape() {
-    if (!char.spells || typeof char.spells !== "object") {
-      char.spells = { levels: [] };
-    }
-    if (!Array.isArray(char.spells.levels)) char.spells.levels = [];
+    return mutateCharacter((character) => {
+      if (!character.spells || typeof character.spells !== "object") {
+        character.spells = { levels: [] };
+      }
+      if (!Array.isArray(character.spells.levels)) character.spells.levels = [];
+      character.spells.levels.forEach((level) => {
+        if (!level || typeof level !== "object") return;
+        if (typeof level.id !== "string" || !level.id) level.id = newTextId("spellLevel");
+        if (!Array.isArray(level.spells)) level.spells = [];
+        level.spells.forEach((spell) => {
+          if (!spell || typeof spell !== "object") return;
+          if (typeof spell.id !== "string" || !spell.id) spell.id = newTextId("spell");
+        });
+      });
+      return true;
+    }, { queueSave: false });
   }
 
   function newSpellLevel(label, hasSlots = true) {
@@ -256,8 +273,40 @@ export function initSpellsPanel(deps = {}) {
     notifyPanelDataChanged("spells", { source: panelInstance });
   }
 
+  function findLevel(character, levelId, levelIndex = -1) {
+    const levels = character?.spells?.levels;
+    if (!Array.isArray(levels)) return null;
+    if (levelId) {
+      const byId = levels.find((level) => level?.id === levelId);
+      if (byId) return byId;
+      return null;
+    }
+    return levelIndex >= 0 ? levels[levelIndex] || null : null;
+  }
+
+  function mutateSpellLevel(levelId, levelIndex, mutator) {
+    return mutateCharacter((character) => {
+      const level = findLevel(character, levelId, levelIndex);
+      if (!level) return false;
+      return mutator(level, character) !== false;
+    }, { queueSave: false });
+  }
+
+  function mutateSpellEntry(levelId, levelIndex, spellId, spellIndex, mutator) {
+    return mutateCharacter((character) => {
+      const level = findLevel(character, levelId, levelIndex);
+      if (!level || !Array.isArray(level.spells)) return false;
+      const spell = spellId
+        ? level.spells.find((item) => item?.id === spellId)
+        : level.spells[spellIndex];
+      if (!spell) return false;
+      return mutator(spell, level, character) !== false;
+    }, { queueSave: false });
+  }
+
   function renderLevel(level, levelIndex) {
-    if (!Array.isArray(level.spells)) level.spells = [];
+    const levelId = typeof level.id === "string" ? level.id : "";
+    const spells = Array.isArray(level.spells) ? level.spells : [];
 
     const card = document.createElement("div");
     card.className = "spellLevel";
@@ -276,8 +325,10 @@ export function initSpellsPanel(deps = {}) {
     collapseBtn.setAttribute("aria-expanded", level.collapsed ? "false" : "true");
     collapseBtn.addEventListener("click", (event) => {
       event.preventDefault();
-      level.collapsed = !level.collapsed;
-      collapseBtn.setAttribute("aria-expanded", level.collapsed ? "false" : "true");
+      const updated = mutateSpellLevel(levelId, levelIndex, (currentLevel) => {
+        currentLevel.collapsed = !currentLevel.collapsed;
+      });
+      if (!updated) return;
       markSpellsChanged({ renderSource: true });
     });
 
@@ -287,7 +338,10 @@ export function initSpellsPanel(deps = {}) {
     titleInput.value = level.label || "";
     titleInput.placeholder = "Level name";
     titleInput.addEventListener("input", () => {
-      level.label = titleInput.value;
+      const updated = mutateSpellLevel(levelId, levelIndex, (currentLevel) => {
+        currentLevel.label = titleInput.value;
+      });
+      if (!updated) return;
       markSpellsChanged();
     });
     titleWrap.appendChild(titleInput);
@@ -307,7 +361,10 @@ export function initSpellsPanel(deps = {}) {
       used.placeholder = "Used";
       used.value = level.used ?? "";
       used.addEventListener("input", () => {
-        level.used = used.value === "" ? null : Number(used.value);
+        const updated = mutateSpellLevel(levelId, levelIndex, (currentLevel) => {
+          currentLevel.used = used.value === "" ? null : Number(used.value);
+        });
+        if (!updated) return;
         markSpellsChanged();
       });
       const sep = document.createElement("span");
@@ -319,7 +376,10 @@ export function initSpellsPanel(deps = {}) {
       total.placeholder = "Total";
       total.value = level.total ?? "";
       total.addEventListener("input", () => {
-        level.total = total.value === "" ? null : Number(total.value);
+        const updated = mutateSpellLevel(levelId, levelIndex, (currentLevel) => {
+          currentLevel.total = total.value === "" ? null : Number(total.value);
+        });
+        if (!updated) return;
         markSpellsChanged();
       });
       slots.appendChild(used);
@@ -335,8 +395,11 @@ export function initSpellsPanel(deps = {}) {
     addSpellBtn.type = "button";
     addSpellBtn.textContent = "+ Spell";
     addSpellBtn.addEventListener("click", () => {
-      if (!Array.isArray(level.spells)) level.spells = [];
-      level.spells.push(newSpell(""));
+      const updated = mutateSpellLevel(levelId, levelIndex, (currentLevel) => {
+        if (!Array.isArray(currentLevel.spells)) currentLevel.spells = [];
+        currentLevel.spells.push(newSpell(""));
+      });
+      if (!updated) return;
       markSpellsChanged({ renderSource: true });
     });
 
@@ -345,7 +408,11 @@ export function initSpellsPanel(deps = {}) {
     resetExpBtn.textContent = "Reset Cast";
     resetExpBtn.title = "Clear expended/cast flags for this level";
     resetExpBtn.addEventListener("click", () => {
-      level.spells.forEach((spell) => spell.expended = false);
+      const updated = mutateSpellLevel(levelId, levelIndex, (currentLevel) => {
+        const currentSpells = Array.isArray(currentLevel.spells) ? currentLevel.spells : [];
+        currentSpells.forEach((spell) => spell.expended = false);
+      });
+      if (!updated) return;
       markSpellsChanged({ renderSource: true });
     });
 
@@ -364,7 +431,9 @@ export function initSpellsPanel(deps = {}) {
         }
         if (destroyed) return;
 
-        for (const spell of level.spells) {
+        const currentLevel = findLevel(getCurrentCharacter(), levelId, levelIndex);
+        const currentSpells = Array.isArray(currentLevel?.spells) ? currentLevel.spells : [];
+        for (const spell of currentSpells) {
           forgetSpellNotes(spell.id);
           if (typeof deleteText === "function" && typeof textKey_spellNotes === "function") {
             const textKey = getSpellNotesKey(spell.id);
@@ -372,7 +441,17 @@ export function initSpellsPanel(deps = {}) {
           }
         }
 
-        char.spells.levels.splice(levelIndex, 1);
+        const removed = mutateCharacter((character) => {
+          const levels = character.spells?.levels;
+          if (!Array.isArray(levels)) return false;
+          const removeIndex = levelId
+            ? levels.findIndex((item) => item?.id === levelId)
+            : levelIndex;
+          if (removeIndex < 0 || removeIndex >= levels.length) return false;
+          levels.splice(removeIndex, 1);
+          return true;
+        }, { queueSave: false });
+        if (!removed) return;
         markSpellsChanged({ renderSource: true });
       }, (err) => {
         console.error(err);
@@ -393,13 +472,13 @@ export function initSpellsPanel(deps = {}) {
       const body = document.createElement("div");
       body.className = "spellBody";
 
-      if (!level.spells.length) {
+      if (!spells.length) {
         const empty = document.createElement("div");
         empty.className = "mutedSmall";
         empty.textContent = "No spells yet. Click + Spell.";
         body.appendChild(empty);
       } else {
-        level.spells.forEach((spell, spellIndex) => body.appendChild(renderSpell(level, spell, levelIndex, spellIndex)));
+        spells.forEach((spell, spellIndex) => body.appendChild(renderSpell(level, spell, levelIndex, spellIndex)));
       }
 
       card.appendChild(body);
@@ -409,6 +488,9 @@ export function initSpellsPanel(deps = {}) {
   }
 
   function renderSpell(level, spell, levelIndex, spellIndex) {
+    const levelId = typeof level.id === "string" ? level.id : "";
+    const spellId = typeof spell.id === "string" ? spell.id : "";
+    const levelSpells = Array.isArray(level.spells) ? level.spells : [];
     const row = document.createElement("div");
     row.className = "spellRow";
 
@@ -424,12 +506,15 @@ export function initSpellsPanel(deps = {}) {
     collapseBtn.addEventListener(
       "click",
       safeAsync(async () => {
-        spell.notesCollapsed = !spell.notesCollapsed;
-        if (!spell.notesCollapsed) {
+        const updated = mutateSpellEntry(levelId, levelIndex, spellId, spellIndex, (currentSpell) => {
+          currentSpell.notesCollapsed = !currentSpell.notesCollapsed;
+        });
+        if (!updated) return;
+        const currentSpell = findLevel(getCurrentCharacter(), levelId, levelIndex)?.spells?.find((item) => item?.id === spellId);
+        if (currentSpell && !currentSpell.notesCollapsed) {
           await ensureSpellNotesLoaded(spell.id);
           if (destroyed) return;
         }
-        collapseBtn.setAttribute("aria-expanded", spell.notesCollapsed ? "false" : "true");
         markSpellsChanged({ renderSource: true });
       }, (err) => {
         console.error(err);
@@ -442,7 +527,10 @@ export function initSpellsPanel(deps = {}) {
     name.placeholder = "Spell name";
     name.value = spell.name || "";
     name.addEventListener("input", () => {
-      spell.name = name.value;
+      const updated = mutateSpellEntry(levelId, levelIndex, spellId, spellIndex, (currentSpell) => {
+        currentSpell.name = name.value;
+      });
+      if (!updated) return;
       markSpellsChanged();
     });
 
@@ -464,7 +552,13 @@ export function initSpellsPanel(deps = {}) {
       refresh();
 
       button.addEventListener("click", () => {
-        spell[key] = !spell[key];
+        let nextValue = !!spell[key];
+        const updated = mutateSpellEntry(levelId, levelIndex, spellId, spellIndex, (currentSpell) => {
+          currentSpell[key] = !currentSpell[key];
+          nextValue = !!currentSpell[key];
+        });
+        if (!updated) return;
+        spell = { ...spell, [key]: nextValue };
         refresh();
         markSpellsChanged();
       });
@@ -487,8 +581,15 @@ export function initSpellsPanel(deps = {}) {
     up.disabled = spellIndex === 0;
     up.addEventListener("click", () => {
       if (spellIndex === 0) return;
-      const spells = level.spells;
-      spells.splice(spellIndex - 1, 0, spells.splice(spellIndex, 1)[0]);
+      const updated = mutateSpellLevel(levelId, levelIndex, (currentLevel) => {
+        const currentSpells = Array.isArray(currentLevel.spells) ? currentLevel.spells : [];
+        const from = spellId
+          ? currentSpells.findIndex((item) => item?.id === spellId)
+          : spellIndex;
+        if (from <= 0 || from >= currentSpells.length) return false;
+        currentSpells.splice(from - 1, 0, currentSpells.splice(from, 1)[0]);
+      });
+      if (!updated) return;
       markSpellsChanged({ renderSource: true });
     });
 
@@ -497,11 +598,18 @@ export function initSpellsPanel(deps = {}) {
     down.className = "moveBtn";
     down.title = "Move down";
     down.textContent = "↓";
-    down.disabled = spellIndex === level.spells.length - 1;
+    down.disabled = spellIndex === levelSpells.length - 1;
     down.addEventListener("click", () => {
-      if (spellIndex >= level.spells.length - 1) return;
-      const spells = level.spells;
-      spells.splice(spellIndex + 1, 0, spells.splice(spellIndex, 1)[0]);
+      if (spellIndex >= levelSpells.length - 1) return;
+      const updated = mutateSpellLevel(levelId, levelIndex, (currentLevel) => {
+        const currentSpells = Array.isArray(currentLevel.spells) ? currentLevel.spells : [];
+        const from = spellId
+          ? currentSpells.findIndex((item) => item?.id === spellId)
+          : spellIndex;
+        if (from < 0 || from >= currentSpells.length - 1) return false;
+        currentSpells.splice(from + 1, 0, currentSpells.splice(from, 1)[0]);
+      });
+      if (!updated) return;
       markSpellsChanged({ renderSource: true });
     });
 
@@ -520,7 +628,15 @@ export function initSpellsPanel(deps = {}) {
         }
         if (destroyed) return;
 
-        level.spells.splice(spellIndex, 1);
+        const removed = mutateSpellLevel(levelId, levelIndex, (currentLevel) => {
+          const currentSpells = Array.isArray(currentLevel.spells) ? currentLevel.spells : [];
+          const removeIndex = spellId
+            ? currentSpells.findIndex((item) => item?.id === spellId)
+            : spellIndex;
+          if (removeIndex < 0 || removeIndex >= currentSpells.length) return false;
+          currentSpells.splice(removeIndex, 1);
+        });
+        if (!removed) return;
         forgetSpellNotes(spell.id);
         if (typeof deleteText === "function" && typeof textKey_spellNotes === "function") {
           const textKey = getSpellNotesKey(spell.id);
@@ -600,7 +716,9 @@ export function initSpellsPanel(deps = {}) {
     spellNotesRenderUnsubscribers.forEach((unsubscribe) => unsubscribe());
     spellNotesRenderUnsubscribers = [];
     containerEl.replaceChildren();
-    const levels = char.spells.levels;
+    ensureSpellsV2Shape();
+    const currentCharacter = getCurrentCharacter();
+    const levels = Array.isArray(currentCharacter?.spells?.levels) ? currentCharacter.spells.levels : [];
 
     if (!levels.length) {
       const empty = document.createElement("div");
@@ -616,21 +734,24 @@ export function initSpellsPanel(deps = {}) {
 
   function setupSpellsV2() {
     ensureSpellsV2Shape();
-    if (!char.spells.levels.length) {
-      char.spells.levels = [
+    mutateCharacter((character) => {
+      const levels = character.spells?.levels;
+      if (!Array.isArray(levels) || levels.length) return false;
+      character.spells.levels = [
         newSpellLevel("Cantrips", false),
         newSpellLevel("1st Level", true),
         newSpellLevel("2nd Level", true),
         newSpellLevel("3rd Level", true)
       ];
-    }
+      return true;
+    }, { queueSave: false });
 
     addListener(
       addLevelBtnEl,
       "click",
       safeAsync(async () => {
         const suggested = (() => {
-          const levels = (char?.spells?.levels || []).map((level) => String(level.label || ""));
+          const levels = (getCurrentCharacter()?.spells?.levels || []).map((level) => String(level.label || ""));
           let max = 0;
           for (const label of levels) {
             const match = label.match(/\b(\d+)\s*(st|nd|rd|th)?\s*level\b/i);
@@ -655,7 +776,13 @@ export function initSpellsPanel(deps = {}) {
         if (destroyed || !label) return;
 
         const isCantrip = label.toLowerCase().includes("cantrip");
-        char.spells.levels.push(newSpellLevel(label, !isCantrip));
+        const updated = mutateCharacter((character) => {
+          if (!character.spells || typeof character.spells !== "object") character.spells = { levels: [] };
+          if (!Array.isArray(character.spells.levels)) character.spells.levels = [];
+          character.spells.levels.push(newSpellLevel(label, !isCantrip));
+          return true;
+        }, { queueSave: false });
+        if (!updated) return;
         markSpellsChanged({ renderSource: true });
       }, (err) => {
         console.error(err);

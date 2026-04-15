@@ -381,18 +381,22 @@ describe("initDataPanel support actions", () => {
         customFlag: true
       }
     };
-    deps.state.character = {
-      name: "Ava",
-      ui: {
-        textareaHeights: { traits: 160 },
-        sectionOrder: ["charSpellsPanel", "charBasicsPanel"],
-        vitalsOrder: ["speed", "ac"],
-        abilityOrder: ["cha", "str"],
-        abilityCollapse: { dex: true },
-        textareaCollapse: { personalityNotes: true },
-        _applySectionOrder: applySectionOrder,
-        customFlag: true
-      }
+    deps.state.characters = {
+      activeId: "char_ava",
+      entries: [{
+        id: "char_ava",
+        name: "Ava",
+        ui: {
+          textareaHeights: { traits: 160 },
+          sectionOrder: ["charSpellsPanel", "charBasicsPanel"],
+          vitalsOrder: ["speed", "ac"],
+          abilityOrder: ["cha", "str"],
+          abilityCollapse: { dex: true },
+          textareaCollapse: { personalityNotes: true },
+          _applySectionOrder: applySectionOrder,
+          customFlag: true
+        }
+      }]
     };
     deps.state.combat = {
       workspace: {
@@ -440,8 +444,8 @@ describe("initDataPanel support actions", () => {
       theme: "system",
       customFlag: true
     });
-    expect(deps.state.character.name).toBe("Ava");
-    expect(deps.state.character.ui).toEqual({
+    expect(deps.state.characters.entries[0].name).toBe("Ava");
+    expect(deps.state.characters.entries[0].ui).toEqual({
       textareaHeights: {},
       sectionOrder: [],
       vitalsOrder: [],

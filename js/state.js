@@ -1154,8 +1154,11 @@ export function migrateState(raw) {
   function migrateToV4() {
     // If the new `characters` shape already exists and is valid, we're already migrated.
     // Clean up any stale `character` key (may be re-created by migrateToV1's ensureObj).
-    const existing = data.characters;
-    if (existing && typeof existing === "object" && !Array.isArray(existing) && Array.isArray(existing.entries)) {
+    const existingRaw = data.characters;
+    const existing = existingRaw && typeof existingRaw === "object" && !Array.isArray(existingRaw)
+      ? /** @type {CharactersCollection & Record<string, unknown>} */ (existingRaw)
+      : null;
+    if (existing && Array.isArray(existing.entries)) {
       // Already new shape — ensure shape integrity and remove stale character key.
       if (existing.activeId !== null && typeof existing.activeId !== "string") {
         existing.activeId = null;

@@ -97,14 +97,14 @@ function setupCharacterPortrait(deps, refs = {}) {
     // wipe the box and rebuild contents like NPC
     boxEl.innerHTML = "";
 
-    const activeChar = getActiveCharacter(state);
-    if (activeChar?.imgBlobId && typeof blobIdToObjectUrl === "function") {
+    const currentCharacter = getActiveCharacter(state);
+    if (currentCharacter?.imgBlobId && typeof blobIdToObjectUrl === "function") {
       const img = document.createElement("img");
-      img.alt = activeChar.name || "Character Portrait";
+      img.alt = currentCharacter.name || "Character Portrait";
       boxEl.appendChild(img);
 
       let url = null;
-      try { url = await blobIdToObjectUrl(activeChar.imgBlobId); }
+      try { url = await blobIdToObjectUrl(currentCharacter.imgBlobId); }
       catch (err) {
         console.warn("Failed to load character portrait blob:", err);
       }
@@ -203,18 +203,17 @@ export function initBasicsPanel(deps = {}) {
     portraitTopEl
   } = guard.els;
 
-  const char = getActiveCharacter(state);
-  if (!char) return;
+  if (!getActiveCharacter(state)) return;
   const { updateCharacterField } = createStateActions({ state, SaveManager });
 
   // bindText/bindNumber already queue saves via SaveManager; actions only mutate here.
-  bindText("charName", () => char.name, (v) => updateCharacterField("name", v, { queueSave: false }));
-  bindText("charClassLevel", () => char.classLevel, (v) => updateCharacterField("classLevel", v, { queueSave: false }));
-  bindText("charRace", () => char.race, (v) => updateCharacterField("race", v, { queueSave: false }));
-  bindText("charBackground", () => char.background, (v) => updateCharacterField("background", v, { queueSave: false }));
-  bindText("charAlignment", () => char.alignment, (v) => updateCharacterField("alignment", v, { queueSave: false }));
-  bindNumber("charExperience", () => char.experience, (v) => updateCharacterField("experience", v, { queueSave: false }));
-  bindText("charFeatures", () => char.features, (v) => updateCharacterField("features", v, { queueSave: false }));
+  bindText("charName", () => getActiveCharacter(state)?.name, (v) => updateCharacterField("name", v, { queueSave: false }));
+  bindText("charClassLevel", () => getActiveCharacter(state)?.classLevel, (v) => updateCharacterField("classLevel", v, { queueSave: false }));
+  bindText("charRace", () => getActiveCharacter(state)?.race, (v) => updateCharacterField("race", v, { queueSave: false }));
+  bindText("charBackground", () => getActiveCharacter(state)?.background, (v) => updateCharacterField("background", v, { queueSave: false }));
+  bindText("charAlignment", () => getActiveCharacter(state)?.alignment, (v) => updateCharacterField("alignment", v, { queueSave: false }));
+  bindNumber("charExperience", () => getActiveCharacter(state)?.experience, (v) => updateCharacterField("experience", v, { queueSave: false }));
+  bindText("charFeatures", () => getActiveCharacter(state)?.features, (v) => updateCharacterField("features", v, { queueSave: false }));
 
   setupTitleSync(state, nameInput);
   setupAutosizeInputs(autoSizeInput, {

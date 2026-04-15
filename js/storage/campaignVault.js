@@ -597,7 +597,8 @@ export function collectCampaignSpellIds(stateLike) {
   const entries = Array.isArray(charactersCollection?.entries) ? charactersCollection.entries : [];
 
   // Fallback: legacy single character field (e.g., during import of old backups)
-  const legacyCharacter = entries.length === 0 && isPlainObject(stateLike.character) ? stateLike.character : null;
+  const legacyState = /** @type {Record<string, unknown>} */ (stateLike);
+  const legacyCharacter = entries.length === 0 && isPlainObject(legacyState.character) ? legacyState.character : null;
   const allCharacters = entries.length > 0 ? entries : (legacyCharacter ? [legacyCharacter] : []);
 
   for (const ch of allCharacters) {
