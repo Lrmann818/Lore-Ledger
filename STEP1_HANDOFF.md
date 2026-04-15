@@ -4,6 +4,7 @@
 **Branch:** Refactoring  
 **Test suite:** 287 tests, all passing (`npm run test:run`)  
 **Build:** Clean (`npm run build`)
+**Current status:** Step 1 is complete, audited, and fully verified. Smoke tests have since been updated for the Step 1 model where fresh campaigns can have no active character until one is created.
 
 ---
 
@@ -51,10 +52,11 @@ All 8 tasks from `STEP1_TASKS.md` are complete.
 ### Task 6 — Combat embedded panels (`js/pages/combat/combatEmbeddedPanels.js`)
 - `getVitalsEmbeddedViewModel`, `getSpellsEmbeddedViewModel`, `getWeaponsEmbeddedViewModel`: use `getActiveCharacter(state)` instead of `state.character`
 - `tests/combatEmbeddedPanels.test.js`: updated to use `{ characters: { activeId, entries[] } }` shape via `makeStateWithChar()` helper
+- Embedded Vitals, Spells, and Weapons / Attacks panels are live alternate views of canonical active character data; active-character changes use events plus panel invalidation/rebinding rather than duplicate state or a sync store.
 
 ### Task 7 — Character selector sub-toolbar
-- `index.html`: added `#charSelectorBar` with `#charSelector` (select element) and `#charMenuBtn` (⋯ button) inside `#page-character`
-- `styles.css`: added `.charSelectorBar`, `.charSelectorSelect`, `.charMenuBtn` styles (compact, mobile-friendly)
+- `index.html`: added `#charSelectorBar` with `#charSelector` (select element) and `#charActionMenuBtn` (`...` actions button) inside `#page-character`
+- `styles.css`: added `.charSelectorBar`, selector, and action-menu styles (compact, mobile-friendly)
 - `characterPage.js`: `initCharacterSelectorBar()` — populates selector from `state.characters.entries`, wires selection change, builds overflow popover menu with New/Rename/Delete Character actions
 - All CRUD actions call `rerender()` which re-calls `initCharacterPageUI(deps)` for a clean full reinit
 
@@ -77,7 +79,7 @@ All 8 tasks from `STEP1_TASKS.md` are complete.
 
 5. **`mutateState` in selector bar**: Character CRUD actions use `createStateActions({ state, SaveManager }).mutateState()` to go through the existing mutation/save machinery.
 
-6. **Comments in `combatEmbeddedPanels.js` left as-is**: The module header comments still reference `state.character` — these are architecture notes and left unchanged to avoid noisy diff.
+6. **Combat embedded panel invalidation**: Embedded panels rebind visible hosted Character panels when `state.characters.activeId` changes. They do not keep a duplicate copy of character data.
 
 ---
 
@@ -102,10 +104,10 @@ All 8 tasks from `STEP1_TASKS.md` are complete.
 
 ## What's Next (Step 2 and beyond)
 
-Per `MULTI_CHARACTER_DESIGN.md`:
-- **Character import/export** (export single character, import into collection)
-- **Level Up / Short Rest / Long Rest** (stub buttons in overflow menu are intentionally absent)
-- **Add to Party/NPCs/Locations** from character sheet
+Per `MULTI-CHARACTER_DESIGN.md`:
+- **Step 2 tracker-card linking** remains future work, including Add to Party/NPCs/Locations from the character sheet.
+- **Step 3 character builder/rules engine** remains future work, including Level Up / Short Rest / Long Rest flows.
+- **Step 4 character import/export** remains future work, including export single character and import into collection.
 - **Persistent dismissal flag** for empty state prompt
 - **Character reordering** in the selector
 - **Portrait per character** (already works — each `CharacterEntry` has its own `imgBlobId`)

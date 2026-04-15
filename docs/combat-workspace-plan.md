@@ -513,7 +513,8 @@ Field names may evolve slightly to fit repo conventions, but the explicit `works
 - added panel picker in `#combatEmbeddedPanels` container, which stays in the non-Combat Cards column after the Round Controls panel
 - picker renders add-buttons only for panels not yet active; disappears when all three are added
 - added collapsible embedded panel sections for Vitals, Spells, and Weapons / Attacks
-- each embedded panel hosts the scoped Character-page source panel behavior against `state.character` — no copied data, no sync layers
+- each embedded panel hosts the scoped Character-page source panel behavior against the canonical active character in `state.characters.entries` — no copied data, no sync layers
+- active-character changes are handled through active-character change events and embedded panel invalidation/rebinding rather than a duplicate state or sync store
 - Vitals resource tracking, Spells editing/toggles/notes, and Weapons / Attacks editing remain usable and source-faithful inside Combat Workspace
 - panel selection persists in `combat.workspace.embeddedPanels`; collapse state persists in `combat.workspace.panelCollapsed` under the `combatEmbeddedPanel_*` id prefix
 - duplicate panel prevention is enforced by `addEmbeddedPanel()` which rejects unknown and duplicate ids

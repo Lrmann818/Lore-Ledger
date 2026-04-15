@@ -68,11 +68,22 @@ Each `campaignDocs[id]` entry stores one campaign document:
 
 - `schemaVersion`
 - `tracker`
-- `character`
+- `characters`
 - `map`
 - `combat`
 
-At runtime, the active campaign document is projected back into `state.tracker`, `state.character`, `state.map`, and `state.combat` so existing page modules can operate against one active campaign. App-level UI such as theme and active tab is stored under `appShell.ui`.
+At runtime, the active campaign document is projected back into `state.tracker`, `state.characters`, `state.map`, and `state.combat` so existing page modules can operate against one active campaign. App-level UI such as theme and active tab is stored under `appShell.ui`.
+
+Current character state uses:
+
+```js
+characters: {
+  activeId: string | null,
+  entries: CharacterEntry[]
+}
+```
+
+The legacy singleton `character` bucket is accepted only when migrating or importing old saves/backups. It must not be emitted by current production save paths.
 
 Important exclusions from the main JSON payload:
 

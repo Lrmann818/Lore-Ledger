@@ -48,9 +48,13 @@ Treat campaign data, app-level data, UI layout state, and combat/session state a
 
 ---
 
-## Active work
+## Character Architecture
 
-Multi-character system (Step 1) is in progress. See `MULTI_CHARACTER_DESIGN.md` in the project root for the full design document. Start there before making changes.
+Step 1 multi-character support is complete and verified. See `MULTI-CHARACTER_DESIGN.md` in the project root before modifying character state, character panels, combat embedded character panels, backup/import/export, or campaign vault persistence.
+
+Do not reintroduce the legacy singleton `state.character` model outside migration/backward-compatibility handling. Active character data lives in `state.characters.entries`, selected by `state.characters.activeId`; panels resolve it through `getActiveCharacter(state)` and writes go through state action helpers such as `mutateCharacter(...)` and `updateCharacterField(...)`.
+
+Combat embedded Vitals, Spells, and Weapons / Attacks panels are live views of the canonical active character data, not snapshots or a separate sync store.
 
 ---
 

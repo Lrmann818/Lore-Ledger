@@ -1,14 +1,31 @@
-# Step 1 — Multi-Character Support: Implementation Tasks
+# Step 1 — Multi-Character Support: Completed Implementation Record
 
-Read `MULTI_CHARACTER_DESIGN.md` first for full context. This file is the ordered task list for Step 1 only.
+Read `MULTI-CHARACTER_DESIGN.md` first for full context. This file records the completed Step 1 implementation work.
 
-Work one task at a time. Run `npm run test:run` after each task. Do not proceed to the next task if tests fail.
+Step 1 is complete, audited, and fully verified. Do not treat any item below as pending implementation work.
+
+Implemented state shape:
+
+```js
+characters: {
+  activeId: string | null,
+  entries: CharacterEntry[]
+}
+```
+
+The legacy singleton `state.character` key is valid only in migration/backward-compatibility handling for old saves/backups. It must not be reintroduced in production code.
+
+Character panels resolve the selected entry through `getActiveCharacter(state)`, and writes use state action helpers such as `mutateCharacter(...)` and `updateCharacterField(...)`.
+
+Smoke tests were updated for the Step 1 model where fresh campaigns can have no active character until one is created.
 
 ---
 
 ## Task 1 — State shape and migration
 
 **Files:** `js/state.js`
+
+**Status:** Complete.
 
 1. Add a `CharacterEntry` typedef that extends the existing `CharacterState` with an `id: string` field.
 2. Add a `CharactersCollection` typedef: `{ activeId: string | null, entries: CharacterEntry[] }`.
@@ -25,6 +42,8 @@ Work one task at a time. Run `npm run test:run` after each task. Do not proceed 
 
 **Files:** `js/storage/campaignVault.js`, `js/storage/persistence.js`
 
+**Status:** Complete.
+
 1. Update `CampaignDoc` type: `character` → `characters`.
 2. Update `extractCampaignDoc` to read `characters`.
 3. Update `normalizeCampaignDoc` to handle both old `character` and new `characters` shapes (defensive normalization).
@@ -40,9 +59,11 @@ Work one task at a time. Run `npm run test:run` after each task. Do not proceed 
 
 **Files:** `js/storage/backup.js`
 
+**Status:** Complete.
+
 1. Update `importBackup` to handle both legacy `character` and new `characters` shapes in incoming data.
 2. Update export to write `characters`.
-3. Update the validation in `importBackup` that checks `state.character` to check `state.characters`.
+3. Backup validation now accepts legacy singleton `state.character` only as an import/backward-compatibility shape and validates current `state.characters` data for production saves.
 4. Update any spell-note text ID scoping that references the active campaign to also be aware of multi-character (if applicable at this stage — may be deferred).
 
 **Tests to write:** Import a legacy backup with singleton character. Import a new-format backup with characters collection. Export and re-import round-trip.
@@ -52,6 +73,8 @@ Work one task at a time. Run `npm run test:run` after each task. Do not proceed 
 ## Task 4 — Helper function: getActiveCharacter
 
 **Files:** new file `js/domain/characterHelpers.js` (or add to an existing appropriate module)
+
+**Status:** Complete.
 
 1. Create `getActiveCharacter(state)` → returns the active `CharacterEntry` or `null`.
 2. Create `getCharacterById(state, id)` → returns a specific entry or `null`.
@@ -65,11 +88,13 @@ Work one task at a time. Run `npm run test:run` after each task. Do not proceed 
 
 **Files:** all files in `js/pages/character/panels/`, `js/pages/character/characterPage.js`
 
-This is the biggest task. Every panel currently reads `state.character.*`. Change them all to read from `getActiveCharacter(state)`.
+**Status:** Complete.
+
+Every panel now resolves the active entry through `getActiveCharacter(state)` instead of reading `state.character.*`.
 
 1. Import `getActiveCharacter` in `characterPage.js`.
 2. At the top of each panel init, resolve the active character. If null, panels render in empty/default state.
-3. Replace every `state.character.X` reference with the resolved active character.
+3. Replaced production `state.character.X` references with the resolved active character.
 4. **Do not change any panel behavior** — only change where they read/write from.
 
 Approach: do one panel at a time. Verify the app still builds between each panel.
@@ -90,8 +115,11 @@ Panel order (simplest to most complex):
 
 **Files:** `js/pages/combat/combatEmbeddedPanels.js`
 
-1. Update all `state.character` references to use `getActiveCharacter(state)`.
-2. If active character is null, embedded panels should render empty gracefully.
+**Status:** Complete.
+
+1. Embedded Vitals, Spells, and Weapons / Attacks are live alternate views of canonical active character data.
+2. Embedded panels use active-character change events and panel invalidation/rebinding; they do not use duplicate state or a sync store.
+3. If active character is null, embedded panels render empty gracefully.
 
 ---
 
@@ -99,9 +127,11 @@ Panel order (simplest to most complex):
 
 **Files:** `index.html`, `styles.css`, `js/pages/character/characterPage.js`
 
+**Status:** Complete.
+
 1. Add sub-toolbar DOM structure to `index.html` inside `#page-character`, before `#charColumns`.
 2. Add a character selector (dropdown/scrollable list showing character names).
-3. Add an overflow menu button with: New Character, Delete Character, Rename Character.
+3. Add an overflow `...` actions menu with: New Character, Rename Character, Delete Character.
 4. Wire New Character: creates a blank entry with name "New Character", adds to `entries[]`, sets `activeId`, re-renders.
 5. Wire Delete Character: removes active entry from `entries[]`, sets `activeId` to another entry or null, re-renders.
 6. Wire Rename Character: prompt for new name, update entry, re-renders.
@@ -116,10 +146,11 @@ Panel order (simplest to most complex):
 
 **Files:** `js/pages/character/characterPage.js`, `index.html`, `styles.css`
 
-1. When `characters.entries` is empty, show a prompt overlay on the character page: "Create your first character" with Yes / No buttons.
-2. Yes → create a blank character entry (same as New Character flow), dismiss prompt.
-3. No → dismiss prompt, leave the page in freeform mode with empty fields.
-4. The prompt should not reappear once dismissed (store a flag if needed, or just check if entries exist).
+**Status:** Complete.
+
+1. When `characters.entries` is empty, show an empty-state prompt on the character page: "Create your first character".
+2. Creating a character uses the same blank-entry path as New Character, sets it active, and rerenders.
+3. Dismissing the prompt is session-only; fresh campaigns can remain without an active character until one is created.
 
 ---
 
@@ -132,3 +163,5 @@ Panel order (simplest to most complex):
 - App loads with legacy data and migrates cleanly.
 - App loads with fresh campaign, shows empty state, can create/select/delete characters.
 - Character panels work identically to before when a character is active.
+- Step 2 tracker-card linking remains future work.
+- Step 3 character builder/rules engine remains future work.

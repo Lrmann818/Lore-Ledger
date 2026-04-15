@@ -218,7 +218,7 @@ Top-level state buckets:
 
 - `state.schemaVersion`
 - `state.tracker`
-- `state.character`
+- `state.characters`
 - `state.map`
 - `state.combat`
 - `state.ui`
@@ -245,7 +245,7 @@ Runtime still exposes one active campaign through the familiar top-level buckets
 
 - `state.schemaVersion`
 - `state.tracker`
-- `state.character`
+- `state.characters`
 - `state.map` except runtime-only history
 - `state.combat`
 - `state.ui` except runtime-only calculator/dice state
@@ -260,7 +260,7 @@ The main localStorage payload is now a campaign vault:
 - `campaignIndex.entries`
 - `campaignDocs[id]`
 
-Each `campaignDocs[id]` stores the campaign-level `schemaVersion`, `tracker`, `character`, `map`, and `combat` buckets. App-level UI such as theme, textarea heights, panel collapse, and active tab is stored under `appShell.ui`.
+Each `campaignDocs[id]` stores the campaign-level `schemaVersion`, `tracker`, `characters`, `map`, and `combat` buckets. App-level UI such as theme, textarea heights, panel collapse, and active tab is stored under `appShell.ui`.
 
 Important persisted UI/state examples:
 
@@ -272,11 +272,11 @@ Important persisted UI/state examples:
 - Tracker page UI:
   - `state.tracker.ui.sectionOrder`
 - Character page UI:
-  - `state.character.ui.sectionOrder`
-  - `state.character.ui.vitalsOrder`
-  - `state.character.ui.abilityOrder`
-  - `state.character.ui.abilityCollapse`
-  - `state.character.ui.textareaCollapse`
+  - `state.characters.entries[].ui.sectionOrder`
+  - `state.characters.entries[].ui.vitalsOrder`
+  - `state.characters.entries[].ui.abilityOrder`
+  - `state.characters.entries[].ui.abilityCollapse`
+  - `state.characters.entries[].ui.textareaCollapse`
 - Map UI:
   - `state.map.ui.activeTool`
   - `state.map.ui.brushSize`
@@ -320,7 +320,7 @@ Important rule: a field living on `state` does **not** guarantee that it is pers
 ### Canonical-vs-legacy UI buckets
 
 - Cross-app UI state belongs in `state.ui`.
-- `state.tracker.ui` and `state.character.ui` are page-scoped UI buckets.
+- `state.tracker.ui` and each active character entry's `ui` object are page-scoped UI buckets.
 - The current code still preserves some legacy `tracker.ui` data:
   - theme fallback/read paths in `dataPanel.js`
   - textarea-height migration in `setupTextareaSizing(...)`
@@ -328,7 +328,7 @@ Important rule: a field living on `state` does **not** guarantee that it is pers
 
 ### Schema migration rules
 
-- Current schema version: `3`
+- Current schema version: `4`
 - Migration lives in `migrateState(...)` in `js/state.js`.
 - `normalizeState(...)` restores runtime-only UI defaults after migration/load/import.
 - Unknown future schema versions are accepted as-is to avoid destructive downgrade behavior.
@@ -374,7 +374,7 @@ Not all user-visible data follows the same write path:
   - saved separately through `putText(...)`
   - keyed by `textKey_spellNotes(campaignId, spellId)` while a campaign is active
   - deleted separately when spells or spell levels are deleted
-  - not embedded in `state.character.spells`
+  - not embedded in `state.characters.entries[].spells`
 
 ### Backup/reset lifecycle
 
@@ -488,10 +488,37 @@ Page-level ownership:
 - character page panel ordering via `setupCharacterSectionReorder(...)`
 - page-local bind helpers used by panel modules (`bindText`, `bindNumber`)
 
+Canonical character model:
+
+- Step 1 multi-character support is complete and verified.
+- Active character data lives in `state.characters.entries`, selected by `state.characters.activeId`.
+- The canonical shape is:
+
+```js
+characters: {
+  activeId: string | null,
+  entries: CharacterEntry[]
+}
+```
+
+- The legacy singleton `state.character` key is valid only in migration/backward-compatibility handling for old saves/backups.
+- Character panels resolve the active entry through `getActiveCharacter(state)`.
+- Character writes should use state action helpers such as `mutateCharacter(...)` and `updateCharacterField(...)`.
+- Fresh campaigns can have no active character until one is created.
+
+Step 1 Character page UI:
+
+- character selector
+- `...` actions menu
+- New Character
+- Rename Character
+- Delete Character
+- empty-state "Create your first character" prompt
+
 Panel ownership:
 
 - `panels/basicsPanel.js`
-  - `state.character.name`
+  - `state.characters.entries[].name`
   - `classLevel`
   - `race`
   - `background`
@@ -502,37 +529,44 @@ Panel ownership:
   - document title sync
 - `panels/vitalsPanel.js`
   - HP, AC, initiative, speed, proficiency, spell attack/DC, hit-die fields
-  - `state.character.resources`
-  - `state.character.ui.vitalsOrder`
+  - `state.characters.entries[].resources`
+  - `state.characters.entries[].ui.vitalsOrder`
 - `panels/abilitiesPanel.js`
-  - `state.character.abilities`
+  - `state.characters.entries[].abilities`
   - skills/skill notes
-  - `state.character.ui.abilityOrder`
-  - `state.character.ui.abilityCollapse`
+  - `state.characters.entries[].ui.abilityOrder`
+  - `state.characters.entries[].ui.abilityCollapse`
 - `panels/proficienciesPanel.js`
   - armor/weapon/tool/language text fields
 - `panels/attackPanel.js`
-  - `state.character.attacks`
+  - `state.characters.entries[].attacks`
 - `panels/spellsPanel.js`
-  - `state.character.spells.levels`
+  - `state.characters.entries[].spells.levels`
   - per-spell notes in IndexedDB `texts`
 - `panels/equipmentPanel.js`
-  - `state.character.inventoryItems`
-  - `state.character.activeInventoryIndex`
-  - `state.character.inventorySearch`
-  - `state.character.money`
-  - legacy migration from `state.character.equipment`
+  - `state.characters.entries[].inventoryItems`
+  - `state.characters.entries[].activeInventoryIndex`
+  - `state.characters.entries[].inventorySearch`
+  - `state.characters.entries[].money`
+  - legacy migration from entry-level `equipment`
 - `panels/personalityPanel.js`
-  - `state.character.personality`
-  - collapsible textarea state via `state.character.ui.textareaCollapse`
+  - `state.characters.entries[].personality`
+  - collapsible textarea state via `state.characters.entries[].ui.textareaCollapse`
 
 Character-specific boundary notes:
 
 - Only spell notes use separate IndexedDB text storage. Other character notes stay in the main structured save.
-- Character portrait storage uses the shared image flow, but ownership of `state.character.imgBlobId` stays in character modules.
+- Character portrait storage uses the shared image flow, but ownership of `state.characters.entries[].imgBlobId` stays in character modules.
 - `initCharacterPageUI(...)` now destroys the previous character-page controller before re-initializing the page.
 - `equipmentPanel.js` and `spellsPanel.js` now return real `destroy()` APIs and clean up their owned listeners/runtime work on teardown.
 - Some older Character panels still rely on dataset guards or module-local state. Full tracker-panel lifecycle parity is future refactor roadmap work, not a release blocker for the current character-page destroy/re-init contract.
+
+Combat embedded character panels:
+
+- Combat embedded Vitals, Spells, and Weapons / Attacks panels are live alternate views of canonical active character data.
+- Hosted panels resolve fresh active data via `getActiveCharacter(state)`.
+- Active-character changes are propagated through the app-level active-character change event and panel invalidation/rebinding.
+- Do not add duplicate character data under `state.combat`, and do not introduce a sync store.
 
 ### Map page: `js/pages/map/*`
 

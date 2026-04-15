@@ -23,6 +23,7 @@ That direction is visible in the current structure:
 - A single composition root in `app.js`
 - A campaign vault persistence model that separates app-shell UI from per-campaign documents
 - Schema-aware state migration in `js/state.js`
+- Completed Step 1 multi-character state with `state.characters.activeId` selecting entries from `state.characters.entries`
 - A split persistence layer for structured state, images, and long-form text
 - Tracker card panels built around destroyable instance-scoped controllers instead of hidden singleton runtime state
 - A narrow shared tracker-card DOM patch helper, with card-body rendering and collection-specific rules still kept local to each panel
@@ -34,8 +35,8 @@ That direction is visible in the current structure:
 - Campaign Hub for creating campaigns, switching the active campaign, renaming campaigns, and deleting campaigns
 - Tracker page for campaign title, session tabs and notes, NPC cards, party cards, location cards, and loose notes
 - Sectioned tracker collections with add/rename/delete controls, search inputs, and portrait/image support for cards
-- Combat Workspace with participant cards sourced from tracker entries, HP/temp HP actions, role/order controls, status effects, round timing, undo for turn advances, and embedded Vitals, Spells, and Weapons / Attacks panels
-- Character page with portrait, identity fields, vitals, resources, abilities and skills, proficiencies, weapons, spells, equipment, inventory tabs, money, and personality notes
+- Combat Workspace with participant cards sourced from tracker entries, HP/temp HP actions, role/order controls, status effects, round timing, undo for turn advances, and embedded Vitals, Spells, and Weapons / Attacks panels that are live views of the canonical active character
+- Character page with multi-character selection, `...` actions for New/Rename/Delete Character, an empty-state "Create your first character" prompt, portrait, identity fields, vitals, resources, abilities and skills, proficiencies, weapons, spells, equipment, inventory tabs, money, and personality notes
 - Spell management with dynamic spell levels and per-spell notes
 - Map page with multiple maps, background image upload/removal, mouse/touch drawing, pan/zoom gestures, brush and eraser tools, brush size and color controls, and persisted drawings
 - Topbar utilities including a clock, calculator, and dice roller
@@ -76,6 +77,14 @@ Current tracker-specific architecture notes:
 - `initTrackerPage(...)` destroys the previous tracker-page controller before re-initializing Tracker wiring.
 - The NPC, Party, and Location panels now return real `destroy()` APIs and own listener cleanup through `AbortController`.
 - Shared tracker-card dedupe is intentionally narrow today: `js/pages/tracker/panels/cards/shared/cardIncrementalPatchShared.js` only owns incremental DOM patch mechanics, while filtering, section defaults, toolbar wiring, and card-body renderers remain panel-local.
+
+Current character-specific architecture notes:
+
+- Step 1 multi-character support is complete and verified. Active character data lives in `state.characters.entries`, selected by `state.characters.activeId`.
+- The legacy singleton `state.character` key is valid only in migration/backward-compatibility handling for old saves/backups.
+- Character panels resolve the active entry through `getActiveCharacter(state)` and write through helpers such as `mutateCharacter(...)` and `updateCharacterField(...)`.
+- Combat embedded character panels are live alternate views of canonical active character data. They use active-character change events and panel invalidation/rebinding rather than duplicate character data or a sync store.
+- Step 2 tracker-card linking and Step 3 character builder/rules engine work remain future scope.
 
 ## 5.1 Type safety in vanilla JS
 
@@ -134,7 +143,7 @@ The repo now includes targeted automation in two layers:
 - `tests/smoke/npcPortrait.smoke.js` covers NPC portrait crop/save plus incremental tracker-card patch behavior for search, section moves, reorder, collapse, and focus restoration.
 - `tests/smoke/partyLocationPanels.smoke.js` covers the same tracker-card behavior for Party and Location panels, including location type filtering.
 - `tests/smoke/trackerPanelLifecycle.smoke.js` covers repeated `initTrackerPage(...)` calls so tracker panel lifecycle cleanup stays single-bound after re-init.
-- `tests/smoke/characterPanelLifecycle.smoke.js` covers repeated `initCharacterPageUI(...)` calls so Character page re-init keeps spells, equipment, and representative panel actions single-bound after teardown/re-init.
+- `tests/smoke/characterPanelLifecycle.smoke.js` covers repeated `initCharacterPageUI(...)` calls so Character page re-init keeps spells, equipment, and representative panel actions single-bound after teardown/re-init; Step 1 smoke helpers now account for fresh campaigns having no active character until one is created.
 - `tests/smoke/dropdownRegression.smoke.js` covers shared dropdown/popover behavior, including enhanced select opening, tracker card menu clickability in the body-ported menu path, and dropdown wiring after rerender.
 
 Run the test suite in watch mode:
@@ -181,7 +190,7 @@ npm run test:run -- tests/state.migrate.test.js
 
 `npm run test:smoke` runs the current 33-test Playwright suite against a controlled Vite server started in production mode on the repo's GitHub Pages base path. GitHub Pages CI now installs Playwright Chromium and runs this smoke suite after `npm run verify`; preview-based PWA/offline validation remains manual, and broader browser/PWA automation is roadmap hardening rather than unresolved release debt.
 
-This is intentionally targeted coverage, not full-app automation. Automation now covers migration, `sanitizeForSave(...)`, `createStateActions(...)`, safe asset replacement ordering, local save/load, a representative structured save/load round trip, save-manager behavior, backup/import logic, basic browser boot, Campaign Hub first-run/layout/rename/delete paths, one reload-persistence path, a file-based backup round trip into a fresh browser context, tracker-page re-init safety, character-page re-init safety, targeted NPC/Party/Location panel regression paths, Combat Workspace card/round/status/embedded-panel paths, and shared dropdown/popover regressions. `Reset Everything`, broader Character-page coverage beyond the current lifecycle smoke, map drawing/touch behavior, and PWA/offline behavior remain manual release checks today; broader automation for those areas is roadmap work, while broader automated cross-browser coverage remains out of scope for this version.
+This is intentionally targeted coverage, not full-app automation. Automation now covers migration, `sanitizeForSave(...)`, `createStateActions(...)`, safe asset replacement ordering, local save/load, a representative structured save/load round trip, save-manager behavior, backup/import logic, basic browser boot, Campaign Hub first-run/layout/rename/delete paths, one reload-persistence path, a file-based backup round trip into a fresh browser context, tracker-page re-init safety, character-page re-init safety, Step 1 multi-character fresh-campaign behavior, targeted NPC/Party/Location panel regression paths, Combat Workspace card/round/status/embedded-panel paths, and shared dropdown/popover regressions. `Reset Everything`, broader Character-page coverage beyond the current lifecycle smoke, map drawing/touch behavior, and PWA/offline behavior remain manual release checks today; broader automation for those areas is roadmap work, while broader automated cross-browser coverage remains out of scope for this version.
 
 `npm run verify` is the canonical local build-and-unit readiness check. It runs `npm run test:run`, `npm run typecheck`, and `npm run build`, matching the first automated gate in CI. It does not replace `npm run test:smoke`, `npm run preview`, or the browser-level manual checks needed for release validation.
 

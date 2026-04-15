@@ -48,21 +48,26 @@ Do not assume the app is only Tracker / Character / Map anymore.
 
 ---
 
-## Active work
+## Character architecture
 
-Multi-character system (Step 1) is in progress.
+Step 1 multi-character support is complete and verified.
 
-Before making changes to character state, character panels, combat embedded character panels, backup/import/export, or campaign vault persistence, read `MULTI_CHARACTER_DESIGN.md` and `STEP1_TASKS.md` in the project root.
+Before modifying character architecture, character state, character panels, combat embedded character panels, backup/import/export, or campaign vault persistence, read `MULTI-CHARACTER_DESIGN.md` in the project root. `STEP1_TASKS.md` is now a completed implementation record, not pending work.
 
-Do not restore the legacy singleton `state.character` model. The target model is:
+Do not reintroduce the legacy singleton `state.character` model. That key is valid only in migration and backward-compatibility handling for old saves/backups. Production code must use:
 
 ```js
 characters: {
   activeId: string | null,
   entries: CharacterEntry[]
 }
+```
 
-Panel reads should resolve the active character via getActiveCharacter(state). Character writes should go through the existing state action helpers where possible.
+Active character data lives in `state.characters.entries`, selected by `state.characters.activeId`.
+
+Panel reads must resolve the active character via `getActiveCharacter(state)`. Character writes should use state action helpers such as `mutateCharacter(...)` and `updateCharacterField(...)`.
+
+Combat embedded Vitals, Spells, and Weapons / Attacks panels are live alternate views of canonical active character data, not snapshots. They must not introduce duplicate character data or a sync store.
 
 ---
 

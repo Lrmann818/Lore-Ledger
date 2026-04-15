@@ -13,7 +13,7 @@ The source of truth is the code, primarily:
 
 This is intentionally a maintainer-focused document. It describes the state as it exists today, including a few legacy or duplicated fields that still appear because the app preserves backward compatibility.
 
-Current structured schema version: `3`
+Current structured schema version: `4`
 
 ## 2. Schema versioning policy
 
@@ -32,6 +32,7 @@ Current history:
 - `1`: normalized top-level buckets; migrated legacy spells, resources, theme, and map shape
 - `2`: ensured `character.inventoryItems` exists and migrated legacy equipment text
 - `3`: added campaign-scoped Combat Workspace state with separate workspace and encounter buckets
+- `4`: migrated the legacy singleton character object to the multi-character collection `{ activeId, entries[] }`
 
 Important implementation detail:
 
@@ -47,7 +48,10 @@ Runtime state still exposes one active campaign through this familiar top-level 
 {
   schemaVersion: number,
   tracker: object,
-  character: object,
+  characters: {
+    activeId: string | null,
+    entries: CharacterEntry[]
+  },
   map: object,
   combat: object,
   ui: object,
@@ -61,7 +65,10 @@ Runtime state still exposes one active campaign through this familiar top-level 
 {
   schemaVersion: number,
   tracker: object,
-  character: object,
+  characters: {
+    activeId: string | null,
+    entries: CharacterEntry[]
+  },
   map: object,
   combat: object,
   ui: object
@@ -84,14 +91,17 @@ The main `localStorage["localCampaignTracker_v1"]` value is now a campaign vault
   campaignDocs: Record<string, {
     schemaVersion: number,
     tracker: object,
-    character: object,
+    characters: {
+      activeId: string | null,
+      entries: CharacterEntry[]
+    },
     map: object,
     combat: object
   }>
 }
 ```
 
-`campaignDocs[id]` owns campaign data. `appShell.ui` owns app-level UI preferences such as theme and active tab. Startup projects only the selected active campaign document into the runtime `state.tracker`, `state.character`, `state.map`, and `state.combat` buckets.
+`campaignDocs[id]` owns campaign data. `appShell.ui` owns app-level UI preferences such as theme and active tab. Startup projects only the selected active campaign document into the runtime `state.tracker`, `state.characters`, `state.map`, and `state.combat` buckets.
 
 The app also uses companion persisted stores:
 
@@ -242,7 +252,18 @@ Older saves may also contain the typo `tracker.ui.textareaHeigts`. Current code 
 
 ## 5. Character state breakdown
 
-`state.character` contains character sheet content, some lazily-created per-panel settings, and a few legacy compatibility fields.
+`state.characters` is the canonical multi-character collection:
+
+```js
+characters: {
+  activeId: string | null,
+  entries: CharacterEntry[]
+}
+```
+
+`state.characters.entries[]` contains character sheet content, some lazily-created per-panel settings, and a few legacy compatibility fields. `state.characters.activeId` selects the active entry. Character panels resolve that entry through `getActiveCharacter(state)` and write through state action helpers such as `mutateCharacter(...)` and `updateCharacterField(...)`.
+
+The legacy singleton `state.character` key is accepted only by migration/backward-compatibility paths for old saves/backups. Do not add new production code that reads or writes `state.character`.
 
 ### Basics and vitals
 
@@ -451,7 +472,7 @@ Notes:
 
 ### Character UI sub-bucket
 
-`character.ui` is mostly lazy-created. Current code may place these fields there:
+Each character entry's `ui` object is mostly lazy-created. Current code may place these fields there:
 
 - `sectionOrder: string[]`
   - Character page panel order.
@@ -471,6 +492,19 @@ Notes:
 - `_applySectionOrder: Function`
   - Runtime-only function attached by the character page reorder helper.
   - Not serializable and therefore not meaningfully persisted.
+
+### Character page Step 1 UI
+
+The Character page now includes:
+
+- character selector
+- `...` actions menu
+- New Character
+- Rename Character
+- Delete Character
+- empty-state "Create your first character" prompt
+
+Fresh campaigns can have `characters.activeId: null` and `characters.entries: []` until a character is created.
 
 ## 6. Map state breakdown
 
@@ -612,7 +646,7 @@ Notes:
 - Combat participants are encounter-local. Role, order, active participant, timer state, duplicate participant entries, and status timing do not write back to tracker cards.
 - Direct Combat HP/temp HP actions intentionally write `hpCurrent` and `tempHp` back to the source tracker card when the source still exists.
 - Direct Combat status edits intentionally mirror visible status labels back to the source tracker card's text status field for NPC and party sources; duration timing remains encounter-local.
-- Embedded Combat panels host the canonical Character page Vitals, Spells, and Weapons / Attacks panel modules. They read and write `state.character` directly rather than copying data into `state.combat`.
+- Embedded Combat panels host the canonical Character page Vitals, Spells, and Weapons / Attacks panel modules as live alternate views of the active character. They resolve `getActiveCharacter(state)`, read/write canonical `state.characters.entries[]` data, and update through active-character change events plus panel invalidation/rebinding rather than copied data, duplicate state, or a sync store.
 - Older campaign docs without `combat` migrate to the default split shape.
 - Malformed `workspace` or `encounter` buckets are repaired defensively by `migrateState(...)`.
 

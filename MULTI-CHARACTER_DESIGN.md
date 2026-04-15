@@ -14,26 +14,28 @@ The character page evolves from a single freeform sheet into a multi-character m
 
 ## Step 1 — Multi-character support
 
+**Status:** Complete, audited, and fully verified.
+
 ### Goal
 
 Move from one character per campaign to many characters per campaign, with a selection and management UI.
 
 ### State shape change
 
-```
+```js
 // Before (singleton)
 character: { name, race, classLevel, abilities, spells, ... }
 
 // After (collection)
 characters: {
   activeId: string | null,
-  entries: [
-    { id: string, ...all existing character fields }
-  ]
+  entries: CharacterEntry[]
 }
 ```
 
 The existing character field schema is unchanged inside each entry. The only structural change is wrapping the singleton in an indexed collection.
+
+The legacy singleton `state.character` key is valid only in migration and backward-compatibility handling for old saves/backups. It must not be reintroduced in production code.
 
 ### Migration
 
@@ -43,15 +45,15 @@ When `migrateState` encounters the legacy `character` object (no `characters` wr
 2. If the legacy character is entirely default/empty → set `entries: []` and `activeId: null`.
 3. New campaigns start with `entries: []` and `activeId: null`.
 
-Migration must be test-backed before merging.
+Migration is test-backed and part of the completed Step 1 verification suite.
 
 ### CampaignDoc type update
 
-`CampaignDoc.character` becomes `CampaignDoc.characters`. The vault normalization layer (`normalizeCampaignDoc`) must handle both shapes during the transition.
+`CampaignDoc.character` became `CampaignDoc.characters`. The vault normalization layer (`normalizeCampaignDoc`) handles both shapes during the transition, but current campaign documents persist `characters`.
 
 ### Character page — empty state
 
-When `activeId` is null and `entries` is empty, the character page shows all panel sections in their current layout but displays a prompt overlay: "Create your first character" with Yes / No options. Choosing No dismisses the prompt and lets the user fill in sheets manually (freeform mode, no builder). Choosing Yes opens the character creation flow (Step 3 scope — for now, Yes just creates a blank character entry).
+When `activeId` is null and `entries` is empty, the character page displays an empty-state "Create your first character" prompt. Creating a character adds a blank character entry, selects it, and rerenders the page. Dismissal is session-only; a fresh campaign can intentionally have no active character until one is created.
 
 ### Character page — sub-toolbar
 
@@ -59,20 +61,13 @@ A character-specific toolbar is added between the main app toolbar/nav row and t
 
 Contents (compact single row for mobile):
 
-- Left side: character selector (dropdown or tap-to-open scrollable list showing character names)
-- Right side: overflow menu button (☰ or ⋯) containing:
+- Left side: character selector
+- Right side: `...` actions menu containing:
   - New Character
-  - Delete Character
   - Rename Character
-  - Level Up (Step 3 scope)
-  - Short / Long Rest (Step 3 scope)
-  - Add to Party
-  - Add to NPCs
-  - Add to Locations
-  - Export Character (Step 4 scope)
-  - Import Character (Step 4 scope)
+  - Delete Character
 
-Disabled/hidden items are gated by implementation step.
+Step 2 tracker-card linking actions, Step 3 character builder/rules-engine actions, and Step 4 import/export actions remain future work.
 
 ### Character selector behavior
 
@@ -83,7 +78,7 @@ Disabled/hidden items are gated by implementation step.
 
 ### Panel data resolution
 
-All character panels currently read from `state.character.*`. After this change they read from the active entry:
+All character panels read from the active entry:
 
 ```js
 function getActiveCharacter(state) {
@@ -95,9 +90,15 @@ function getActiveCharacter(state) {
 
 When `getActiveCharacter` returns null, panels render in their current default/empty state. This preserves the existing behavior for "no character selected."
 
+Character writes should use state action helpers such as `mutateCharacter(...)` and `updateCharacterField(...)` so updates target the active entry under `state.characters.entries`.
+
 ### Combat workspace
 
-The combat embedded panels (Vitals, Spells, Attacks) currently read from `state.character`. After this change they read from the active character — same `getActiveCharacter` resolution. Which character is active on the character page is the character shown in combat. This is the simplest correct behavior for now. A future enhancement could let the combat workspace pin a specific character independently.
+The combat embedded panels (Vitals, Spells, Weapons / Attacks) are live alternate views of canonical active character data. They resolve the active character through `getActiveCharacter(state)`, the same as the Character page.
+
+Which character is active on the Character page is the character shown in Combat. Embedded panel updates use active-character change events and panel invalidation/rebinding rather than duplicate state or a sync store. The architectural rule is strict: no duplicate character data and no embedded-panel sync store.
+
+A future enhancement could let the Combat workspace pin a specific character independently.
 
 ### Files affected
 
@@ -117,10 +118,13 @@ The combat embedded panels (Vitals, Spells, Attacks) currently read from `state.
 - `index.html` — sub-toolbar DOM structure
 - `styles.css` — sub-toolbar styling
 - Tests for migration, backup import/export, and active character resolution
+- Smoke tests updated for the Step 1 model where fresh campaigns can have no active character until one is created
 
 ---
 
 ## Step 2 — Character ↔ tracker card linking
+
+**Status:** Future work.
 
 ### Goal
 
@@ -200,6 +204,8 @@ If a `characterId` points to a character that no longer exists (data corruption,
 ---
 
 ## Step 3 — Rules engine and character builder
+
+**Status:** Future work.
 
 ### Goal
 
