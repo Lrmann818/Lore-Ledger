@@ -473,10 +473,12 @@ test("combat workspace panel picker adds embedded panels, persists selection, pr
   await page.getByRole("tab", { name: "Combat" }).click();
   await expect(page.locator("#page-combat")).toBeVisible();
 
-  // All three panels are available to add initially
+  // All five panels are available to add initially
   await expect(page.locator("[data-add-embedded-panel='vitals']")).toBeVisible();
   await expect(page.locator("[data-add-embedded-panel='spells']")).toBeVisible();
   await expect(page.locator("[data-add-embedded-panel='weapons']")).toBeVisible();
+  await expect(page.locator("[data-add-embedded-panel='equipment']")).toBeVisible();
+  await expect(page.locator("[data-add-embedded-panel='abilities']")).toBeVisible();
 
   // Add Vitals
   await page.locator("[data-add-embedded-panel='vitals']").click();
@@ -547,12 +549,16 @@ test("combat workspace panel picker adds embedded panels, persists selection, pr
     page.evaluate(() => globalThis.__APP_STATE__?.combat?.workspace?.embeddedPanels)
   ).toEqual(["spells"]);
 
-  // Add all three — picker shows "All panels added." when full
+  // Add all five — picker shows "All panels added." when full
   await page.locator("[data-add-embedded-panel='vitals']").click();
   await page.locator("[data-add-embedded-panel='weapons']").click();
+  await page.locator("[data-add-embedded-panel='equipment']").click();
+  await page.locator("[data-add-embedded-panel='abilities']").click();
   await expect(page.locator("[data-add-embedded-panel='vitals']")).not.toBeVisible();
   await expect(page.locator("[data-add-embedded-panel='spells']")).not.toBeVisible();
   await expect(page.locator("[data-add-embedded-panel='weapons']")).not.toBeVisible();
+  await expect(page.locator("[data-add-embedded-panel='equipment']")).not.toBeVisible();
+  await expect(page.locator("[data-add-embedded-panel='abilities']")).not.toBeVisible();
   await expect(page.locator("#combatPanelPickerRow")).toContainText("All panels added.");
 
   // Workspace layout (panelOrder) and encounter state are unaffected
