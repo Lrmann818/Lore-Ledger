@@ -84,10 +84,14 @@
     <div class="topbarRight">
       <nav class="tabs" id="campaignTabs" role="tablist" aria-label="Pages" hidden>
         <button class="tab" data-tab="tracker" role="tab" aria-selected="false">Tracker</button>
-        <button class="tab" data-tab="combat" role="tab" aria-selected="false">Combat</button>
         <button class="tab" data-tab="character" role="tab" aria-selected="false">Character</button>
         <button class="tab" data-tab="map" role="tab" aria-selected="false">Map</button>
       </nav>
+
+      <button id="combatTab" class="tab combatTab" type="button" data-tab="combat" role="tab" aria-selected="false"
+        aria-controls="page-combat" aria-label="Combat" title="Combat">
+        <span class="iconMask btnIcon icon-combat" aria-hidden="true"></span>
+      </button>
 
       <!-- Calculator dropdown -->
       <div class="calcDropdown" id="calcDropdown">

@@ -2209,6 +2209,7 @@ button.warn:hover {
 
 .topbarRight>.calcDropdown,
 .topbarRight>.diceDropdown,
+.topbarRight>.combatTab,
 .topbarRight>.settingsBtn {
   flex: 0 0 auto;
 }
@@ -2223,6 +2224,13 @@ button.warn:hover {
   display: inline-flex;
   align-items: center;
   justify-content: center
+}
+
+.combatTab {
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* Settings button icon */
@@ -5754,6 +5762,10 @@ button#colorBtn[aria-expanded="true"] {
 
 .icon-calc {
   --icon: url("/icons/calcIcon.svg");
+}
+
+.icon-combat {
+  --icon: url("/icons/combatPageIcon.svg");
 }
 
 .icon-settings {

@@ -49,6 +49,7 @@ const NOOP_TOP_TABS_API = /** @type {TopTabsNavigationApi} */ (getNoopDestroyApi
  *     <button class="tab" data-tab="tracker" role="tab">Tracker</button>
  *     ...
  *   </nav>
+ *   <button class="tab" data-tab="combat" role="tab">Combat</button>
  * And pages:
  *   <section id="page-tracker">...</section>
  *   <section id="page-character">...</section>
@@ -83,8 +84,12 @@ export function initTopTabsNavigation(deps = {}) {
   if (!guard.ok) return /** @type {TopTabsNavigationApi} */ (guard.destroy || getNoopDestroyApi());
   const tabsRoot = /** @type {HTMLElement} */ (guard.els.tabsRoot);
 
+  const tabButtonsSource =
+    typeof document.querySelectorAll === "function"
+      ? document
+      : tabsRoot;
   /** @type {HTMLButtonElement[]} */
-  const tabButtons = /** @type {HTMLButtonElement[]} */ (Array.from(tabsRoot.querySelectorAll(tabSelector)));
+  const tabButtons = /** @type {HTMLButtonElement[]} */ (Array.from(tabButtonsSource.querySelectorAll(tabSelector)));
   if (!tabButtons.length) {
     setStatus?.("Top navigation unavailable (no tab buttons found).", { stickyMs: 5000 });
     return NOOP_TOP_TABS_API;
@@ -235,29 +240,33 @@ export function initTopTabsNavigation(deps = {}) {
     }, { signal });
   });
 
-  // Keyboard: left/right arrows to move between tabs
-  tabsRoot.addEventListener(
-    "keydown",
-    (e) => {
-      const keys = ["ArrowLeft", "ArrowRight", "Home", "End"];
-      if (!keys.includes(e.key)) return;
-      const idx = tabButtons.findIndex((b) => b.classList.contains("active"));
-      if (idx < 0) return;
+  /**
+   * Keyboard: left/right arrows move between tabs, including toolbar-hosted
+   * tabs that use the same navigation controller.
+   * @param {KeyboardEvent} e
+   */
+  const handleTabKeydown = (e) => {
+    const keys = ["ArrowLeft", "ArrowRight", "Home", "End"];
+    if (!keys.includes(e.key)) return;
+    const idx = tabButtons.findIndex((b) => b.classList.contains("active"));
+    if (idx < 0) return;
 
-      e.preventDefault();
-      let next = idx;
-      if (e.key === "ArrowLeft") next = (idx - 1 + tabButtons.length) % tabButtons.length;
-      if (e.key === "ArrowRight") next = (idx + 1) % tabButtons.length;
-      if (e.key === "Home") next = 0;
-      if (e.key === "End") next = tabButtons.length - 1;
-      const nextTab = tabButtons[next];
-      if (!nextTab) return;
-      if (nextTab.disabled) return;
-      nextTab.focus();
-      applyActiveTab(nextTab.dataset.tab || nextTab.getAttribute("data-tab"));
-    },
-    { signal }
-  );
+    e.preventDefault();
+    let next = idx;
+    if (e.key === "ArrowLeft") next = (idx - 1 + tabButtons.length) % tabButtons.length;
+    if (e.key === "ArrowRight") next = (idx + 1) % tabButtons.length;
+    if (e.key === "Home") next = 0;
+    if (e.key === "End") next = tabButtons.length - 1;
+    const nextTab = tabButtons[next];
+    if (!nextTab) return;
+    if (nextTab.disabled) return;
+    nextTab.focus();
+    applyActiveTab(nextTab.dataset.tab || nextTab.getAttribute("data-tab"));
+  };
+
+  tabButtons.forEach((btn) => {
+    btn.addEventListener("keydown", handleTabKeydown, { signal });
+  });
 
   // Initial: prefer hash (#tracker/#character/#map), else localStorage, else state, else default
   // NOTE: We intentionally persist active tab in localStorage without marking the campaign "dirty".

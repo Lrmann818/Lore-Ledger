@@ -66,7 +66,9 @@ class FakeElement extends EventTarget {
     return nextValue;
   }
 
-  focus() {}
+  focus() {
+    this.focused = true;
+  }
 }
 
 class FakeDocument extends EventTarget {
@@ -84,19 +86,39 @@ class FakeDocument extends EventTarget {
     if (selector.startsWith("#")) return this.getElementById(selector.slice(1));
     return null;
   }
+
+  querySelectorAll(selector) {
+    if (selector !== ".tab[data-tab]") return [];
+    return Array.from(this._elements.values())
+      .filter((element) => element.classList.contains("tab") && !!element.getAttribute("data-tab"));
+  }
 }
 
-function installNavigationDom() {
+function installNavigationDom({ includeExternalCombat = false } = {}) {
   const tabsRoot = new FakeElement("campaignTabs", { classes: ["tabs"] });
   const trackerTab = new FakeElement("trackerTab", { classes: ["tab"], dataset: { tab: "tracker" } });
   const mapTab = new FakeElement("mapTab", { classes: ["tab"], dataset: { tab: "map" } });
   tabsRoot.appendChild(trackerTab);
   tabsRoot.appendChild(mapTab);
+  const combatTab = includeExternalCombat
+    ? new FakeElement("combatTab", { classes: ["tab"], dataset: { tab: "combat" } })
+    : null;
 
   const hubPage = new FakeElement("page-hub");
   const trackerPage = new FakeElement("page-tracker");
   const mapPage = new FakeElement("page-map");
-  const document = new FakeDocument([tabsRoot, trackerTab, mapTab, hubPage, trackerPage, mapPage]);
+  const combatPage = new FakeElement("page-combat");
+  const elements = [
+    tabsRoot,
+    trackerTab,
+    mapTab,
+    ...(combatTab ? [combatTab] : []),
+    hubPage,
+    trackerPage,
+    mapPage,
+    ...(combatTab ? [combatPage] : [])
+  ];
+  const document = new FakeDocument(elements);
   const localStorageMap = new Map();
   const location = { hash: "" };
 
@@ -130,7 +152,7 @@ function installNavigationDom() {
     configurable: true
   });
 
-  return { hubPage, trackerPage };
+  return { combatPage, combatTab, hubPage, mapTab, trackerPage };
 }
 
 describe("initTopTabsNavigation Hub entry", () => {
@@ -208,5 +230,31 @@ describe("initTopTabsNavigation Hub entry", () => {
 
     expect(onHubEntry).toHaveBeenCalledTimes(1);
     expect(state.ui.activeTab).toBe("hub");
+  });
+
+  it("wires toolbar-hosted tab buttons through the same navigation controller", async () => {
+    const { combatPage, combatTab, mapTab, trackerPage } = installNavigationDom({ includeExternalCombat: true });
+    const state = { ui: {} };
+    const { initTopTabsNavigation } = await import("../js/ui/navigation.js");
+
+    initTopTabsNavigation({
+      state,
+      defaultTab: "tracker",
+      canActivateTab: (tabName) => tabName !== "hub"
+    });
+
+    combatTab.dispatchEvent(new Event("click"));
+
+    expect(state.ui.activeTab).toBe("combat");
+    expect(combatTab.getAttribute("aria-selected")).toBe("true");
+    expect(combatPage.hidden).toBe(false);
+    expect(trackerPage.hidden).toBe(true);
+
+    const event = new Event("keydown", { cancelable: true });
+    Object.defineProperty(event, "key", { value: "ArrowLeft" });
+    combatTab.dispatchEvent(event);
+
+    expect(mapTab.getAttribute("aria-selected")).toBe("true");
+    expect(state.ui.activeTab).toBe("map");
   });
 });
