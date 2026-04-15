@@ -3,8 +3,9 @@
 //
 // Slice 7 — Embedded Panels
 //
-// Panel picker, view model helpers, and renderers for the three v1 supported
-// embedded panels: Vitals, Spells, and Weapons / Attacks.
+// Panel picker, view model helpers, and renderers for the five supported
+// embedded panels: Vitals, Spells, Weapons / Attacks, Equipment, and
+// Abilities / Skills.
 //
 // Architecture rules:
 //  - Hosted Character panel modules read/write the active character entry
@@ -17,6 +18,8 @@ import { COMBAT_ENCOUNTER_CHANGED_EVENT } from "./combatEvents.js";
 import { initAttacksPanel } from "../character/panels/attackPanel.js";
 import { initSpellsPanel } from "../character/panels/spellsPanel.js";
 import { initVitalsPanel } from "../character/panels/vitalsPanel.js";
+import { initEquipmentPanel } from "../character/panels/equipmentPanel.js";
+import { initAbilitiesPanel } from "../character/panels/abilitiesPanel.js";
 import { flipSwapTwo } from "../../ui/flipSwap.js";
 import { getActiveCharacter } from "../../domain/characterHelpers.js";
 import { ACTIVE_CHARACTER_CHANGED_EVENT } from "../../domain/characterEvents.js";
@@ -33,14 +36,16 @@ import { ACTIVE_CHARACTER_CHANGED_EVENT } from "../../domain/characterEvents.js"
 // ─── Panel definitions ───────────────────────────────────────────────────────
 
 /**
- * The three locked v1 embedded panel definitions.
+ * All supported embedded panel definitions.
  * Order here is also the display order in the picker.
  * @type {readonly EmbeddedPanelDef[]}
  */
 export const EMBEDDED_PANEL_DEFS = Object.freeze([
-  { id: "vitals",  label: "Vitals" },
-  { id: "spells",  label: "Spells" },
-  { id: "weapons", label: "Weapons / Attacks" },
+  { id: "vitals",     label: "Vitals" },
+  { id: "spells",     label: "Spells" },
+  { id: "weapons",    label: "Weapons / Attacks" },
+  { id: "equipment",  label: "Equipment" },
+  { id: "abilities",  label: "Abilities / Skills" },
 ]);
 
 export const EMBEDDED_PANEL_HOST_SELECTORS = Object.freeze({
@@ -69,6 +74,18 @@ export const EMBEDDED_PANEL_HOST_SELECTORS = Object.freeze({
     panelEl: "#combatEmbeddedWeaponsSource",
     listEl: "#combatEmbeddedAttackList",
     addBtn: "#combatEmbeddedAddAttackBtn"
+  }),
+  // Equipment: only the outer panel element has a combat-scoped id.
+  // Inner elements (inventoryTabs, moneyGP, etc.) keep their canonical ids and
+  // are found via root.querySelector inside the scoped bodyEl.
+  equipment: Object.freeze({
+    panelEl: "#combatEmbeddedEquipmentSource"
+  }),
+  // Abilities: outer panel and abilityGrid selector need scoping;
+  // save-options internals are found via scope.querySelector inside bodyEl.
+  abilities: Object.freeze({
+    panel: "#combatEmbeddedAbilitiesSource",
+    abilityGrid: "#combatEmbeddedAbilitiesSource .abilityGrid"
   })
 });
 
@@ -462,6 +479,187 @@ export function renderWeaponsEmbeddedContent(container) {
   container.appendChild(panel);
 }
 
+/**
+ * Render a scoped Equipment source-panel host into a container.
+ * Inner elements use the same ids as the character page; root-scoped lookups
+ * ensure the correct instance is found even when both are in the DOM.
+ * @param {HTMLElement} container
+ * @returns {void}
+ */
+export function renderEquipmentEmbeddedContent(container) {
+  container.replaceChildren();
+
+  const panel = createEl("section", "panel combatEmbeddedSourcePanel combatEmbeddedEquipmentHost");
+  panel.id = "combatEmbeddedEquipmentSource";
+  panel.innerHTML = `
+    <h2 class="m0">Equipment</h2>
+    <div>
+      <div class="sessionHeader">
+        <div class="fieldLabel">Pockets</div>
+        <div class="sessionControls panelControls">
+          <button id="addInventoryBtn" class="panelBtn panelBtnSm" type="button" title="Add a new inventory item">+ Pocket</button>
+          <button id="renameInventoryBtn" class="panelBtn panelBtnSm" type="button" title="Rename current item">Rename</button>
+          <button id="deleteInventoryBtn" class="danger panelBtn panelBtnSm" type="button" title="Delete current item">Delete</button>
+          <input id="inventorySearch" class="sessionSearch panelSearch" placeholder="Search inventory..." />
+        </div>
+      </div>
+      <div class="sessionTabsWrap" role="tablist" aria-label="Inventory">
+        <div id="inventoryTabs" class="sessionTabs"></div>
+      </div>
+      <textarea id="inventoryNotesBox" placeholder="Notes for this item..."></textarea>
+    </div>
+    <div class="moneyRow">
+      <div class="moneyTile"><div class="moneyLabel">GP</div><input id="moneyGP" type="number" placeholder="0" /></div>
+      <div class="moneyTile"><div class="moneyLabel">SP</div><input id="moneySP" type="number" placeholder="0" /></div>
+      <div class="moneyTile"><div class="moneyLabel">CP</div><input id="moneyCP" type="number" placeholder="0" /></div>
+      <div class="moneyTile"><div class="moneyLabel">PP</div><input id="moneyPP" type="number" placeholder="0" /></div>
+      <div class="moneyTile"><div class="moneyLabel">EP</div><input id="moneyEP" type="number" placeholder="0" /></div>
+    </div>
+  `;
+  container.appendChild(panel);
+}
+
+/**
+ * Render a scoped Abilities / Skills source-panel host into a container.
+ * Save-options internals use the same ids as the character page; they are
+ * always looked up via scope.querySelector inside the scoped bodyEl.
+ * The abilityGrid elements use classes + data attributes only — no unique ids.
+ * @param {HTMLElement} container
+ * @returns {void}
+ */
+export function renderAbilitiesEmbeddedContent(container) {
+  container.replaceChildren();
+
+  const panel = createEl("section", "panel combatEmbeddedSourcePanel combatEmbeddedAbilitiesHost");
+  panel.id = "combatEmbeddedAbilitiesSource";
+  panel.innerHTML = `
+    <div class="panelHeader items-center abilitiesHeader">
+      <h2 class="m0">Abilities &amp; Skills</h2>
+      <div class="saveOptionsDropdown" id="saveOptionsDropdown">
+        <button id="saveOptionsBtn" type="button" class="moveBtn" aria-haspopup="true" aria-expanded="false" title="Save options">&#8943;</button>
+        <div class="saveOptionsMenu" id="saveOptionsMenu" hidden>
+          <div class="saveOptionsTitle">Misc Save Bonus</div>
+          <div class="saveOptionsGrid">
+            <div class="saveOpt"><div class="saveOptTop"><input id="miscSave_str" type="number" /></div><div class="saveOptLabel">Str Save</div></div>
+            <div class="saveOpt"><div class="saveOptTop"><input id="miscSave_dex" type="number" /></div><div class="saveOptLabel">Dex Save</div></div>
+            <div class="saveOpt"><div class="saveOptTop"><input id="miscSave_con" type="number" /></div><div class="saveOptLabel">Con Save</div></div>
+            <div class="saveOpt"><div class="saveOptTop"><input id="miscSave_int" type="number" /></div><div class="saveOptLabel">Int Save</div></div>
+            <div class="saveOpt"><div class="saveOptTop"><input id="miscSave_wis" type="number" /></div><div class="saveOptLabel">Wis Save</div></div>
+            <div class="saveOpt"><div class="saveOptTop"><input id="miscSave_cha" type="number" /></div><div class="saveOptLabel">Cha Save</div></div>
+          </div>
+          <div class="settingsDivider"></div>
+          <div class="saveOptionsRow">
+            <div class="saveOptionsRowLabel">Ability Mod To All Saves</div>
+            <select id="saveModToAllSelect" class="settingsSelect abilitySaves" title="Ability Mod To All Saves">
+              <option value="">None</option>
+              <option value="str">Str</option>
+              <option value="dex">Dex</option>
+              <option value="con">Con</option>
+              <option value="int">Int</option>
+              <option value="wis">Wis</option>
+              <option value="cha">Cha</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="abilityGrid">
+      <div class="abilityBlock" data-ability="str">
+        <div class="abilityHeader">
+          <div class="abilityTitle">Strength</div>
+          <div class="abilityStats">
+            <input type="number" class="abilityScore" data-stat="score" />
+            <div class="abilityStat">Mod <span data-stat="mod">+0</span></div>
+            <div class="abilityStat">Save <span data-stat="save">+0</span><input type="checkbox" data-stat="saveProf" /></div>
+          </div>
+        </div>
+        <div class="abilitySkills">
+          <div class="skillRow"><input type="checkbox" data-skill-prof="athletics" /><span>Athletics</span><span data-skill-value="athletics">+0</span></div>
+        </div>
+      </div>
+      <div class="abilityBlock" data-ability="dex">
+        <div class="abilityHeader">
+          <div class="abilityTitle">Dexterity</div>
+          <div class="abilityStats">
+            <input type="number" class="abilityScore" data-stat="score" />
+            <div class="abilityStat">Mod <span data-stat="mod">+0</span></div>
+            <div class="abilityStat">Save <span data-stat="save">+0</span><input type="checkbox" data-stat="saveProf" /></div>
+          </div>
+        </div>
+        <div class="abilitySkills">
+          <div class="skillRow"><input type="checkbox" data-skill-prof="acrobatics" /><span>Acrobatics</span><span data-skill-value="acrobatics">+0</span></div>
+          <div class="skillRow"><input type="checkbox" data-skill-prof="sleight" /><span>Sleight of Hand</span><span data-skill-value="sleight">+0</span></div>
+          <div class="skillRow"><input type="checkbox" data-skill-prof="stealth" /><span>Stealth</span><span data-skill-value="stealth">+0</span></div>
+        </div>
+      </div>
+      <div class="abilityBlock" data-ability="con">
+        <div class="abilityHeader">
+          <div class="abilityTitle">Constitution</div>
+          <div class="abilityStats">
+            <input type="number" class="abilityScore" data-stat="score" />
+            <div class="abilityStat">Mod <span data-stat="mod">+0</span></div>
+            <div class="abilityStat">Save <span data-stat="save">+0</span><input type="checkbox" data-stat="saveProf" /></div>
+          </div>
+        </div>
+        <div class="abilitySkills">
+          <div class="mutedSmall">No skills use Constitution</div>
+        </div>
+      </div>
+      <div class="abilityBlock" data-ability="int">
+        <div class="abilityHeader">
+          <div class="abilityTitle">Intelligence</div>
+          <div class="abilityStats">
+            <input type="number" class="abilityScore" data-stat="score" />
+            <div class="abilityStat">Mod <span data-stat="mod">+0</span></div>
+            <div class="abilityStat">Save <span data-stat="save">+0</span><input type="checkbox" data-stat="saveProf" /></div>
+          </div>
+        </div>
+        <div class="abilitySkills">
+          <div class="skillRow"><input type="checkbox" data-skill-prof="arcana" /><span>Arcana</span><span data-skill-value="arcana">+0</span></div>
+          <div class="skillRow"><input type="checkbox" data-skill-prof="history" /><span>History</span><span data-skill-value="history">+0</span></div>
+          <div class="skillRow"><input type="checkbox" data-skill-prof="investigation" /><span>Investigation</span><span data-skill-value="investigation">+0</span></div>
+          <div class="skillRow"><input type="checkbox" data-skill-prof="nature" /><span>Nature</span><span data-skill-value="nature">+0</span></div>
+          <div class="skillRow"><input type="checkbox" data-skill-prof="religion" /><span>Religion</span><span data-skill-value="religion">+0</span></div>
+        </div>
+      </div>
+      <div class="abilityBlock" data-ability="wis">
+        <div class="abilityHeader">
+          <div class="abilityTitle">Wisdom</div>
+          <div class="abilityStats">
+            <input type="number" class="abilityScore" data-stat="score" />
+            <div class="abilityStat">Mod <span data-stat="mod">+0</span></div>
+            <div class="abilityStat">Save <span data-stat="save">+0</span><input type="checkbox" data-stat="saveProf" /></div>
+          </div>
+        </div>
+        <div class="abilitySkills">
+          <div class="skillRow"><input type="checkbox" data-skill-prof="animal" /><span>Animal Handling</span><span data-skill-value="animal">+0</span></div>
+          <div class="skillRow"><input type="checkbox" data-skill-prof="insight" /><span>Insight</span><span data-skill-value="insight">+0</span></div>
+          <div class="skillRow"><input type="checkbox" data-skill-prof="medicine" /><span>Medicine</span><span data-skill-value="medicine">+0</span></div>
+          <div class="skillRow"><input type="checkbox" data-skill-prof="perception" /><span>Perception</span><span data-skill-value="perception">+0</span></div>
+          <div class="skillRow"><input type="checkbox" data-skill-prof="survival" /><span>Survival</span><span data-skill-value="survival">+0</span></div>
+        </div>
+      </div>
+      <div class="abilityBlock" data-ability="cha">
+        <div class="abilityHeader">
+          <div class="abilityTitle">Charisma</div>
+          <div class="abilityStats">
+            <input type="number" class="abilityScore" data-stat="score" />
+            <div class="abilityStat">Mod <span data-stat="mod">+0</span></div>
+            <div class="abilityStat">Save <span data-stat="save">+0</span><input type="checkbox" data-stat="saveProf" /></div>
+          </div>
+        </div>
+        <div class="abilitySkills">
+          <div class="skillRow"><input type="checkbox" data-skill-prof="deception" /><span>Deception</span><span data-skill-value="deception">+0</span></div>
+          <div class="skillRow"><input type="checkbox" data-skill-prof="intimidation" /><span>Intimidation</span><span data-skill-value="intimidation">+0</span></div>
+          <div class="skillRow"><input type="checkbox" data-skill-prof="performance" /><span>Performance</span><span data-skill-value="performance">+0</span></div>
+          <div class="skillRow"><input type="checkbox" data-skill-prof="persuasion" /><span>Persuasion</span><span data-skill-value="persuasion">+0</span></div>
+        </div>
+      </div>
+    </div>
+  `;
+  container.appendChild(panel);
+}
+
 // ─── Panel section DOM builder ───────────────────────────────────────────────
 
 /**
@@ -626,6 +824,7 @@ function buildPanelPickerRow(available) {
  *   root: HTMLElement,
  *   uiConfirm?: Function,
  *   uiPrompt?: Function,
+ *   Popovers?: unknown,
  *   textKey_spellNotes?: Function,
  *   putText?: Function,
  *   getText?: Function,
@@ -643,6 +842,7 @@ export function initCombatEmbeddedPanels({
   setStatus,
   uiConfirm,
   uiPrompt,
+  Popovers,
   textKey_spellNotes,
   putText,
   getText,
@@ -754,6 +954,28 @@ export function initCombatEmbeddedPanels({
         selectors: EMBEDDED_PANEL_HOST_SELECTORS.weapons,
         uiConfirm,
         autoSizeInput,
+        setStatus
+      });
+    } else if (panelId === "equipment") {
+      renderEquipmentEmbeddedContent(bodyEl);
+      api = initEquipmentPanel({
+        state,
+        SaveManager,
+        root: bodyEl,
+        selectors: EMBEDDED_PANEL_HOST_SELECTORS.equipment,
+        uiConfirm,
+        uiPrompt,
+        autoSizeInput,
+        setStatus
+      });
+    } else if (panelId === "abilities") {
+      renderAbilitiesEmbeddedContent(bodyEl);
+      api = initAbilitiesPanel({
+        state,
+        SaveManager: /** @type {any} */ (SaveManager),
+        Popovers: /** @type {any} */ (Popovers),
+        root: bodyEl,
+        selectors: EMBEDDED_PANEL_HOST_SELECTORS.abilities,
         setStatus
       });
     }

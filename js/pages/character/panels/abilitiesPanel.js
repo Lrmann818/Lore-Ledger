@@ -7,6 +7,7 @@ import { flipSwapTwo } from "../../../ui/flipSwap.js";
 import { getNoopDestroyApi, requireMany } from "../../../utils/domGuards.js";
 import { getActiveCharacter } from "../../../domain/characterHelpers.js";
 import { createStateActions } from "../../../domain/stateActions.js";
+import { subscribePanelDataChanged } from "../../../ui/panelInvalidation.js";
 
 /** @typedef {import("../../../storage/saveManager.js").SaveManager} SaveManager */
 /** @typedef {import("../../../ui/popovers.js").PopoversApi} PopoversApi */
@@ -70,6 +71,8 @@ import { createStateActions } from "../../../domain/stateActions.js";
  *   SaveManager?: SaveManager,
  *   Popovers?: PopoversApi,
  *   setStatus?: ((message: string, opts?: { stickyMs?: number }) => void) | undefined,
+ *   root?: HTMLElement,
+ *   selectors?: Record<string, string>,
  *   [key: string]: unknown
  * }} AbilitiesPanelDeps
  */
@@ -183,14 +186,19 @@ function labelForLevel(level) {
  * @returns {{ destroy: () => void }}
  */
 export function initAbilitiesPanel(deps = {}) {
-  const { state, SaveManager, Popovers, setStatus } = deps;
+  const { state, SaveManager, Popovers, setStatus, root, selectors } = deps;
   if (!state || !SaveManager || !Popovers) return getNoopDestroyApi();
+
+  // Scope all panel-internal element lookups to `root` when provided.
+  // Cross-panel elements (charProf, legacy abStr fields) use document directly.
+  const scope = root instanceof HTMLElement ? root : document;
 
   const required = {
     panel: "#charAbilitiesPanel",
-    abilityGrid: "#charAbilitiesPanel .abilityGrid"
+    abilityGrid: "#charAbilitiesPanel .abilityGrid",
+    ...(selectors || {})
   };
-  const guard = requireMany(required, { root: document, setStatus, context: "Abilities panel" });
+  const guard = requireMany(required, { root: scope, setStatus, context: "Abilities panel" });
   if (!guard.ok) {
     return /** @type {{ destroy: () => void }} */ (guard.destroy || getNoopDestroyApi());
   }
@@ -369,7 +377,11 @@ export function initAbilitiesPanel(deps = {}) {
   }
 
   function getProfBonus() {
-    return Number(getInputById("charProf")?.value || 0);
+    // charProf is in the Vitals panel — always look it up via document (cross-panel dep).
+    // If absent (e.g. embedded combat context with no Vitals panel), fall back to state.
+    const profEl = document.getElementById("charProf");
+    if (profEl instanceof HTMLInputElement) return Number(profEl.value || 0);
+    return Number(getActiveCharacter(/** @type {any} */ (state))?.proficiency || 0);
   }
 
   /**
@@ -453,7 +465,9 @@ export function initAbilitiesPanel(deps = {}) {
     bindLegacyAbilityScoreField(key);
   }
 
-  const skillsNotesEl = getTextFieldById("charSkillsNotes");
+  const skillsNotesRaw = scope.querySelector("#charSkillsNotes");
+  const skillsNotesEl = (skillsNotesRaw instanceof HTMLInputElement || skillsNotesRaw instanceof HTMLTextAreaElement)
+    ? skillsNotesRaw : null;
   if (skillsNotesEl) {
     const character = getCharacter();
     skillsNotesEl.value = typeof character?.skillsNotes === "string" ? character.skillsNotes : "";
@@ -468,24 +482,34 @@ export function initAbilitiesPanel(deps = {}) {
     });
   }
 
-  const profInput = getInputById("charProf");
-  if (profInput) {
+  // charProf is in the Vitals panel — always a cross-panel document lookup.
+  // When it is present (character page), bind a live DOM listener.
+  // When absent (embedded combat context), subscribe to the vitals channel so
+  // proficiency changes from the embedded Vitals panel still trigger recalc.
+  const profInput = document.getElementById("charProf");
+  if (profInput instanceof HTMLInputElement) {
     addListener(profInput, "input", () => {
       if (destroyed) return;
       recalcAllAbilities();
     });
+  } else {
+    addDestroy(subscribePanelDataChanged("vitals", () => {
+      if (!destroyed) recalcAllAbilities();
+    }));
   }
 
   (function setupSaveOptionsDropdown() {
-    const btn = document.getElementById("saveOptionsBtn");
-    const menu = document.getElementById("saveOptionsMenu");
+    // Use scope (panel root) so both the character page and combat embedded instances
+    // each find their own button/menu without conflicting with each other.
+    const btn = scope.querySelector("#saveOptionsBtn");
+    const menu = scope.querySelector("#saveOptionsMenu");
     if (!(btn instanceof HTMLElement) || !(menu instanceof HTMLElement)) return;
 
     const saveOptions = ensureSaveOptionsShape();
 
     for (const key of ABILITY_KEYS) {
-      const input = getInputById(`miscSave_${key}`);
-      if (!input) continue;
+      const input = scope.querySelector(`#miscSave_${key}`);
+      if (!(input instanceof HTMLInputElement)) continue;
       input.value = String(Number(saveOptions.misc[key] || 0));
       addListener(input, "input", () => {
         if (destroyed) return;
@@ -495,31 +519,30 @@ export function initAbilitiesPanel(deps = {}) {
       });
     }
 
-    const select = getSelectById("saveModToAllSelect");
-    if (select) {
-      select.value = saveOptions.modToAll || "";
-      const enhancedDropdown = enhanceSelectDropdown({
-        select,
-        Popovers,
-        buttonClass: "settingsSelectBtn",
-        optionClass: "swatchOption",
-        groupLabelClass: "dropdownGroupLabel",
-        preferRight: true,
-        exclusive: false
-      });
-      addDestroy(() => {
-        try { enhancedDropdown?.destroy?.(); } catch { /* noop */ }
-      });
+    const select = scope.querySelector("#saveModToAllSelect");
+    if (!(select instanceof HTMLSelectElement)) return;
+    select.value = saveOptions.modToAll || "";
+    const enhancedDropdown = enhanceSelectDropdown({
+      select,
+      Popovers,
+      buttonClass: "settingsSelectBtn",
+      optionClass: "swatchOption",
+      groupLabelClass: "dropdownGroupLabel",
+      preferRight: true,
+      exclusive: false
+    });
+    addDestroy(() => {
+      try { enhancedDropdown?.destroy?.(); } catch { /* noop */ }
+    });
 
-      try { select.dispatchEvent(new Event("selectDropdown:sync")); } catch { /* noop */ }
+    try { select.dispatchEvent(new Event("selectDropdown:sync")); } catch { /* noop */ }
 
-      addListener(select, "change", () => {
-        if (destroyed) return;
-        ensureSaveOptionsShape().modToAll = isAbilityKey(select.value) ? select.value : "";
-        recalcAllAbilities();
-        markDirty();
-      });
-    }
+    addListener(select, "change", () => {
+      if (destroyed) return;
+      ensureSaveOptionsShape().modToAll = isAbilityKey(select.value) ? select.value : "";
+      recalcAllAbilities();
+      markDirty();
+    });
 
     const popoverHandle = Popovers.register({
       button: btn,

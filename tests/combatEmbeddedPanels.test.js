@@ -13,75 +13,102 @@ import {
   removeEmbeddedPanel,
 } from "../js/pages/combat/combatEmbeddedPanels.js";
 
-// DOM render functions (renderVitalsEmbeddedContent, renderSpellsEmbeddedContent,
-// renderWeaponsEmbeddedContent) require a browser DOM and are covered by the
+// DOM render functions require a browser DOM and are covered by the
 // Playwright smoke tests in tests/smoke/combatShell.smoke.js.
 
 // ─── EMBEDDED_PANEL_DEFS ─────────────────────────────────────────────────────
 
 describe("EMBEDDED_PANEL_DEFS", () => {
-  it("defines exactly the three locked v1 panel ids in order", () => {
-    expect(EMBEDDED_PANEL_DEFS.map((d) => d.id)).toEqual(["vitals", "spells", "weapons"]);
+  it("defines the five supported panel ids in order", () => {
+    expect(EMBEDDED_PANEL_DEFS.map((d) => d.id)).toEqual([
+      "vitals", "spells", "weapons", "equipment", "abilities"
+    ]);
   });
 
   it("is frozen", () => {
     expect(Object.isFrozen(EMBEDDED_PANEL_DEFS)).toBe(true);
   });
 
-  it("has a label for each panel", () => {
+  it("has a non-empty label for each panel", () => {
     for (const def of EMBEDDED_PANEL_DEFS) {
       expect(typeof def.label).toBe("string");
       expect(def.label.length).toBeGreaterThan(0);
     }
   });
+
+  it("includes equipment and abilities definitions", () => {
+    const ids = EMBEDDED_PANEL_DEFS.map((d) => d.id);
+    expect(ids).toContain("equipment");
+    expect(ids).toContain("abilities");
+  });
 });
 
 describe("EMBEDDED_PANEL_HOST_SELECTORS", () => {
-  it("defines scoped source-panel hosts for exactly the locked v1 panel set", () => {
-    expect(Object.keys(EMBEDDED_PANEL_HOST_SELECTORS)).toEqual(["vitals", "spells", "weapons"]);
+  it("defines scoped source-panel hosts for all five panels", () => {
+    expect(Object.keys(EMBEDDED_PANEL_HOST_SELECTORS)).toEqual([
+      "vitals", "spells", "weapons", "equipment", "abilities"
+    ]);
   });
 
-  it("uses combat-scoped selectors instead of Character page global ids", () => {
+  it("uses combat-scoped selectors for vitals, spells, and weapons outer elements", () => {
     expect(EMBEDDED_PANEL_HOST_SELECTORS.vitals.panelEl).toBe("#combatEmbeddedVitalsSource");
     expect(EMBEDDED_PANEL_HOST_SELECTORS.spells.containerEl).toBe("#combatEmbeddedSpellLevels");
     expect(EMBEDDED_PANEL_HOST_SELECTORS.weapons.listEl).toBe("#combatEmbeddedAttackList");
+  });
 
+  it("uses a combat-scoped panelEl for the equipment selector", () => {
+    expect(EMBEDDED_PANEL_HOST_SELECTORS.equipment.panelEl).toBe("#combatEmbeddedEquipmentSource");
+  });
+
+  it("uses combat-scoped panel + abilityGrid selectors for abilities", () => {
+    expect(EMBEDDED_PANEL_HOST_SELECTORS.abilities.panel).toBe("#combatEmbeddedAbilitiesSource");
+    expect(EMBEDDED_PANEL_HOST_SELECTORS.abilities.abilityGrid).toBe("#combatEmbeddedAbilitiesSource .abilityGrid");
+  });
+
+  it("does not reference character-page global ids in any selector", () => {
     const allSelectors = Object.values(EMBEDDED_PANEL_HOST_SELECTORS)
-      .flatMap((selectors) => Object.values(selectors));
+      .flatMap((s) => Object.values(s));
     expect(allSelectors).not.toContain("#charVitalsPanel");
     expect(allSelectors).not.toContain("#charSpellsPanel");
     expect(allSelectors).not.toContain("#charAttacksPanel");
+    expect(allSelectors).not.toContain("#charEquipmentPanel");
+    expect(allSelectors).not.toContain("#charAbilitiesPanel");
   });
 });
 
 // ─── getAvailableEmbeddedPanels ──────────────────────────────────────────────
 
 describe("getAvailableEmbeddedPanels", () => {
-  it("returns all three panels when none are active", () => {
-    expect(getAvailableEmbeddedPanels([])).toHaveLength(3);
+  it("returns all five panels when none are active", () => {
+    expect(getAvailableEmbeddedPanels([])).toHaveLength(5);
   });
 
   it("excludes panels already in the active list", () => {
     const available = getAvailableEmbeddedPanels(["vitals"]);
-    expect(available.map((d) => d.id)).toEqual(["spells", "weapons"]);
+    expect(available.map((d) => d.id)).toEqual(["spells", "weapons", "equipment", "abilities"]);
+  });
+
+  it("excludes the new equipment and abilities panels when active", () => {
+    const available = getAvailableEmbeddedPanels(["equipment", "abilities"]);
+    expect(available.map((d) => d.id)).toEqual(["vitals", "spells", "weapons"]);
   });
 
   it("excludes multiple active panels", () => {
     const available = getAvailableEmbeddedPanels(["spells", "weapons"]);
-    expect(available.map((d) => d.id)).toEqual(["vitals"]);
+    expect(available.map((d) => d.id)).toEqual(["vitals", "equipment", "abilities"]);
   });
 
-  it("returns empty when all three panels are active", () => {
-    expect(getAvailableEmbeddedPanels(["vitals", "spells", "weapons"])).toHaveLength(0);
+  it("returns empty when all five panels are active", () => {
+    expect(getAvailableEmbeddedPanels(["vitals", "spells", "weapons", "equipment", "abilities"])).toHaveLength(0);
   });
 
   it("handles null safely", () => {
-    expect(getAvailableEmbeddedPanels(/** @type {any} */ (null))).toHaveLength(3);
+    expect(getAvailableEmbeddedPanels(/** @type {any} */ (null))).toHaveLength(5);
   });
 
   it("ignores unknown ids in activeIds without masking valid panels", () => {
     const available = getAvailableEmbeddedPanels(["notes", "inventory"]);
-    expect(available).toHaveLength(3);
+    expect(available).toHaveLength(5);
   });
 });
 
@@ -94,12 +121,19 @@ describe("addEmbeddedPanel", () => {
     expect(arr).toEqual(["vitals"]);
   });
 
-  it("adds all three panels sequentially", () => {
+  it("adds equipment and abilities panel ids", () => {
     const arr = [];
-    expect(addEmbeddedPanel(arr, "vitals")).toBe(true);
-    expect(addEmbeddedPanel(arr, "spells")).toBe(true);
-    expect(addEmbeddedPanel(arr, "weapons")).toBe(true);
-    expect(arr).toEqual(["vitals", "spells", "weapons"]);
+    expect(addEmbeddedPanel(arr, "equipment")).toBe(true);
+    expect(addEmbeddedPanel(arr, "abilities")).toBe(true);
+    expect(arr).toEqual(["equipment", "abilities"]);
+  });
+
+  it("adds all five panels sequentially", () => {
+    const arr = [];
+    ["vitals", "spells", "weapons", "equipment", "abilities"].forEach((id) => {
+      expect(addEmbeddedPanel(arr, id)).toBe(true);
+    });
+    expect(arr).toEqual(["vitals", "spells", "weapons", "equipment", "abilities"]);
   });
 
   it("prevents adding a duplicate panel id", () => {
@@ -108,7 +142,7 @@ describe("addEmbeddedPanel", () => {
     expect(arr).toEqual(["vitals"]);
   });
 
-  it("rejects an unknown panel id (no notes/inventory in v1)", () => {
+  it("rejects unknown panel ids", () => {
     const arr = [];
     expect(addEmbeddedPanel(arr, "notes")).toBe(false);
     expect(addEmbeddedPanel(arr, "inventory")).toBe(false);
@@ -116,10 +150,10 @@ describe("addEmbeddedPanel", () => {
     expect(arr).toHaveLength(0);
   });
 
-  it("does not add once all three are already active", () => {
-    const arr = ["vitals", "spells", "weapons"];
+  it("does not add once all five are already active", () => {
+    const arr = ["vitals", "spells", "weapons", "equipment", "abilities"];
     expect(addEmbeddedPanel(arr, "vitals")).toBe(false);
-    expect(arr).toHaveLength(3);
+    expect(arr).toHaveLength(5);
   });
 });
 
@@ -130,6 +164,14 @@ describe("removeEmbeddedPanel", () => {
     const arr = ["vitals", "spells"];
     expect(removeEmbeddedPanel(arr, "vitals")).toBe(true);
     expect(arr).toEqual(["spells"]);
+  });
+
+  it("removes equipment and abilities panel ids", () => {
+    const arr = ["vitals", "equipment", "abilities"];
+    expect(removeEmbeddedPanel(arr, "equipment")).toBe(true);
+    expect(arr).toEqual(["vitals", "abilities"]);
+    expect(removeEmbeddedPanel(arr, "abilities")).toBe(true);
+    expect(arr).toEqual(["vitals"]);
   });
 
   it("removes the middle element correctly", () => {
@@ -154,6 +196,15 @@ describe("removeEmbeddedPanel", () => {
     expect(addEmbeddedPanel(arr, "vitals")).toBe(true);
     expect(arr).toEqual(["vitals"]);
   });
+
+  it("remove then re-add works for equipment and abilities", () => {
+    const arr = ["equipment", "abilities"];
+    removeEmbeddedPanel(arr, "equipment");
+    removeEmbeddedPanel(arr, "abilities");
+    expect(addEmbeddedPanel(arr, "equipment")).toBe(true);
+    expect(addEmbeddedPanel(arr, "abilities")).toBe(true);
+    expect(arr).toEqual(["equipment", "abilities"]);
+  });
 });
 
 // ─── moveEmbeddedPanel ───────────────────────────────────────────────────────
@@ -168,6 +219,12 @@ describe("moveEmbeddedPanel", () => {
     expect(arr).toEqual(["weapons", "vitals", "spells"]);
   });
 
+  it("reorders equipment and abilities panels", () => {
+    const arr = ["vitals", "equipment", "abilities"];
+    expect(moveEmbeddedPanel(arr, "abilities", -1)).toBe(true);
+    expect(arr).toEqual(["vitals", "abilities", "equipment"]);
+  });
+
   it("does not move unknown panels or move past the list bounds", () => {
     const arr = ["vitals", "spells"];
     expect(moveEmbeddedPanel(arr, "vitals", -1)).toBe(false);
@@ -180,10 +237,12 @@ describe("moveEmbeddedPanel", () => {
 // ─── embeddedPanelDomId ──────────────────────────────────────────────────────
 
 describe("embeddedPanelDomId", () => {
-  it("prefixes with combatEmbeddedPanel_", () => {
+  it("prefixes with combatEmbeddedPanel_ for all five panels", () => {
     expect(embeddedPanelDomId("vitals")).toBe("combatEmbeddedPanel_vitals");
     expect(embeddedPanelDomId("spells")).toBe("combatEmbeddedPanel_spells");
     expect(embeddedPanelDomId("weapons")).toBe("combatEmbeddedPanel_weapons");
+    expect(embeddedPanelDomId("equipment")).toBe("combatEmbeddedPanel_equipment");
+    expect(embeddedPanelDomId("abilities")).toBe("combatEmbeddedPanel_abilities");
   });
 });
 

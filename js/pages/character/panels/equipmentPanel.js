@@ -70,7 +70,9 @@ export function initEquipmentPanel(deps = {}) {
     uiAlert,
     uiConfirm,
     autoSizeInput,
-    setStatus
+    setStatus,
+    root,
+    selectors
   } = deps;
 
   if (!state) {
@@ -97,9 +99,10 @@ export function initEquipmentPanel(deps = {}) {
     moneyGP: "#moneyGP",
     moneyEP: "#moneyEP",
     moneySP: "#moneySP",
-    moneyCP: "#moneyCP"
+    moneyCP: "#moneyCP",
+    ...selectors
   };
-  const guard = requireMany(required, { root: document, setStatus, context: "Equipment panel" });
+  const guard = requireMany(required, { root: root || document, setStatus, context: "Equipment panel" });
   if (!guard.ok) return guard.destroy;
   const {
     tabsEl,

@@ -1483,6 +1483,7 @@ export function initCombatPage(deps = {}) {
     root,
     uiConfirm,
     uiPrompt,
+    Popovers,
     textKey_spellNotes,
     putText,
     getText,
