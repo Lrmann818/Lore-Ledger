@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Multi-character tracker card linking (Step 2): NPC and Party cards can be linked to a character entry via a `characterId` field. Linked cards read and write name, HP, class, status, and portrait through the canonical character entry (`js/domain/cardLinking.js`).
+- Schema v5 migration: all tracker cards gain `characterId: null`; all character entries gain `status: ""`.
+- Character deletion now shows a warning when linked tracker cards exist and snapshots their last known character data before unlinking.
 - Portrait visibility controls and image-focused actions across tracker cards.
 - A manual `Check for updates` action in the Progressive Web App flow.
 - Additional motion polish for weapon movement, ability/skill movement, and dice rolling, including percentile roll animation.

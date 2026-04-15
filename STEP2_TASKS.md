@@ -1,5 +1,7 @@
 # Step 2 — Character ↔ Tracker Card Linking: Task Plan
 
+> **Step 2 is complete, audited, and fully verified as of 2026-04-15. Do not treat any item below as pending implementation work. See the [closeout section](#step-2-closeout--complete-2026-04-15) at the bottom for a summary of what shipped and what was intentionally deferred.**
+
 Read `MULTI-CHARACTER_DESIGN.md` first for full context. This file is the ordered task list for Step 2.
 
 Work one task at a time. Run `npm run test:run` after each task. Do not proceed to the next task if tests fail.
@@ -238,6 +240,29 @@ This task is likely minimal. Combat embedded panels already resolve the active c
 - **Location card linking (Step 2b):** Requires defining what "linking" means for a card type with no HP, class, or status fields. May be portrait-only linking, or may need a rethink.
 - **`looseNotes` field:** If card notes linking is desired later, add a `looseNotes` field to CharacterEntry and a corresponding UI section on the character page.
 - **Explicit unlink action:** A way for users to manually unlink a card from its character without deleting either. Not needed for MVP but useful.
+
+---
+
+## Step 2 Closeout — Complete (2026-04-15)
+
+### Shipped
+
+- **NPC and Party card linking** — `characterId` field on tracker cards; `resolveCardDisplayData` and `writeCardLinkedField` write-through in `js/domain/cardLinking.js`.
+- **Centralized linked-field mapping** — `LINKED_FIELD_MAP` in `cardLinking.js` is the single source of truth for which card fields read from/write to the character entry; no field-mapping knowledge leaks into renderers or handlers.
+- **Schema v5 migration** — `migrateToV5()` adds `characterId: null` to all NPC and Party cards and `status: ""` to all character entries. `sanitizeForSave` updated accordingly.
+- **Character deletion with linked cards** — warning dialog lists all tracker sections where the character appears; on confirm, `snapshotLinkedFieldsToCard()` copies character data into each card's own fields and sets `characterId: null` before the character entry is removed.
+- **Backup/import/export** — `characterId` round-trips through export and import; legacy backups (no `characterId`) migrate cleanly via v5; blob collection does not double-count shared portraits.
+- **Combat integration** — `addTrackerCardToCombatEncounter` uses `resolveCardDisplayData` for linked cards; HP changes in combat write back to the character entry.
+- **Live-sync stabilization** — name, class/level, current HP, and status effects remain in sync across the Vitals panel, character sheet, and all linked tracker cards after back-to-back edits and navigation.
+
+### Intentionally Deferred
+
+- **Explicit unlink action** — a way for users to manually unlink a card from its character without deleting either; useful but not MVP.
+- **Location card linking (Step 2b)** — location cards have a fundamentally different data shape (no HP, class, or status); deferred per Decision 1 in this doc.
+- **Portrait-sync follow-up** — no known open issues post-Step 2; revisit if portrait blobs diverge after unlink or deletion edge cases surface.
+- **Playwright/smoke test expansion** — new linking flows are covered by Vitest unit tests but not yet in the Playwright smoke suite.
+- **`npcCards`/`partyCards` dedup refactor** — the two renderers share substantial structure; a future cleanup pass could extract a shared base without changing behavior.
+- **`hpCur` → `hpCurrent` rename** — standalone cleanup task per Decision 5; no behavior change, separate migration and test cycle.
 
 ---
 

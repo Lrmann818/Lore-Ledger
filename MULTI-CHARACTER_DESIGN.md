@@ -124,7 +124,7 @@ A future enhancement could let the Combat workspace pin a specific character ind
 
 ## Step 2 — Character ↔ tracker card linking
 
-**Status:** Future work.
+**Status:** Complete, audited, and fully verified (2026-04-15). See `STEP2_TASKS.md` for the full task list and closeout summary.
 
 ### Goal
 
@@ -492,7 +492,7 @@ One character at a time. No batch export/import.
 
 ## Open questions (to be resolved during implementation)
 
-1. **`status` field**: Currently exists on tracker cards but not on the character. Should a character have a `status` field that linked cards read from? Or does status remain card-specific? (Leaning toward: add it to character, since it's useful on the character page too.)
+1. **`status` field**: Resolved in Step 2. Characters gained a `status: ""` field (schema v5). Linked cards read and write status from the character entry via `cardLinking.js`. Status is character-level state, visible everywhere the character appears.
 
 2. **Content registry storage location**: The builtin/custom content registry (species, classes, spells, etc.) should live at app level, not per-campaign. Need to decide exact storage shape and where in the vault it goes.
 
