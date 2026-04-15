@@ -92,6 +92,66 @@ export async function createCampaignFromHub(page, campaignName) {
 }
 
 /**
+ * Ensures the current campaign has a selected character and the Character page
+ * panels have bound to it. Step 1 multi-character support intentionally starts
+ * fresh campaigns with an empty collection, so smoke tests that exercise
+ * Character panels need to create/select a character first.
+ *
+ * @param {import("@playwright/test").Page} page
+ * @returns {Promise<string>}
+ */
+export async function ensureActiveCharacter(page) {
+  if (await page.locator("#page-hub").isVisible()) {
+    await createCampaignFromHub(page, "Smoke Test Campaign");
+  }
+
+  const characterTab = page.getByRole("tab", { name: "Character" });
+  if ((await characterTab.getAttribute("aria-selected")) !== "true") {
+    await characterTab.click();
+  }
+  await expect(characterTab).toHaveAttribute("aria-selected", "true");
+  await expect(page.locator("#page-character")).toBeVisible();
+
+  const hasActiveCharacter = async () => page.evaluate(() => {
+    const collection = globalThis.__APP_STATE__?.characters;
+    const entries = Array.isArray(collection?.entries) ? collection.entries : [];
+    return entries.some((entry) => entry?.id && entry.id === collection?.activeId);
+  });
+
+  if (!(await hasActiveCharacter())) {
+    const emptyCreateButton = page.locator("#charEmptyStateYes");
+    if (await emptyCreateButton.isVisible()) {
+      await emptyCreateButton.click();
+    } else {
+      const selectedExisting = await page.evaluate(() => {
+        const selector = document.getElementById("charSelector");
+        if (!(selector instanceof HTMLSelectElement)) return false;
+        const option = Array.from(selector.options).find((candidate) => candidate.value && !candidate.disabled);
+        if (!option) return false;
+        selector.value = option.value;
+        selector.dispatchEvent(new Event("change", { bubbles: true }));
+        return true;
+      });
+
+      if (!selectedExisting) {
+        await page.locator("#charActionMenuBtn").click();
+        await page.locator("#charActionNewBtn").click();
+      }
+    }
+  }
+
+  await expect.poll(hasActiveCharacter).toBe(true);
+  await expect(page.locator("#charName")).toBeVisible();
+  await expect(page.locator("#charVitalsTiles")).toBeVisible();
+  await expect(page.locator("#attackList")).toBeVisible();
+  await expect(page.locator("#spellLevels")).toBeVisible();
+  await expect(page.locator(".abilityBlock").first()).toBeVisible();
+  await expect.poll(() => page.locator("#spellLevels .spellLevel").count()).toBeGreaterThan(0);
+
+  return page.evaluate(() => String(globalThis.__APP_STATE__?.characters?.activeId || ""));
+}
+
+/**
  * @param {import("@playwright/test").Page} page
  */
 export async function returnToHubFromSettings(page) {

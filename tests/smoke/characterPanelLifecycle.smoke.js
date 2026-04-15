@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { expectNoFatalSignals, openSmokeApp } from "./helpers/smokeApp.js";
+import { ensureActiveCharacter, expectNoFatalSignals, openSmokeApp } from "./helpers/smokeApp.js";
 
 async function reinitCharacterPageForLifecycleTest(page, characterOverrides = {}) {
   await page.evaluate(async (overrides) => {
@@ -9,19 +9,22 @@ async function reinitCharacterPageForLifecycleTest(page, characterOverrides = {}
       stateMod,
       saveManagerMod,
       popoversMod,
+      characterHelpersMod,
     ] = await Promise.all([
       load("js/pages/character/characterPage.js"),
       load("js/state.js"),
       load("js/storage/saveManager.js"),
       load("js/ui/popovers.js"),
+      load("js/domain/characterHelpers.js"),
     ]);
 
     globalThis.__characterLifecycleHarness?.destroy?.();
     globalThis.__characterLifecyclePromptCounter = 0;
 
     const testState = stateMod.migrateState(stateMod.sanitizeForSave(stateMod.state));
-    testState.character = {
-      ...testState.character,
+    const entry = {
+      ...characterHelpersMod.makeDefaultCharacterEntry("Lifecycle Character"),
+      id: "char_lifecycle_smoke",
       inventoryItems: [{ title: "Inventory", notes: "" }],
       activeInventoryIndex: 0,
       inventorySearch: "",
@@ -29,6 +32,10 @@ async function reinitCharacterPageForLifecycleTest(page, characterOverrides = {}
       resources: [{ id: "res_1", name: "Ki", cur: 1, max: 2 }],
       attacks: [],
       ...overrides,
+    };
+    testState.characters = {
+      activeId: entry.id,
+      entries: [entry],
     };
 
     const SaveManager = saveManagerMod.createSaveManager({
@@ -86,7 +93,8 @@ async function destroyCharacterPageLifecycleHarness(page) {
 
 async function readCharacterLifecycleState(page) {
   return page.evaluate(() => {
-    const character = globalThis.__characterLifecycleHarness?.state?.character || {};
+    const collection = globalThis.__characterLifecycleHarness?.state?.characters;
+    const character = collection?.entries?.find((entry) => entry?.id === collection?.activeId) || {};
     const attacks = Array.isArray(character.attacks) ? character.attacks : [];
     const resources = Array.isArray(character.resources) ? character.resources : [];
     return {
@@ -101,7 +109,8 @@ async function readCharacterLifecycleState(page) {
 
 async function readCharacterAbilitiesLifecycleState(page) {
   return page.evaluate(() => {
-    const character = globalThis.__characterLifecycleHarness?.state?.character || {};
+    const collection = globalThis.__characterLifecycleHarness?.state?.characters;
+    const character = collection?.entries?.find((entry) => entry?.id === collection?.activeId) || {};
     const abilities = character.abilities || {};
     const skills = character.skills || {};
     const saveOptions = character.saveOptions || {};
@@ -123,9 +132,7 @@ async function readCharacterAbilitiesLifecycleState(page) {
 test("character panels stay safe after repeated character page init", async ({ page }) => {
   const fatalSignals = await openSmokeApp(page);
 
-  await page.getByRole("tab", { name: "Character" }).click();
-  await expect(page.getByRole("tab", { name: "Character" })).toHaveAttribute("aria-selected", "true");
-  await expect(page.locator("#page-character")).toBeVisible();
+  await ensureActiveCharacter(page);
 
   await reinitCharacterPageForLifecycleTest(page);
   await reinitCharacterPageForLifecycleTest(page);
@@ -152,8 +159,7 @@ test("character panels stay safe after repeated character page init", async ({ p
 test("attack panel listeners are removed on destroy and rebound once on re-init", async ({ page }) => {
   const fatalSignals = await openSmokeApp(page);
 
-  await page.getByRole("tab", { name: "Character" }).click();
-  await expect(page.locator("#page-character")).toBeVisible();
+  await ensureActiveCharacter(page);
 
   await reinitCharacterPageForLifecycleTest(page, {
     attacks: [{ id: "atk_seed", name: "Dagger", notes: "", bonus: "+5", damage: "1d4+3", range: "20/60", type: "Piercing" }]
@@ -200,8 +206,7 @@ test("attack panel listeners are removed on destroy and rebound once on re-init"
 test("vitals panel listeners are removed on destroy and rebound once on re-init", async ({ page }) => {
   const fatalSignals = await openSmokeApp(page);
 
-  await page.getByRole("tab", { name: "Character" }).click();
-  await expect(page.locator("#page-character")).toBeVisible();
+  await ensureActiveCharacter(page);
 
   await reinitCharacterPageForLifecycleTest(page, {
     hpCur: 9,
@@ -264,8 +269,7 @@ test("vitals panel listeners are removed on destroy and rebound once on re-init"
 test("abilities panel listeners are removed on destroy and rebound once on re-init", async ({ page }) => {
   const fatalSignals = await openSmokeApp(page);
 
-  await page.getByRole("tab", { name: "Character" }).click();
-  await expect(page.locator("#page-character")).toBeVisible();
+  await ensureActiveCharacter(page);
 
   await reinitCharacterPageForLifecycleTest(page, {
     proficiency: 2,

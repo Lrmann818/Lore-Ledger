@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { readFile } from "node:fs/promises";
-import { createCampaignFromHub, expectNoFatalSignals, openSmokeApp } from "./helpers/smokeApp.js";
+import { createCampaignFromHub, ensureActiveCharacter, expectNoFatalSignals, openSmokeApp } from "./helpers/smokeApp.js";
 
 /**
  * @param {import("@playwright/test").Page} page
@@ -48,7 +48,7 @@ test("backup export round-trips tracker data into a fresh browser context", asyn
   await page.locator(".npcNameBig").first().fill(npcName);
   await expect(page.locator(".npcNameBig").first()).toHaveValue(npcName);
 
-  await page.getByRole("tab", { name: "Character" }).click();
+  await ensureActiveCharacter(page);
   const firstSpellLevel = page.locator("#spellLevels .spellLevel").first();
   await firstSpellLevel.getByRole("button", { name: "+ Spell" }).click();
   const spellRow = firstSpellLevel.locator(".spellRow").last();
@@ -57,7 +57,9 @@ test("backup export round-trips tracker data into a fresh browser context", asyn
   const spellNotes = spellRow.locator("textarea[id^='spellNotes_']");
   await spellNotes.fill(spellNoteText);
   const spellId = await page.evaluate(() => {
-    const spellsList = globalThis.__APP_STATE__?.character?.spells?.levels?.[0]?.spells || [];
+    const collection = globalThis.__APP_STATE__?.characters;
+    const character = collection?.entries?.find((entry) => entry?.id === collection?.activeId);
+    const spellsList = character?.spells?.levels?.[0]?.spells || [];
     return spellsList.at(-1)?.id || "";
   });
   await expect.poll(() => page.evaluate(async (id) => {
@@ -103,7 +105,7 @@ test("backup export round-trips tracker data into a fresh browser context", asyn
 
     await expect(importPage.locator("#campaignTitle")).toHaveText(campaignTitle);
     await expect(importPage.locator(".npcNameBig").first()).toHaveValue(npcName);
-    await importPage.getByRole("tab", { name: "Character" }).click();
+    await ensureActiveCharacter(importPage);
     await expect(importPage.locator(`#spellNotes_${spellId}`)).toHaveValue(spellNoteText);
 
     await expectNoFatalSignals(importPage, importSignals);

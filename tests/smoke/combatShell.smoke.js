@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import {
+  ensureActiveCharacter,
   expectNoFatalSignals,
   openSmokeApp
 } from "./helpers/smokeApp.js";
@@ -29,6 +30,15 @@ async function readSpellPanelRows(page, rootSelector) {
       };
     });
   }, rootSelector);
+}
+
+async function readActiveCharacter(page) {
+  return page.evaluate(() => {
+    const collection = globalThis.__APP_STATE__?.characters;
+    const entries = Array.isArray(collection?.entries) ? collection.entries : [];
+    const character = entries.find((entry) => entry?.id === collection?.activeId);
+    return character ? JSON.parse(JSON.stringify(character)) : null;
+  });
 }
 
 async function writeStoredCombatPanelOrder(page, panelOrder) {
@@ -558,6 +568,7 @@ test("combat embedded spells stay live-synced with the character spells panel wi
   const characterRows = "#spellLevels";
   const combatRows = "#combatEmbeddedSpellLevels";
 
+  await ensureActiveCharacter(page);
   await page.getByRole("tab", { name: "Combat" }).click();
   await page.locator("[data-add-embedded-panel='spells']").click();
   await expect(page.locator("#combatEmbeddedPanel_spells")).toBeVisible();
@@ -625,8 +636,8 @@ test("combat embedded spells stay live-synced with the character spells panel wi
   await page.getByRole("tab", { name: "Combat" }).click();
   await page.locator("#combatEmbeddedPanel_spells [data-remove-embedded-panel='spells']").click();
   await expect(page.locator("#combatEmbeddedPanel_spells")).not.toBeVisible();
-  await expect.poll(() => page.evaluate(() =>
-    globalThis.__APP_STATE__?.character?.spells?.levels?.flatMap((level) => level.spells || []).map((spell) => spell.name)
+  await expect.poll(() => readActiveCharacter(page).then((character) =>
+    character?.spells?.levels?.flatMap((level) => level.spells || []).map((spell) => spell.name) ?? []
   )).toEqual(["Bless"]);
 
   await page.getByRole("tab", { name: "Character" }).click();
@@ -640,6 +651,7 @@ test("combat embedded spells stay live-synced with the character spells panel wi
 test("combat embedded panels preserve source-panel interactions against canonical character data", async ({ page }) => {
   const fatalSignals = await openSmokeApp(page, { campaignName: "Combat Embedded Fidelity Smoke" });
 
+  await ensureActiveCharacter(page);
   await page.getByRole("tab", { name: "Combat" }).click();
   await page.locator("[data-add-embedded-panel='vitals']").click();
   await page.locator("[data-add-embedded-panel='spells']").click();
@@ -682,27 +694,27 @@ test("combat embedded panels preserve source-panel interactions against canonica
   await expect(vitals.locator("#combatEmbeddedVitalsTiles")).toBeVisible();
 
   // Vitals resource tracker interaction writes canonical character.resources.
-  const resourceCountBefore = await page.evaluate(() => globalThis.__APP_STATE__?.character?.resources?.length ?? 0);
+  const resourceCountBefore = (await readActiveCharacter(page))?.resources?.length ?? 0;
   const resourceCur = vitals.locator(".resourceTile input[placeholder='Cur']").first();
   await expect(resourceCur).toBeVisible();
   await resourceCur.fill("2");
-  await expect.poll(() => page.evaluate(() => globalThis.__APP_STATE__?.character?.resources?.[0]?.cur))
+  await expect.poll(() => readActiveCharacter(page).then((character) => character?.resources?.[0]?.cur))
     .toBe(2);
 
   await vitals.locator("#combatEmbeddedAddResourceBtn").click();
-  await expect.poll(() => page.evaluate(() => globalThis.__APP_STATE__?.character?.resources?.length ?? 0))
+  await expect.poll(() => readActiveCharacter(page).then((character) => character?.resources?.length ?? 0))
     .toBe(resourceCountBefore + 1);
 
   // Spells keep level expand/collapse plus spell-row editing/toggles.
   await expect.poll(() => spells.locator(".spellLevel").count()).toBeGreaterThan(0);
   const firstLevel = spells.locator(".spellLevel").first();
   await firstLevel.locator(".spellCollapseBtn").click();
-  await expect.poll(() => page.evaluate(() => globalThis.__APP_STATE__?.character?.spells?.levels?.[0]?.collapsed))
+  await expect.poll(() => readActiveCharacter(page).then((character) => character?.spells?.levels?.[0]?.collapsed))
     .toBe(true);
   await expect(firstLevel.locator(".spellBody")).toHaveCount(0);
 
   await firstLevel.locator(".spellCollapseBtn").click();
-  await expect.poll(() => page.evaluate(() => globalThis.__APP_STATE__?.character?.spells?.levels?.[0]?.collapsed))
+  await expect.poll(() => readActiveCharacter(page).then((character) => character?.spells?.levels?.[0]?.collapsed))
     .toBe(false);
 
   const spellRowsBefore = await firstLevel.locator(".spellRow").count();
@@ -711,8 +723,8 @@ test("combat embedded panels preserve source-panel interactions against canonica
   const spellRow = firstLevel.locator(".spellRow").last();
   await spellRow.locator(".spellName").fill("Magic Missile");
   await spellRow.getByRole("button", { name: "Prepared" }).click();
-  await expect.poll(() => page.evaluate(() => {
-    const spellsList = globalThis.__APP_STATE__?.character?.spells?.levels?.[0]?.spells || [];
+  await expect.poll(() => readActiveCharacter(page).then((character) => {
+    const spellsList = character?.spells?.levels?.[0]?.spells || [];
     return spellsList.at(-1);
   })).toEqual(expect.objectContaining({
     name: "Magic Missile",
@@ -728,7 +740,7 @@ test("combat embedded panels preserve source-panel interactions against canonica
   await attackRow.locator(".attackDamage").fill("1d8+3");
   await attackRow.locator(".attackRange").fill("150/600");
   await attackRow.locator(".attackType").fill("Piercing");
-  await expect.poll(() => page.evaluate(() => globalThis.__APP_STATE__?.character?.attacks?.[0]))
+  await expect.poll(() => readActiveCharacter(page).then((character) => character?.attacks?.[0]))
     .toEqual(expect.objectContaining({
       name: "Longbow",
       bonus: "+6",
@@ -743,8 +755,7 @@ test("combat embedded panels preserve source-panel interactions against canonica
 test("combat embedded spell notes are the same canonical text as the character spell notes", async ({ page }) => {
   const fatalSignals = await openSmokeApp(page, { campaignName: "Combat Spell Notes Integrity Smoke" });
 
-  await page.getByRole("tab", { name: "Character" }).click();
-  await expect(page.locator("#page-character")).toBeVisible();
+  await ensureActiveCharacter(page);
 
   const characterFirstLevel = page.locator("#spellLevels .spellLevel").first();
   await characterFirstLevel.getByRole("button", { name: "+ Spell" }).click();
@@ -755,7 +766,9 @@ test("combat embedded spell notes are the same canonical text as the character s
   await expect(characterNotes).toBeVisible();
 
   const spellId = await page.evaluate(() => {
-    const spellsList = globalThis.__APP_STATE__?.character?.spells?.levels?.[0]?.spells || [];
+    const collection = globalThis.__APP_STATE__?.characters;
+    const character = collection?.entries?.find((entry) => entry?.id === collection?.activeId);
+    const spellsList = character?.spells?.levels?.[0]?.spells || [];
     return spellsList.at(-1)?.id || "";
   });
   expect(spellId).toEqual(expect.stringMatching(/^spell_/));
