@@ -133,6 +133,7 @@ export function initVitalsPanel(deps = {}) {
     charProf: "#charProf",
     charSpellAtk: "#charSpellAtk",
     charSpellDC: "#charSpellDC",
+    charStatus: "#charStatus",
     ...selectors
   };
   const guard = requireMany(required, { root, setStatus, context: "Vitals panel" });
@@ -168,6 +169,11 @@ export function initVitalsPanel(deps = {}) {
   function markVitalsChanged() {
     markDirty();
     notifyPanelDataChanged("vitals", { source: panelInstance });
+  }
+
+  function markCharacterFieldsChanged() {
+    markDirty();
+    notifyPanelDataChanged("character-fields", { source: panelInstance });
   }
 
   function getCurrentCharacter() {
@@ -225,6 +231,34 @@ export function initVitalsPanel(deps = {}) {
         if (typeof autoSizeInput === "function") autoSizeInput(el, autosizeOpts);
         markVitalsChanged();
       });
+    });
+  }
+
+  function refreshStatusField() {
+    const el = guard.els.charStatus;
+    if (!el) return;
+    if (document.activeElement === el) return;
+    el.value = getCurrentCharacter()?.status ?? "";
+    if (typeof autoSizeInput === "function") autoSizeInput(el, { min: 60, max: 300 });
+  }
+
+  function bindStatusField() {
+    refreshStatusField();
+    const el = guard.els.charStatus;
+    if (!el) return;
+    if (typeof autoSizeInput === "function") {
+      el.classList.add("autosize");
+      autoSizeInput(el, { min: 60, max: 300 });
+    }
+    addListener(el, "input", () => {
+      if (destroyed) return;
+      const nextValue = el.value;
+      const currentValue = getCurrentCharacter()?.status ?? "";
+      if (currentValue === nextValue) return;
+      const updated = updateCharacterField("status", nextValue, { queueSave: false });
+      if (!updated) return;
+      if (typeof autoSizeInput === "function") autoSizeInput(el, { min: 60, max: 300 });
+      markCharacterFieldsChanged();
     });
   }
 
@@ -471,6 +505,7 @@ export function initVitalsPanel(deps = {}) {
   }
 
   bindVitalsNumbers();
+  bindStatusField();
 
   addListener(addBtn, "click", () => {
     if (destroyed) return;
@@ -513,6 +548,11 @@ export function initVitalsPanel(deps = {}) {
     if (destroyed || detail.source === panelInstance) return;
     refreshVitalsNumbers();
     renderResources();
+  }));
+
+  addDestroy(subscribePanelDataChanged("character-fields", (detail) => {
+    if (destroyed || detail.source === panelInstance) return;
+    refreshStatusField();
   }));
 
   return {

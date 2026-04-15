@@ -30,7 +30,7 @@ import {
   normalizeCombatEncounter
 } from "../../domain/combat.js";
 import { resolveCardDisplayData } from "../../domain/cardLinking.js";
-import { subscribePanelDataChanged } from "../../ui/panelInvalidation.js";
+import { notifyPanelDataChanged, subscribePanelDataChanged } from "../../ui/panelInvalidation.js";
 import { flipSwapTwo } from "../../ui/flipSwap.js";
 import { enhanceSelectDropdown } from "../../ui/selectDropdown.js";
 import { getNoopDestroyApi, requireMany } from "../../utils/domGuards.js";
@@ -1425,10 +1425,12 @@ export function initCombatPage(deps = {}) {
         setStatus("No status changes to save.", { stickyMs: 1800 });
         return;
       }
+      if (result.wroteCanonical) notifyPanelDataChanged("character-fields", { source: "combat-page" });
     } else {
       // Add mode
       const result = addCombatParticipantStatusEffect(state, _statusParticipantId, input);
       if (!commitCombatResult(result, "Status effect added.")) return;
+      if (result.wroteCanonical) notifyPanelDataChanged("character-fields", { source: "combat-page" });
     }
     closeStatusModal();
   }, { signal });
@@ -1437,6 +1439,7 @@ export function initCombatPage(deps = {}) {
     if (!_statusParticipantId || !_statusEffectId) return;
     const result = removeCombatParticipantStatusEffect(state, _statusParticipantId, _statusEffectId);
     commitCombatResult(result, "Status effect removed.");
+    if (result.wroteCanonical) notifyPanelDataChanged("character-fields", { source: "combat-page" });
     closeStatusModal();
   }, { signal });
 

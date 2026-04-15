@@ -493,6 +493,9 @@ function buildCharacterPanelDom(document) {
     append(tile, "div", { className: "charTileLabel", text: key });
     ids.forEach((id) => addInput(tile, id, "number"));
   });
+  const statusTile = append(tiles, "div", { className: "charTile charTileWide", dataset: { vitalKey: "status" } });
+  append(statusTile, "div", { className: "charTileLabel", text: "Status Effects" });
+  addInput(statusTile, "charStatus", "text");
 
   const spells = append(root, "section", { id: "charSpellsPanel" });
   append(spells, "button", { id: "addSpellLevelBtn" });
@@ -726,6 +729,66 @@ describe("character panels active character resolution", () => {
     state.characters.activeId = "char_a";
     notifyActiveCharacterChanged({ previousId: "char_b", activeId: "char_a" });
     expect(document.getElementById("combatEmbeddedCharHpCur")).toBeNull();
+  });
+
+  it("vitals status tile initializes from active character status", () => {
+    const state = makeState("char_a");
+    state.characters.entries[0].status = "Poisoned";
+    const deps = makeDeps(state);
+    const api = initVitalsPanel(deps);
+
+    expect(document.getElementById("charStatus").value).toBe("Poisoned");
+    api.destroy();
+  });
+
+  it("typing in vitals status tile updates character status", () => {
+    const state = makeState("char_a");
+    const deps = makeDeps(state);
+    const api = initVitalsPanel(deps);
+
+    const el = document.getElementById("charStatus");
+    el.value = "Stunned";
+    dispatchInput(el);
+
+    expect(state.characters.entries[0].status).toBe("Stunned");
+    api.destroy();
+  });
+
+  it("character-fields notification from external source refreshes vitals status tile", () => {
+    const state = makeState("char_a");
+    const deps = makeDeps(state);
+    const api = initVitalsPanel(deps);
+
+    state.characters.entries[0].status = "Charmed";
+    notifyPanelDataChanged("character-fields", { source: {} });
+
+    expect(document.getElementById("charStatus").value).toBe("Charmed");
+    api.destroy();
+  });
+
+  it("vitals status edit on Character page updates mounted Combat embedded Vitals status", () => {
+    const state = makeState("char_a");
+    state.characters.entries[0].status = "Charmed";
+    state.combat.workspace.embeddedPanels = ["vitals"];
+    const deps = makeDeps(state);
+    const root = append(document.body, "div", { id: "combatRoot" });
+    append(root, "div", { id: "combatEmbeddedPanels" });
+    const combatApi = initCombatEmbeddedPanels({ ...deps, root });
+    const characterApi = initVitalsPanel(deps);
+
+    const charStatusEl = document.getElementById("charStatus");
+    const embeddedStatusEl = document.getElementById("combatEmbeddedCharStatus");
+    expect(charStatusEl.value).toBe("Charmed");
+    expect(embeddedStatusEl.value).toBe("Charmed");
+
+    charStatusEl.value = "Poisoned";
+    dispatchInput(charStatusEl);
+
+    expect(state.characters.entries[0].status).toBe("Poisoned");
+    expect(embeddedStatusEl.value).toBe("Poisoned");
+
+    characterApi.destroy();
+    combatApi.destroy();
   });
 
   it("vitals edits on the Character page update mounted Combat embedded Vitals", () => {

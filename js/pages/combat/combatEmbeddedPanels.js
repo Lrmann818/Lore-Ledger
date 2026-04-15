@@ -57,7 +57,8 @@ export const EMBEDDED_PANEL_HOST_SELECTORS = Object.freeze({
     charSpeed: "#combatEmbeddedCharSpeed",
     charProf: "#combatEmbeddedCharProf",
     charSpellAtk: "#combatEmbeddedCharSpellAtk",
-    charSpellDC: "#combatEmbeddedCharSpellDC"
+    charSpellDC: "#combatEmbeddedCharSpellDC",
+    charStatus: "#combatEmbeddedCharStatus"
   }),
   spells: Object.freeze({
     panelEl: "#combatEmbeddedSpellsSource",
@@ -410,6 +411,10 @@ export function renderVitalsEmbeddedContent(container) {
       <div class="charTile" data-vital-key="spellDC">
         <div class="charTileLabel">Spell DC</div>
         <input id="combatEmbeddedCharSpellDC" type="number" placeholder="DC" />
+      </div>
+      <div class="charTile charTileWide" data-vital-key="status">
+        <div class="charTileLabel">Status Effects</div>
+        <input id="combatEmbeddedCharStatus" type="text" placeholder="Poisoned, Charmed…" />
       </div>
     </div>
   `;

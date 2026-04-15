@@ -7,6 +7,7 @@ import {
   applyHealing,
   clearCombatEncounter,
   findCombatSource,
+  getCombatHpFromSource,
   makeCombatId,
   makeStatusEffect,
   normalizeCombatEncounter,
@@ -14,7 +15,7 @@ import {
   normalizeStatusDurationMode,
   undoLastTurnAdvance
 } from "./combat.js";
-import { writeCardLinkedField } from "./cardLinking.js";
+import { resolveCardDisplayData, writeCardLinkedField } from "./cardLinking.js";
 import { withAllowedStateMutation } from "../utils/dev.js";
 
 /** @typedef {import("../state.js").State} State */
@@ -314,10 +315,28 @@ export function applyCombatParticipantHpAction(state, participantId, mode, amoun
     const index = findParticipantIndex(encounter, participantId);
     if (index < 0) return false;
     const current = encounter.participants[index];
+
+    // For healing, resolve the live canonical hpMax from the source card so the
+    // clamp matches what the display shows. Linked participants may have a stale
+    // snapshot on the encounter if max HP was changed after they were added.
+    let hpForHeal = current;
+    if (mode === "heal") {
+      const tracker = isPlainObject(state.tracker) ? state.tracker : null;
+      const combatSource = findCombatSource(tracker, current.source);
+      if (combatSource) {
+        const sourceDisplay = resolveCardDisplayData(
+          combatSource.card,
+          /** @type {Record<string, unknown>} */ (state)
+        );
+        const sourceMax = getCombatHpFromSource(sourceDisplay).hpMax;
+        if (sourceMax != null) hpForHeal = { ...current, hpMax: sourceMax };
+      }
+    }
+
     const nextHp = mode === "damage"
       ? applyDamage(current, amount)
       : mode === "heal"
-        ? applyHealing(current, amount)
+        ? applyHealing(hpForHeal, amount)
         : addTempHp(current, amount);
 
     const participant = {

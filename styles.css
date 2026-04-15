@@ -4488,6 +4488,13 @@ select.npcField:focus {
   flex: 0 0 auto;
 }
 
+/* wider tile for text fields like status */
+.charTiles>.charTileWide {
+  flex: 1 1 auto;
+  min-width: 160px;
+  max-width: 100%;
+}
+
 @media (max-width: 600px) {
   .charTiles {
     grid-template-columns: 1fr;
@@ -4620,6 +4627,11 @@ select.npcField:focus {
   text-align: left;
   padding: 5px;
   padding-right: var(--numWrapPadRight);
+}
+
+.charTile input[id="charStatus"] {
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .charTile input[id="charSpellDC"],
