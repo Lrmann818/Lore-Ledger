@@ -17,6 +17,7 @@ import { notifyCombatEncounterChanged } from "../../combat/combatEvents.js";
 import { addTrackerCardToCombatEncounter } from "../../../domain/combatTrackerActions.js";
 import { createStateActions } from "../../../domain/stateActions.js";
 import { getLinkedCharacter, resolveCardDisplayData, writeCardLinkedField } from "../../../domain/cardLinking.js";
+import { notifyPanelDataChanged, subscribePanelDataChanged } from "../../../ui/panelInvalidation.js";
 import { requireMany } from "../../../utils/domGuards.js";
 import { startJumpDebugRun, queueJumpDebugCheckpoints } from "../../../ui/jumpDebug.js";
 import * as masonry from "../../../ui/masonryLayout.js";
@@ -68,6 +69,7 @@ function createPartyCardsController(deps = {}) {
 
   const listenerController = new AbortController();
   const listenerSignal = listenerController.signal;
+  const partyControllerSource = {};
   /** @type {Array<() => void>} */
   const destroyFns = [];
   let initialized = false;
@@ -195,7 +197,30 @@ function createPartyCardsController(deps = {}) {
     const result = writeCardLinkedField(member, field, value, state, { SaveManager, queueSave: false });
     if (!result.written) return;
     SaveManager.markDirty();
+    if (result.target === "character" && (field === "hpCurrent" || field === "hpMax")) {
+      notifyPanelDataChanged("vitals", { source: partyControllerSource });
+    }
     if (rerender) renderPartyCards();
+  }
+
+  function patchLinkedCardHpInputs() {
+    if (!cardsEl) return;
+    Array.from(cardsEl.querySelectorAll(".trackerCard")).forEach((cardEl) => {
+      const cardId = cardEl.dataset.cardId;
+      if (!cardId) return;
+      const member = getPartyMemberById(cardId);
+      if (!member) return;
+      const display = resolveCardDisplayData(member, state);
+      if (!display.isLinked) return;
+      const hpCurEl = cardEl.querySelector("[data-linked-field='hpCurrent']");
+      const hpMaxEl = cardEl.querySelector("[data-linked-field='hpMax']");
+      if (hpCurEl instanceof HTMLInputElement && document.activeElement !== hpCurEl) {
+        hpCurEl.value = display.hpCurrent ?? "";
+      }
+      if (hpMaxEl instanceof HTMLInputElement && document.activeElement !== hpMaxEl) {
+        hpMaxEl.value = display.hpMax ?? "";
+      }
+    });
   }
 
   function setPartyPortraitHidden(id, hidden) {
@@ -438,6 +463,7 @@ function createPartyCardsController(deps = {}) {
     hpCur.classList.add("autosize");
     hpCur.type = "number";
     hpCur.placeholder = "Cur";
+    hpCur.dataset.linkedField = "hpCurrent";
     hpCur.value = display.hpCurrent ?? "";
     autoSizeInput(hpCur, { min: 30, max: 70 });
     hpCur.addEventListener("input", () => {
@@ -455,6 +481,7 @@ function createPartyCardsController(deps = {}) {
     hpMax.classList.add("autosize");
     hpMax.type = "number";
     hpMax.placeholder = "Max";
+    hpMax.dataset.linkedField = "hpMax";
     hpMax.value = display.hpMax ?? "";
     autoSizeInput(hpMax, { min: 30, max: 70 });
     hpMax.addEventListener("input", () => {
@@ -644,6 +671,11 @@ function createPartyCardsController(deps = {}) {
 
     renderPartyTabs();
     renderPartyCards();
+
+    addDestroy(subscribePanelDataChanged("vitals", (detail) => {
+      if (detail.source === partyControllerSource) return;
+      patchLinkedCardHpInputs();
+    }));
 
     if (enhanceNumberSteppers) enhanceNumberSteppers(document);
   }

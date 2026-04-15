@@ -17,6 +17,7 @@ import { notifyCombatEncounterChanged } from "../../combat/combatEvents.js";
 import { addTrackerCardToCombatEncounter } from "../../../domain/combatTrackerActions.js";
 import { createStateActions } from "../../../domain/stateActions.js";
 import { getLinkedCharacter, resolveCardDisplayData, writeCardLinkedField } from "../../../domain/cardLinking.js";
+import { notifyPanelDataChanged, subscribePanelDataChanged } from "../../../ui/panelInvalidation.js";
 import { requireMany } from "../../../utils/domGuards.js";
 import { startJumpDebugRun, queueJumpDebugCheckpoints } from "../../../ui/jumpDebug.js";
 import * as masonry from "../../../ui/masonryLayout.js";
@@ -68,6 +69,7 @@ function createNpcCardsController(deps = {}) {
 
   const listenerController = new AbortController();
   const listenerSignal = listenerController.signal;
+  const npcControllerSource = {};
   /** @type {Array<() => void>} */
   const destroyFns = [];
   let initialized = false;
@@ -191,7 +193,30 @@ function createNpcCardsController(deps = {}) {
     const result = writeCardLinkedField(npc, field, value, state, { SaveManager, queueSave: false });
     if (!result.written) return;
     SaveManager.markDirty();
+    if (result.target === "character" && (field === "hpCurrent" || field === "hpMax")) {
+      notifyPanelDataChanged("vitals", { source: npcControllerSource });
+    }
     if (rerender) renderNpcCards();
+  }
+
+  function patchLinkedCardHpInputs() {
+    if (!cardsEl) return;
+    Array.from(cardsEl.querySelectorAll(".trackerCard")).forEach((cardEl) => {
+      const cardId = cardEl.dataset.cardId;
+      if (!cardId) return;
+      const npc = getNpcById(cardId);
+      if (!npc) return;
+      const display = resolveCardDisplayData(npc, state);
+      if (!display.isLinked) return;
+      const hpCurEl = cardEl.querySelector("[data-linked-field='hpCurrent']");
+      const hpMaxEl = cardEl.querySelector("[data-linked-field='hpMax']");
+      if (hpCurEl instanceof HTMLInputElement && document.activeElement !== hpCurEl) {
+        hpCurEl.value = display.hpCurrent ?? "";
+      }
+      if (hpMaxEl instanceof HTMLInputElement && document.activeElement !== hpMaxEl) {
+        hpMaxEl.value = display.hpMax ?? "";
+      }
+    });
   }
 
   function setNpcPortraitHidden(id, hidden) {
@@ -440,6 +465,7 @@ function createNpcCardsController(deps = {}) {
     hpCur.classList.add("autosize");
     hpCur.type = "number";
     hpCur.placeholder = "Cur";
+    hpCur.dataset.linkedField = "hpCurrent";
     hpCur.value = display.hpCurrent ?? "";
     autoSizeInput(hpCur, { min: 30, max: 70 });
     hpCur.addEventListener("input", () => {
@@ -457,6 +483,7 @@ function createNpcCardsController(deps = {}) {
     hpMax.classList.add("autosize");
     hpMax.type = "number";
     hpMax.placeholder = "Max";
+    hpMax.dataset.linkedField = "hpMax";
     hpMax.value = display.hpMax ?? "";
     autoSizeInput(hpMax, { min: 30, max: 70 });
     hpMax.addEventListener("input", () => {
@@ -644,6 +671,11 @@ function createNpcCardsController(deps = {}) {
 
     renderNpcTabs();
     renderNpcCards();
+
+    addDestroy(subscribePanelDataChanged("vitals", (detail) => {
+      if (detail.source === npcControllerSource) return;
+      patchLinkedCardHpInputs();
+    }));
 
     addListener(addBtn, "click", () => {
       addNpc();
