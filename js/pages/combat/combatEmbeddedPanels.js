@@ -492,8 +492,14 @@ export function renderEquipmentEmbeddedContent(container) {
   const panel = createEl("section", "panel combatEmbeddedSourcePanel combatEmbeddedEquipmentHost");
   panel.id = "combatEmbeddedEquipmentSource";
   panel.innerHTML = `
-    <h2 class="m0">Equipment</h2>
-    <div>
+    <div class="panelHeader">
+      <h2 class="m0">Equipment</h2>
+    </div>
+    <div class="fieldLabelRow">
+      <div class="fieldLabel">Inventory</div>
+      <button type="button" class="panelCollapseBtn" data-collapse-target="combatEmbeddedInventory" aria-expanded="true" title="Collapse/Expand">▾</button>
+    </div>
+    <div id="combatEmbeddedInventory">
       <div class="sessionHeader">
         <div class="fieldLabel">Pockets</div>
         <div class="sessionControls panelControls">
@@ -968,6 +974,19 @@ export function initCombatEmbeddedPanels({
         autoSizeInput,
         setStatus
       });
+      // Wire the inner Inventory collapse button (mirrors character-page panelCollapseBtn behavior).
+      const inventoryCollapseBtn = bodyEl.querySelector("[data-collapse-target='combatEmbeddedInventory']");
+      const inventorySection = bodyEl.querySelector("#combatEmbeddedInventory");
+      if (inventoryCollapseBtn instanceof HTMLButtonElement && inventorySection instanceof HTMLElement) {
+        inventoryCollapseBtn.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const nowCollapsed = !inventorySection.hidden;
+          inventorySection.hidden = nowCollapsed;
+          inventoryCollapseBtn.textContent = nowCollapsed ? "▸" : "▾";
+          inventoryCollapseBtn.setAttribute("aria-expanded", String(!nowCollapsed));
+        }, { signal });
+      }
     } else if (panelId === "abilities") {
       renderAbilitiesEmbeddedContent(bodyEl);
       api = initAbilitiesPanel({

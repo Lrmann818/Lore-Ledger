@@ -3500,15 +3500,18 @@ div.mutedSmall {
   gap: 4px;
 }
 
-/* Abilities header: title + ⋯ grouped on the left, section move buttons stay right */
-#charAbilitiesPanel>.panelHeader {
+/* Abilities header: title + ⋯ grouped on the left, section move buttons stay right.
+   Applied to both the character-page panel and the combat embedded copy. */
+#charAbilitiesPanel>.panelHeader,
+#combatEmbeddedAbilitiesSource>.panelHeader {
   justify-content: flex-start;
   gap: 4px;
 }
 
-#charAbilitiesPanel>.panelHeader .sectionMoves {
+#charAbilitiesPanel>.panelHeader .sectionMoves,
+#combatEmbeddedAbilitiesSource>.panelHeader .combatEmbeddedPanelControls {
   margin-left: auto;
-  /* pushes the injected move buttons back to the right */
+  /* pushes the injected move/combat controls back to the right */
 }
 
 /* Character portrait column layout */
@@ -4923,10 +4926,13 @@ select.npcField:focus {
 
 /* make the score box a predictable width */
 .abilityStats .abilityScore {
-  /* tweak if you want it bigger/smaller */
   text-align: left;
   padding: 5px 8px;
   flex: 0 0 auto;
+  /* Explicit compact width for contexts without .numWrap (e.g. combat embedded).
+     The character page overrides this via the higher-specificity .numWrap>input
+     rule below (width:40px), so character-page layout is unaffected. */
+  width: 50px;
 }
 
 /* keeps Save text + checkbox aligned nicely */
