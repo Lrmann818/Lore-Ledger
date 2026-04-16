@@ -112,6 +112,8 @@ Combat is the highest-frequency interaction in a tabletop session. A dedicated w
 **Status:** [~] Mostly complete — stamp tool remains  
 **Priority:** Medium
 
+**Note (2026-04-16):** Step 4 character import/export is shipped; Phase 4 still has only the map stamp tool outstanding.
+
 ### Objectives
 
 - [x] Map workspace with canvas, drawing history, and persistence (`js/pages/map/`)

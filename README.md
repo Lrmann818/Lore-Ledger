@@ -23,7 +23,8 @@ That direction is visible in the current structure:
 - A single composition root in `app.js`
 - A campaign vault persistence model that separates app-shell UI from per-campaign documents
 - Schema-aware state migration in `js/state.js`
-- Completed Step 1 multi-character state with `state.characters.activeId` selecting entries from `state.characters.entries`
+- Completed multi-character state with `state.characters.activeId` selecting entries from `state.characters.entries`
+- Schema v5 tracker-card linking through `js/domain/cardLinking.js`
 - A split persistence layer for structured state, images, and long-form text
 - Tracker card panels built around destroyable instance-scoped controllers instead of hidden singleton runtime state
 - A narrow shared tracker-card DOM patch helper, with card-body rendering and collection-specific rules still kept local to each panel
@@ -35,9 +36,10 @@ That direction is visible in the current structure:
 - Campaign Hub for creating campaigns, switching the active campaign, renaming campaigns, and deleting campaigns
 - Tracker page for campaign title, session tabs and notes, NPC cards, party cards, location cards, and loose notes
 - Sectioned tracker collections with add/rename/delete controls, search inputs, and portrait/image support for cards
-- Combat Workspace with participant cards sourced from tracker entries, HP/temp HP actions, role/order controls, status effects, round timing, undo for turn advances, and embedded Vitals, Spells, and Weapons / Attacks panels that are live views of the canonical active character
-- Character page with multi-character selection, `...` actions for New/Rename/Delete Character, an empty-state "Create your first character" prompt, portrait, identity fields, vitals, resources, abilities and skills, proficiencies, weapons, spells, equipment, inventory tabs, money, and personality notes
+- Combat Workspace with participant cards sourced from tracker entries, HP/temp HP actions, role/order controls, status effects, round timing, undo for turn advances, and embedded Vitals, Spells, Weapons / Attacks, Equipment, and Abilities / Skills panels that are live views of the canonical active character
+- Character page with multi-character selection, `...` actions for New/Rename/Delete Character, Add to NPCs/Party, Export/Import Character, an empty-state "Create your first character" prompt, portrait, identity fields, vitals, resources, abilities and skills, proficiencies, weapons, spells, equipment, inventory tabs, money, and personality notes
 - Spell management with dynamic spell levels and per-spell notes
+- Character portability through `.ll-character.json` export/import, including portrait and spell-note bundling across campaigns
 - Map page with multiple maps, background image upload/removal, mouse/touch drawing, pan/zoom gestures, brush and eraser tools, brush size and color controls, and persisted drawings
 - Topbar utilities including a clock, calculator, and dice roller
 - `Data & Settings` for theme selection, a Support section (`Report Bug`, `Copy Debug Info`, and nearby version/build metadata), backup export/import, update checks, targeted storage cleanup, and full reset
@@ -80,11 +82,13 @@ Current tracker-specific architecture notes:
 
 Current character-specific architecture notes:
 
-- Step 1 multi-character support is complete and verified. Active character data lives in `state.characters.entries`, selected by `state.characters.activeId`.
+- Multi-character support is complete and verified. Active character data lives in `state.characters.entries`, selected by `state.characters.activeId`.
 - The legacy singleton `state.character` key is valid only in migration/backward-compatibility handling for old saves/backups.
 - Character panels resolve the active entry through `getActiveCharacter(state)` and write through helpers such as `mutateCharacter(...)` and `updateCharacterField(...)`.
 - Combat embedded character panels are live alternate views of canonical active character data. They use active-character change events and panel invalidation/rebinding rather than duplicate character data or a sync store.
-- Step 2 tracker-card linking and Step 3 character builder/rules engine work remain future scope.
+- NPC and Party tracker-card linking is complete. Linked cards store `characterId` and use `js/domain/cardLinking.js` so shared fields read from and write to the canonical character entry; card notes remain card-only.
+- Character export/import portability is complete. `js/domain/characterPortability.js` validates files before state mutation, restores portrait and spell-note payloads into the destination campaign, and always assigns imported characters fresh IDs.
+- Step 3 character builder/rules engine work remains future scope.
 
 ## 5.1 Type safety in vanilla JS
 
@@ -320,6 +324,7 @@ The app is local-first and stores data in the browser:
 - `loadAll()` migrates older saved shapes, wraps legacy single-campaign saves into a one-campaign vault, and migrates legacy image data URLs into the current schema/storage model during startup
 - Backup export is campaign-level: it bundles the currently active campaign's sanitized state, referenced images, and referenced text notes into a JSON file
 - Backup import is campaign-level: it validates, migrates, stages blob/text writes before the state swap, attempts to restore touched text IDs if a later step fails, saves into the active campaign or creates a new campaign when importing from the hub, and then reloads the app after a successful save
+- Character export/import is single-character portability: it writes a `.ll-character.json` file with one character, portrait data, and spell notes, then imports it as a new standalone character in the active destination campaign
 - Vitest coverage now protects `migrateState(...)`, startup load/save behavior, backup import/export logic, and the local save lifecycle, which improves confidence in saved-state integrity without replacing manual browser-level verification
 
 Intentionally non-persistent runtime state:
@@ -354,6 +359,7 @@ Core maintainer docs:
 - [`docs/testing-guide.md`](docs/testing-guide.md) - current automated test commands plus the manual release/regression checklist
 - [`docs/release-process.md`](docs/release-process.md) - tagging, verification, packaging, deploy, and release checklist
 - [`docs/security-privacy.md`](docs/security-privacy.md) - local-data, CSP, import/export, and privacy expectations
+- [`docs/character-portability.md`](docs/character-portability.md) - single-character export/import format and import-ordering rationale
 - [`docs/troubleshooting.md`](docs/troubleshooting.md) - common recovery steps for save, import, offline, and build issues
 - [`docs/browser-smoke-plan.md`](docs/browser-smoke-plan.md) - current Playwright smoke scope and the manual gaps it does not replace
 - [`docs/PWA_NOTES.md`](docs/PWA_NOTES.md) - offline cache behavior, update prompts, and cache reset steps

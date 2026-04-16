@@ -65,9 +65,13 @@ Contents (compact single row for mobile):
 - Right side: `...` actions menu containing:
   - New Character
   - Rename Character
+  - Add to NPCs
+  - Add to Party
+  - Export Character
+  - Import Character
   - Delete Character
 
-Step 2 tracker-card linking actions, Step 3 character builder/rules-engine actions, and Step 4 import/export actions remain future work.
+Step 2 tracker-card linking actions and Step 4 import/export actions have since shipped. Step 3 character builder/rules-engine actions remain future work.
 
 ### Character selector behavior
 
@@ -94,7 +98,7 @@ Character writes should use state action helpers such as `mutateCharacter(...)` 
 
 ### Combat workspace
 
-The combat embedded panels (Vitals, Spells, Weapons / Attacks) are live alternate views of canonical active character data. They resolve the active character through `getActiveCharacter(state)`, the same as the Character page.
+The combat embedded panels (Vitals, Spells, Weapons / Attacks, Equipment, and Abilities / Skills) are live alternate views of canonical active character data. They resolve the active character through `getActiveCharacter(state)`, the same as the Character page.
 
 Which character is active on the Character page is the character shown in Combat. Embedded panel updates use active-character change events and panel invalidation/rebinding rather than duplicate state or a sync store. The architectural rule is strict: no duplicate character data and no embedded-panel sync store.
 
@@ -128,11 +132,11 @@ A future enhancement could let the Combat workspace pin a specific character ind
 
 ### Goal
 
-A character can be added to the party cards, NPC cards, or location cards from the character page. Linked cards are bidirectional views into the character data.
+A character can be added to the party cards or NPC cards from the character page. Linked cards are bidirectional views into the shared character fields. Location-card linking was deliberately deferred because location cards do not share the same HP/class/status shape.
 
 ### Linking model
 
-Tracker cards (NPC, Party, Location) gain an optional field:
+Tracker cards (NPC and Party) gain an optional field:
 
 ```
 characterId: string | null   // references a characters.entries[].id
@@ -148,23 +152,22 @@ Linked card fields that exist on both the card and the character are **read from
 - `imgBlobId` ↔ `character.imgBlobId`
 - `hpCurrent` ↔ `character.hpCur`
 - `hpMax` ↔ `character.hpMax`
-- `status` ↔ `character.status` (new field on character, or kept as card-only — TBD)
+- `status` ↔ `character.status`
 - `className` ↔ `character.classLevel`
-- `notes` ↔ `character.looseNotes` (new field — a "loose notes" section on the character page that mirrors the card notes field)
 
 Edits on the tracker card write through to the character. Edits on the character page reflect on all linked cards. The card does not store its own copy of these fields when linked.
 
-Card-only fields that have no character equivalent (like `sectionId`, `group`, `collapsed`, `portraitHidden`) remain on the card itself.
+Card-only fields that have no character equivalent (like `sectionId`, `group`, `collapsed`, `portraitHidden`, and `notes`) remain on the card itself. The earlier `looseNotes` idea was not implemented; Step 2 intentionally kept tracker card notes card-only because they often represent DM-facing or session-specific context rather than character-sheet content.
 
 ### Multiple placements
 
-A single character can be linked to cards in multiple tracker sections simultaneously (party, NPCs, and/or locations). Each linked card is an independent view referencing the same `characterId`.
+A single character can be linked to cards in multiple tracker sections simultaneously (party and/or NPCs). Each linked card is an independent view referencing the same `characterId`.
 
-### "Add to NPCs / Party / Locations" flow
+### "Add to NPCs / Party" flow
 
 Triggered from the character page sub-toolbar overflow menu:
 
-1. User taps "Add to NPCs" (or Party / Locations).
+1. User taps "Add to NPCs" or "Add to Party".
 2. A linked card is created in the appropriate tracker section with `characterId` set.
 3. A confirmation toast/status message appears ("Added to NPCs").
 4. User stays on the character page.
@@ -441,6 +444,8 @@ Weapons (all SRD weapons):
 
 ## Step 4 — Cross-campaign character import
 
+**Status:** Complete, audited, and fully verified. See `STEP4_TASKS.md` and `docs/character-portability.md` for the full implementation rationale.
+
 ### Goal
 
 A character (with portrait) can be exported from one campaign and imported into another as an independent copy.
@@ -450,7 +455,8 @@ A character (with portrait) can be exported from one campaign and imported into 
 A single JSON file containing:
 
 - The full character entry object (all fields, build, overrides)
-- The portrait image as a base64-encoded blob (if present)
+- The portrait image as a full data URL (if present)
+- Spell notes keyed by spell entry ID
 - A format version tag for future-proofing
 
 ```
@@ -458,7 +464,8 @@ A single JSON file containing:
   formatVersion: 1,
   type: "lore-ledger-character",
   character: { ...full entry },
-  portrait: { mimeType: "image/webp", base64: "..." } | null
+  portrait: { dataUrl: "data:image/webp;base64,...", mimeType: "image/webp" } | null,
+  spellNotes: { [spellId]: noteText }
 }
 ```
 
@@ -472,6 +479,15 @@ Triggered from the character sub-toolbar menu ("Import Character"):
 4. Portrait blob is stored in IndexedDB with a new blob ID, and the character's `imgBlobId` is updated to point to it.
 5. `activeId` is set to the imported character.
 6. If the character had linked cards in the original campaign, those are **not** imported. The character arrives standalone.
+
+### Shipped summary
+
+- Export writes `{ formatVersion: 1, type: "lore-ledger-character", character, portrait, spellNotes }` to a `.ll-character.json` file.
+- Import validates and parses the full file before mutating state or writing blobs.
+- Imported characters always receive fresh IDs; import adds a new character and never replaces an existing one.
+- Portraits are bundled in the export and restored as new destination IndexedDB blobs.
+- Spell notes remain outside structured state, but export bundles only the active character's spell notes and import restores them under destination-campaign text keys.
+- Linked NPC/Party cards do not travel with the character. The imported character arrives standalone and can be linked to destination tracker cards afterward.
 
 ### Scope
 
@@ -496,8 +512,8 @@ One character at a time. No batch export/import.
 
 2. **Content registry storage location**: The builtin/custom content registry (species, classes, spells, etc.) should live at app level, not per-campaign. Need to decide exact storage shape and where in the vault it goes.
 
-3. **Spell notes scoping**: Spell notes currently use campaign-scoped IDB text keys. With multi-character, they may need character-scoped keys: `spellNote:{campaignId}:{characterId}:{spellId}`.
+3. **Spell notes scoping**: Resolved in Step 4. Spell notes remain campaign-scoped IDB text records (`textKey_spellNotes(campaignId, spellId)`). Character export bundles notes for the exported character's spell IDs, and import restores those notes under the destination campaign.
 
 4. **Character sub-toolbar styling**: Needs to be compact enough to not feel like it steals too much vertical space on mobile. May want to collapse into a single row with icon-only buttons beyond the selector and overflow menu.
 
-5. **`looseNotes` field**: New field on character entries to match the tracker card `notes` field for linked card sync. Needs a corresponding UI section on the character page. Placement TBD.
+5. **`looseNotes` field**: Not implemented. Step 2 kept tracker card notes card-only, so no character-level `looseNotes` field or mirrored notes UI is needed for the shipped linking model.

@@ -7,12 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+No changes yet.
+
+## [v0.5.0] - 2026-04-16
+
 ### Added
 
-- Cross-campaign character import/export (Step 4): the Character page can export the active character as a `.ll-character.json` file with portrait data and spell notes, then import it into another campaign as a new standalone character with a fresh character ID and destination-scoped blob/text records.
+- Multi-character support: characters now live in `state.characters.entries` with `state.characters.activeId` selecting the active entry, and fresh campaigns can start with no character until one is created.
 - Multi-character tracker card linking (Step 2): NPC and Party cards can be linked to a character entry via a `characterId` field. Linked cards read and write name, HP, class, status, and portrait through the canonical character entry (`js/domain/cardLinking.js`).
-- Schema v5 migration: all tracker cards gain `characterId: null`; all character entries gain `status: ""`.
-- Character deletion now shows a warning when linked tracker cards exist and snapshots their last known character data before unlinking.
+- Schema v5 migration: NPC and Party cards gain `characterId: null`; character entries gain `status: ""`.
+- Character deletion now shows a warning when linked tracker cards exist, snapshots their last known character data, and unlinks those cards before deleting the character.
+- Cross-campaign character import/export (Step 4): the Character page can export the active character as a `.ll-character.json` file, then import it into another campaign as a new standalone character with a fresh character ID.
+- Character portability bundles portrait data and spell notes into the exported file, then restores the portrait blob and destination-campaign spell-note text records on import.
 - Portrait visibility controls and image-focused actions across tracker cards.
 - A manual `Check for updates` action in the Progressive Web App flow.
 - Additional motion polish for weapon movement, ability/skill movement, and dice rolling, including percentile roll animation.
@@ -62,6 +68,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Reliability issues around map history serialization, listener re-attachment, and update-banner behavior.
 - Release artifact hygiene so generated zip packages exclude repository-only files such as `.git/`.
 
-[Unreleased]: https://github.com/Lrmann818/CampaignTracker/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/Lrmann818/CampaignTracker/compare/v0.5.0...HEAD
+[v0.5.0]: https://github.com/Lrmann818/CampaignTracker/compare/v0.4.0...v0.5.0
 [v0.4.0]: https://github.com/Lrmann818/CampaignTracker/compare/v0.3.0...v0.4.0
 [v0.3.0]: https://github.com/Lrmann818/CampaignTracker/tree/v0.3.0

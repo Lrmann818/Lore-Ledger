@@ -328,7 +328,7 @@ Important rule: a field living on `state` does **not** guarantee that it is pers
 
 ### Schema migration rules
 
-- Current schema version: `4`
+- Current schema version: `5`
 - Migration lives in `migrateState(...)` in `js/state.js`.
 - `normalizeState(...)` restores runtime-only UI defaults after migration/load/import.
 - Unknown future schema versions are accepted as-is to avoid destructive downgrade behavior.
@@ -392,6 +392,19 @@ Not all user-visible data follows the same write path:
   - flush first
   - update state and/or IDB
   - reload afterward for a clean runtime
+
+### Character portability lifecycle
+
+Single-character export/import is narrower than campaign backup/restore and is owned by `js/domain/characterPortability.js`, with UI orchestration in `js/pages/character/characterPage.js`.
+
+- Export resolves the active character, clones the character payload into JSON-shaped data, fetches the portrait blob when present, and bundles non-empty spell notes for that character's spell IDs.
+- Import uses `parseAndValidateImport(file)` before mutating state or writing IndexedDB records. Invalid JSON, wrong file types, unsupported versions, malformed portraits, and malformed spell-note maps fail without partial state changes.
+- Portrait payloads travel inside the `.ll-character.json` file as data URLs. Import stores the portrait as a new destination IndexedDB blob and rewrites `imgBlobId` to that new blob ID; if no portrait payload exists, `imgBlobId` is cleared.
+- Spell notes travel as a `{ spellId: noteText }` map. Import restores them with `putText(...)` under destination-campaign `textKey_spellNotes(campaignId, spellId)` keys after the character commit.
+- Imported characters always receive fresh `char_...` IDs and are appended to `state.characters.entries`; import never replaces an existing character.
+- Linked tracker cards do not travel with exported characters. `characterId` relationships are campaign-local, so imported characters arrive standalone and can be linked to destination NPC/Party cards afterward.
+
+See `docs/character-portability.md` for the file format and import-ordering rationale.
 
 ## Page-by-page ownership boundaries
 
@@ -506,12 +519,16 @@ characters: {
 - Character writes should use state action helpers such as `mutateCharacter(...)` and `updateCharacterField(...)`.
 - Fresh campaigns can have no active character until one is created.
 
-Step 1 Character page UI:
+Current Character page UI:
 
 - character selector
 - `...` actions menu
 - New Character
 - Rename Character
+- Add to NPCs
+- Add to Party
+- Export Character
+- Import Character
 - Delete Character
 - empty-state "Create your first character" prompt
 
@@ -630,6 +647,7 @@ Map boundary rule:
 
 - Canvas, drawing, gesture, and map-list logic should stay in `js/pages/map/*`.
 - Shared UI modules should not know about map canvas internals.
+- The reusable map stamp/token tool remains planned work; it is not part of the shipped map tool today.
 
 ## Shared UI infrastructure boundaries
 

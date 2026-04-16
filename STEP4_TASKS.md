@@ -1,5 +1,9 @@
 # Step 4 — Cross-Campaign Character Import / Export: Task Plan
 
+> **Step 4 is complete, audited, and fully verified as of 2026-04-16. Do not treat any item below as pending implementation work.**
+>
+> This file is preserved for historical/reference purposes before Step 3 planning.
+
 Read `MULTI-CHARACTER_DESIGN.md` first for full context. This file is the ordered task list for Step 4.
 
 Work one task at a time. Run `npm run test:run` after each task. Do not proceed to the next task if tests fail.

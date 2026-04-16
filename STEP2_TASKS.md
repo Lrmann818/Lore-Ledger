@@ -1,6 +1,8 @@
 # Step 2 — Character ↔ Tracker Card Linking: Task Plan
 
 > **Step 2 is complete, audited, and fully verified as of 2026-04-15. Do not treat any item below as pending implementation work. See the [closeout section](#step-2-closeout--complete-2026-04-15) at the bottom for a summary of what shipped and what was intentionally deferred.**
+>
+> This file is preserved for historical/reference purposes before Step 3 planning.
 
 Read `MULTI-CHARACTER_DESIGN.md` first for full context. This file is the ordered task list for Step 2.
 
