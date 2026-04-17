@@ -174,8 +174,9 @@ A portfolio project that accumulates silent regressions is not a portfolio proje
 - [x] Accessible informational Builder Mode badge
 - [x] Display-only Builder Summary panel for builder characters
 - [x] Minimal Builder Identity editor for builtin species, class, background, and level
+- [x] Manual Builder Abilities editor for builder base ability scores
 - [ ] Full character creation wizard
-- [ ] Content pickers beyond the minimal identity editor, including abilities and later choices
+- [ ] Content pickers beyond the minimal identity/abilities editors and later choices
 - [ ] Level-up flow
 - [ ] Field locking and override UI for computed fields
 - [ ] HP, AC, saves, skills, spells, combat, and linked-card automation
@@ -184,7 +185,7 @@ A portfolio project that accumulates silent regressions is not a portfolio proje
 - [ ] Content registry licensing attribution
 - [ ] Short rest / long rest mechanics
 
-This remains the largest active feature in the product. The foundation is now in place, but the shipped Step 3 UI is intentionally limited to minimal builder-character creation, an informational badge, a builtin-ID-only Builder Identity editor for species/class/background/level, and a display-only summary. The full builder wizard, ability editing, subclass choices, field locking, custom content, and HP/AC/spell/combat automation are not shipped yet.
+This remains the largest active feature in the product. The foundation is now in place, but the shipped Step 3 UI is intentionally limited to minimal builder-character creation, an informational badge, a builtin-ID-only Builder Identity editor for species/class/background/level, a manual Builder Abilities editor for base scores, and a display-only summary. The full builder wizard, subclass choices, field locking, custom content, and HP/AC/spell/combat automation are not shipped yet.
 
 ### Step 4 — Cross-Campaign Character Import / Export
 

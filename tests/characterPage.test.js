@@ -457,6 +457,73 @@ function installBuilderIdentityDom(document) {
   return panel;
 }
 
+function installBuilderAbilitiesDom(document) {
+  const root = document.getElementById("page-character");
+  let columns = document.getElementById("charColumns");
+  if (!columns) columns = appendWithId(document, root, "div", "charColumns", "charColumns");
+  let col = document.getElementById("charCol0");
+  if (!col) col = appendWithId(document, columns, "div", "charCol0", "charCol");
+  const basics = document.getElementById("charBasicsPanel") || appendWithId(document, col, "section", "charBasicsPanel", "panel");
+  if (!document.getElementById("charName")) appendWithId(document, basics, "input", "charName");
+  if (!document.getElementById("charClassLevel")) appendWithId(document, basics, "input", "charClassLevel");
+  if (!document.getElementById("charRace")) appendWithId(document, basics, "input", "charRace");
+  if (!document.getElementById("charBackground")) appendWithId(document, basics, "input", "charBackground");
+
+  const panel = appendWithId(document, col, "section", "charBuilderAbilitiesPanel", "panel builderAbilitiesPanel");
+  panel.hidden = true;
+  panel.setAttribute("aria-hidden", "true");
+  panel.setAttribute("aria-labelledby", "charBuilderAbilitiesTitle");
+  appendWithId(document, panel, "h2", "charBuilderAbilitiesTitle").textContent = "Builder Abilities";
+  const content = appendWithId(document, panel, "div", "charBuilderAbilitiesContent", "builderAbilitiesContent");
+  appendWithId(document, content, "p", "charBuilderAbilitiesNote", "builderAbilitiesNote")
+    .textContent = "Edit the builder base ability scores used by Builder Summary. These do not overwrite the freeform ability fields below.";
+  const unavailable = appendWithId(document, content, "p", "charBuilderAbilitiesUnavailable", "builderAbilitiesNote");
+  unavailable.hidden = true;
+  unavailable.textContent = "Builder Mode is active, but this character's ability data is not editable by the current abilities editor.";
+  const grid = appendWithId(document, content, "div", "charBuilderAbilitiesGrid", "builderAbilitiesGrid");
+  [
+    ["Str", "Strength"],
+    ["Dex", "Dexterity"],
+    ["Con", "Constitution"],
+    ["Int", "Intelligence"],
+    ["Wis", "Wisdom"],
+    ["Cha", "Charisma"],
+  ].forEach(([suffix, label]) => {
+    const labelEl = appendWithId(document, grid, "label", `charBuilderAbility${suffix}Field`, "builderAbilitiesField");
+    labelEl.setAttribute("for", `charBuilderAbility${suffix}`);
+    appendWithId(document, labelEl, "span", `charBuilderAbility${suffix}Label`).textContent = label;
+    const input = appendWithId(document, labelEl, "input", `charBuilderAbility${suffix}`);
+    input.type = "number";
+    input.setAttribute("min", "1");
+    input.setAttribute("max", "20");
+    input.setAttribute("step", "1");
+    input.setAttribute("inputmode", "numeric");
+    input.setAttribute("aria-labelledby", `charBuilderAbility${suffix}Label`);
+  });
+  return panel;
+}
+
+function installFlatAbilitiesDom(document) {
+  const root = document.getElementById("page-character");
+  let columns = document.getElementById("charColumns");
+  if (!columns) columns = appendWithId(document, root, "div", "charColumns", "charColumns");
+  let col = document.getElementById("charCol0");
+  if (!col) col = appendWithId(document, columns, "div", "charCol0", "charCol");
+  const panel = appendWithId(document, col, "section", "charAbilitiesPanel", "panel");
+  const grid = appendWithId(document, panel, "div", "charAbilitiesGrid", "abilityGrid");
+  ["str", "dex", "con", "int", "wis", "cha"].forEach((key) => {
+    const block = appendWithId(document, grid, "div", `flatAbility-${key}`, "abilityBlock");
+    block.dataset.ability = key;
+    const score = appendWithId(document, block, "input", `flatAbilityScore-${key}`, "abilityScore");
+    score.type = "number";
+    score.dataset.stat = "score";
+    const skill = appendWithId(document, block, "input", `flatSkill-${key}`);
+    skill.type = "checkbox";
+    skill.dataset.skillProf = key === "str" ? "athletics" : `${key}-skill`;
+  });
+  return panel;
+}
+
 function getSelectOptions(select) {
   return select.children.map((option) => ({
     value: option.value,
@@ -635,6 +702,25 @@ describe("character page selector", () => {
     expect(html).toContain('aria-labelledby="charBuilderLevelLabel"');
     expect(html).toContain("These builder choices update the read-only Builder Summary only. Existing sheet fields remain editable.");
     expect(html).toContain("Builder Mode is active, but this character's builder data is not editable by the current identity editor.");
+    expect(html).toContain('class="panel builderAbilitiesPanel" id="charBuilderAbilitiesPanel" hidden aria-hidden="true"');
+    expect(html).toContain("Builder Abilities");
+    expect(html).toContain("Edit the builder base ability scores used by Builder Summary. These do not overwrite the freeform ability fields below.");
+    [
+      ["Str", "Strength"],
+      ["Dex", "Dexterity"],
+      ["Con", "Constitution"],
+      ["Int", "Intelligence"],
+      ["Wis", "Wisdom"],
+      ["Cha", "Charisma"],
+    ].forEach(([suffix, label]) => {
+      expect(html).toContain(`id="charBuilderAbility${suffix}Label">${label}</span>`);
+      expect(html).toContain(`id="charBuilderAbility${suffix}" type="number" min="1" max="20" step="1" inputmode="numeric"`);
+      expect(html).toContain(`aria-labelledby="charBuilderAbility${suffix}Label"`);
+    });
+    expect(html.indexOf('id="charBuilderIdentityPanel"')).toBeLessThan(html.indexOf('id="charBuilderAbilitiesPanel"'));
+    expect(html.indexOf('id="charBuilderAbilitiesPanel"')).toBeLessThan(html.indexOf('id="charBuilderSummaryPanel"'));
+    expect(readFileSync(resolve(process.cwd(), "js/pages/character/panels/builderAbilitiesPanel.js"), "utf8"))
+      .not.toContain("materializeDerivedCharacterFields");
     expect(html).toContain('class="panelBtnSm charActionMenuBtn" id="charActionMenuBtn"');
     expect(html).toContain('class="dropdownMenu charActionDropdownMenu" id="charActionDropdownMenu"');
     expect(html).not.toContain("charActionSelect");
@@ -1551,6 +1637,298 @@ describe("character page selector", () => {
 
     firstController.destroy();
     secondController.destroy();
+  });
+
+  it("hides Builder Abilities for freeform characters without creating build data", () => {
+    const { document } = installCharacterSelectorDom();
+    installBuilderAbilitiesDom(document);
+    installFlatAbilitiesDom(document);
+    const Popovers = createFakePopovers();
+    const deps = createCharacterPageDeps(Popovers);
+    deps.state.characters.entries[0] = { id: "char_a", name: "Ada", build: null };
+
+    const controller = initCharacterPageUI(deps);
+
+    expect(document.getElementById("charBuilderAbilitiesPanel").hidden).toBe(true);
+    expect(document.getElementById("charBuilderAbilitiesPanel").getAttribute("aria-hidden")).toBe("true");
+    expect(document.getElementById("charBuilderAbilitiesGrid").hidden).toBe(true);
+    expect(document.getElementById("charBuilderAbilitiesUnavailable").hidden).toBe(true);
+    expect(document.getElementById("charBuilderAbilityStr").value).toBe("");
+    expect(deps.state.characters.entries[0].build).toBeNull();
+    ["str", "dex", "con", "int", "wis", "cha"].forEach((key) => {
+      const score = document.getElementById(`flatAbilityScore-${key}`);
+      expect(score.disabled).toBe(false);
+      expect(score.readOnly).toBe(false);
+      expect(score.getAttribute("readonly")).toBeNull();
+    });
+
+    controller.destroy();
+  });
+
+  it("shows Builder Abilities for valid builder characters", () => {
+    const { document } = installCharacterSelectorDom();
+    installBuilderAbilitiesDom(document);
+    const Popovers = createFakePopovers();
+    const deps = createCharacterPageDeps(Popovers);
+    deps.state.characters.entries[0] = makeBuilderCharacter({ id: "char_a" });
+
+    const controller = initCharacterPageUI(deps);
+
+    expect(document.getElementById("charBuilderAbilitiesPanel").hidden).toBe(false);
+    expect(document.getElementById("charBuilderAbilitiesPanel").getAttribute("aria-hidden")).toBe("false");
+    expect(document.getElementById("charBuilderAbilitiesGrid").hidden).toBe(false);
+    expect(document.getElementById("charBuilderAbilitiesUnavailable").hidden).toBe(true);
+    expect(document.getElementById("charBuilderAbilityStr").value).toBe("16");
+    expect(document.getElementById("charBuilderAbilityDex").value).toBe("14");
+    expect(document.getElementById("charBuilderAbilityCon").value).toBe("13");
+    expect(document.getElementById("charBuilderAbilityInt").value).toBe("12");
+    expect(document.getElementById("charBuilderAbilityWis").value).toBe("10");
+    expect(document.getElementById("charBuilderAbilityCha").value).toBe("8");
+
+    controller.destroy();
+  });
+
+  it("links Builder Abilities controls to their visible labels", () => {
+    const { document } = installCharacterSelectorDom();
+    installBuilderAbilitiesDom(document);
+    const Popovers = createFakePopovers();
+    const deps = createCharacterPageDeps(Popovers);
+    deps.state.characters.entries[0] = makeBuilderCharacter({ id: "char_a" });
+
+    const controller = initCharacterPageUI(deps);
+
+    [
+      ["Str", "Strength"],
+      ["Dex", "Dexterity"],
+      ["Con", "Constitution"],
+      ["Int", "Intelligence"],
+      ["Wis", "Wisdom"],
+      ["Cha", "Charisma"],
+    ].forEach(([suffix, label]) => {
+      expect(document.getElementById(`charBuilderAbility${suffix}`).getAttribute("aria-labelledby"))
+        .toBe(`charBuilderAbility${suffix}Label`);
+      expect(document.getElementById(`charBuilderAbility${suffix}Label`).textContent).toBe(label);
+    });
+
+    controller.destroy();
+  });
+
+  it("shows neutral base scores for new builder characters", async () => {
+    const { document, actionMenuButton } = installCharacterSelectorDom();
+    installBuilderAbilitiesDom(document);
+    const Popovers = createFakePopovers();
+    const deps = createCharacterPageDeps(Popovers);
+
+    const controller = initCharacterPageUI(deps);
+    actionMenuButton.dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    document.getElementById("charActionNewBuilderBtn").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    await flushPromises();
+
+    const entry = deps.state.characters.entries[2];
+    expect(entry.build.abilities.base).toEqual({ str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 });
+    expect(document.getElementById("charBuilderAbilitiesPanel").hidden).toBe(false);
+    ["Str", "Dex", "Con", "Int", "Wis", "Cha"].forEach((suffix) => {
+      expect(document.getElementById(`charBuilderAbility${suffix}`).value).toBe("10");
+    });
+
+    controller.destroy();
+  });
+
+  it("explains malformed Builder Abilities data without mutating state", () => {
+    const { document } = installCharacterSelectorDom();
+    installBuilderAbilitiesDom(document);
+    const Popovers = createFakePopovers();
+    const deps = createCharacterPageDeps(Popovers);
+    deps.state.characters.entries[0] = {
+      id: "char_a",
+      name: "Malformed Builder",
+      build: {
+        version: 1,
+        ruleset: "srd-5.2.1",
+        classId: "class_fighter",
+        level: 3,
+        abilities: { base: { str: 15 } }
+      }
+    };
+    const beforeBuild = structuredClone(deps.state.characters.entries[0].build);
+
+    const controller = initCharacterPageUI(deps);
+
+    expect(isBuilderCharacter(deps.state.characters.entries[0])).toBe(true);
+    expect(document.getElementById("charBuilderAbilitiesPanel").hidden).toBe(false);
+    expect(document.getElementById("charBuilderAbilitiesContent").getAttribute("aria-disabled")).toBe("true");
+    expect(document.getElementById("charBuilderAbilitiesGrid").hidden).toBe(true);
+    expect(document.getElementById("charBuilderAbilitiesUnavailable").hidden).toBe(false);
+    expect(document.getElementById("charBuilderAbilitiesUnavailable").textContent)
+      .toContain("Builder Mode is active");
+    expect(deps.state.characters.entries[0].build).toEqual(beforeBuild);
+    expect(deps.SaveManager.markDirty).not.toHaveBeenCalled();
+
+    controller.destroy();
+  });
+
+  it("edits only the targeted builder ability fields", () => {
+    const { document } = installCharacterSelectorDom();
+    installBuilderAbilitiesDom(document);
+    const Popovers = createFakePopovers();
+    const deps = createCharacterPageDeps(Popovers);
+    const builder = makeBuilderCharacter({ id: "char_a" });
+    deps.state.characters.entries[0] = builder;
+    const beforeFlat = structuredClone(builder.abilities);
+
+    const controller = initCharacterPageUI(deps);
+
+    [
+      ["charBuilderAbilityStr", "str", 17],
+      ["charBuilderAbilityDex", "dex", 15],
+      ["charBuilderAbilityCon", "con", 14],
+      ["charBuilderAbilityInt", "int", 13],
+      ["charBuilderAbilityWis", "wis", 11],
+      ["charBuilderAbilityCha", "cha", 9],
+    ].forEach(([id, key, value], idx) => {
+      const beforeBase = structuredClone(builder.build.abilities.base);
+      const input = document.getElementById(id);
+      input.value = String(value);
+      dispatchChange(input);
+      expect(builder.build.abilities.base[key]).toBe(value);
+      Object.keys(beforeBase).filter((baseKey) => baseKey !== key).forEach((baseKey) => {
+        expect(builder.build.abilities.base[baseKey]).toBe(beforeBase[baseKey]);
+      });
+      expect(deps.SaveManager.markDirty).toHaveBeenCalledTimes(idx + 1);
+    });
+
+    expect(builder.abilities).toEqual(beforeFlat);
+
+    controller.destroy();
+  });
+
+  it("rejects invalid Builder Abilities edits without dirtying or mutating state", () => {
+    const { document } = installCharacterSelectorDom();
+    installBuilderAbilitiesDom(document);
+    const Popovers = createFakePopovers();
+    const deps = createCharacterPageDeps(Popovers);
+    const builder = makeBuilderCharacter({ id: "char_a", abilities: { str: 12, dex: 10, con: 10, int: 10, wis: 10, cha: 10 } });
+    deps.state.characters.entries[0] = builder;
+
+    const controller = initCharacterPageUI(deps);
+    const input = document.getElementById("charBuilderAbilityStr");
+
+    ["", "nope", "12.5", "0", "21"].forEach((value) => {
+      const beforeBuild = structuredClone(builder.build);
+      input.value = value;
+      dispatchChange(input);
+      expect(builder.build).toEqual(beforeBuild);
+      expect(input.value).toBe("12");
+    });
+    expect(deps.SaveManager.markDirty).not.toHaveBeenCalled();
+
+    controller.destroy();
+  });
+
+  it("keeps flat ability fields editable and untouched when builder abilities change", () => {
+    const { document } = installCharacterSelectorDom();
+    installBuilderAbilitiesDom(document);
+    installFlatAbilitiesDom(document);
+    const Popovers = createFakePopovers();
+    const deps = createCharacterPageDeps(Popovers);
+    const builder = makeBuilderCharacter({
+      id: "char_a",
+      flatFields: {
+        abilities: {
+          str: { score: 4, mod: -3, save: -3 },
+          dex: { score: 5, mod: -3, save: -3 },
+          con: { score: 6, mod: -2, save: -2 },
+          int: { score: 7, mod: -2, save: -2 },
+          wis: { score: 8, mod: -1, save: -1 },
+          cha: { score: 9, mod: -1, save: -1 },
+        }
+      }
+    });
+    deps.state.characters.entries[0] = builder;
+    const beforeFlat = structuredClone(builder.abilities);
+
+    const controller = initCharacterPageUI(deps);
+    const input = document.getElementById("charBuilderAbilityStr");
+    input.value = "15";
+    dispatchChange(input);
+
+    expect(builder.build.abilities.base.str).toBe(15);
+    expect(builder.abilities).toEqual(beforeFlat);
+    ["str", "dex", "con", "int", "wis", "cha"].forEach((key) => {
+      const score = document.getElementById(`flatAbilityScore-${key}`);
+      expect(score.disabled).toBe(false);
+      expect(score.readOnly).toBe(false);
+      expect(score.getAttribute("readonly")).toBeNull();
+      expect(score.getAttribute("aria-readonly")).toBeNull();
+    });
+
+    controller.destroy();
+  });
+
+  it("refreshes Builder Summary after Builder Abilities edits", () => {
+    const { document } = installCharacterSelectorDom();
+    installBuilderAbilitiesDom(document);
+    installBuilderSummaryDom(document);
+    const Popovers = createFakePopovers();
+    const deps = createCharacterPageDeps(Popovers);
+    deps.state.characters.entries[0] = makeBuilderCharacter({
+      id: "char_a",
+      abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }
+    });
+
+    const controller = initCharacterPageUI(deps);
+    expect(document.getElementById("charBuilderSummaryContent").textContent).toContain("STR10 (+0)");
+
+    const input = document.getElementById("charBuilderAbilityStr");
+    input.value = "15";
+    dispatchChange(input);
+
+    expect(deps.state.characters.entries[0].build.abilities.base.str).toBe(15);
+    expect(document.getElementById("charBuilderSummaryContent").textContent).toContain("STR15 (+2)");
+    expect(deps.state.characters.entries[0].abilities.str).toEqual({ score: 3, mod: -4, save: -4 });
+
+    controller.destroy();
+  });
+
+  it("refreshes and clears Builder Abilities when the active character changes", () => {
+    const { document } = installCharacterSelectorDom();
+    installBuilderAbilitiesDom(document);
+    const Popovers = createFakePopovers();
+    const deps = createCharacterPageDeps(Popovers);
+    deps.state.characters.entries = [
+      makeBuilderCharacter({
+        id: "char_a",
+        abilities: { str: 16, dex: 14, con: 13, int: 12, wis: 10, cha: 8 }
+      }),
+      { id: "char_b", name: "Bram", build: null },
+      makeBuilderCharacter({
+        id: "char_c",
+        abilities: { str: 8, dex: 10, con: 12, int: 14, wis: 16, cha: 18 }
+      })
+    ];
+    deps.state.characters.activeId = "char_a";
+
+    const controller = initCharacterPageUI(deps);
+    expect(document.getElementById("charBuilderAbilityStr").value).toBe("16");
+
+    deps.state.characters.activeId = "char_c";
+    notifyActiveCharacterChanged({ previousId: "char_a", activeId: "char_c" });
+    expect(document.getElementById("charBuilderAbilitiesPanel").hidden).toBe(false);
+    expect(document.getElementById("charBuilderAbilityStr").value).toBe("8");
+    expect(document.getElementById("charBuilderAbilityDex").value).toBe("10");
+    expect(document.getElementById("charBuilderAbilityCon").value).toBe("12");
+    expect(document.getElementById("charBuilderAbilityInt").value).toBe("14");
+    expect(document.getElementById("charBuilderAbilityWis").value).toBe("16");
+    expect(document.getElementById("charBuilderAbilityCha").value).toBe("18");
+
+    deps.state.characters.activeId = "char_b";
+    notifyActiveCharacterChanged({ previousId: "char_c", activeId: "char_b" });
+    expect(document.getElementById("charBuilderAbilitiesPanel").hidden).toBe(true);
+    ["Str", "Dex", "Con", "Int", "Wis", "Cha"].forEach((suffix) => {
+      expect(document.getElementById(`charBuilderAbility${suffix}`).value).toBe("");
+    });
+
+    controller.destroy();
   });
 
   it("shows the display-only Builder Summary for builder characters", () => {

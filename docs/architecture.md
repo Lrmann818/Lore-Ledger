@@ -535,13 +535,14 @@ Current Character page UI:
 
 `New Character` still creates a freeform/manual character with `build: null`. `New Builder Character` creates only the minimal Step 3 builder metadata and shows an informational Builder Mode badge; the full builder wizard and existing-character activation are not shipped yet.
 
-Builder characters also show a minimal Builder Identity editor after Basics and before the display-only Builder Summary. The identity editor can update only `build.speciesId`, `build.classId`, `build.backgroundId`, and `build.level`, using builtin SRD-safe content IDs from the local registry. The summary reads the pure `deriveCharacter(...)` result for class/level, species, background, level, proficiency bonus, and ability totals/modifiers; it does not materialize those values into persisted flat fields or lock the existing freeform inputs. Ability editing, subclass choices, custom content, HP/AC/spell automation, field locking, and the full builder wizard remain future work, and no schema version change is involved.
+Builder characters also show a minimal Builder Identity editor and a manual Builder Abilities editor after Basics and before the display-only Builder Summary. The identity editor can update only `build.speciesId`, `build.classId`, `build.backgroundId`, and `build.level`, using builtin SRD-safe content IDs from the local registry. Builder Abilities can update only manual base scores in `build.abilities.base`. The summary reads the pure `deriveCharacter(...)` result for class/level, species, background, level, proficiency bonus, and ability totals/modifiers; it does not materialize those values into persisted flat fields or lock the existing freeform inputs. Subclass choices, custom content, HP/AC/spell automation, field locking, and the full builder wizard remain future work, and no schema version change is involved.
 
 Rules-engine boundary:
 
 - `js/domain/rules/deriveCharacter.js` is the current pure derivation boundary for Step 3 builder work.
 - `deriveCharacter(...)` reads character state plus builtin content and returns derived values without mutating the source character.
 - `materializeDerivedCharacterFields(...)` exists as an explicit compatibility helper, but it is not wired into migration, passive load, save, or Character page runtime flows.
+- Runtime builder panels continue to leave derived values unmaterialized; Builder Summary remains display-only and canonical sheet fields stay freeform.
 - Freeform compatibility remains central: characters with `build: null` stay manually editable, and migrated characters are never inferred into builder mode.
 
 Panel ownership:
@@ -562,6 +563,9 @@ Panel ownership:
 - `panels/builderIdentityPanel.js`
   - minimal builder identity editor for builtin species/class/background/level choices
   - owns only the four persisted `build.*` identity fields and not derived flat fields
+- `panels/builderAbilitiesPanel.js`
+  - manual builder ability editor for builder-mode characters
+  - owns only `build.abilities.base` scores and not flat/freeform ability fields
 - `panels/vitalsPanel.js`
   - HP, AC, initiative, speed, proficiency, spell attack/DC, hit-die fields
   - `state.characters.entries[].resources`

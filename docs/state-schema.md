@@ -333,6 +333,7 @@ Notes:
 - The first Step 3 rules derivation is pure. It is not wired into migration, passive load, or materialization flows.
 - Step 3 Phase 3A did not change the schema. The Builder Summary panel is display-only UI for builder characters. It reads derived class/level, species, background, level, proficiency bonus, and ability totals/modifiers without adding schema fields or persisting derived values back into `classLevel`, `race`, `background`, `proficiency`, abilities, or other flat fields.
 - Step 3 Phase 3B also did not change the schema. The Builder Identity panel edits only `build.speciesId`, `build.classId`, `build.backgroundId`, and `build.level` for builder characters, using builtin SRD-safe content IDs from the code-shipped registry. Selecting "Not selected" stores `null` for the relevant content ID. It does not persist derived values into flat fields, does not lock existing freeform fields, and does not add ability editing, subclass choices, custom content, HP/AC/spell automation, or a full builder wizard.
+- Step 3 Phase 3C also does not change the schema. The Builder Abilities panel edits only manual base scores in `build.abilities.base` for builder characters. Those values feed Builder Summary derivation and remain separate from the flat/freeform `abilities.*.score`, `abilities.*.mod`, and `abilities.*.save` fields.
 - Builtin SRD content is code-shipped under `js/domain/rules/`; custom content persistence is intentionally not part of schema v6.
 
 ### Resources

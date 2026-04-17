@@ -4499,29 +4499,34 @@ select.npcField:focus {
 }
 
 .builderIdentityPanel,
+.builderAbilitiesPanel,
 .builderSummaryPanel {
   color: var(--text);
 }
 
-.builderIdentityContent {
+.builderIdentityContent,
+.builderAbilitiesContent {
   display: grid;
   gap: 12px;
 }
 
-.builderIdentityNote {
+.builderIdentityNote,
+.builderAbilitiesNote {
   margin: 0;
   color: var(--muted);
   font-size: 13px;
   line-height: 1.4;
 }
 
-.builderIdentityGrid {
+.builderIdentityGrid,
+.builderAbilitiesGrid {
   display: grid;
   gap: 10px;
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
-.builderIdentityField {
+.builderIdentityField,
+.builderAbilitiesField {
   display: grid;
   gap: 5px;
   min-width: 0;
@@ -4531,9 +4536,14 @@ select.npcField:focus {
 }
 
 .builderIdentityField select,
-.builderIdentityField input {
+.builderIdentityField input,
+.builderAbilitiesField input {
   width: 100%;
   min-width: 0;
+}
+
+.builderAbilitiesGrid {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
 }
 
 .builderSummaryContent {
@@ -4592,7 +4602,8 @@ select.npcField:focus {
     grid-template-columns: 1fr;
   }
 
-  .builderIdentityGrid {
+  .builderIdentityGrid,
+  .builderAbilitiesGrid {
     grid-template-columns: 1fr;
   }
 

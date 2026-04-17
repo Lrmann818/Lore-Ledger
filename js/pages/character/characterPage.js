@@ -8,6 +8,7 @@ import { initSpellsPanel } from "../character/panels/spellsPanel.js";
 import { initVitalsPanel } from "../character/panels/vitalsPanel.js";
 import { initBasicsPanel } from "../character/panels/basicsPanel.js";
 import { initBuilderIdentityPanel } from "../character/panels/builderIdentityPanel.js";
+import { initBuilderAbilitiesPanel } from "../character/panels/builderAbilitiesPanel.js";
 import { initBuilderSummaryPanel } from "../character/panels/builderSummaryPanel.js";
 import { initProficienciesPanel } from "../character/panels/proficienciesPanel.js";
 import { initAbilitiesPanel } from "../character/panels/abilitiesPanel.js";
@@ -220,6 +221,8 @@ export function initCharacterPageUI(deps) {
     }));
 
     runPanelInit("Builder identity panel", () => initBuilderIdentityPanel(deps));
+
+    runPanelInit("Builder abilities panel", () => initBuilderAbilitiesPanel(deps));
 
     runPanelInit("Builder summary panel", () => initBuilderSummaryPanel(deps));
 

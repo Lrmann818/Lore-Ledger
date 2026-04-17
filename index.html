@@ -583,6 +583,53 @@
             </div>
           </section>
 
+          <section class="panel builderAbilitiesPanel" id="charBuilderAbilitiesPanel" hidden aria-hidden="true"
+            aria-labelledby="charBuilderAbilitiesTitle">
+            <div class="panelHeader">
+              <h2 class="m0" id="charBuilderAbilitiesTitle">Builder Abilities</h2>
+            </div>
+            <div id="charBuilderAbilitiesContent" class="builderAbilitiesContent">
+              <p class="builderAbilitiesNote" id="charBuilderAbilitiesNote">
+                Edit the builder base ability scores used by Builder Summary. These do not overwrite the freeform ability fields below.
+              </p>
+              <p class="builderAbilitiesNote" id="charBuilderAbilitiesUnavailable" hidden>
+                Builder Mode is active, but this character's ability data is not editable by the current abilities editor.
+              </p>
+              <div class="builderAbilitiesGrid" id="charBuilderAbilitiesGrid">
+                <label class="builderAbilitiesField" for="charBuilderAbilityStr">
+                  <span id="charBuilderAbilityStrLabel">Strength</span>
+                  <input id="charBuilderAbilityStr" type="number" min="1" max="20" step="1" inputmode="numeric"
+                    aria-labelledby="charBuilderAbilityStrLabel" />
+                </label>
+                <label class="builderAbilitiesField" for="charBuilderAbilityDex">
+                  <span id="charBuilderAbilityDexLabel">Dexterity</span>
+                  <input id="charBuilderAbilityDex" type="number" min="1" max="20" step="1" inputmode="numeric"
+                    aria-labelledby="charBuilderAbilityDexLabel" />
+                </label>
+                <label class="builderAbilitiesField" for="charBuilderAbilityCon">
+                  <span id="charBuilderAbilityConLabel">Constitution</span>
+                  <input id="charBuilderAbilityCon" type="number" min="1" max="20" step="1" inputmode="numeric"
+                    aria-labelledby="charBuilderAbilityConLabel" />
+                </label>
+                <label class="builderAbilitiesField" for="charBuilderAbilityInt">
+                  <span id="charBuilderAbilityIntLabel">Intelligence</span>
+                  <input id="charBuilderAbilityInt" type="number" min="1" max="20" step="1" inputmode="numeric"
+                    aria-labelledby="charBuilderAbilityIntLabel" />
+                </label>
+                <label class="builderAbilitiesField" for="charBuilderAbilityWis">
+                  <span id="charBuilderAbilityWisLabel">Wisdom</span>
+                  <input id="charBuilderAbilityWis" type="number" min="1" max="20" step="1" inputmode="numeric"
+                    aria-labelledby="charBuilderAbilityWisLabel" />
+                </label>
+                <label class="builderAbilitiesField" for="charBuilderAbilityCha">
+                  <span id="charBuilderAbilityChaLabel">Charisma</span>
+                  <input id="charBuilderAbilityCha" type="number" min="1" max="20" step="1" inputmode="numeric"
+                    aria-labelledby="charBuilderAbilityChaLabel" />
+                </label>
+              </div>
+            </div>
+          </section>
+
           <section class="panel builderSummaryPanel" id="charBuilderSummaryPanel" hidden aria-hidden="true"
             aria-labelledby="charBuilderSummaryTitle">
             <div class="panelHeader">
