@@ -6,7 +6,8 @@ import { safeAsync } from "../../../ui/safeAsync.js";
 import { createStateActions } from "../../../domain/stateActions.js";
 import { requireMany, getNoopDestroyApi } from "../../../utils/domGuards.js";
 import { flipSwapTwo } from "../../../ui/flipSwap.js";
-import { getActiveCharacter } from "../../../domain/characterHelpers.js";
+import { getActiveCharacter, isBuilderCharacter } from "../../../domain/characterHelpers.js";
+import { deriveCharacter } from "../../../domain/rules/deriveCharacter.js";
 import { notifyPanelDataChanged, subscribePanelDataChanged } from "../../../ui/panelInvalidation.js";
 
 function notifyStatus(setStatus, message) {
@@ -15,6 +16,10 @@ function notifyStatus(setStatus, message) {
     return;
   }
   console.warn(message);
+}
+
+function isFiniteNumber(value) {
+  return typeof value === "number" && Number.isFinite(value);
 }
 
 function setupVitalsTileReorder({ state, SaveManager, panelEl, gridEl, actions = null }) {
@@ -180,6 +185,39 @@ export function initVitalsPanel(deps = {}) {
     return getActiveCharacter(state);
   }
 
+  function getBuilderDerivedProficiency(character) {
+    if (!isBuilderCharacter(character)) return null;
+    try {
+      const derived = deriveCharacter(character);
+      return isFiniteNumber(derived?.proficiencyBonus) ? derived.proficiencyBonus : null;
+    } catch (err) {
+      console.warn("Vitals panel builder proficiency derivation failed:", err);
+      return null;
+    }
+  }
+
+  function getProficiencyDisplayValue() {
+    const character = getCurrentCharacter();
+    if (isBuilderCharacter(character)) return getBuilderDerivedProficiency(character);
+    return character?.proficiency;
+  }
+
+  function setBuilderOwnedProficiencyState(input, owned) {
+    input.readOnly = owned;
+    input.disabled = owned;
+    if (owned) {
+      input.setAttribute("readonly", "");
+      input.setAttribute("aria-readonly", "true");
+      input.dataset.builderOwned = "true";
+      input.title = "Controlled by Builder Identity.";
+      return;
+    }
+    input.removeAttribute("readonly");
+    input.removeAttribute("aria-readonly");
+    delete input.dataset.builderOwned;
+    if (input.title === "Controlled by Builder Identity.") input.title = "";
+  }
+
   const vitalNumberFields = [
     { id: "charHpCur", path: "hpCur", getValue: () => getCurrentCharacter()?.hpCur },
     { id: "charHpMax", path: "hpMax", getValue: () => getCurrentCharacter()?.hpMax },
@@ -188,24 +226,35 @@ export function initVitalsPanel(deps = {}) {
     { id: "charAC", path: "ac", getValue: () => getCurrentCharacter()?.ac },
     { id: "charInit", path: "initiative", getValue: () => getCurrentCharacter()?.initiative },
     { id: "charSpeed", path: "speed", getValue: () => getCurrentCharacter()?.speed },
-    { id: "charProf", path: "proficiency", getValue: () => getCurrentCharacter()?.proficiency },
+    { id: "charProf", path: "proficiency", getValue: getProficiencyDisplayValue },
     { id: "charSpellAtk", path: "spellAttack", getValue: () => getCurrentCharacter()?.spellAttack },
     { id: "charSpellDC", path: "spellDC", getValue: () => getCurrentCharacter()?.spellDC },
   ];
 
+  function refreshVitalNumberField(id, getValue) {
+    const el = guard.els[id];
+    if (!el) return;
+
+    const autosizeOpts = { min: 30, max: 60 };
+    const value = getValue();
+    if (id === "charProf") {
+      setBuilderOwnedProficiencyState(el, isBuilderCharacter(getCurrentCharacter()));
+    }
+    el.value = (value === null || value === undefined) ? "" : String(value);
+
+    if (typeof autoSizeInput === "function") {
+      el.classList.add("autosize");
+      autoSizeInput(el, autosizeOpts);
+    }
+  }
+
+  function refreshProficiencyField() {
+    refreshVitalNumberField("charProf", getProficiencyDisplayValue);
+  }
+
   function refreshVitalsNumbers() {
     vitalNumberFields.forEach(({ id, getValue }) => {
-      const el = guard.els[id];
-      if (!el) return;
-
-      const autosizeOpts = { min: 30, max: 60 };
-      const value = getValue();
-      el.value = (value === null || value === undefined) ? "" : String(value);
-
-      if (typeof autoSizeInput === "function") {
-        el.classList.add("autosize");
-        autoSizeInput(el, autosizeOpts);
-      }
+      refreshVitalNumberField(id, getValue);
     });
   }
 
@@ -220,6 +269,10 @@ export function initVitalsPanel(deps = {}) {
 
       addListener(el, "input", () => {
         if (destroyed) return;
+        if (id === "charProf" && isBuilderCharacter(getCurrentCharacter())) {
+          refreshProficiencyField();
+          return;
+        }
         const nextValue = numberOrNull(el.value);
         const currentValue = getValue();
         if ((currentValue ?? null) === nextValue) {
@@ -552,6 +605,7 @@ export function initVitalsPanel(deps = {}) {
 
   addDestroy(subscribePanelDataChanged("character-fields", (detail) => {
     if (destroyed || detail.source === panelInstance) return;
+    refreshProficiencyField();
     refreshStatusField();
   }));
 

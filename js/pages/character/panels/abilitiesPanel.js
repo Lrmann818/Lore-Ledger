@@ -596,6 +596,17 @@ export function initAbilitiesPanel(deps = {}) {
   }
 
   function getProfBonus() {
+    const character = getCharacter();
+    if (isBuilderCharacter(character)) {
+      try {
+        const derived = deriveCharacter(character);
+        return isFiniteNumber(derived?.proficiencyBonus) ? derived.proficiencyBonus : 0;
+      } catch (err) {
+        console.warn("Abilities panel builder proficiency derivation failed:", err);
+        return 0;
+      }
+    }
+
     // charProf is in the Vitals panel — always look it up via document (cross-panel dep).
     // If absent (e.g. embedded combat context with no Vitals panel), fall back to state.
     const profEl = document.getElementById("charProf");

@@ -535,7 +535,7 @@ Current Character page UI:
 
 `New Character` still creates a freeform/manual character with `build: null`. `New Builder Character` creates only the minimal Step 3 builder metadata and shows an informational Builder Mode badge; the full builder wizard and existing-character activation are not shipped yet.
 
-Builder characters also show a minimal Builder Identity editor and a manual Builder Abilities editor after Basics and before the display-only Builder Summary. The identity editor can update only `build.speciesId`, `build.classId`, `build.backgroundId`, and `build.level`, using builtin SRD-safe content IDs from the local registry, and remains temporary scaffolding for editing those builder identity inputs. Builder Abilities can update only manual base scores in `build.abilities.base` and remains temporary scaffolding while the normal character sheet becomes the primary builder surface. The summary reads the pure `deriveCharacter(...)` result for class/level, species, background, level, proficiency bonus, and ability totals/modifiers. The normal Basics panel reads derived builder class/species/background labels for display in `charClassLevel`, `charRace`, and `charBackground`, keeps those three identity fields non-editable for builder characters, and does not write the labels back into flat fields. The normal Abilities/Skills panel reads derived builder ability totals/modifiers for display and keeps the visible sheet score fields non-editable in builder mode. The existing Abilities & Skills adjustment controls can apply builder ability deltas through `overrides.abilities`, without materializing those values into persisted flat fields. Subclass choices, custom content, HP/AC/proficiency/save/skill/spell/combat automation, save/skill override expansion, and the full builder wizard remain future work, and no schema version change is involved.
+Builder characters also show a minimal Builder Identity editor and a manual Builder Abilities editor after Basics and before the display-only Builder Summary. The identity editor can update only `build.speciesId`, `build.classId`, `build.backgroundId`, and `build.level`, using builtin SRD-safe content IDs from the local registry, and remains temporary scaffolding for editing those builder identity inputs. Builder Abilities can update only manual base scores in `build.abilities.base` and remains temporary scaffolding while the normal character sheet becomes the primary builder surface. The summary reads the pure `deriveCharacter(...)` result for class/level, species, background, level, proficiency bonus, and ability totals/modifiers. The normal Basics panel reads derived builder class/species/background labels for display in `charClassLevel`, `charRace`, and `charBackground`, keeps those three identity fields non-editable for builder characters, and does not write the labels back into flat fields. The normal Vitals panel reads `deriveCharacter(...).proficiencyBonus` for builder-character proficiency display only, keeps that field non-editable in builder mode, and leaves freeform flat `proficiency` editing unchanged. The normal Abilities/Skills panel reads derived builder ability totals/modifiers for display and uses the same derived proficiency scalar for builder save/skill math only; it does not switch to derived save/skill outputs. The existing Abilities & Skills adjustment controls can apply builder ability deltas through `overrides.abilities`, without materializing those values into persisted flat fields. Subclass choices, custom content, HP/AC automation, save/skill automation, spell/combat automation, save/skill override expansion, derived-field materialization, and the full builder wizard remain future work, and no schema version change is involved.
 
 Rules-engine boundary:
 
@@ -567,12 +567,13 @@ Panel ownership:
   - manual builder ability editor for builder-mode characters
   - owns only `build.abilities.base` scores and not flat/freeform ability fields
 - `panels/vitalsPanel.js`
-  - HP, AC, initiative, speed, proficiency, spell attack/DC, hit-die fields
+  - HP, AC, initiative, speed, spell attack/DC, hit-die fields
+  - `proficiency` for freeform characters; display-only `deriveCharacter(...).proficiencyBonus` for builder characters
   - `state.characters.entries[].resources`
   - `state.characters.entries[].ui.vitalsOrder`
 - `panels/abilitiesPanel.js`
   - `state.characters.entries[].abilities`
-  - skills/skill notes
+  - skills/skill notes; builder characters use `deriveCharacter(...).proficiencyBonus` as the proficiency scalar in existing save/skill formulas
   - `state.characters.entries[].ui.abilityOrder`
   - `state.characters.entries[].ui.abilityCollapse`
 - `panels/proficienciesPanel.js`

@@ -642,6 +642,19 @@ function abilitySaveText(root, key) {
   return abilityBlock(root, key).querySelector('[data-stat="save"]').textContent;
 }
 
+function skillValueText(root, key) {
+  return root.querySelector(`[data-skill-value="${key}"]`)?.textContent || "";
+}
+
+function installSkillRow(root, ability, skillKey, label) {
+  const skills = abilityBlock(root, ability).querySelector(".abilitySkills");
+  const row = append(skills, "div", { className: "skillRow" });
+  append(row, "input", { type: "checkbox", dataset: { skillProf: skillKey } });
+  append(row, "span", { text: label });
+  append(row, "span", { dataset: { skillValue: skillKey }, text: "+0" });
+  return row;
+}
+
 function abilityAdjustmentInput(root, key) {
   return root.querySelector(`#miscSave_${key}`);
 }
@@ -1032,6 +1045,249 @@ describe("character panels active character resolution", () => {
     expect(builder.race).toBe("Legacy Race");
     expect(builder.background).toBe("Legacy Background");
     expect(deps.SaveManager.markDirty).not.toHaveBeenCalled();
+
+    api.destroy();
+  });
+
+  it("displays builder-derived Vitals proficiency without materializing stale flat proficiency", () => {
+    const builder = makeBuilder("char_builder", { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 });
+    builder.build.level = 5;
+    builder.proficiency = 9;
+    const state = { characters: { activeId: "char_builder", entries: [builder] }, combat: { workspace: {} } };
+    const deps = makeDeps(state);
+
+    const api = initVitalsPanel(deps);
+    const prof = document.getElementById("charProf");
+
+    expect(prof.value).toBe("3");
+    expect(prof.readOnly).toBe(true);
+    expect(prof.disabled).toBe(true);
+    expect(prof.dataset.builderOwned).toBe("true");
+    expect(prof.getAttribute("aria-readonly")).toBe("true");
+    expect(builder.proficiency).toBe(9);
+    expect(deps.SaveManager.markDirty).not.toHaveBeenCalled();
+
+    api.destroy();
+  });
+
+  it("ignores attempted builder Vitals proficiency input without mutating or marking dirty", () => {
+    const builder = makeBuilder("char_builder", { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 });
+    builder.build.level = 5;
+    builder.proficiency = 1;
+    const state = { characters: { activeId: "char_builder", entries: [builder] }, combat: { workspace: {} } };
+    const deps = makeDeps(state);
+
+    const api = initVitalsPanel(deps);
+    const prof = document.getElementById("charProf");
+
+    prof.value = "99";
+    dispatchInput(prof);
+
+    expect(prof.value).toBe("3");
+    expect(builder.proficiency).toBe(1);
+    expect(deps.SaveManager.markDirty).not.toHaveBeenCalled();
+
+    api.destroy();
+  });
+
+  it("keeps freeform Vitals proficiency editable against flat character fields", () => {
+    const freeform = makeCharacter("char_free", "Freeform", {
+      build: null,
+      proficiency: 2
+    });
+    const state = { characters: { activeId: "char_free", entries: [freeform] }, combat: { workspace: {} } };
+    const deps = makeDeps(state);
+
+    const api = initVitalsPanel(deps);
+    const prof = document.getElementById("charProf");
+
+    expect(prof.value).toBe("2");
+    expect(prof.readOnly).toBe(false);
+    expect(prof.disabled).toBe(false);
+    expect(prof.dataset.builderOwned).toBeUndefined();
+
+    prof.value = "4";
+    dispatchInput(prof);
+
+    expect(freeform.proficiency).toBe(4);
+    expect(deps.SaveManager.markDirty).toHaveBeenCalledTimes(1);
+
+    api.destroy();
+  });
+
+  it("refreshes builder-derived Vitals proficiency after Builder Identity level edits", () => {
+    installBuilderIdentityPanelDom(document);
+    const builder = makeBuilder("char_builder", { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 });
+    builder.build.level = 5;
+    builder.proficiency = 1;
+    const state = { characters: { activeId: "char_builder", entries: [builder] }, combat: { workspace: {} } };
+    const deps = makeDeps(state);
+
+    const vitalsApi = initVitalsPanel(deps);
+    const identityApi = initBuilderIdentityPanel(deps);
+
+    expect(document.getElementById("charProf").value).toBe("3");
+
+    const levelInput = document.getElementById("charBuilderLevelInput");
+    levelInput.value = "9";
+    dispatchChange(levelInput);
+
+    expect(builder.build.level).toBe(9);
+    expect(document.getElementById("charProf").value).toBe("4");
+    expect(builder.proficiency).toBe(1);
+
+    identityApi.destroy();
+    vitalsApi.destroy();
+  });
+
+  it("uses builder-derived proficiency for Abilities and Skills even when flat proficiency and DOM are stale", () => {
+    installAbilityBlocks(document);
+    installSkillRow(document, "str", "athletics", "Athletics");
+    const builder = makeBuilder("char_builder", { str: 15, dex: 10, con: 10, int: 10, wis: 10, cha: 10 });
+    builder.build.level = 9;
+    builder.proficiency = 1;
+    builder.abilities.str.saveProf = true;
+    builder.skills.athletics = { level: "prof", misc: 0, value: -99 };
+    document.getElementById("charProf").value = "1";
+    const state = { characters: { activeId: "char_builder", entries: [builder] }, combat: { workspace: {} } };
+    const deps = makeDeps(state);
+
+    const api = initAbilitiesPanel(deps);
+
+    expect(abilityModText(document, "str")).toBe("+2");
+    expect(abilitySaveText(document, "str")).toBe("+6");
+    expect(skillValueText(document, "athletics")).toBe("+6");
+    expect(builder.proficiency).toBe(1);
+    expect(builder.skills.athletics.value).toBe(-99);
+    expect(deps.SaveManager.markDirty).not.toHaveBeenCalled();
+
+    api.destroy();
+  });
+
+  it("displays builder-derived proficiency in embedded Combat Vitals", () => {
+    const host = append(document.body, "div", { id: "combatVitalsHost" });
+    renderVitalsEmbeddedContent(host);
+    const builder = makeBuilder("char_builder", { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 });
+    builder.build.level = 9;
+    builder.proficiency = 1;
+    const state = { characters: { activeId: "char_builder", entries: [builder] }, combat: { workspace: {} } };
+    const deps = makeDeps(state);
+
+    const api = initVitalsPanel({
+      ...deps,
+      root: host,
+      selectors: EMBEDDED_PANEL_HOST_SELECTORS.vitals
+    });
+    const prof = document.getElementById("combatEmbeddedCharProf");
+
+    expect(prof.value).toBe("4");
+    expect(prof.readOnly).toBe(true);
+    expect(prof.disabled).toBe(true);
+    expect(prof.dataset.builderOwned).toBe("true");
+    expect(builder.proficiency).toBe(1);
+
+    api.destroy();
+  });
+
+  it("uses builder-derived proficiency in embedded Combat Abilities when normal-page charProf is absent", () => {
+    document.getElementById("charProf").remove();
+    const host = append(document.body, "div", { id: "combatAbilitiesHost" });
+    renderAbilitiesEmbeddedContent(host);
+    const builder = makeBuilder("char_builder", { str: 15, dex: 10, con: 10, int: 10, wis: 10, cha: 10 });
+    builder.build.level = 9;
+    builder.proficiency = 1;
+    builder.abilities.str.saveProf = true;
+    builder.skills.athletics = { level: "prof", misc: 0, value: -99 };
+    const state = { characters: { activeId: "char_builder", entries: [builder] }, combat: { workspace: {} } };
+    const deps = makeDeps(state);
+
+    const api = initAbilitiesPanel({
+      ...deps,
+      root: host,
+      selectors: EMBEDDED_PANEL_HOST_SELECTORS.abilities
+    });
+
+    expect(document.getElementById("charProf")).toBeNull();
+    expect(abilitySaveText(host, "str")).toBe("+6");
+    expect(skillValueText(host, "athletics")).toBe("+6");
+    expect(builder.proficiency).toBe(1);
+    expect(builder.skills.athletics.value).toBe(-99);
+    expect(deps.SaveManager.markDirty).not.toHaveBeenCalled();
+
+    api.destroy();
+  });
+
+  it("keeps malformed builder proficiency blank and non-mutating without falling back to flat proficiency", () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const builder = makeBuilder("char_builder", { str: 15, dex: 10, con: 10, int: 10, wis: 10, cha: 10 });
+    builder.build.level = Symbol("bad-level");
+    builder.proficiency = 6;
+    builder.abilities.str.saveProf = true;
+    const beforeFlat = structuredClone(builder.abilities);
+    const state = { characters: { activeId: "char_builder", entries: [builder] }, combat: { workspace: {} } };
+    const deps = makeDeps(state);
+
+    const vitalsApi = initVitalsPanel(deps);
+    installAbilityBlocks(document);
+    const abilitiesApi = initAbilitiesPanel(deps);
+    const prof = document.getElementById("charProf");
+
+    expect(prof.value).toBe("");
+    expect(prof.readOnly).toBe(true);
+    expect(prof.disabled).toBe(true);
+    expect(prof.dataset.builderOwned).toBe("true");
+    expect(abilitySaveText(document, "str")).toBe("—");
+
+    prof.value = "10";
+    dispatchInput(prof);
+
+    expect(prof.value).toBe("");
+    expect(builder.proficiency).toBe(6);
+    expect(builder.abilities).toEqual(beforeFlat);
+    expect(deps.SaveManager.markDirty).not.toHaveBeenCalled();
+
+    abilitiesApi.destroy();
+    vitalsApi.destroy();
+    warnSpy.mockRestore();
+  });
+
+  it("restores Vitals proficiency ownership and value source when switching between builder and freeform characters", () => {
+    const builder = makeBuilder("char_builder", { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 });
+    builder.build.level = 5;
+    builder.proficiency = 1;
+    const freeform = makeCharacter("char_free", "Freeform", {
+      build: null,
+      proficiency: 4
+    });
+    const state = { characters: { activeId: "char_builder", entries: [builder, freeform] }, combat: { workspace: {} } };
+    const deps = makeDeps(state);
+
+    const api = initVitalsPanel(deps);
+    const prof = document.getElementById("charProf");
+
+    expect(prof.value).toBe("3");
+    expect(prof.disabled).toBe(true);
+    expect(prof.dataset.builderOwned).toBe("true");
+
+    state.characters.activeId = "char_free";
+    notifyPanelDataChanged("vitals", { source: {} });
+
+    expect(prof.value).toBe("4");
+    expect(prof.disabled).toBe(false);
+    expect(prof.readOnly).toBe(false);
+    expect(prof.dataset.builderOwned).toBeUndefined();
+
+    prof.value = "5";
+    dispatchInput(prof);
+    expect(freeform.proficiency).toBe(5);
+
+    state.characters.activeId = "char_builder";
+    notifyPanelDataChanged("vitals", { source: {} });
+
+    expect(prof.value).toBe("3");
+    expect(prof.disabled).toBe(true);
+    expect(prof.dataset.builderOwned).toBe("true");
+    expect(builder.proficiency).toBe(1);
 
     api.destroy();
   });

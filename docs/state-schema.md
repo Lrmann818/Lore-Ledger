@@ -337,6 +337,7 @@ Notes:
 - Step 3 Phase 3D also does not change the schema. Builder characters with valid derived abilities may display `deriveCharacter(character).abilities.*.total` and `.modifier` in the normal Abilities/Skills panel, while those values remain unpersisted and are not copied into flat/freeform ability fields.
 - Step 3 Phase 3E also does not change the schema. For builder characters with a valid `build.abilities.base` shape, ability adjustments made through the existing Abilities & Skills controls write deltas to `overrides.abilities.*`, which `deriveCharacter(...)` adds to the builder base scores. Reset adjustments are neutralized as `0` through the existing override normalization shape. The flat/freeform `abilities.*.score`, `abilities.*.mod`, and `abilities.*.save` fields remain separate and are not used as storage for builder-derived totals.
 - Step 3 Phase 3F also does not change the schema. Builder characters display `deriveCharacter(character).labels.classLevel`, `.race`, and `.background` in the normal Basics panel for `charClassLevel`, `charRace`, and `charBackground`; those three Basics fields are display-only for builder characters and still do not write derived labels back into `classLevel`, `race`, or `background`. Builder Identity remains temporary scaffolding for editing the underlying `build.*` identity inputs. HP, AC, proficiency, broader saves/skills, spells, attacks, custom content, schema migration, and materialization remain future work.
+- Step 3 Phase 3G also does not change the schema. Builder characters display `deriveCharacter(character).proficiencyBonus` in the normal Vitals proficiency field as builder-owned/read-only UI, and Abilities/Skills uses that same derived proficiency scalar for builder characters only in its existing save/skill formulas. Freeform characters still edit and persist flat `proficiency` exactly as before. Save/skill automation, HP/AC automation, spell/combat automation, schema migration, and derived-field materialization remain future work.
 - Builtin SRD content is code-shipped under `js/domain/rules/`; custom content persistence is intentionally not part of schema v6.
 
 ### Resources
@@ -388,6 +389,7 @@ Important implications:
 
 - `mod` and `save` are not authoritative in current code.
 - The Abilities panel derives modifier and save values from `score`, proficiency, and `saveOptions`.
+- For builder characters only, the Abilities panel uses `deriveCharacter(...).proficiencyBonus` as the proficiency scalar in those existing formulas; freeform characters continue using the flat/DOM-first proficiency path.
 - Older or default-derived saves may still contain `mod` and `save`.
 
 ### Skills
@@ -409,6 +411,7 @@ Notes:
 - Older saves may contain `{ prof: boolean, value: number }`.
 - The Abilities panel lazily upgrades those records to the new `level`-based shape.
 - `value` is persisted today, but it is derived and recomputed from the linked ability modifier, proficiency settings, and misc bonus.
+- For builder characters only, the proficiency part of that recomputation uses `deriveCharacter(...).proficiencyBonus`; it does not materialize derived skill totals or switch to the rules helper's `derived.skills` output.
 
 Related fields:
 

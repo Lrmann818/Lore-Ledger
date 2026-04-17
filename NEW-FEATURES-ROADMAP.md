@@ -178,6 +178,7 @@ A portfolio project that accumulates silent regressions is not a portfolio proje
 - [x] Phase 3D: Initial builder-owned sheet integration for ability score/modifier display only
 - [x] Phase 3E: Existing Abilities & Skills adjustment controls write builder ability adjustments only
 - [x] Phase 3F: Display-only builder-derived Basics identity integration
+- [x] Phase 3G: Display-only builder-derived Vitals proficiency and builder-only Abilities/Skills proficiency scalar
 - [ ] Full character creation wizard
 - [ ] Content pickers beyond the minimal identity/abilities editors and later choices
 - [ ] Level-up flow
@@ -188,7 +189,7 @@ A portfolio project that accumulates silent regressions is not a portfolio proje
 - [ ] Content registry licensing attribution
 - [ ] Short rest / long rest mechanics
 
-This remains the largest active feature in the product. The foundation is now in place, but the shipped Step 3 UI is intentionally limited to minimal builder-character creation, an informational badge, a builtin-ID-only Builder Identity editor for species/class/background/level, a manual Builder Abilities editor for base scores, a display-only summary, builder-derived identity display in the normal Basics panel, builder-derived ability score/modifier display in the normal Abilities/Skills panel, and builder-aware ability adjustments through the existing Abilities & Skills controls. Builder Identity remains temporary scaffolding for editing builder identity inputs, and Phase 3F adds no schema change or derived-field materialization. The full builder wizard, subclass choices, save/skill override expansion, custom content, and HP/AC/proficiency/save/skill/spell/combat automation are not shipped yet.
+This remains the largest active feature in the product. The foundation is now in place, but the shipped Step 3 UI is intentionally limited to minimal builder-character creation, an informational badge, a builtin-ID-only Builder Identity editor for species/class/background/level, a manual Builder Abilities editor for base scores, a display-only summary, builder-derived identity display in the normal Basics panel, builder-derived proficiency display in the normal Vitals panel, builder-derived ability score/modifier display in the normal Abilities/Skills panel, builder-only use of the derived proficiency scalar in existing Abilities/Skills formulas, and builder-aware ability adjustments through the existing Abilities & Skills controls. Builder Identity remains temporary scaffolding for editing builder identity inputs, and Phase 3G adds no schema change or derived-field materialization. The full builder wizard, subclass choices, save/skill override expansion, custom content, save/skill automation, HP/AC automation, spell/combat automation, and materialization are not shipped yet.
 
 ### Step 4 — Cross-Campaign Character Import / Export
 
