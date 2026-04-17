@@ -531,7 +531,7 @@ Use the latest pushed Refactoring branch as source of truth.
 Goal:
 Implement Step 3 Phase 3A only: a display-only Builder Summary panel for builder characters.
 
-This is a small UI slice. Do not implement a builder wizard, pickers, field locking, persisted materialization, spell automation, HP automation, AC automation, linked card behavior changes, combat changes, schema changes, or migrations.
+This is a small UI slice. Do not implement a builder wizard, pickers, field locking, persisted materialization, spell automation, HP automation, AC automation, linked card behavior changes, combat changes, schema changes, migrations, or broad refactors.
 
 Context:
 - schema v6 already exists
@@ -542,6 +542,9 @@ Context:
 - New Builder Character creates a minimal valid build object
 - Builder Mode badge is informational and accessible
 - existing verification has passed: npm run typecheck, npm run test:run, npm run build
+
+Important first step:
+Before coding, inspect the actual current shape returned by `deriveCharacter()` and the existing panel lifecycle patterns. Do not assume field names like `derived.labels`, `derived.mode`, or `derived.abilities` unless they actually exist. Build the summary from the real current derived object shape.
 
 Implementation requirements:
 
@@ -561,17 +564,20 @@ Implementation requirements:
    - Resolve the active character safely.
    - Use `isBuilderCharacter(activeCharacter)` to decide whether to show the panel.
    - Call `deriveCharacter()` only for valid builder characters.
-   - If derivation returns freeform/null/malformed output, hide the panel.
+   - If derivation cannot produce a safe display summary, hide the panel.
    - Render read-only text rows only.
    - Return a cleanup/destroy function if listeners are registered.
+   - Keep any summary adapter local to this module unless there is a clear testability reason to export it.
 
-3. Display only these derived values:
+3. Display only these derived values, but only if they are already safely available from the current derivation result:
    - class/level label
    - race/species label
    - background label
    - level
    - proficiency bonus
-   - ability totals/modifiers if already safely available from deriveCharacter
+   - ability totals/modifiers
+
+If a label is unavailable because the build has null content IDs, show a clear placeholder like “Not selected” or “—”. Do not add picker UI to fix it.
 
 4. Explicitly exclude:
    - saves
@@ -587,7 +593,7 @@ Implementation requirements:
    - Do not call materialization helpers.
    - Do not call state mutation helpers from the summary panel.
    - Do not write derived values into `classLevel`, `race`, `background`, `proficiency`, ability fields, or any other flat fields.
-   - Do not disable or lock existing inputs.
+   - Do not disable, lock, or mark existing inputs readonly.
 
 6. Update `js/pages/character/characterPage.js`.
    - Import and initialize `initBuilderSummaryPanel` with the other character panels.
@@ -600,12 +606,13 @@ Implementation requirements:
    - Avoid global style changes.
 
 8. Add/update tests in `tests/characterPage.test.js`.
-   Required tests:
+
+Required tests:
    - builder summary appears for builder characters
    - builder summary is hidden for freeform characters
    - malformed build data does not show the summary
    - summary does not overwrite existing persisted flat fields
-   - existing editable fields remain editable/not disabled
+   - existing editable fields remain editable and are not disabled/readonly
    - summary updates/hides when active character changes
 
 9. Only update docs if needed:
@@ -622,9 +629,10 @@ Output format:
 1. Executive summary
 2. Exact files changed
 3. What was added
-4. How freeform behavior was preserved
-5. How persisted fields were protected
-6. Tests added/updated
-7. Verification results
-8. Risks/notes
+4. Actual deriveCharacter shape used
+5. How freeform behavior was preserved
+6. How persisted fields were protected
+7. Tests added/updated
+8. Verification results
+9. Risks/notes
 ```
