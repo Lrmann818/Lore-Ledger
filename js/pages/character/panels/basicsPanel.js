@@ -5,7 +5,8 @@ import { safeAsync } from "../../../ui/safeAsync.js";
 import { createStateActions } from "../../../domain/stateActions.js";
 import { requireMany } from "../../../utils/domGuards.js";
 import { replaceStoredBlob } from "../../../storage/blobReplacement.js";
-import { getActiveCharacter } from "../../../domain/characterHelpers.js";
+import { getActiveCharacter, isBuilderCharacter } from "../../../domain/characterHelpers.js";
+import { deriveCharacter } from "../../../domain/rules/deriveCharacter.js";
 import { notifyPanelDataChanged, subscribePanelDataChanged } from "../../../ui/panelInvalidation.js";
 
 function formatPossessive(name) {
@@ -69,6 +70,55 @@ function setupTitleSync(state, nameInput) {
 
   nameInput.dataset.boundBasicsTitle = "1";
   nameInput.addEventListener("input", () => updateTabTitle(state));
+}
+
+function cleanString(value) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function textFieldValue(value) {
+  return value == null ? "" : String(value);
+}
+
+function builderClassLevelDisplay(label) {
+  const cleaned = cleanString(label);
+  return /^\d+$/.test(cleaned) ? "" : cleaned;
+}
+
+function getBuilderIdentityDisplay(character) {
+  try {
+    const derived = deriveCharacter(character);
+    return {
+      classLevel: builderClassLevelDisplay(derived.labels.classLevel),
+      race: cleanString(derived.labels.race),
+      background: cleanString(derived.labels.background)
+    };
+  } catch (err) {
+    console.warn("Failed to derive builder identity labels:", err);
+    return { classLevel: "", race: "", background: "" };
+  }
+}
+
+function getBasicsIdentityDisplay(character, key) {
+  if (!isBuilderCharacter(character)) return textFieldValue(character?.[key]);
+  const display = getBuilderIdentityDisplay(character);
+  return display[key] || "";
+}
+
+function setBuilderOwnedInputState(input, owned) {
+  if (!input) return;
+  input.readOnly = owned;
+  if (owned) {
+    input.setAttribute("readonly", "");
+    input.setAttribute("aria-readonly", "true");
+    input.dataset.builderOwned = "true";
+    input.title = "Controlled by Builder Identity";
+    return;
+  }
+  input.removeAttribute("readonly");
+  input.removeAttribute("aria-readonly");
+  delete input.dataset.builderOwned;
+  if (input.title === "Controlled by Builder Identity") input.title = "";
 }
 
 function setupCharacterPortrait(deps, refs = {}) {
@@ -209,15 +259,56 @@ export function initBasicsPanel(deps = {}) {
 
   const basicsPanelSource = {};
   const notifyCharFields = () => notifyPanelDataChanged("character-fields", { source: basicsPanelSource });
+  const destroyFns = [];
+
+  function renderBuilderAwareIdentityFields({ force = false } = {}) {
+    const character = getActiveCharacter(state);
+    const builderOwned = isBuilderCharacter(character);
+    const fields = [
+      { input: classInput, key: "classLevel" },
+      { input: raceInput, key: "race" },
+      { input: bgInput, key: "background" }
+    ];
+
+    for (const { input, key } of fields) {
+      setBuilderOwnedInputState(input, builderOwned);
+      if (!input) continue;
+      if (force || builderOwned || document.activeElement !== input) {
+        input.value = getBasicsIdentityDisplay(character, key);
+      }
+    }
+  }
+
+  function bindBuilderAwareIdentityInput(input, key, write, options = {}) {
+    if (!input) return;
+    input.value = getBasicsIdentityDisplay(getActiveCharacter(state), key);
+
+    const onInput = () => {
+      const character = getActiveCharacter(state);
+      if (isBuilderCharacter(character)) {
+        renderBuilderAwareIdentityFields({ force: true });
+        return;
+      }
+
+      write(input.value);
+      if (options.notify) notifyCharFields();
+      SaveManager.markDirty?.();
+    };
+
+    input.addEventListener("input", onInput);
+    destroyFns.push(() => input.removeEventListener("input", onInput));
+  }
 
   // bindText/bindNumber already queue saves via SaveManager; actions only mutate here.
   bindText("charName", () => getActiveCharacter(state)?.name, (v) => { updateCharacterField("name", v, { queueSave: false }); notifyCharFields(); });
-  bindText("charClassLevel", () => getActiveCharacter(state)?.classLevel, (v) => { updateCharacterField("classLevel", v, { queueSave: false }); notifyCharFields(); });
-  bindText("charRace", () => getActiveCharacter(state)?.race, (v) => updateCharacterField("race", v, { queueSave: false }));
-  bindText("charBackground", () => getActiveCharacter(state)?.background, (v) => updateCharacterField("background", v, { queueSave: false }));
+  bindBuilderAwareIdentityInput(classInput, "classLevel", (v) => updateCharacterField("classLevel", v, { queueSave: false }), { notify: true });
+  bindBuilderAwareIdentityInput(raceInput, "race", (v) => updateCharacterField("race", v, { queueSave: false }));
+  bindBuilderAwareIdentityInput(bgInput, "background", (v) => updateCharacterField("background", v, { queueSave: false }));
   bindText("charAlignment", () => getActiveCharacter(state)?.alignment, (v) => updateCharacterField("alignment", v, { queueSave: false }));
   bindNumber("charExperience", () => getActiveCharacter(state)?.experience, (v) => updateCharacterField("experience", v, { queueSave: false }));
   bindText("charFeatures", () => getActiveCharacter(state)?.features, (v) => updateCharacterField("features", v, { queueSave: false }));
+
+  renderBuilderAwareIdentityFields({ force: true });
 
   setupTitleSync(state, nameInput);
   setupAutosizeInputs(autoSizeInput, {
@@ -236,9 +327,16 @@ export function initBasicsPanel(deps = {}) {
     const char = getActiveCharacter(state);
     if (!char) return;
     if (nameInput && document.activeElement !== nameInput) nameInput.value = char.name || "";
-    if (classInput && document.activeElement !== classInput) classInput.value = char.classLevel || "";
+    renderBuilderAwareIdentityFields();
     updateTabTitle(state);
   });
+  destroyFns.push(unsubCharFields);
 
-  return { destroy: unsubCharFields };
+  return {
+    destroy() {
+      for (let i = destroyFns.length - 1; i >= 0; i--) {
+        destroyFns[i]?.();
+      }
+    }
+  };
 }

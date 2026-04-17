@@ -7,6 +7,7 @@ import { makeDefaultBuilderCharacterEntry, makeDefaultCharacterEntry } from "../
 import { initAbilitiesPanel } from "../js/pages/character/panels/abilitiesPanel.js";
 import { initAttacksPanel } from "../js/pages/character/panels/attackPanel.js";
 import { initBuilderAbilitiesPanel } from "../js/pages/character/panels/builderAbilitiesPanel.js";
+import { initBuilderIdentityPanel } from "../js/pages/character/panels/builderIdentityPanel.js";
 import { initBuilderSummaryPanel } from "../js/pages/character/panels/builderSummaryPanel.js";
 import { initBasicsPanel } from "../js/pages/character/panels/basicsPanel.js";
 import { initEquipmentPanel } from "../js/pages/character/panels/equipmentPanel.js";
@@ -600,6 +601,24 @@ function installBuilderAbilitiesPanelDom(document) {
   });
 }
 
+function installBuilderIdentityPanelDom(document) {
+  const panel = append(document.body, "section", { id: "charBuilderIdentityPanel" });
+  panel.hidden = true;
+  panel.setAttribute("aria-hidden", "true");
+  const content = append(panel, "div", { id: "charBuilderIdentityContent" });
+  const unavailable = append(content, "p", { id: "charBuilderIdentityUnavailable" });
+  unavailable.hidden = true;
+  const grid = append(content, "div", { id: "charBuilderIdentityGrid" });
+  [
+    ["Species", "charBuilderSpeciesSelect"],
+    ["Class", "charBuilderClassSelect"],
+    ["Background", "charBuilderBackgroundSelect"]
+  ].forEach(([, id]) => {
+    append(grid, "select", { id });
+  });
+  append(grid, "input", { id: "charBuilderLevelInput", type: "number" });
+}
+
 function installBuilderSummaryPanelDom(document) {
   const panel = append(document.body, "section", { id: "charBuilderSummaryPanel" });
   panel.hidden = true;
@@ -747,6 +766,10 @@ function dispatchInput(target, dispatchTarget = target) {
   dispatchTarget.dispatchEvent(new TargetedInputEvent("input", { bubbles: true, cancelable: true }));
 }
 
+function dispatchChange(target) {
+  target.dispatchEvent(new Event("change", { bubbles: true, cancelable: true }));
+}
+
 describe("character panels active character resolution", () => {
   let document;
 
@@ -776,6 +799,241 @@ describe("character panels active character resolution", () => {
     expect(document.getElementById("charName").value).toBe("New Hero");
     expect(document.getElementById("charHpCur").value).toBe("9");
     apis.forEach((api) => api?.destroy?.());
+  });
+
+  it("displays builder-derived Basics identity fields without materializing flat fields", () => {
+    const builder = makeBuilder("char_builder", { str: 16, dex: 14, con: 13, int: 12, wis: 10, cha: 8 });
+    builder.classLevel = "Persisted Class";
+    builder.race = "Persisted Race";
+    builder.background = "Persisted Background";
+    builder.build.classId = "class_fighter";
+    builder.build.speciesId = "species_elf";
+    builder.build.backgroundId = "background_soldier";
+    builder.build.level = 5;
+    const state = { characters: { activeId: "char_builder", entries: [builder] }, combat: { workspace: {} } };
+    const deps = makeDeps(state);
+
+    const api = initBasicsPanel(deps);
+
+    expect(document.getElementById("charClassLevel").value).toBe("Fighter 5");
+    expect(document.getElementById("charRace").value).toBe("Elf");
+    expect(document.getElementById("charBackground").value).toBe("Soldier");
+    ["charClassLevel", "charRace", "charBackground"].forEach((id) => {
+      const input = document.getElementById(id);
+      expect(input.readOnly).toBe(true);
+      expect(input.getAttribute("aria-readonly")).toBe("true");
+    });
+    expect(builder.classLevel).toBe("Persisted Class");
+    expect(builder.race).toBe("Persisted Race");
+    expect(builder.background).toBe("Persisted Background");
+    expect(deps.SaveManager.markDirty).not.toHaveBeenCalled();
+
+    api.destroy();
+  });
+
+  it("does not show a bare numeric builder class level when no class label exists", () => {
+    const builder = makeBuilder("char_builder", { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 });
+    builder.classLevel = "Persisted Class";
+    builder.build.classId = null;
+    builder.build.level = 5;
+    const state = { characters: { activeId: "char_builder", entries: [builder] }, combat: { workspace: {} } };
+    const deps = makeDeps(state);
+
+    const api = initBasicsPanel(deps);
+
+    expect(document.getElementById("charClassLevel").value).toBe("");
+    expect(builder.classLevel).toBe("Persisted Class");
+    expect(deps.SaveManager.markDirty).not.toHaveBeenCalled();
+
+    api.destroy();
+  });
+
+  it("refreshes normal Basics display after Builder Identity edits", () => {
+    installBuilderIdentityPanelDom(document);
+    const builder = makeBuilder("char_builder", { str: 16, dex: 14, con: 13, int: 12, wis: 10, cha: 8 });
+    builder.classLevel = "Persisted Class";
+    builder.race = "Persisted Race";
+    builder.background = "Persisted Background";
+    builder.build.classId = "class_fighter";
+    builder.build.speciesId = "species_elf";
+    builder.build.backgroundId = "background_soldier";
+    builder.build.level = 5;
+    const state = { characters: { activeId: "char_builder", entries: [builder] }, combat: { workspace: {} } };
+    const deps = makeDeps(state);
+
+    const basicsApi = initBasicsPanel(deps);
+    const identityApi = initBuilderIdentityPanel(deps);
+
+    expect(document.getElementById("charClassLevel").value).toBe("Fighter 5");
+
+    const classSelect = document.getElementById("charBuilderClassSelect");
+    classSelect.value = "class_wizard";
+    dispatchChange(classSelect);
+    const speciesSelect = document.getElementById("charBuilderSpeciesSelect");
+    speciesSelect.value = "species_human";
+    dispatchChange(speciesSelect);
+    const backgroundSelect = document.getElementById("charBuilderBackgroundSelect");
+    backgroundSelect.value = "background_sage";
+    dispatchChange(backgroundSelect);
+    const levelInput = document.getElementById("charBuilderLevelInput");
+    levelInput.value = "6";
+    dispatchChange(levelInput);
+
+    expect(document.getElementById("charClassLevel").value).toBe("Wizard 6");
+    expect(document.getElementById("charRace").value).toBe("Human");
+    expect(document.getElementById("charBackground").value).toBe("Sage");
+    expect(builder.classLevel).toBe("Persisted Class");
+    expect(builder.race).toBe("Persisted Race");
+    expect(builder.background).toBe("Persisted Background");
+
+    identityApi.destroy();
+    basicsApi.destroy();
+  });
+
+  it("ignores attempted edits to builder-owned Basics identity fields without marking dirty", () => {
+    const builder = makeBuilder("char_builder", { str: 16, dex: 14, con: 13, int: 12, wis: 10, cha: 8 });
+    builder.classLevel = "Persisted Class";
+    builder.race = "Persisted Race";
+    builder.background = "Persisted Background";
+    builder.build.classId = "class_fighter";
+    builder.build.speciesId = "species_elf";
+    builder.build.backgroundId = "background_soldier";
+    builder.build.level = 5;
+    const state = { characters: { activeId: "char_builder", entries: [builder] }, combat: { workspace: {} } };
+    const deps = makeDeps(state);
+
+    const api = initBasicsPanel(deps);
+
+    document.getElementById("charClassLevel").value = "Rogue 20";
+    dispatchInput(document.getElementById("charClassLevel"));
+    document.getElementById("charRace").value = "Dragon";
+    dispatchInput(document.getElementById("charRace"));
+    document.getElementById("charBackground").value = "Pirate";
+    dispatchInput(document.getElementById("charBackground"));
+
+    expect(document.getElementById("charClassLevel").value).toBe("Fighter 5");
+    expect(document.getElementById("charRace").value).toBe("Elf");
+    expect(document.getElementById("charBackground").value).toBe("Soldier");
+    expect(builder.classLevel).toBe("Persisted Class");
+    expect(builder.race).toBe("Persisted Race");
+    expect(builder.background).toBe("Persisted Background");
+    expect(deps.SaveManager.markDirty).not.toHaveBeenCalled();
+
+    api.destroy();
+  });
+
+  it("keeps freeform Basics identity fields editable against flat fields only", () => {
+    const freeform = makeCharacter("char_free", "Freeform", {
+      build: null,
+      classLevel: "Ranger 3",
+      race: "Halfling",
+      background: "Guide"
+    });
+    const state = { characters: { activeId: "char_free", entries: [freeform] }, combat: { workspace: {} } };
+    const deps = makeDeps(state);
+
+    const api = initBasicsPanel(deps);
+
+    expect(document.getElementById("charClassLevel").value).toBe("Ranger 3");
+    expect(document.getElementById("charRace").value).toBe("Halfling");
+    expect(document.getElementById("charBackground").value).toBe("Guide");
+    ["charClassLevel", "charRace", "charBackground"].forEach((id) => {
+      expect(document.getElementById(id).readOnly).toBe(false);
+    });
+
+    document.getElementById("charClassLevel").value = "Ranger 4";
+    dispatchInput(document.getElementById("charClassLevel"));
+    document.getElementById("charRace").value = "Gnome";
+    dispatchInput(document.getElementById("charRace"));
+    document.getElementById("charBackground").value = "Cartographer";
+    dispatchInput(document.getElementById("charBackground"));
+
+    expect(freeform.classLevel).toBe("Ranger 4");
+    expect(freeform.race).toBe("Gnome");
+    expect(freeform.background).toBe("Cartographer");
+    expect(freeform.build).toBeNull();
+    expect(deps.SaveManager.markDirty).toHaveBeenCalledTimes(3);
+
+    api.destroy();
+  });
+
+  it("restores Basics ownership when switching between builder and freeform characters", () => {
+    const builder = makeBuilder("char_builder", { str: 16, dex: 14, con: 13, int: 12, wis: 10, cha: 8 });
+    builder.build.classId = "class_fighter";
+    builder.build.speciesId = "species_elf";
+    builder.build.backgroundId = "background_soldier";
+    builder.build.level = 5;
+    const freeform = makeCharacter("char_free", "Freeform", {
+      build: null,
+      classLevel: "Bard 2",
+      race: "Tiefling",
+      background: "Minstrel"
+    });
+    const state = { characters: { activeId: "char_builder", entries: [builder, freeform] }, combat: { workspace: {} } };
+    const deps = makeDeps(state);
+
+    const api = initBasicsPanel(deps);
+
+    expect(document.getElementById("charClassLevel").value).toBe("Fighter 5");
+    expect(document.getElementById("charClassLevel").readOnly).toBe(true);
+
+    state.characters.activeId = "char_free";
+    notifyPanelDataChanged("character-fields", { source: {} });
+    expect(document.getElementById("charClassLevel").value).toBe("Bard 2");
+    expect(document.getElementById("charRace").value).toBe("Tiefling");
+    expect(document.getElementById("charBackground").value).toBe("Minstrel");
+    expect(document.getElementById("charClassLevel").readOnly).toBe(false);
+
+    document.getElementById("charClassLevel").value = "Bard 3";
+    dispatchInput(document.getElementById("charClassLevel"));
+    expect(freeform.classLevel).toBe("Bard 3");
+
+    state.characters.activeId = "char_builder";
+    notifyPanelDataChanged("character-fields", { source: {} });
+    expect(document.getElementById("charClassLevel").value).toBe("Fighter 5");
+    expect(document.getElementById("charRace").value).toBe("Elf");
+    expect(document.getElementById("charBackground").value).toBe("Soldier");
+    expect(document.getElementById("charClassLevel").readOnly).toBe(true);
+
+    api.destroy();
+  });
+
+  it("keeps malformed builder Basics identity display non-mutating and builder-owned", () => {
+    const builder = makeCharacter("char_builder", "Malformed", {
+      classLevel: "Legacy Class",
+      race: "Legacy Race",
+      background: "Legacy Background",
+      build: {
+        version: 1,
+        classId: "class_missing",
+        speciesId: "species_missing",
+        backgroundId: "background_missing",
+        level: 5
+      }
+    });
+    const state = { characters: { activeId: "char_builder", entries: [builder] }, combat: { workspace: {} } };
+    const deps = makeDeps(state);
+
+    const api = initBasicsPanel(deps);
+
+    expect(document.getElementById("charClassLevel").value).toBe("");
+    expect(document.getElementById("charRace").value).toBe("");
+    expect(document.getElementById("charBackground").value).toBe("");
+    expect(document.getElementById("charClassLevel").readOnly).toBe(true);
+
+    document.getElementById("charClassLevel").value = "Fixed Class";
+    dispatchInput(document.getElementById("charClassLevel"));
+    document.getElementById("charRace").value = "Fixed Race";
+    dispatchInput(document.getElementById("charRace"));
+    document.getElementById("charBackground").value = "Fixed Background";
+    dispatchInput(document.getElementById("charBackground"));
+
+    expect(builder.classLevel).toBe("Legacy Class");
+    expect(builder.race).toBe("Legacy Race");
+    expect(builder.background).toBe("Legacy Background");
+    expect(deps.SaveManager.markDirty).not.toHaveBeenCalled();
+
+    api.destroy();
   });
 
   it("keeps freeform Abilities scores editable against flat character fields only", () => {

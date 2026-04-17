@@ -436,7 +436,7 @@ function installBuilderIdentityDom(document) {
   appendWithId(document, panel, "h2", "charBuilderIdentityTitle").textContent = "Builder Identity";
   const content = appendWithId(document, panel, "div", "charBuilderIdentityContent", "builderIdentityContent");
   appendWithId(document, content, "p", "charBuilderIdentityNote", "builderIdentityNote")
-    .textContent = "These builder choices update the read-only Builder Summary only. Existing sheet fields remain editable.";
+    .textContent = "Choose species, class, background, and level here. Basics uses those builder choices for identity text.";
   const unavailable = appendWithId(document, content, "p", "charBuilderIdentityUnavailable", "builderIdentityNote");
   unavailable.hidden = true;
   unavailable.textContent = "Builder Mode is active, but this character's builder data is not editable by the current identity editor.";
@@ -700,7 +700,7 @@ describe("character page selector", () => {
     expect(html).toContain('id="charBuilderBackgroundSelect" aria-labelledby="charBuilderBackgroundLabel"');
     expect(html).toContain('id="charBuilderLevelInput" type="number" min="1" max="20"');
     expect(html).toContain('aria-labelledby="charBuilderLevelLabel"');
-    expect(html).toContain("These builder choices update the read-only Builder Summary only. Existing sheet fields remain editable.");
+    expect(html).toContain("Choose species, class, background, and level here. Basics uses those builder choices for identity text.");
     expect(html).toContain("Builder Mode is active, but this character's builder data is not editable by the current identity editor.");
     expect(html).toContain('class="panel builderAbilitiesPanel" id="charBuilderAbilitiesPanel" hidden aria-hidden="true"');
     expect(html).toContain("Builder Abilities");
@@ -1563,7 +1563,7 @@ describe("character page selector", () => {
     controller.destroy();
   });
 
-  it("leaves existing sheet fields editable while Builder Identity is visible", () => {
+  it("leaves Builder Identity controls editable while the panel is visible", () => {
     const { document } = installCharacterSelectorDom();
     installBuilderIdentityDom(document);
     const Popovers = createFakePopovers();
@@ -1572,7 +1572,7 @@ describe("character page selector", () => {
 
     const controller = initCharacterPageUI(deps);
 
-    ["charName", "charClassLevel", "charRace", "charBackground"].forEach((id) => {
+    ["charBuilderSpeciesSelect", "charBuilderClassSelect", "charBuilderBackgroundSelect", "charBuilderLevelInput"].forEach((id) => {
       const input = document.getElementById(id);
       expect(input.disabled).toBe(false);
       expect(input.readOnly).toBe(false);
@@ -2028,7 +2028,7 @@ describe("character page selector", () => {
     controller.destroy();
   });
 
-  it("leaves existing character fields editable for builder characters", () => {
+  it("keeps Builder Summary display-only for builder characters", () => {
     const { document } = installCharacterSelectorDom();
     installBuilderSummaryDom(document);
     const Popovers = createFakePopovers();
@@ -2037,13 +2037,11 @@ describe("character page selector", () => {
 
     const controller = initCharacterPageUI(deps);
 
-    ["charName", "charClassLevel", "charRace", "charBackground"].forEach((id) => {
-      const input = document.getElementById(id);
-      expect(input.disabled).toBe(false);
-      expect(input.readOnly).toBe(false);
-      expect(input.getAttribute("readonly")).toBeNull();
-      expect(input.getAttribute("aria-readonly")).toBeNull();
-    });
+    expect(document.getElementById("charBuilderSummaryContent").textContent).toContain("Fighter 5");
+    expect(deps.state.characters.entries[0].classLevel).toBe("Persisted Class");
+    expect(deps.state.characters.entries[0].race).toBe("Persisted Race");
+    expect(deps.state.characters.entries[0].background).toBe("Persisted Background");
+    expect(deps.SaveManager.markDirty).not.toHaveBeenCalled();
 
     controller.destroy();
   });
