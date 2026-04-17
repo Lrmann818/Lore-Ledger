@@ -535,6 +535,8 @@ Current Character page UI:
 
 `New Character` still creates a freeform/manual character with `build: null`. `New Builder Character` creates only the minimal Step 3 builder metadata and shows an informational Builder Mode badge; the full builder wizard and existing-character activation are not shipped yet.
 
+Builder characters also show a display-only Builder Summary panel after Basics and before Vitals. The summary reads the pure `deriveCharacter(...)` result for class/level, species, background, level, proficiency bonus, and ability totals/modifiers; it does not materialize those values into persisted flat fields or lock the existing freeform inputs.
+
 Panel ownership:
 
 - `panels/basicsPanel.js`
@@ -547,6 +549,9 @@ Panel ownership:
   - `features`
   - `imgBlobId`
   - document title sync
+- `panels/builderSummaryPanel.js`
+  - display-only derived builder summary
+  - no canonical state ownership
 - `panels/vitalsPanel.js`
   - HP, AC, initiative, speed, proficiency, spell attack/DC, hit-die fields
   - `state.characters.entries[].resources`

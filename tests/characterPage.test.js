@@ -111,6 +111,7 @@ class FakeElement extends EventTarget {
     this.style = {};
     this.hidden = false;
     this.disabled = false;
+    this.readOnly = false;
     this.selected = false;
     this.value = "";
     this.type = "";
@@ -392,6 +393,24 @@ function installCharacterSelectorDom() {
   return { document, selector, actionMenu, actionMenuButton, actionMenuDropdown };
 }
 
+function installBuilderSummaryDom(document) {
+  const root = document.getElementById("page-character");
+  const columns = appendWithId(document, root, "div", "charColumns", "charColumns");
+  const col = appendWithId(document, columns, "div", "charCol0", "charCol");
+  const basics = appendWithId(document, col, "section", "charBasicsPanel", "panel");
+  appendWithId(document, basics, "input", "charName");
+  appendWithId(document, basics, "input", "charClassLevel");
+  appendWithId(document, basics, "input", "charRace");
+  appendWithId(document, basics, "input", "charBackground");
+
+  const summary = appendWithId(document, col, "section", "charBuilderSummaryPanel", "panel builderSummaryPanel");
+  summary.hidden = true;
+  summary.setAttribute("aria-hidden", "true");
+  appendWithId(document, summary, "h2", "charBuilderSummaryTitle").textContent = "Builder Summary";
+  appendWithId(document, summary, "div", "charBuilderSummaryContent", "builderSummaryContent");
+  return summary;
+}
+
 function createFakePopovers() {
   const handles = [];
   const setOpen = (reg, open) => {
@@ -489,6 +508,43 @@ function makeImportObject(name = "Mira") {
     character: { id: "char_source", name },
     portrait: null,
     spellNotes: {}
+  };
+}
+
+function makeBuilderCharacter({
+  id = "char_builder",
+  name = "Builder",
+  classId = "class_fighter",
+  speciesId = "species_elf",
+  backgroundId = "background_soldier",
+  level = 5,
+  abilities = { str: 16, dex: 14, con: 13, int: 12, wis: 10, cha: 8 },
+  flatFields = {}
+} = {}) {
+  return {
+    id,
+    name,
+    classLevel: "Persisted Class",
+    race: "Persisted Race",
+    background: "Persisted Background",
+    proficiency: 99,
+    abilities: {
+      str: { score: 3, mod: -4, save: -4 },
+      dex: { score: 3, mod: -4, save: -4 },
+      con: { score: 3, mod: -4, save: -4 },
+      int: { score: 3, mod: -4, save: -4 },
+      wis: { score: 3, mod: -4, save: -4 },
+      cha: { score: 3, mod: -4, save: -4 },
+    },
+    ...flatFields,
+    build: {
+      ...makeDefaultCharacterBuild(),
+      classId,
+      speciesId,
+      backgroundId,
+      level,
+      abilities: { base: abilities }
+    }
   };
 }
 
@@ -975,6 +1031,161 @@ describe("character page selector", () => {
     expect(builderBadge.getAttribute("title")).toBe("Builder mode active. Full builder tools are not enabled yet.");
 
     secondController.destroy();
+  });
+
+  it("shows the display-only Builder Summary for builder characters", () => {
+    const { document } = installCharacterSelectorDom();
+    installBuilderSummaryDom(document);
+    const Popovers = createFakePopovers();
+    const deps = createCharacterPageDeps(Popovers);
+    deps.state.characters.entries[0] = makeBuilderCharacter({ id: "char_a", name: "Ada" });
+
+    const controller = initCharacterPageUI(deps);
+    const panel = document.getElementById("charBuilderSummaryPanel");
+    const content = document.getElementById("charBuilderSummaryContent");
+
+    expect(panel.hidden).toBe(false);
+    expect(panel.getAttribute("aria-hidden")).toBe("false");
+    expect(panel.getAttribute("aria-describedby")).toBe("charBuilderSummaryDescription");
+    expect(content.textContent).toContain("Derived from builder data");
+    expect(content.textContent).toContain("Class / LevelFighter 5");
+    expect(content.textContent).toContain("SpeciesElf");
+    expect(content.textContent).toContain("BackgroundSoldier");
+    expect(content.textContent).toContain("Level5");
+    expect(content.textContent).toContain("Proficiency Bonus+3");
+    expect(content.textContent).toContain("STR16 (+3)");
+    expect(content.textContent).toContain("CHA8 (-1)");
+
+    controller.destroy();
+  });
+
+  it("hides the Builder Summary for freeform characters", () => {
+    const { document } = installCharacterSelectorDom();
+    installBuilderSummaryDom(document);
+    const Popovers = createFakePopovers();
+    const deps = createCharacterPageDeps(Popovers);
+    deps.state.characters.entries[0] = { id: "char_a", name: "Ada", build: null };
+
+    const controller = initCharacterPageUI(deps);
+
+    expect(document.getElementById("charBuilderSummaryPanel").hidden).toBe(true);
+    expect(document.getElementById("charBuilderSummaryPanel").getAttribute("aria-hidden")).toBe("true");
+    expect(document.getElementById("charBuilderSummaryContent").textContent).toBe("");
+
+    controller.destroy();
+  });
+
+  it("hides the Builder Summary when builder data cannot produce safe derived abilities", () => {
+    const { document } = installCharacterSelectorDom();
+    installBuilderSummaryDom(document);
+    const Popovers = createFakePopovers();
+    const deps = createCharacterPageDeps(Popovers);
+    deps.state.characters.entries[0] = {
+      id: "char_a",
+      name: "Malformed Builder",
+      build: {
+        version: 1,
+        ruleset: "srd-5.2.1",
+        classId: "class_fighter",
+        level: 3,
+        abilities: { base: { str: 15 } }
+      }
+    };
+
+    const controller = initCharacterPageUI(deps);
+
+    expect(isBuilderCharacter(deps.state.characters.entries[0])).toBe(true);
+    expect(document.getElementById("charBuilderSummaryPanel").hidden).toBe(true);
+    expect(document.getElementById("charBuilderSummaryContent").textContent).toBe("");
+
+    controller.destroy();
+  });
+
+  it("does not write Builder Summary values into persisted flat character fields", () => {
+    const { document } = installCharacterSelectorDom();
+    installBuilderSummaryDom(document);
+    const Popovers = createFakePopovers();
+    const deps = createCharacterPageDeps(Popovers);
+    const builder = makeBuilderCharacter({
+      id: "char_a",
+      flatFields: {
+        classLevel: "Legacy Wizard 19",
+        race: "Legacy Species",
+        background: "Legacy Background",
+        proficiency: 42
+      }
+    });
+    deps.state.characters.entries[0] = builder;
+
+    const controller = initCharacterPageUI(deps);
+
+    expect(document.getElementById("charBuilderSummaryContent").textContent).toContain("Fighter 5");
+    expect(builder.classLevel).toBe("Legacy Wizard 19");
+    expect(builder.race).toBe("Legacy Species");
+    expect(builder.background).toBe("Legacy Background");
+    expect(builder.proficiency).toBe(42);
+    expect(builder.abilities.str).toEqual({ score: 3, mod: -4, save: -4 });
+    expect(deps.SaveManager.markDirty).not.toHaveBeenCalled();
+
+    controller.destroy();
+  });
+
+  it("leaves existing character fields editable for builder characters", () => {
+    const { document } = installCharacterSelectorDom();
+    installBuilderSummaryDom(document);
+    const Popovers = createFakePopovers();
+    const deps = createCharacterPageDeps(Popovers);
+    deps.state.characters.entries[0] = makeBuilderCharacter({ id: "char_a" });
+
+    const controller = initCharacterPageUI(deps);
+
+    ["charName", "charClassLevel", "charRace", "charBackground"].forEach((id) => {
+      const input = document.getElementById(id);
+      expect(input.disabled).toBe(false);
+      expect(input.readOnly).toBe(false);
+      expect(input.getAttribute("readonly")).toBeNull();
+      expect(input.getAttribute("aria-readonly")).toBeNull();
+    });
+
+    controller.destroy();
+  });
+
+  it("updates or hides the Builder Summary when the active character changes", () => {
+    const { document } = installCharacterSelectorDom();
+    installBuilderSummaryDom(document);
+    const Popovers = createFakePopovers();
+    const deps = createCharacterPageDeps(Popovers);
+    deps.state.characters.entries = [
+      makeBuilderCharacter({ id: "char_a", name: "Ada" }),
+      { id: "char_b", name: "Bram", build: null },
+      makeBuilderCharacter({
+        id: "char_c",
+        name: "Cora",
+        classId: "class_wizard",
+        speciesId: null,
+        backgroundId: null,
+        level: 1,
+        abilities: { str: 10, dex: 10, con: 10, int: 16, wis: 12, cha: 8 }
+      })
+    ];
+    deps.state.characters.activeId = "char_a";
+
+    const controller = initCharacterPageUI(deps);
+    expect(document.getElementById("charBuilderSummaryContent").textContent).toContain("Fighter 5");
+
+    deps.state.characters.activeId = "char_c";
+    notifyActiveCharacterChanged({ previousId: "char_a", activeId: "char_c" });
+    expect(document.getElementById("charBuilderSummaryPanel").hidden).toBe(false);
+    expect(document.getElementById("charBuilderSummaryContent").textContent).toContain("Wizard 1");
+    expect(document.getElementById("charBuilderSummaryContent").textContent).toContain("SpeciesNot selected");
+    expect(document.getElementById("charBuilderSummaryContent").textContent).toContain("INT16 (+3)");
+
+    deps.state.characters.activeId = "char_b";
+    notifyActiveCharacterChanged({ previousId: "char_c", activeId: "char_b" });
+    expect(document.getElementById("charBuilderSummaryPanel").hidden).toBe(true);
+    expect(document.getElementById("charBuilderSummaryContent").textContent).toBe("");
+
+    controller.destroy();
   });
 
   it("keeps the empty-state prompt dismissed across Character page re-init for the same campaign", () => {

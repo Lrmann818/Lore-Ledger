@@ -4498,8 +4498,69 @@ select.npcField:focus {
   padding-right: var(--numWrapPadRight);
 }
 
+.builderSummaryPanel {
+  color: var(--text);
+}
+
+.builderSummaryContent {
+  display: grid;
+  gap: 10px;
+}
+
+.builderSummaryNote {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.builderSummaryRows {
+  display: grid;
+  gap: 6px;
+}
+
+.builderSummaryRow,
+.builderAbilityRow {
+  display: grid;
+  grid-template-columns: minmax(120px, max-content) minmax(0, 1fr);
+  gap: 10px;
+  align-items: baseline;
+}
+
+.builderSummaryLabel,
+.builderAbilityLabel,
+.builderSummarySubhead {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.builderSummaryValue,
+.builderAbilityValue {
+  color: var(--text);
+  font-size: 14px;
+}
+
+.builderSummaryAbilities {
+  display: grid;
+  gap: 6px;
+  padding-top: 4px;
+  border-top: 1px solid var(--border);
+}
+
+.builderAbilityGrid {
+  display: grid;
+  gap: 4px 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 @media (max-width: 600px) {
   .charTwo {
+    grid-template-columns: 1fr;
+  }
+
+  .builderSummaryRow,
+  .builderAbilityRow,
+  .builderAbilityGrid {
     grid-template-columns: 1fr;
   }
 }

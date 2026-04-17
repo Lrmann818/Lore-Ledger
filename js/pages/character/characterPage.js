@@ -7,6 +7,7 @@ import { setupCharacterSectionReorder } from "../character/characterSectionReord
 import { initSpellsPanel } from "../character/panels/spellsPanel.js";
 import { initVitalsPanel } from "../character/panels/vitalsPanel.js";
 import { initBasicsPanel } from "../character/panels/basicsPanel.js";
+import { initBuilderSummaryPanel } from "../character/panels/builderSummaryPanel.js";
 import { initProficienciesPanel } from "../character/panels/proficienciesPanel.js";
 import { initAbilitiesPanel } from "../character/panels/abilitiesPanel.js";
 import { initPersonalityPanel, setupCharacterCollapsibleTextareas } from "../character/panels/personalityPanel.js";
@@ -216,6 +217,8 @@ export function initCharacterPageUI(deps) {
       autoSizeInput,
       setStatus,
     }));
+
+    runPanelInit("Builder summary panel", () => initBuilderSummaryPanel(deps));
 
     runPanelInit("Vitals panel", () => initVitalsPanel({ ...deps, bindNumber }));
 
