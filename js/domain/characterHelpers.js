@@ -4,6 +4,7 @@
 /**
  * @typedef {import("../state.js").State} State
  * @typedef {import("../state.js").CharacterEntry} CharacterEntry
+ * @typedef {import("../state.js").CharacterOverridesState} CharacterOverridesState
  */
 
 export const CHARACTER_ABILITY_KEYS = Object.freeze(["str", "dex", "con", "int", "wis", "cha"]);
@@ -29,15 +30,116 @@ export function makeDefaultCharacterOverrides() {
 }
 
 /**
+ * @param {unknown} value
+ * @returns {value is Record<string, unknown>}
+ */
+function isPlainPersistedObject(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const proto = Object.getPrototypeOf(value);
+  return proto === Object.prototype || proto === null;
+}
+
+/**
+ * @param {unknown} value
+ * @returns {number}
+ */
+function finiteNumberOrZero(value) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
+}
+
+/**
+ * @param {unknown} value
+ * @returns {Record<string, number>}
+ */
+function normalizeAbilityOverrideLookup(value) {
+  const source = isPlainPersistedObject(value) ? value : {};
+  /** @type {Record<string, number>} */
+  const out = {};
+  for (const key of CHARACTER_ABILITY_KEYS) {
+    out[key] = finiteNumberOrZero(source[key]);
+  }
+  return out;
+}
+
+/**
+ * @param {unknown} value
+ * @returns {Record<string, number>}
+ */
+function normalizeSkillOverrideLookup(value) {
+  const source = isPlainPersistedObject(value) ? value : {};
+  /** @type {Record<string, number>} */
+  const out = {};
+  for (const [key, entry] of Object.entries(source)) {
+    const trimmedKey = key.trim();
+    if (!trimmedKey) continue;
+    const n = Number(entry);
+    if (Number.isFinite(n)) out[trimmedKey] = n;
+  }
+  return out;
+}
+
+/**
+ * Normalizes the persisted Step 3 foundation override shape.
+ * Keep this helper as the single source of truth for migration and derivation.
+ *
+ * @param {unknown} value
+ * @returns {CharacterOverridesState}
+ */
+export function normalizeCharacterOverrides(value) {
+  const source = isPlainPersistedObject(value) ? value : {};
+  return {
+    ...makeDefaultCharacterOverrides(),
+    abilities: normalizeAbilityOverrideLookup(source.abilities),
+    saves: normalizeAbilityOverrideLookup(source.saves),
+    skills: normalizeSkillOverrideLookup(source.skills),
+    initiative: finiteNumberOrZero(source.initiative)
+  };
+}
+
+/**
+ * @param {unknown} value
+ * @returns {boolean}
+ */
+function isNonEmptyString(value) {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+/**
+ * @param {unknown} value
+ * @returns {boolean}
+ */
+function isFiniteNumberLike(value) {
+  if (value === "" || value == null) return false;
+  return Number.isFinite(Number(value));
+}
+
+/**
+ * @param {Record<string, unknown>} build
+ * @returns {boolean}
+ */
+function hasMeaningfulBuilderShape(build) {
+  if (isFiniteNumberLike(build.version)) return true;
+  if (isNonEmptyString(build.ruleset)) return true;
+  if (isNonEmptyString(build.speciesId)) return true;
+  if (isNonEmptyString(build.classId)) return true;
+  if (isNonEmptyString(build.subclassId)) return true;
+  if (isNonEmptyString(build.backgroundId)) return true;
+  if (isFiniteNumberLike(build.level)) return true;
+  if (isNonEmptyString(build.abilityMethod)) return true;
+  if (isPlainPersistedObject(build.abilities)) return true;
+  if (isPlainPersistedObject(build.abilityBase)) return true;
+  return isPlainPersistedObject(build.choicesByLevel);
+}
+
+/**
  * @param {unknown} character
  * @returns {boolean}
  */
 export function isBuilderCharacter(character) {
-  if (!character || typeof character !== "object" || Array.isArray(character)) return false;
+  if (!isPlainPersistedObject(character)) return false;
   const build = /** @type {{ build?: unknown }} */ (character).build;
-  if (!build || typeof build !== "object" || Array.isArray(build)) return false;
-  const proto = Object.getPrototypeOf(build);
-  return proto === Object.prototype || proto === null;
+  return isPlainPersistedObject(build) && hasMeaningfulBuilderShape(build);
 }
 
 /**

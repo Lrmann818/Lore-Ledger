@@ -1,7 +1,7 @@
 // @ts-check
 // Pure character derivation helpers for the Step 3 rules foundation.
 
-import { CHARACTER_ABILITY_KEYS, isBuilderCharacter, makeDefaultCharacterOverrides } from "../characterHelpers.js";
+import { CHARACTER_ABILITY_KEYS, isBuilderCharacter, normalizeCharacterOverrides } from "../characterHelpers.js";
 import { BUILTIN_CONTENT_REGISTRY, getContentById } from "./registry.js";
 
 /** @typedef {import("../../state.js").CharacterEntry} CharacterEntry */
@@ -89,38 +89,6 @@ function normalizeLevel(value) {
 export function proficiencyBonusForLevel(value) {
   const level = normalizeLevel(value);
   return level == null ? null : 2 + Math.floor((level - 1) / 4);
-}
-
-/**
- * @param {unknown} value
- * @returns {Record<string, number>}
- */
-function numberLookup(value) {
-  const source = isPlainObject(value) ? value : {};
-  /** @type {Record<string, number>} */
-  const out = {};
-  for (const [key, entry] of Object.entries(source)) {
-    const n = Number(entry);
-    if (Number.isFinite(n)) out[key] = n;
-  }
-  return out;
-}
-
-/**
- * @param {unknown} overrides
- * @returns {ReturnType<typeof makeDefaultCharacterOverrides>}
- */
-function normalizeOverrides(overrides) {
-  const defaults = makeDefaultCharacterOverrides();
-  const source = isPlainObject(overrides) ? overrides : {};
-  const abilities = numberLookup(source.abilities);
-  const saves = numberLookup(source.saves);
-  return {
-    abilities: Object.fromEntries(CHARACTER_ABILITY_KEYS.map((key) => [key, finiteNumberOrZero(abilities[key])])),
-    saves: Object.fromEntries(CHARACTER_ABILITY_KEYS.map((key) => [key, finiteNumberOrZero(saves[key])])),
-    skills: numberLookup(source.skills),
-    initiative: finiteNumberOrZero(source.initiative ?? defaults.initiative)
-  };
 }
 
 /**
@@ -215,7 +183,7 @@ export function deriveCharacter(character, registry = BUILTIN_CONTENT_REGISTRY) 
   const source = isPlainObject(character) ? character : {};
   const build = isBuilderCharacter(source) ? /** @type {Record<string, unknown>} */ (source.build) : null;
   const mode = build ? "builder" : "freeform";
-  const overrides = normalizeOverrides(source.overrides);
+  const overrides = normalizeCharacterOverrides(source.overrides);
   /** @type {string[]} */
   const warnings = [];
 

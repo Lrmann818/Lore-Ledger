@@ -325,7 +325,7 @@ Every character entry now carries builder metadata, but migrated characters stay
 Notes:
 
 - `build: null` means the character is freeform/manual.
-- A plain object `build` opts the character into builder-derived interpretation for pure rules helpers.
+- A `build` object with recognized Step 3 builder fields opts the character into builder-derived interpretation for pure rules helpers.
 - Migration never infers builder choices from existing freeform fields such as `classLevel`, `race`, `background`, abilities, or skills.
 - `overrides` is persisted JSON-safe data for first-slice derivations only: ability totals, save totals, skill totals, and initiative.
 - The first Step 3 rules derivation is pure. It is not wired into migration, passive load, page initialization, or visible UI/materialization flows yet.

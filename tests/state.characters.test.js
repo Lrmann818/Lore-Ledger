@@ -242,14 +242,16 @@ describe("migrateToV6 — Step 3 rules-builder foundation fields", () => {
         entries: [
           { id: "char_a", name: "Array Build", build: [] },
           { id: "char_b", name: "Number Build", build: 42 },
-          { id: "char_c", name: "Valid Build", build: { classId: "class_fighter" } }
+          { id: "char_c", name: "Plain But Malformed Build", build: { arbitrary: true } },
+          { id: "char_d", name: "Valid Build", build: { classId: "class_fighter" } }
         ]
       }
     });
 
     expect(migrated.characters.entries[0].build).toBeNull();
     expect(migrated.characters.entries[1].build).toBeNull();
-    expect(migrated.characters.entries[2].build).toEqual({ classId: "class_fighter" });
+    expect(migrated.characters.entries[2].build).toBeNull();
+    expect(migrated.characters.entries[3].build).toEqual({ classId: "class_fighter" });
   });
 
   it("normalizes malformed and partial overrides into the foundation shape", () => {

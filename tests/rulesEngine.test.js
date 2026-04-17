@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { makeDefaultCharacterOverrides } from "../js/domain/characterHelpers.js";
+import { makeDefaultCharacterOverrides, normalizeCharacterOverrides } from "../js/domain/characterHelpers.js";
 import {
   abilityModifier,
   deriveCharacter,
@@ -145,6 +145,61 @@ describe("rules derivation", () => {
     expect(derived.saves.dex).toEqual({ proficient: true, misc: 2, total: 7 });
     expect(derived.skills.stealth).toMatchObject({ ability: "dex", level: "expert", misc: 1, total: 8 });
     expect(derived.skills.investigation).toMatchObject({ ability: "int", level: "none", misc: 0, total: 1 });
+  });
+
+  it("does not activate builder mode for malformed plain build objects", () => {
+    const derived = deriveCharacter({
+      classLevel: "Rogue 2",
+      race: "Halfling",
+      background: "Urchin",
+      proficiency: 2,
+      build: { arbitrary: true },
+      abilities: {
+        dex: { score: 16, saveProf: true }
+      }
+    });
+
+    expect(derived.mode).toBe("freeform");
+    expect(derived.labels).toEqual({
+      classLevel: "Rogue 2",
+      race: "Halfling",
+      background: "Urchin"
+    });
+    expect(derived.abilities.dex).toMatchObject({ base: 16, total: 16, modifier: 3 });
+  });
+
+  it("uses the shared override normalization helper during derivation", () => {
+    const rawOverrides = {
+      abilities: { dex: "2", con: "bad" },
+      saves: { dex: "1" },
+      skills: { stealth: "3", "": 9 },
+      initiative: "4"
+    };
+    const normalized = normalizeCharacterOverrides(rawOverrides);
+
+    const derived = deriveCharacter({
+      build: {
+        version: 1,
+        classId: "class_fighter",
+        level: 1,
+        abilities: { base: { dex: 14 } }
+      },
+      overrides: rawOverrides,
+      skills: {
+        stealth: { level: "prof", misc: 0 }
+      }
+    });
+
+    expect(normalized).toEqual({
+      abilities: { str: 0, dex: 2, con: 0, int: 0, wis: 0, cha: 0 },
+      saves: { str: 0, dex: 1, con: 0, int: 0, wis: 0, cha: 0 },
+      skills: { stealth: 3 },
+      initiative: 4
+    });
+    expect(derived.abilities.dex.override).toBe(normalized.abilities.dex);
+    expect(derived.saves.dex.misc).toBe(normalized.saves.dex);
+    expect(derived.skills.stealth.override).toBe(normalized.skills.stealth);
+    expect(derived.initiative).toBe(7);
   });
 
   it("reports warnings for unknown builder content ids without throwing", () => {

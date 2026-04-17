@@ -5,7 +5,8 @@ import {
   getCharacterById,
   isBuilderCharacter,
   makeDefaultCharacterEntry,
-  makeDefaultCharacterOverrides
+  makeDefaultCharacterOverrides,
+  normalizeCharacterOverrides
 } from "../js/domain/characterHelpers.js";
 
 function makeState(overrides = {}) {
@@ -103,14 +104,40 @@ describe("makeDefaultCharacterOverrides", () => {
   });
 });
 
+describe("normalizeCharacterOverrides", () => {
+  it("normalizes malformed and partial override data through one shared helper", () => {
+    expect(normalizeCharacterOverrides({
+      abilities: { str: "2", dex: "bad", cha: -1 },
+      saves: { con: 1 },
+      skills: { athletics: "3", "": 9, " stealth ": 2, perception: Number.NaN },
+      initiative: "4"
+    })).toEqual({
+      abilities: { str: 2, dex: 0, con: 0, int: 0, wis: 0, cha: -1 },
+      saves: { str: 0, dex: 0, con: 1, int: 0, wis: 0, cha: 0 },
+      skills: { athletics: 3, stealth: 2 },
+      initiative: 4
+    });
+  });
+
+  it("falls back to the default override shape for malformed input", () => {
+    expect(normalizeCharacterOverrides("bad")).toEqual(makeDefaultCharacterOverrides());
+    expect(normalizeCharacterOverrides(null)).toEqual(makeDefaultCharacterOverrides());
+  });
+});
+
 describe("isBuilderCharacter", () => {
-  it("returns true only when build is a plain object-like builder state", () => {
+  it("returns true only when build has a meaningful Step 3 builder shape", () => {
     expect(isBuilderCharacter(null)).toBe(false);
     expect(isBuilderCharacter({})).toBe(false);
     expect(isBuilderCharacter({ build: null })).toBe(false);
     expect(isBuilderCharacter({ build: [] })).toBe(false);
     expect(isBuilderCharacter({ build: "fighter" })).toBe(false);
+    expect(isBuilderCharacter({ build: {} })).toBe(false);
+    expect(isBuilderCharacter({ build: { arbitrary: true } })).toBe(false);
+    expect(isBuilderCharacter({ build: { classId: null, speciesId: null } })).toBe(false);
     expect(isBuilderCharacter({ build: { classId: "class_fighter" } })).toBe(true);
+    expect(isBuilderCharacter({ build: { version: 1, ruleset: "srd-5.2.1" } })).toBe(true);
+    expect(isBuilderCharacter({ build: { abilities: { base: { str: 15 } } } })).toBe(true);
   });
 });
 
