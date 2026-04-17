@@ -524,6 +524,7 @@ Current Character page UI:
 - character selector
 - `...` actions menu
 - New Character
+- New Builder Character
 - Rename Character
 - Add to NPCs
 - Add to Party
@@ -531,6 +532,8 @@ Current Character page UI:
 - Import Character
 - Delete Character
 - empty-state "Create your first character" prompt
+
+`New Character` still creates a freeform/manual character with `build: null`. `New Builder Character` creates only the minimal Step 3 builder metadata and shows an informational Builder Mode badge; the full builder wizard and existing-character activation are not shipped yet.
 
 Panel ownership:
 

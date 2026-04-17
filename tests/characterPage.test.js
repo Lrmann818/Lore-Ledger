@@ -54,6 +54,10 @@ import {
   exportActiveCharacter,
   parseAndValidateImport
 } from "../js/domain/characterPortability.js";
+import {
+  isBuilderCharacter,
+  makeDefaultCharacterBuild
+} from "../js/domain/characterHelpers.js";
 
 class FakeClassList {
   constructor(owner) {
@@ -339,6 +343,9 @@ function installCharacterSelectorDom() {
   appendWithId(document, emptyState, "button", "charEmptyStateNo");
   const bar = appendWithId(document, root, "div", "charSelectorBar", "charSelectorBar");
   const selector = appendWithId(document, bar, "select", "charSelector", CHARACTER_SELECTOR_SELECT_CLASSES);
+  const builderBadge = appendWithId(document, bar, "span", "charBuilderModeBadge", "charBuilderModeBadge");
+  builderBadge.textContent = "Builder Mode";
+  builderBadge.hidden = true;
   const actionMenu = appendWithId(document, bar, "div", "charActionMenu", "dropdown charActionMenu");
   const actionMenuButton = appendWithId(document, actionMenu, "button", "charActionMenuBtn", CHARACTER_ACTION_BUTTON_CLASSES);
   actionMenuButton.type = "button";
@@ -351,6 +358,7 @@ function installCharacterSelectorDom() {
   actionMenuDropdown.setAttribute("aria-hidden", "true");
   [
     ["charActionNewBtn", "new", "New Character"],
+    ["charActionNewBuilderBtn", "new-builder", "New Builder Character"],
     ["charActionRenameBtn", "rename", "Rename Character"],
     ["charActionAddNpcBtn", "add-npc", "Add to NPCs"],
     ["charActionAddPartyBtn", "add-party", "Add to Party"],
@@ -500,6 +508,7 @@ describe("character page selector", () => {
 
     const html = readFileSync(resolve(process.cwd(), "index.html"), "utf8");
     expect(html).toContain('id="charSelector" class="charSelectorSelect panelSelect"');
+    expect(html).toContain('class="charBuilderModeBadge" id="charBuilderModeBadge"');
     expect(html).toContain('class="panelBtnSm charActionMenuBtn" id="charActionMenuBtn"');
     expect(html).toContain('class="dropdownMenu charActionDropdownMenu" id="charActionDropdownMenu"');
     expect(html).not.toContain("charActionSelect");
@@ -510,6 +519,7 @@ describe("character page selector", () => {
       .map((match) => ({ action: match[1], label: match[2] }));
     expect(actions).toEqual([
       { action: "new", label: "New Character" },
+      { action: "new-builder", label: "New Builder Character" },
       { action: "rename", label: "Rename Character" },
       { action: "add-npc", label: "Add to NPCs" },
       { action: "add-party", label: "Add to Party" },
@@ -603,6 +613,7 @@ describe("character page selector", () => {
     expect(actionMenuDropdown.getAttribute("aria-hidden")).toBe("true");
     expect(actionItems.map((button) => button.textContent)).toEqual([
       "New Character",
+      "New Builder Character",
       "Rename Character",
       "Add to NPCs",
       "Add to Party",
@@ -909,10 +920,56 @@ describe("character page selector", () => {
     const entries = deps.state.characters.entries;
     expect(entries).toHaveLength(3);
     expect(entries[2].name).toBe("New Character");
+    expect(entries[2].build).toBeNull();
+    expect(isBuilderCharacter(entries[2])).toBe(false);
     expect(deps.state.characters.activeId).toBe(entries[2].id);
+    expect(deps.SaveManager.markDirty).toHaveBeenCalledTimes(1);
+    expect(document.getElementById("charBuilderModeBadge").hidden).toBe(true);
     expect(document.getElementById("charActionDropdownMenu").hidden).toBe(true);
 
     controller.destroy();
+  });
+
+  it("runs New Builder Character from the action overflow menu", async () => {
+    const { actionMenuButton } = installCharacterSelectorDom();
+    const Popovers = createFakePopovers();
+    const deps = createCharacterPageDeps(Popovers);
+
+    const controller = initCharacterPageUI(deps);
+    actionMenuButton.dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    document.getElementById("charActionNewBuilderBtn").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    await flushPromises();
+
+    const entries = deps.state.characters.entries;
+    expect(entries).toHaveLength(3);
+    expect(entries[2]).toMatchObject({
+      name: "New Builder Character",
+      build: makeDefaultCharacterBuild()
+    });
+    expect(isBuilderCharacter(entries[2])).toBe(true);
+    expect(deps.state.characters.activeId).toBe(entries[2].id);
+    expect(deps.SaveManager.markDirty).toHaveBeenCalledTimes(1);
+    expect(document.getElementById("charBuilderModeBadge").hidden).toBe(false);
+    expect(document.getElementById("charActionDropdownMenu").hidden).toBe(true);
+
+    controller.destroy();
+  });
+
+  it("shows the Builder Mode badge only for active builder characters", () => {
+    installCharacterSelectorDom();
+    const Popovers = createFakePopovers();
+    const deps = createCharacterPageDeps(Popovers);
+
+    const firstController = initCharacterPageUI(deps);
+    expect(document.getElementById("charBuilderModeBadge").hidden).toBe(true);
+
+    firstController.destroy();
+    deps.state.characters.entries[1].build = makeDefaultCharacterBuild();
+    deps.state.characters.activeId = "char_b";
+    const secondController = initCharacterPageUI(deps);
+    expect(document.getElementById("charBuilderModeBadge").hidden).toBe(false);
+
+    secondController.destroy();
   });
 
   it("keeps the empty-state prompt dismissed across Character page re-init for the same campaign", () => {

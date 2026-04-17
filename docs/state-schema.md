@@ -308,6 +308,7 @@ Every character entry now carries builder metadata, but migrated characters stay
     subclassId?: string | null,
     backgroundId?: string | null,
     level?: number,
+    abilityMethod?: string,
     abilities?: {
       base?: Record<"str" | "dex" | "con" | "int" | "wis" | "cha", number>
     },
@@ -325,6 +326,7 @@ Every character entry now carries builder metadata, but migrated characters stay
 Notes:
 
 - `build: null` means the character is freeform/manual.
+- Phase 2 adds a minimal `New Builder Character` creation path that seeds this build object with level 1, null content IDs, neutral base abilities, and empty choices. The full builder wizard is not shipped yet.
 - A `build` object with recognized Step 3 builder fields opts the character into builder-derived interpretation for pure rules helpers.
 - Migration never infers builder choices from existing freeform fields such as `classLevel`, `race`, `background`, abilities, or skills.
 - `overrides` is persisted JSON-safe data for first-slice derivations only: ability totals, save totals, skill totals, and initiative.

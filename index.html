@@ -485,12 +485,15 @@
       </div>
       <div class="charSelectorBar" id="charSelectorBar">
         <select id="charSelector" class="charSelectorSelect panelSelect" aria-label="Select character"></select>
+        <span class="charBuilderModeBadge" id="charBuilderModeBadge" hidden>Builder Mode</span>
         <div class="dropdown charActionMenu" id="charActionMenu">
           <button type="button" class="panelBtnSm charActionMenuBtn" id="charActionMenuBtn"
             aria-label="Character actions" aria-haspopup="true" aria-expanded="false" title="Character actions">...</button>
           <div class="dropdownMenu charActionDropdownMenu" id="charActionDropdownMenu" hidden aria-hidden="true">
             <button type="button" class="swatchOption charActionMenuItem" id="charActionNewBtn"
               data-char-action="new">New Character</button>
+            <button type="button" class="swatchOption charActionMenuItem" id="charActionNewBuilderBtn"
+              data-char-action="new-builder">New Builder Character</button>
             <button type="button" class="swatchOption charActionMenuItem" id="charActionRenameBtn"
               data-char-action="rename">Rename Character</button>
             <button type="button" class="swatchOption charActionMenuItem" id="charActionAddNpcBtn"

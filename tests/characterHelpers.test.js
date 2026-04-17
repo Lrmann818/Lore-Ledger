@@ -4,6 +4,8 @@ import {
   getActiveCharacter,
   getCharacterById,
   isBuilderCharacter,
+  makeDefaultBuilderCharacterEntry,
+  makeDefaultCharacterBuild,
   makeDefaultCharacterEntry,
   makeDefaultCharacterOverrides,
   normalizeCharacterOverrides
@@ -75,6 +77,56 @@ describe("makeDefaultCharacterEntry", () => {
       build: null,
       overrides: makeDefaultCharacterOverrides()
     });
+  });
+});
+
+describe("makeDefaultCharacterBuild", () => {
+  it("returns the minimal Step 3 builder metadata shape", () => {
+    expect(makeDefaultCharacterBuild()).toEqual({
+      version: 1,
+      ruleset: "srd-5.2.1",
+      speciesId: null,
+      classId: null,
+      subclassId: null,
+      backgroundId: null,
+      level: 1,
+      abilityMethod: "manual",
+      abilities: {
+        base: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }
+      },
+      choicesByLevel: {}
+    });
+  });
+
+  it("returns fresh nested objects", () => {
+    const first = makeDefaultCharacterBuild();
+    const second = makeDefaultCharacterBuild();
+
+    first.abilities.base.str = 12;
+    first.choicesByLevel["1"] = { test: true };
+
+    expect(first).not.toBe(second);
+    expect(first.abilities).not.toBe(second.abilities);
+    expect(first.abilities.base).not.toBe(second.abilities.base);
+    expect(first.choicesByLevel).not.toBe(second.choicesByLevel);
+    expect(second.abilities.base.str).toBe(10);
+    expect(second.choicesByLevel).toEqual({});
+  });
+});
+
+describe("makeDefaultBuilderCharacterEntry", () => {
+  it("uses the default character entry shape with builder metadata enabled", () => {
+    const entry = makeDefaultBuilderCharacterEntry("Builder Mira");
+
+    expect(entry).toMatchObject({
+      name: "Builder Mira",
+      classLevel: "",
+      race: "",
+      background: "",
+      overrides: makeDefaultCharacterOverrides(),
+      build: makeDefaultCharacterBuild()
+    });
+    expect(isBuilderCharacter(entry)).toBe(true);
   });
 });
 

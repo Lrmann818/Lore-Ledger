@@ -1998,6 +1998,26 @@ button.charSelectorSelectBtn [data-select-label] {
   white-space: nowrap;
 }
 
+.charBuilderModeBadge {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--panel-control-h);
+  padding: 0 8px;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface-2));
+  color: var(--text);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+
+.charBuilderModeBadge[hidden] {
+  display: none;
+}
+
 .charActionMenu {
   flex: 0 0 auto;
   position: relative;

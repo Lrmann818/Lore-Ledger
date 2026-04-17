@@ -13,7 +13,12 @@ import { initPersonalityPanel, setupCharacterCollapsibleTextareas } from "../cha
 import { numberOrNull } from "../../utils/number.js";
 import { requireMany, getNoopDestroyApi } from "../../utils/domGuards.js";
 import { DEV_MODE } from "../../utils/dev.js";
-import { getActiveCharacter, makeDefaultCharacterEntry } from "../../domain/characterHelpers.js";
+import {
+  getActiveCharacter,
+  isBuilderCharacter,
+  makeDefaultBuilderCharacterEntry,
+  makeDefaultCharacterEntry
+} from "../../domain/characterHelpers.js";
 import { notifyActiveCharacterChanged } from "../../domain/characterEvents.js";
 import { createStateActions } from "../../domain/stateActions.js";
 import { makeNpc, makePartyMember } from "../../domain/factories.js";
@@ -233,6 +238,7 @@ export function initCharacterPageUI(deps) {
    */
   function initCharacterSelectorBar() {
     const selectorEl = /** @type {HTMLSelectElement | null} */ (document.getElementById("charSelector"));
+    const builderBadgeEl = /** @type {HTMLElement | null} */ (document.getElementById("charBuilderModeBadge"));
     const actionMenuButtonEl = /** @type {HTMLButtonElement | null} */ (document.getElementById("charActionMenuBtn"));
     const actionMenuEl = /** @type {HTMLElement | null} */ (document.getElementById("charActionDropdownMenu"));
     if (!selectorEl || !actionMenuButtonEl || !actionMenuEl) return;
@@ -297,6 +303,9 @@ export function initCharacterPageUI(deps) {
     ));
     const exportButtons = actionButtons.filter((button) => button.dataset.charAction === "export");
     const activeCharacterForActions = getActiveCharacter(state);
+    if (builderBadgeEl) {
+      builderBadgeEl.hidden = !isBuilderCharacter(activeCharacterForActions);
+    }
     [...addToTrackerButtons, ...exportButtons].forEach((button) => {
       button.disabled = !activeCharacterForActions;
       button.setAttribute("aria-disabled", (!activeCharacterForActions).toString());
@@ -386,6 +395,15 @@ export function initCharacterPageUI(deps) {
 
     async function runNewCharacterAction() {
       const entry = makeDefaultCharacterEntry();
+      mutateCharactersAndNotify((s) => {
+        s.characters.entries.push(entry);
+        s.characters.activeId = entry.id;
+      });
+      rerender();
+    }
+
+    async function runNewBuilderCharacterAction() {
+      const entry = makeDefaultBuilderCharacterEntry();
       mutateCharactersAndNotify((s) => {
         s.characters.entries.push(entry);
         s.characters.activeId = entry.id;
@@ -610,6 +628,8 @@ export function initCharacterPageUI(deps) {
     const runCharacterAction = async (action) => {
       if (action === "new") {
         await runNewCharacterAction();
+      } else if (action === "new-builder") {
+        await runNewBuilderCharacterAction();
       } else if (action === "rename") {
         await runRenameCharacterAction();
       } else if (action === "add-npc") {

@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { makeDefaultCharacterOverrides } from "../js/domain/characterHelpers.js";
+import {
+  makeDefaultBuilderCharacterEntry,
+  makeDefaultCharacterBuild,
+  makeDefaultCharacterOverrides
+} from "../js/domain/characterHelpers.js";
 import { migrateState, sanitizeForSave, CURRENT_SCHEMA_VERSION } from "../js/state.js";
 
 const EMPTY_CHARACTERS = { activeId: null, entries: [] };
@@ -319,6 +323,21 @@ describe("round-trip stability", () => {
     expect(activeEntry(again).status).toBe("");
     expect(again.tracker.npcs[0].characterId).toBeNull();
     expect(again.tracker.party[0].characterId).toBeNull();
+  });
+
+  it("round-tripping a minimal builder character preserves build and overrides", () => {
+    const builder = makeDefaultBuilderCharacterEntry("Builder Mira");
+    const migrated = migrateState({
+      characters: { activeId: builder.id, entries: [builder] }
+    });
+    const sanitized = sanitizeForSave(migrated);
+    const again = migrateState(sanitized);
+
+    expect(again.characters.entries).toHaveLength(1);
+    expect(again.characters.activeId).toBe(builder.id);
+    expect(activeEntry(again).name).toBe("Builder Mira");
+    expect(activeEntry(again).build).toEqual(makeDefaultCharacterBuild());
+    expect(activeEntry(again).overrides).toEqual(makeDefaultCharacterOverrides());
   });
 
   it("round-tripping an empty-character state stays empty", () => {

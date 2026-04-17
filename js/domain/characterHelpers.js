@@ -8,6 +8,8 @@
  */
 
 export const CHARACTER_ABILITY_KEYS = Object.freeze(["str", "dex", "con", "int", "wis", "cha"]);
+export const DEFAULT_CHARACTER_BUILD_VERSION = 1;
+export const DEFAULT_CHARACTER_RULESET = "srd-5.2.1";
 
 /**
  * Creates the Step 3 foundation override shape.
@@ -26,6 +28,30 @@ export function makeDefaultCharacterOverrides() {
     saves: zeroByAbility(),
     skills: {},
     initiative: 0
+  };
+}
+
+/**
+ * Creates the minimal Step 3 builder metadata shape.
+ * This opts a character into builder mode without choosing species, class,
+ * subclass, background, spells, feats, or any derived automation.
+ * @returns {import("../state.js").CharacterBuildState}
+ */
+export function makeDefaultCharacterBuild() {
+  const neutralAbilities = Object.fromEntries(CHARACTER_ABILITY_KEYS.map((key) => [key, 10]));
+  return {
+    version: DEFAULT_CHARACTER_BUILD_VERSION,
+    ruleset: DEFAULT_CHARACTER_RULESET,
+    speciesId: null,
+    classId: null,
+    subclassId: null,
+    backgroundId: null,
+    level: 1,
+    abilityMethod: "manual",
+    abilities: {
+      base: neutralAbilities
+    },
+    choicesByLevel: {}
   };
 }
 
@@ -239,5 +265,17 @@ export function makeDefaultCharacterEntry(name = "New Character") {
       flaws: "",
       notes: ""
     }
+  };
+}
+
+/**
+ * Creates a default CharacterEntry with minimal builder metadata enabled.
+ * @param {string} [name] display name (defaults to "New Builder Character")
+ * @returns {CharacterEntry}
+ */
+export function makeDefaultBuilderCharacterEntry(name = "New Builder Character") {
+  return {
+    ...makeDefaultCharacterEntry(name),
+    build: makeDefaultCharacterBuild()
   };
 }

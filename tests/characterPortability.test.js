@@ -20,7 +20,10 @@ import {
   prepareImportedCharacter,
   validateImportFile
 } from "../js/domain/characterPortability.js";
-import { makeDefaultCharacterOverrides } from "../js/domain/characterHelpers.js";
+import {
+  makeDefaultCharacterBuild,
+  makeDefaultCharacterOverrides
+} from "../js/domain/characterHelpers.js";
 import { migrateState, sanitizeForSave } from "../js/state.js";
 import { saveAllLocal } from "../js/storage/persistence.js";
 import { blobToDataUrl } from "../js/storage/blobs.js";
@@ -317,14 +320,7 @@ describe("prepareImportedCharacter", () => {
   });
 
   it("preserves Step 3 builder state and overrides while regenerating the character id", () => {
-    const build = {
-      version: 1,
-      ruleset: "srd-5.2.1",
-      speciesId: "species_human",
-      classId: "class_fighter",
-      backgroundId: "background_soldier",
-      level: 3
-    };
+    const build = makeDefaultCharacterBuild();
     const overrides = {
       ...makeDefaultCharacterOverrides(),
       abilities: { str: 1, dex: 0, con: 0, int: 0, wis: 0, cha: 0 },
@@ -669,13 +665,13 @@ describe("character portability round trip", () => {
 
   it("round-trips Step 3 build and overrides without changing the export format version", async () => {
     const build = {
-      version: 1,
-      ruleset: "srd-5.2.1",
+      ...makeDefaultCharacterBuild(),
       speciesId: "species_human",
       classId: "class_fighter",
       backgroundId: "background_soldier",
       level: 4,
-      abilities: { base: { str: 15, dex: 14, con: 13, int: 10, wis: 8, cha: 12 } }
+      abilities: { base: { str: 15, dex: 14, con: 13, int: 10, wis: 8, cha: 12 } },
+      choicesByLevel: { 1: { fightingStyle: "defense" } }
     };
     const overrides = {
       ...makeDefaultCharacterOverrides(),
