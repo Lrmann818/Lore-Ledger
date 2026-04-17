@@ -4498,8 +4498,42 @@ select.npcField:focus {
   padding-right: var(--numWrapPadRight);
 }
 
+.builderIdentityPanel,
 .builderSummaryPanel {
   color: var(--text);
+}
+
+.builderIdentityContent {
+  display: grid;
+  gap: 12px;
+}
+
+.builderIdentityNote {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.builderIdentityGrid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.builderIdentityField {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.builderIdentityField select,
+.builderIdentityField input {
+  width: 100%;
+  min-width: 0;
 }
 
 .builderSummaryContent {
@@ -4555,6 +4589,10 @@ select.npcField:focus {
 
 @media (max-width: 600px) {
   .charTwo {
+    grid-template-columns: 1fr;
+  }
+
+  .builderIdentityGrid {
     grid-template-columns: 1fr;
   }
 

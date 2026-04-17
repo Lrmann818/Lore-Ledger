@@ -209,7 +209,7 @@ If a `characterId` points to a character that no longer exists (data corruption,
 
 ## Step 3 — Rules engine and character builder
 
-**Status:** In progress. The original design below still describes the larger target. Current shipped scope is schema v6 builder metadata, pure first-slice derivation, minimal builder-character creation, an informational Builder Mode badge, and a display-only Builder Summary panel. No builder wizard, content pickers, field locking, derived-field materialization, level-up flow, or rules automation has shipped yet.
+**Status:** In progress. The original design below still describes the larger target. Current shipped scope is schema v6 builder metadata, pure first-slice derivation, minimal builder-character creation, an informational Builder Mode badge, a minimal Builder Identity editor for builtin species/class/background/level IDs, and a display-only Builder Summary panel. No full builder wizard, ability editing, subclass choices, field locking, derived-field materialization, level-up flow, custom content, or HP/AC/spell/combat automation has shipped yet.
 
 ### Goal
 
@@ -276,7 +276,7 @@ If `build` is null, the character operates in freeform mode — exactly like tod
 
 If `build` is present, the rules engine computes derived fields. The flat fields are written by the engine and should not be directly edited by the user (the UI disables direct input on computed fields and provides the override modal instead, like the Fifth Edition Character Sheet app).
 
-Current implementation note: builder characters do not yet lock fields or materialize derived values. Phase 3A only renders a display-only Builder Summary after Basics and before Vitals, reading `deriveCharacter(...)` without persisting those derived labels, proficiency bonuses, or ability totals back into the flat character fields.
+Current implementation note: builder characters do not yet lock fields or materialize derived values. Phase 3B adds a small Builder Identity panel before the Builder Summary that can edit only `build.speciesId`, `build.classId`, `build.backgroundId`, and `build.level` using the shipped builtin SRD-safe content IDs. The Builder Summary remains display-only and reads `deriveCharacter(...)` without persisting derived labels, proficiency bonuses, or ability totals back into flat fields such as `classLevel`, `race`, `background`, `proficiency`, abilities, HP, or AC. Existing freeform sheet fields remain editable. The full builder wizard, ability editing, subclass choices, field locking, HP/AC/spell automation, and custom content remain future work.
 
 ### Content model
 

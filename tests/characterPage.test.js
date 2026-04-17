@@ -58,6 +58,10 @@ import {
   isBuilderCharacter,
   makeDefaultCharacterBuild
 } from "../js/domain/characterHelpers.js";
+import {
+  BUILTIN_CONTENT_REGISTRY,
+  listContentByKind
+} from "../js/domain/rules/registry.js";
 
 class FakeClassList {
   constructor(owner) {
@@ -395,13 +399,15 @@ function installCharacterSelectorDom() {
 
 function installBuilderSummaryDom(document) {
   const root = document.getElementById("page-character");
-  const columns = appendWithId(document, root, "div", "charColumns", "charColumns");
-  const col = appendWithId(document, columns, "div", "charCol0", "charCol");
-  const basics = appendWithId(document, col, "section", "charBasicsPanel", "panel");
-  appendWithId(document, basics, "input", "charName");
-  appendWithId(document, basics, "input", "charClassLevel");
-  appendWithId(document, basics, "input", "charRace");
-  appendWithId(document, basics, "input", "charBackground");
+  let columns = document.getElementById("charColumns");
+  if (!columns) columns = appendWithId(document, root, "div", "charColumns", "charColumns");
+  let col = document.getElementById("charCol0");
+  if (!col) col = appendWithId(document, columns, "div", "charCol0", "charCol");
+  const basics = document.getElementById("charBasicsPanel") || appendWithId(document, col, "section", "charBasicsPanel", "panel");
+  if (!document.getElementById("charName")) appendWithId(document, basics, "input", "charName");
+  if (!document.getElementById("charClassLevel")) appendWithId(document, basics, "input", "charClassLevel");
+  if (!document.getElementById("charRace")) appendWithId(document, basics, "input", "charRace");
+  if (!document.getElementById("charBackground")) appendWithId(document, basics, "input", "charBackground");
 
   const summary = appendWithId(document, col, "section", "charBuilderSummaryPanel", "panel builderSummaryPanel");
   summary.hidden = true;
@@ -409,6 +415,42 @@ function installBuilderSummaryDom(document) {
   appendWithId(document, summary, "h2", "charBuilderSummaryTitle").textContent = "Builder Summary";
   appendWithId(document, summary, "div", "charBuilderSummaryContent", "builderSummaryContent");
   return summary;
+}
+
+function installBuilderIdentityDom(document) {
+  const root = document.getElementById("page-character");
+  let columns = document.getElementById("charColumns");
+  if (!columns) columns = appendWithId(document, root, "div", "charColumns", "charColumns");
+  let col = document.getElementById("charCol0");
+  if (!col) col = appendWithId(document, columns, "div", "charCol0", "charCol");
+  const basics = document.getElementById("charBasicsPanel") || appendWithId(document, col, "section", "charBasicsPanel", "panel");
+  if (!document.getElementById("charName")) appendWithId(document, basics, "input", "charName");
+  if (!document.getElementById("charClassLevel")) appendWithId(document, basics, "input", "charClassLevel");
+  if (!document.getElementById("charRace")) appendWithId(document, basics, "input", "charRace");
+  if (!document.getElementById("charBackground")) appendWithId(document, basics, "input", "charBackground");
+
+  const panel = appendWithId(document, col, "section", "charBuilderIdentityPanel", "panel builderIdentityPanel");
+  panel.hidden = true;
+  panel.setAttribute("aria-hidden", "true");
+  appendWithId(document, panel, "h2", "charBuilderIdentityTitle").textContent = "Builder Identity";
+  const content = appendWithId(document, panel, "div", "charBuilderIdentityContent", "builderIdentityContent");
+  appendWithId(document, content, "select", "charBuilderSpeciesSelect");
+  appendWithId(document, content, "select", "charBuilderClassSelect");
+  appendWithId(document, content, "select", "charBuilderBackgroundSelect");
+  const level = appendWithId(document, content, "input", "charBuilderLevelInput");
+  level.type = "number";
+  return panel;
+}
+
+function getSelectOptions(select) {
+  return select.children.map((option) => ({
+    value: option.value,
+    label: option.textContent
+  }));
+}
+
+function dispatchChange(el) {
+  el.dispatchEvent(new Event("change", { bubbles: true, cancelable: true }));
 }
 
 function createFakePopovers() {
@@ -567,6 +609,12 @@ describe("character page selector", () => {
     const html = readFileSync(resolve(process.cwd(), "index.html"), "utf8");
     expect(html).toContain('id="charSelector" class="charSelectorSelect panelSelect"');
     expect(html).toContain('class="charBuilderModeBadge" id="charBuilderModeBadge"');
+    expect(html).toContain('class="panel builderIdentityPanel" id="charBuilderIdentityPanel" hidden aria-hidden="true"');
+    expect(html).toContain('id="charBuilderSpeciesSelect"');
+    expect(html).toContain('id="charBuilderClassSelect"');
+    expect(html).toContain('id="charBuilderBackgroundSelect"');
+    expect(html).toContain('id="charBuilderLevelInput" type="number" min="1" max="20"');
+    expect(html).toContain("These builder choices update the read-only Builder Summary only. Existing sheet fields remain editable.");
     expect(html).toContain('class="panelBtnSm charActionMenuBtn" id="charActionMenuBtn"');
     expect(html).toContain('class="dropdownMenu charActionDropdownMenu" id="charActionDropdownMenu"');
     expect(html).not.toContain("charActionSelect");
@@ -1030,6 +1078,375 @@ describe("character page selector", () => {
     expect(builderBadge.getAttribute("aria-label")).toBe("Builder mode active. Full builder tools are not enabled yet.");
     expect(builderBadge.getAttribute("title")).toBe("Builder mode active. Full builder tools are not enabled yet.");
 
+    secondController.destroy();
+  });
+
+  it("shows the Builder Identity panel for builder characters", () => {
+    const { document } = installCharacterSelectorDom();
+    installBuilderIdentityDom(document);
+    const Popovers = createFakePopovers();
+    const deps = createCharacterPageDeps(Popovers);
+    deps.state.characters.entries[0] = makeBuilderCharacter({ id: "char_a" });
+
+    const controller = initCharacterPageUI(deps);
+    const panel = document.getElementById("charBuilderIdentityPanel");
+
+    expect(panel.hidden).toBe(false);
+    expect(panel.getAttribute("aria-hidden")).toBe("false");
+    expect(document.getElementById("charBuilderSpeciesSelect").value).toBe("species_elf");
+    expect(document.getElementById("charBuilderClassSelect").value).toBe("class_fighter");
+    expect(document.getElementById("charBuilderBackgroundSelect").value).toBe("background_soldier");
+    expect(document.getElementById("charBuilderLevelInput").value).toBe("5");
+
+    controller.destroy();
+  });
+
+  it("hides the Builder Identity panel for freeform characters", () => {
+    const { document } = installCharacterSelectorDom();
+    installBuilderIdentityDom(document);
+    const Popovers = createFakePopovers();
+    const deps = createCharacterPageDeps(Popovers);
+    deps.state.characters.entries[0] = { id: "char_a", name: "Ada", build: null };
+
+    const controller = initCharacterPageUI(deps);
+
+    expect(document.getElementById("charBuilderIdentityPanel").hidden).toBe(true);
+    expect(document.getElementById("charBuilderIdentityPanel").getAttribute("aria-hidden")).toBe("true");
+    expect(document.getElementById("charBuilderSpeciesSelect").value).toBe("");
+    expect(document.getElementById("charBuilderLevelInput").value).toBe("");
+
+    controller.destroy();
+  });
+
+  it("hides the Builder Identity panel for malformed builder data", () => {
+    const { document } = installCharacterSelectorDom();
+    installBuilderIdentityDom(document);
+    const Popovers = createFakePopovers();
+    const deps = createCharacterPageDeps(Popovers);
+    deps.state.characters.entries[0] = {
+      id: "char_a",
+      name: "Malformed Builder",
+      build: {
+        version: 1,
+        ruleset: "srd-5.2.1",
+        classId: "class_fighter",
+        level: 3,
+        abilities: { base: { str: 15 } }
+      }
+    };
+
+    const controller = initCharacterPageUI(deps);
+
+    expect(isBuilderCharacter(deps.state.characters.entries[0])).toBe(true);
+    expect(document.getElementById("charBuilderIdentityPanel").hidden).toBe(true);
+    expect(document.getElementById("charBuilderClassSelect").value).toBe("");
+
+    controller.destroy();
+  });
+
+  it("populates Builder Identity options from builtin registry IDs and labels", () => {
+    const { document } = installCharacterSelectorDom();
+    installBuilderIdentityDom(document);
+    const Popovers = createFakePopovers();
+    const deps = createCharacterPageDeps(Popovers);
+    deps.state.characters.entries[0] = makeBuilderCharacter({ id: "char_a" });
+
+    const controller = initCharacterPageUI(deps);
+
+    expect(getSelectOptions(document.getElementById("charBuilderSpeciesSelect"))).toEqual([
+      { value: "", label: "Not selected" },
+      ...listContentByKind(BUILTIN_CONTENT_REGISTRY, "species").map((entry) => ({
+        value: entry.id,
+        label: entry.name
+      }))
+    ]);
+    expect(getSelectOptions(document.getElementById("charBuilderClassSelect"))).toEqual([
+      { value: "", label: "Not selected" },
+      ...listContentByKind(BUILTIN_CONTENT_REGISTRY, "class").map((entry) => ({
+        value: entry.id,
+        label: entry.name
+      }))
+    ]);
+    expect(getSelectOptions(document.getElementById("charBuilderBackgroundSelect"))).toEqual([
+      { value: "", label: "Not selected" },
+      ...listContentByKind(BUILTIN_CONTENT_REGISTRY, "background").map((entry) => ({
+        value: entry.id,
+        label: entry.name
+      }))
+    ]);
+
+    controller.destroy();
+  });
+
+  it("shows Not selected choices and level 1 for new builder characters", async () => {
+    const { document, actionMenuButton } = installCharacterSelectorDom();
+    installBuilderIdentityDom(document);
+    const Popovers = createFakePopovers();
+    const deps = createCharacterPageDeps(Popovers);
+
+    const controller = initCharacterPageUI(deps);
+    actionMenuButton.dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    document.getElementById("charActionNewBuilderBtn").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    await flushPromises();
+
+    const entry = deps.state.characters.entries[2];
+    expect(entry.build).toMatchObject({
+      speciesId: null,
+      classId: null,
+      backgroundId: null,
+      level: 1
+    });
+    expect(document.getElementById("charBuilderIdentityPanel").hidden).toBe(false);
+    expect(document.getElementById("charBuilderSpeciesSelect").value).toBe("");
+    expect(document.getElementById("charBuilderClassSelect").value).toBe("");
+    expect(document.getElementById("charBuilderBackgroundSelect").value).toBe("");
+    expect(document.getElementById("charBuilderLevelInput").value).toBe("1");
+
+    controller.destroy();
+  });
+
+  it("reflects existing Builder Identity build values in the controls", () => {
+    const { document } = installCharacterSelectorDom();
+    installBuilderIdentityDom(document);
+    const Popovers = createFakePopovers();
+    const deps = createCharacterPageDeps(Popovers);
+    deps.state.characters.entries[0] = makeBuilderCharacter({
+      id: "char_a",
+      speciesId: "species_dwarf",
+      classId: "class_wizard",
+      backgroundId: "background_sage",
+      level: 7
+    });
+
+    const controller = initCharacterPageUI(deps);
+
+    expect(document.getElementById("charBuilderSpeciesSelect").value).toBe("species_dwarf");
+    expect(document.getElementById("charBuilderClassSelect").value).toBe("class_wizard");
+    expect(document.getElementById("charBuilderBackgroundSelect").value).toBe("background_sage");
+    expect(document.getElementById("charBuilderLevelInput").value).toBe("7");
+
+    controller.destroy();
+  });
+
+  it("edits only the targeted builder identity fields", () => {
+    const { document } = installCharacterSelectorDom();
+    installBuilderIdentityDom(document);
+    const Popovers = createFakePopovers();
+    const deps = createCharacterPageDeps(Popovers);
+    const builder = makeBuilderCharacter({
+      id: "char_a",
+      flatFields: {
+        hpCur: 11,
+        hpMax: 31,
+        ac: 15,
+        proficiency: 99
+      }
+    });
+    deps.state.characters.entries[0] = builder;
+    const beforeFlat = {
+      classLevel: builder.classLevel,
+      race: builder.race,
+      background: builder.background,
+      proficiency: builder.proficiency,
+      hpCur: builder.hpCur,
+      hpMax: builder.hpMax,
+      ac: builder.ac,
+      abilities: structuredClone(builder.abilities)
+    };
+
+    const controller = initCharacterPageUI(deps);
+
+    const speciesSelect = document.getElementById("charBuilderSpeciesSelect");
+    speciesSelect.value = "species_human";
+    dispatchChange(speciesSelect);
+    expect(builder.build.speciesId).toBe("species_human");
+    expect(builder.build.classId).toBe("class_fighter");
+    expect(builder.build.backgroundId).toBe("background_soldier");
+    expect(builder.build.level).toBe(5);
+
+    const classSelect = document.getElementById("charBuilderClassSelect");
+    classSelect.value = "class_wizard";
+    dispatchChange(classSelect);
+    expect(builder.build.classId).toBe("class_wizard");
+    expect(builder.build.speciesId).toBe("species_human");
+    expect(builder.build.backgroundId).toBe("background_soldier");
+    expect(builder.build.level).toBe(5);
+
+    const backgroundSelect = document.getElementById("charBuilderBackgroundSelect");
+    backgroundSelect.value = "background_sage";
+    dispatchChange(backgroundSelect);
+    expect(builder.build.backgroundId).toBe("background_sage");
+    expect(builder.build.speciesId).toBe("species_human");
+    expect(builder.build.classId).toBe("class_wizard");
+    expect(builder.build.level).toBe(5);
+
+    const levelInput = document.getElementById("charBuilderLevelInput");
+    levelInput.value = "6";
+    dispatchChange(levelInput);
+    expect(builder.build.level).toBe(6);
+    expect(builder.build.speciesId).toBe("species_human");
+    expect(builder.build.classId).toBe("class_wizard");
+    expect(builder.build.backgroundId).toBe("background_sage");
+
+    expect(builder.classLevel).toBe(beforeFlat.classLevel);
+    expect(builder.race).toBe(beforeFlat.race);
+    expect(builder.background).toBe(beforeFlat.background);
+    expect(builder.proficiency).toBe(beforeFlat.proficiency);
+    expect(builder.hpCur).toBe(beforeFlat.hpCur);
+    expect(builder.hpMax).toBe(beforeFlat.hpMax);
+    expect(builder.ac).toBe(beforeFlat.ac);
+    expect(builder.abilities).toEqual(beforeFlat.abilities);
+    expect(deps.SaveManager.markDirty).toHaveBeenCalledTimes(4);
+
+    controller.destroy();
+  });
+
+  it("stores null when Builder Identity selections are set to Not selected", () => {
+    const { document } = installCharacterSelectorDom();
+    installBuilderIdentityDom(document);
+    const Popovers = createFakePopovers();
+    const deps = createCharacterPageDeps(Popovers);
+    const builder = makeBuilderCharacter({ id: "char_a" });
+    deps.state.characters.entries[0] = builder;
+
+    const controller = initCharacterPageUI(deps);
+
+    ["charBuilderSpeciesSelect", "charBuilderClassSelect", "charBuilderBackgroundSelect"].forEach((id) => {
+      const select = document.getElementById(id);
+      select.value = "";
+      dispatchChange(select);
+    });
+
+    expect(builder.build.speciesId).toBeNull();
+    expect(builder.build.classId).toBeNull();
+    expect(builder.build.backgroundId).toBeNull();
+
+    controller.destroy();
+  });
+
+  it("keeps Builder Identity level within 1 through 20", () => {
+    const { document } = installCharacterSelectorDom();
+    installBuilderIdentityDom(document);
+    const Popovers = createFakePopovers();
+    const deps = createCharacterPageDeps(Popovers);
+    const builder = makeBuilderCharacter({ id: "char_a", level: 5 });
+    deps.state.characters.entries[0] = builder;
+
+    const controller = initCharacterPageUI(deps);
+    const levelInput = document.getElementById("charBuilderLevelInput");
+
+    levelInput.value = "99";
+    dispatchChange(levelInput);
+    expect(builder.build.level).toBe(20);
+    expect(levelInput.value).toBe("20");
+
+    levelInput.value = "0";
+    dispatchChange(levelInput);
+    expect(builder.build.level).toBe(1);
+    expect(levelInput.value).toBe("1");
+
+    levelInput.value = "nope";
+    dispatchChange(levelInput);
+    expect(builder.build.level).toBe(1);
+    expect(levelInput.value).toBe("1");
+
+    controller.destroy();
+  });
+
+  it("refreshes Builder Summary after Builder Identity edits", () => {
+    const { document } = installCharacterSelectorDom();
+    installBuilderIdentityDom(document);
+    installBuilderSummaryDom(document);
+    const Popovers = createFakePopovers();
+    const deps = createCharacterPageDeps(Popovers);
+    deps.state.characters.entries[0] = makeBuilderCharacter({ id: "char_a" });
+
+    const controller = initCharacterPageUI(deps);
+    expect(document.getElementById("charBuilderSummaryContent").textContent).toContain("Fighter 5");
+
+    const classSelect = document.getElementById("charBuilderClassSelect");
+    classSelect.value = "class_wizard";
+    dispatchChange(classSelect);
+
+    expect(document.getElementById("charBuilderSummaryContent").textContent).toContain("Wizard 5");
+    expect(deps.state.characters.entries[0].classLevel).toBe("Persisted Class");
+
+    controller.destroy();
+  });
+
+  it("leaves existing sheet fields editable while Builder Identity is visible", () => {
+    const { document } = installCharacterSelectorDom();
+    installBuilderIdentityDom(document);
+    const Popovers = createFakePopovers();
+    const deps = createCharacterPageDeps(Popovers);
+    deps.state.characters.entries[0] = makeBuilderCharacter({ id: "char_a" });
+
+    const controller = initCharacterPageUI(deps);
+
+    ["charName", "charClassLevel", "charRace", "charBackground"].forEach((id) => {
+      const input = document.getElementById(id);
+      expect(input.disabled).toBe(false);
+      expect(input.readOnly).toBe(false);
+      expect(input.getAttribute("readonly")).toBeNull();
+      expect(input.getAttribute("aria-readonly")).toBeNull();
+    });
+
+    controller.destroy();
+  });
+
+  it("refreshes and hides Builder Identity when the active character changes", () => {
+    const { document } = installCharacterSelectorDom();
+    installBuilderIdentityDom(document);
+    const Popovers = createFakePopovers();
+    const deps = createCharacterPageDeps(Popovers);
+    deps.state.characters.entries = [
+      makeBuilderCharacter({ id: "char_a", speciesId: "species_elf", classId: "class_fighter", backgroundId: "background_soldier", level: 5 }),
+      { id: "char_b", name: "Bram", build: null },
+      makeBuilderCharacter({ id: "char_c", speciesId: "species_human", classId: "class_wizard", backgroundId: "background_acolyte", level: 1 })
+    ];
+    deps.state.characters.activeId = "char_a";
+
+    const controller = initCharacterPageUI(deps);
+    expect(document.getElementById("charBuilderSpeciesSelect").value).toBe("species_elf");
+
+    deps.state.characters.activeId = "char_c";
+    notifyActiveCharacterChanged({ previousId: "char_a", activeId: "char_c" });
+    expect(document.getElementById("charBuilderIdentityPanel").hidden).toBe(false);
+    expect(document.getElementById("charBuilderSpeciesSelect").value).toBe("species_human");
+    expect(document.getElementById("charBuilderClassSelect").value).toBe("class_wizard");
+    expect(document.getElementById("charBuilderBackgroundSelect").value).toBe("background_acolyte");
+    expect(document.getElementById("charBuilderLevelInput").value).toBe("1");
+
+    deps.state.characters.activeId = "char_b";
+    notifyActiveCharacterChanged({ previousId: "char_c", activeId: "char_b" });
+    expect(document.getElementById("charBuilderIdentityPanel").hidden).toBe(true);
+    expect(document.getElementById("charBuilderSpeciesSelect").value).toBe("");
+    expect(document.getElementById("charBuilderClassSelect").value).toBe("");
+    expect(document.getElementById("charBuilderBackgroundSelect").value).toBe("");
+    expect(document.getElementById("charBuilderLevelInput").value).toBe("");
+
+    controller.destroy();
+  });
+
+  it("does not duplicate Builder Identity listeners across page re-initialization", () => {
+    const { document } = installCharacterSelectorDom();
+    installBuilderIdentityDom(document);
+    const Popovers = createFakePopovers();
+    const deps = createCharacterPageDeps(Popovers);
+    deps.state.characters.entries[0] = makeBuilderCharacter({ id: "char_a" });
+
+    const firstController = initCharacterPageUI(deps);
+    const secondController = initCharacterPageUI(deps);
+    deps.SaveManager.markDirty.mockClear();
+
+    const speciesSelect = document.getElementById("charBuilderSpeciesSelect");
+    speciesSelect.value = "species_human";
+    dispatchChange(speciesSelect);
+
+    expect(deps.state.characters.entries[0].build.speciesId).toBe("species_human");
+    expect(deps.SaveManager.markDirty).toHaveBeenCalledTimes(1);
+
+    firstController.destroy();
     secondController.destroy();
   });
 

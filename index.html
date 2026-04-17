@@ -549,6 +549,36 @@
             </div>
           </section>
 
+          <section class="panel builderIdentityPanel" id="charBuilderIdentityPanel" hidden aria-hidden="true"
+            aria-labelledby="charBuilderIdentityTitle">
+            <div class="panelHeader">
+              <h2 class="m0" id="charBuilderIdentityTitle">Builder Identity</h2>
+            </div>
+            <div id="charBuilderIdentityContent" class="builderIdentityContent">
+              <p class="builderIdentityNote">
+                These builder choices update the read-only Builder Summary only. Existing sheet fields remain editable.
+              </p>
+              <div class="builderIdentityGrid">
+                <label class="builderIdentityField" for="charBuilderSpeciesSelect">
+                  <span>Species</span>
+                  <select id="charBuilderSpeciesSelect"></select>
+                </label>
+                <label class="builderIdentityField" for="charBuilderClassSelect">
+                  <span>Class</span>
+                  <select id="charBuilderClassSelect"></select>
+                </label>
+                <label class="builderIdentityField" for="charBuilderBackgroundSelect">
+                  <span>Background</span>
+                  <select id="charBuilderBackgroundSelect"></select>
+                </label>
+                <label class="builderIdentityField" for="charBuilderLevelInput">
+                  <span>Level</span>
+                  <input id="charBuilderLevelInput" type="number" min="1" max="20" step="1" inputmode="numeric" />
+                </label>
+              </div>
+            </div>
+          </section>
+
           <section class="panel builderSummaryPanel" id="charBuilderSummaryPanel" hidden aria-hidden="true"
             aria-labelledby="charBuilderSummaryTitle">
             <div class="panelHeader">

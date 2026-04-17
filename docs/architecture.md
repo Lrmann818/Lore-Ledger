@@ -535,7 +535,7 @@ Current Character page UI:
 
 `New Character` still creates a freeform/manual character with `build: null`. `New Builder Character` creates only the minimal Step 3 builder metadata and shows an informational Builder Mode badge; the full builder wizard and existing-character activation are not shipped yet.
 
-Builder characters also show a display-only Builder Summary panel after Basics and before Vitals. The summary reads the pure `deriveCharacter(...)` result for class/level, species, background, level, proficiency bonus, and ability totals/modifiers; it does not materialize those values into persisted flat fields or lock the existing freeform inputs.
+Builder characters also show a minimal Builder Identity editor after Basics and before the display-only Builder Summary. The identity editor can update only `build.speciesId`, `build.classId`, `build.backgroundId`, and `build.level`, using builtin SRD-safe content IDs from the local registry. The summary reads the pure `deriveCharacter(...)` result for class/level, species, background, level, proficiency bonus, and ability totals/modifiers; it does not materialize those values into persisted flat fields or lock the existing freeform inputs. Ability editing, subclass choices, custom content, HP/AC/spell automation, field locking, and the full builder wizard remain future work, and no schema version change is involved.
 
 Rules-engine boundary:
 
@@ -559,6 +559,9 @@ Panel ownership:
 - `panels/builderSummaryPanel.js`
   - display-only derived builder summary
   - no canonical state ownership
+- `panels/builderIdentityPanel.js`
+  - minimal builder identity editor for builtin species/class/background/level choices
+  - owns only the four persisted `build.*` identity fields and not derived flat fields
 - `panels/vitalsPanel.js`
   - HP, AC, initiative, speed, proficiency, spell attack/DC, hit-die fields
   - `state.characters.entries[].resources`

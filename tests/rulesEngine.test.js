@@ -240,6 +240,48 @@ describe("rules derivation", () => {
     expect(character).toEqual(before);
   });
 
+  it("reflects builder identity changes in derived values without mutating the character", () => {
+    const character = {
+      build: {
+        version: 1,
+        ruleset: "srd-5.2.1",
+        speciesId: "species_human",
+        classId: "class_fighter",
+        backgroundId: "background_soldier",
+        level: 1,
+        abilities: { base: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 } },
+        choicesByLevel: {}
+      },
+      overrides: makeDefaultCharacterOverrides()
+    };
+
+    character.build.level = 9;
+    character.build.speciesId = "species_elf";
+    character.build.classId = "class_wizard";
+    character.build.backgroundId = "background_sage";
+    const beforeDerive = structuredClone(character);
+
+    const derived = deriveCharacter(character);
+
+    expect(derived.level).toBe(9);
+    expect(derived.proficiencyBonus).toBe(4);
+    expect(derived.labels).toEqual({
+      classLevel: "Wizard 9",
+      race: "Elf",
+      background: "Sage"
+    });
+    expect(character).toEqual(beforeDerive);
+    expect(beforeDerive).toMatchObject({
+      build: {
+        level: 9,
+        speciesId: "species_elf",
+        classId: "class_wizard",
+        backgroundId: "background_sage"
+      }
+    });
+    expect(derived).not.toBe(character);
+  });
+
   it("materializes derived compatibility fields into a clone only when explicitly called", () => {
     const character = {
       id: "char_builder",
