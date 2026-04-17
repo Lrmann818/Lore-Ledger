@@ -141,7 +141,7 @@ Drawing tools are expressive but imprecise for structured campaign content. Stam
 
 ### Objectives
 
-- [!] Vitest unit and regression suite (27 test files, 334 tests — all passing)
+- [!] Vitest unit and regression suite (30 test files, 417 tests — all passing)
 - [!] Playwright smoke tests for UI / navigation / PWA behavior
 - [!] Architecture documentation in `docs/`
 - [!] `MULTI-CHARACTER_DESIGN.md` kept current with schema and panel decisions
@@ -166,16 +166,24 @@ A portfolio project that accumulates silent regressions is not a portfolio proje
 
 ### Step 3 — Rules Engine and Character Builder
 
-**Status:** [ ] Planned
+**Status:** [~] In progress
 
-- [ ] SRD data registry (races, classes, spells, items, feats)
-- [ ] Content registry with licensing attribution
-- [ ] Computed field engine (ability modifiers, proficiency bonuses, derived stats)
-- [ ] Character creation wizard
+- [x] Schema v6 builder foundation (`build` and `overrides` on character entries)
+- [x] Pure derivation foundation for first-slice builder values
+- [x] Minimal `New Builder Character` creation path
+- [x] Accessible informational Builder Mode badge
+- [x] Display-only Builder Summary panel for builder characters
+- [ ] Full character creation wizard
+- [ ] Content pickers for species/race, class, background, abilities, and later choices
 - [ ] Level-up flow
+- [ ] Field locking and override UI for computed fields
+- [ ] HP, AC, saves, skills, spells, combat, and linked-card automation
+- [ ] Custom content persistence and export/import story
+- [ ] SRD data registry expansion beyond the first builtin foundation
+- [ ] Content registry licensing attribution
 - [ ] Short rest / long rest mechanics
 
-This is the largest remaining feature in the product. It touches nearly every character-facing surface and requires careful schema design before any code is written.
+This remains the largest active feature in the product. The foundation is now in place, but the shipped Step 3 UI is intentionally limited to minimal builder-character creation, an informational badge, and a display-only summary. The full builder wizard and automation are not shipped yet.
 
 ### Step 4 — Cross-Campaign Character Import / Export
 
@@ -192,7 +200,7 @@ Players can now share characters between campaigns or back up a single character
 
 ## Near-Term Recommended Order
 
-1. [ ] Step 3 — Rules engine and character builder
+1. [~] Step 3 — Rules engine and character builder
 2. [ ] Phase 4 — Map stamp tool
 3. [!] Ongoing quality hardening (continuous, not gated on the above)
 

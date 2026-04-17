@@ -537,6 +537,13 @@ Current Character page UI:
 
 Builder characters also show a display-only Builder Summary panel after Basics and before Vitals. The summary reads the pure `deriveCharacter(...)` result for class/level, species, background, level, proficiency bonus, and ability totals/modifiers; it does not materialize those values into persisted flat fields or lock the existing freeform inputs.
 
+Rules-engine boundary:
+
+- `js/domain/rules/deriveCharacter.js` is the current pure derivation boundary for Step 3 builder work.
+- `deriveCharacter(...)` reads character state plus builtin content and returns derived values without mutating the source character.
+- `materializeDerivedCharacterFields(...)` exists as an explicit compatibility helper, but it is not wired into migration, passive load, save, or Character page runtime flows.
+- Freeform compatibility remains central: characters with `build: null` stay manually editable, and migrated characters are never inferred into builder mode.
+
 Panel ownership:
 
 - `panels/basicsPanel.js`

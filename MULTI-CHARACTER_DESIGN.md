@@ -61,9 +61,10 @@ A character-specific toolbar is added between the main app toolbar/nav row and t
 
 Contents (compact single row for mobile):
 
-- Left side: character selector
-- Right side: `...` actions menu containing:
+  - Left side: character selector
+  - Right side: `...` actions menu containing:
   - New Character
+  - New Builder Character
   - Rename Character
   - Add to NPCs
   - Add to Party
@@ -71,7 +72,7 @@ Contents (compact single row for mobile):
   - Import Character
   - Delete Character
 
-Step 2 tracker-card linking actions and Step 4 import/export actions have since shipped. Step 3 character builder/rules-engine actions remain future work.
+Step 2 tracker-card linking actions and Step 4 import/export actions have since shipped. Step 3 character builder/rules-engine work is now in progress: the minimal builder-character creation action has shipped, but the full builder wizard and automation have not.
 
 ### Character selector behavior
 
@@ -208,7 +209,7 @@ If a `characterId` points to a character that no longer exists (data corruption,
 
 ## Step 3 — Rules engine and character builder
 
-**Status:** Future work.
+**Status:** In progress. The original design below still describes the larger target. Current shipped scope is schema v6 builder metadata, pure first-slice derivation, minimal builder-character creation, an informational Builder Mode badge, and a display-only Builder Summary panel. No builder wizard, content pickers, field locking, derived-field materialization, level-up flow, or rules automation has shipped yet.
 
 ### Goal
 
@@ -274,6 +275,8 @@ Each character entry gains a `build` object and an `overrides` object alongside 
 If `build` is null, the character operates in freeform mode — exactly like today. All fields are manually editable. This preserves backward compatibility and supports users who decline the "Create a character?" prompt.
 
 If `build` is present, the rules engine computes derived fields. The flat fields are written by the engine and should not be directly edited by the user (the UI disables direct input on computed fields and provides the override modal instead, like the Fifth Edition Character Sheet app).
+
+Current implementation note: builder characters do not yet lock fields or materialize derived values. Phase 3A only renders a display-only Builder Summary after Basics and before Vitals, reading `deriveCharacter(...)` without persisting those derived labels, proficiency bonuses, or ability totals back into the flat character fields.
 
 ### Content model
 

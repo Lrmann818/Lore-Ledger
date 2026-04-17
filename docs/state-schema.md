@@ -326,12 +326,12 @@ Every character entry now carries builder metadata, but migrated characters stay
 Notes:
 
 - `build: null` means the character is freeform/manual.
-- Phase 2 adds a minimal `New Builder Character` creation path that seeds this build object with level 1, null content IDs, neutral base abilities, and empty choices. The full builder wizard is not shipped yet.
+- Step 3 Phase 2 adds a minimal `New Builder Character` creation path that seeds this build object with level 1, null content IDs, neutral base abilities, and empty choices. The full builder wizard is not shipped yet.
 - A `build` object with recognized Step 3 builder fields opts the character into builder-derived interpretation for pure rules helpers.
 - Migration never infers builder choices from existing freeform fields such as `classLevel`, `race`, `background`, abilities, or skills.
 - `overrides` is persisted JSON-safe data for first-slice derivations only: ability totals, save totals, skill totals, and initiative.
 - The first Step 3 rules derivation is pure. It is not wired into migration, passive load, or materialization flows.
-- The Builder Summary panel is display-only UI for builder characters. It reads derived class/level, species, background, level, proficiency bonus, and ability totals/modifiers without adding schema fields or persisting derived values back into `classLevel`, `race`, `background`, `proficiency`, abilities, or other flat fields.
+- Step 3 Phase 3A did not change the schema. The Builder Summary panel is display-only UI for builder characters. It reads derived class/level, species, background, level, proficiency bonus, and ability totals/modifiers without adding schema fields or persisting derived values back into `classLevel`, `race`, `background`, `proficiency`, abilities, or other flat fields.
 - Builtin SRD content is code-shipped under `js/domain/rules/`; custom content persistence is intentionally not part of schema v6.
 
 ### Resources
