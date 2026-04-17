@@ -6,10 +6,10 @@ import { enhanceSelectDropdown } from "../../../ui/selectDropdown.js";
 import { flipSwapTwo } from "../../../ui/flipSwap.js";
 import { getNoopDestroyApi, requireMany } from "../../../utils/domGuards.js";
 import { ACTIVE_CHARACTER_CHANGED_EVENT } from "../../../domain/characterEvents.js";
-import { getActiveCharacter, isBuilderCharacter } from "../../../domain/characterHelpers.js";
+import { getActiveCharacter, isBuilderCharacter, normalizeCharacterOverrides } from "../../../domain/characterHelpers.js";
 import { deriveCharacter } from "../../../domain/rules/deriveCharacter.js";
 import { createStateActions } from "../../../domain/stateActions.js";
-import { subscribePanelDataChanged } from "../../../ui/panelInvalidation.js";
+import { notifyPanelDataChanged, subscribePanelDataChanged } from "../../../ui/panelInvalidation.js";
 
 /** @typedef {import("../../../storage/saveManager.js").SaveManager} SaveManager */
 /** @typedef {import("../../../ui/popovers.js").PopoversApi} PopoversApi */
@@ -257,6 +257,7 @@ export function initAbilitiesPanel(deps = {}) {
   const listenerController = new AbortController();
   const listenerSignal = listenerController.signal;
   addDestroy(() => listenerController.abort());
+  const panelSource = { panelId: "abilities" };
 
   let destroyed = false;
   const builderHintId = `charAbilitiesBuilderHint_${Math.random().toString(36).slice(2, 8)}`;
@@ -267,6 +268,8 @@ export function initAbilitiesPanel(deps = {}) {
 
   /** @type {Map<AbilityKey, AbilityController>} */
   const abilityControllers = new Map();
+  /** @type {() => void} */
+  let syncAdjustmentControls = () => {};
 
   /**
    * @param {EventTarget | null | undefined} target
@@ -295,11 +298,32 @@ export function initAbilitiesPanel(deps = {}) {
   }
 
   /**
+   * @returns {boolean}
+   */
+  function isCurrentBuilderCharacter() {
+    return isBuilderCharacter(getCharacter());
+  }
+
+  /**
+   * @param {unknown} character
+   * @returns {boolean}
+   */
+  function hasValidBuilderAbilityBaseShape(character) {
+    if (!isBuilderCharacter(character) || !isRecord(character)) return false;
+    const build = character.build;
+    if (!isRecord(build) || !isRecord(build.abilities)) return false;
+    const base = build.abilities.base;
+    if (!isRecord(base)) return false;
+    return ABILITY_KEYS.every((key) => isFiniteNumber(base[key]));
+  }
+
+  /**
    * @returns {Record<AbilityKey, { score: number, modifier: number }> | null}
    */
   function getBuilderDerivedAbilityDisplay() {
     const character = getCharacter();
     if (!isBuilderCharacter(character)) return null;
+    if (!hasValidBuilderAbilityBaseShape(character)) return null;
 
     let derived;
     try {
@@ -482,6 +506,49 @@ export function initAbilitiesPanel(deps = {}) {
 
   /**
    * @param {AbilityKey} key
+   * @returns {number}
+   */
+  function readBuilderAbilityAdjustment(key) {
+    const character = getCharacter();
+    if (!hasValidBuilderAbilityBaseShape(character)) return 0;
+    return normalizeCharacterOverrides(character?.overrides).abilities[key] || 0;
+  }
+
+  /**
+   * @param {AbilityKey} key
+   * @param {unknown} rawValue
+   * @returns {boolean}
+   */
+  function updateBuilderAbilityAdjustment(key, rawValue) {
+    const character = getCharacter();
+    if (!hasValidBuilderAbilityBaseShape(character)) return false;
+
+    const nextValue = Number(rawValue || 0);
+    if (!Number.isFinite(nextValue)) return false;
+
+    const currentValue = readBuilderAbilityAdjustment(key);
+    if (Object.is(currentValue, nextValue)) return false;
+
+    const updated = mutateCharacter((currentCharacter) => {
+      if (!hasValidBuilderAbilityBaseShape(currentCharacter)) return false;
+      const panelCharacter = /** @type {Record<string, unknown>} */ (currentCharacter);
+      if (!isRecord(panelCharacter.overrides)) panelCharacter.overrides = {};
+      const overrides = /** @type {Record<string, unknown>} */ (panelCharacter.overrides);
+      if (!isRecord(overrides.abilities)) overrides.abilities = {};
+      const abilityOverrides = /** @type {Record<string, unknown>} */ (overrides.abilities);
+      abilityOverrides[key] = nextValue;
+      return true;
+    }, { queueSave: false });
+
+    if (!updated) return false;
+    markDirty();
+    recalcAllAbilities({ syncFromState: true });
+    notifyPanelDataChanged("character-fields", { source: panelSource });
+    return true;
+  }
+
+  /**
+   * @param {AbilityKey} key
    * @returns {AbilityState}
    */
   function ensureAbilityShape(key) {
@@ -571,9 +638,9 @@ export function initAbilitiesPanel(deps = {}) {
 
   /**
    * @param {AbilityKey} key
-   * @param {number} score
-   * @param {number} mod
-   * @param {number} save
+   * @param {number | string} score
+   * @param {number | string} mod
+   * @param {number | string} save
    */
   function syncLegacyAbilityFields(key, score, mod, save) {
     const suffix = ABILITY_SUFFIX_BY_KEY[key];
@@ -611,7 +678,8 @@ export function initAbilitiesPanel(deps = {}) {
    * @param {{ syncFromState?: boolean }} [opts]
    */
   function recalcAllAbilities(opts = {}) {
-    syncBuilderHint(!!getBuilderDerivedAbilityDisplay());
+    syncBuilderHint(isCurrentBuilderCharacter());
+    syncAdjustmentControls();
     for (const controller of abilityControllers.values()) {
       controller.recalc({ syncFromState: opts.syncFromState !== false });
     }
@@ -626,8 +694,9 @@ export function initAbilitiesPanel(deps = {}) {
     if (!legacyInput) return;
 
     const builderDisplay = getBuilderAbilityDisplayForKey(key);
-    if (builderDisplay) {
-      legacyInput.value = String(builderDisplay.score);
+    const builderOwned = isCurrentBuilderCharacter();
+    if (builderOwned) {
+      legacyInput.value = builderDisplay ? String(builderDisplay.score) : "";
       syncLegacyAbilityScoreOwnership(key, true);
     } else {
       legacyInput.value = String(ensureAbilityShape(key).score);
@@ -637,8 +706,8 @@ export function initAbilitiesPanel(deps = {}) {
       if (destroyed) return;
       const controller = abilityControllers.get(key);
       const ownedDisplay = getBuilderAbilityDisplayForKey(key);
-      if (ownedDisplay) {
-        legacyInput.value = String(ownedDisplay.score);
+      if (isCurrentBuilderCharacter()) {
+        legacyInput.value = ownedDisplay ? String(ownedDisplay.score) : "";
         controller?.recalc({ syncFromState: true });
         return;
       }
@@ -713,23 +782,67 @@ export function initAbilitiesPanel(deps = {}) {
     const menu = scope.querySelector("#saveOptionsMenu");
     if (!(btn instanceof HTMLElement) || !(menu instanceof HTMLElement)) return;
 
-    const saveOptions = getBuilderDerivedAbilityDisplay() ? readSaveOptionsShape() : ensureSaveOptionsShape();
+    /** @type {Partial<Record<AbilityKey, HTMLInputElement>>} */
+    const miscInputs = {};
+
+    function isBuilderAdjustmentMode() {
+      return hasValidBuilderAbilityBaseShape(getCharacter());
+    }
+
+    function isMalformedBuilderAdjustmentMode() {
+      const character = getCharacter();
+      return isBuilderCharacter(character) && !hasValidBuilderAbilityBaseShape(character);
+    }
+
+    syncAdjustmentControls = () => {
+      const builderAdjustmentMode = isBuilderAdjustmentMode();
+      const malformedBuilderMode = isMalformedBuilderAdjustmentMode();
+      const saveOptions = readSaveOptionsShape();
+
+      for (const key of ABILITY_KEYS) {
+        const input = miscInputs[key];
+        if (!input) continue;
+        if (builderAdjustmentMode) {
+          input.value = String(readBuilderAbilityAdjustment(key));
+          input.disabled = false;
+          input.readOnly = false;
+        } else if (malformedBuilderMode) {
+          input.value = "";
+          input.disabled = true;
+          input.readOnly = true;
+        } else {
+          input.value = String(Number(saveOptions.misc[key] || 0));
+          input.disabled = false;
+          input.readOnly = false;
+        }
+      }
+    };
 
     for (const key of ABILITY_KEYS) {
       const input = scope.querySelector(`#miscSave_${key}`);
       if (!(input instanceof HTMLInputElement)) continue;
-      input.value = String(Number(saveOptions.misc[key] || 0));
+      miscInputs[key] = input;
       addListener(input, "input", () => {
         if (destroyed) return;
+        if (isBuilderAdjustmentMode()) {
+          if (!updateBuilderAbilityAdjustment(key, input.value)) syncAdjustmentControls();
+          return;
+        }
+        if (isMalformedBuilderAdjustmentMode()) {
+          syncAdjustmentControls();
+          return;
+        }
         ensureSaveOptionsShape().misc[key] = Number(input.value || 0);
         recalcAllAbilities();
         markDirty();
       });
     }
 
+    syncAdjustmentControls();
+
     const select = scope.querySelector("#saveModToAllSelect");
     if (!(select instanceof HTMLSelectElement)) return;
-    select.value = saveOptions.modToAll || "";
+    select.value = readSaveOptionsShape().modToAll || "";
     const enhancedDropdown = enhanceSelectDropdown({
       select,
       Popovers,
@@ -911,12 +1024,16 @@ export function initAbilitiesPanel(deps = {}) {
       if (destroyed) return;
 
       const builderDisplay = getBuilderAbilityDisplayForKey(ability);
-      const builderOwned = !!builderDisplay;
+      const builderOwned = isCurrentBuilderCharacter();
       let score;
       let mod;
       if (builderDisplay) {
         score = builderDisplay.score;
         mod = builderDisplay.modifier;
+        if (syncFromState) saveProfInput.checked = getAbilitySaveProfForRead(ability);
+      } else if (builderOwned) {
+        score = null;
+        mod = null;
         if (syncFromState) saveProfInput.checked = getAbilitySaveProfForRead(ability);
       } else if (syncFromState) {
         const abilityState = ensureAbilityShape(ability);
@@ -927,9 +1044,11 @@ export function initAbilitiesPanel(deps = {}) {
         score = Number(scoreInput.value || 10);
         mod = computeAbilityMod(score);
       }
-      const save = mod + (saveProfInput.checked ? getProfBonus() : 0) + getExtraSaveMod(ability);
+      const save = mod == null
+        ? null
+        : mod + (saveProfInput.checked ? getProfBonus() : 0) + getExtraSaveMod(ability);
 
-      scoreInput.value = String(score);
+      scoreInput.value = score == null ? "" : String(score);
       scoreInput.disabled = builderOwned;
       scoreInput.readOnly = builderOwned;
       if (builderOwned) {
@@ -942,9 +1061,14 @@ export function initAbilitiesPanel(deps = {}) {
         removeElementAttribute(scoreInput, "title");
       }
 
-      modEl.textContent = formatSigned(mod);
-      saveEl.textContent = formatSigned(save);
-      syncLegacyAbilityFields(ability, score, mod, save);
+      modEl.textContent = mod == null ? "—" : formatSigned(mod);
+      saveEl.textContent = save == null ? "—" : formatSigned(save);
+      syncLegacyAbilityFields(
+        ability,
+        score == null ? "" : score,
+        mod == null ? "" : mod,
+        save == null ? "" : save
+      );
       syncLegacyAbilityScoreOwnership(ability, builderOwned);
 
       for (const valueEl of Array.from(blockEl.querySelectorAll("[data-skill-value]"))) {
@@ -953,9 +1077,13 @@ export function initAbilitiesPanel(deps = {}) {
         if (!skillKey) continue;
 
         const skillState = ensureSkillState(skillKey);
-        const total = mod + profAddForLevel(skillState.level, getProfBonus()) + Number(skillState.misc || 0);
-        valueEl.textContent = formatSigned(total);
-        if (!builderOwned) skillState.value = total;
+        if (mod == null) {
+          valueEl.textContent = "—";
+        } else {
+          const total = mod + profAddForLevel(skillState.level, getProfBonus()) + Number(skillState.misc || 0);
+          valueEl.textContent = formatSigned(total);
+          if (!builderOwned) skillState.value = total;
+        }
       }
 
       if (builderOwned) {
@@ -996,6 +1124,9 @@ export function initAbilitiesPanel(deps = {}) {
     if (builderDisplay) {
       scoreInput.value = String(builderDisplay.score);
       saveProfInput.checked = getAbilitySaveProfForRead(ability);
+    } else if (isCurrentBuilderCharacter()) {
+      scoreInput.value = "";
+      saveProfInput.checked = getAbilitySaveProfForRead(ability);
     } else {
       const abilityState = ensureAbilityShape(ability);
       scoreInput.value = String(abilityState.score);
@@ -1012,7 +1143,7 @@ export function initAbilitiesPanel(deps = {}) {
     );
 
     addListener(scoreInput, "input", () => {
-      if (getBuilderAbilityDisplayForKey(ability)) {
+      if (isCurrentBuilderCharacter()) {
         recalc({ syncFromState: true });
         return;
       }

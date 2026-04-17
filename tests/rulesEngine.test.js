@@ -202,6 +202,22 @@ describe("rules derivation", () => {
     expect(derived.initiative).toBe(7);
   });
 
+  it("does not treat builder ability overrides as replacement scores when base data is missing", () => {
+    const character = {
+      build: {
+        version: 1,
+        level: 1,
+        abilities: { base: { dex: 14 } }
+      },
+      overrides: { abilities: { str: 3, dex: 2 } }
+    };
+
+    const derived = deriveCharacter(character);
+
+    expect(derived.abilities.str).toMatchObject({ base: null, override: 3, total: null, modifier: null });
+    expect(derived.abilities.dex).toMatchObject({ base: 14, override: 2, total: 16, modifier: 3 });
+  });
+
   it("reports warnings for unknown builder content ids without throwing", () => {
     const derived = deriveCharacter({
       build: {

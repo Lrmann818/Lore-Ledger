@@ -210,7 +210,7 @@ export function deriveCharacter(character, registry = BUILTIN_CONTENT_REGISTRY) 
   for (const key of CHARACTER_ABILITY_KEYS) {
     const base = getAbilityBase(source, key, build);
     const override = finiteNumberOrZero(overrides.abilities[key]);
-    const total = base == null && override === 0 ? null : finiteNumberOrZero(base) + override;
+    const total = base == null ? null : base + override;
     abilities[key] = {
       base,
       override,

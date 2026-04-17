@@ -7,6 +7,7 @@ import { makeDefaultBuilderCharacterEntry, makeDefaultCharacterEntry } from "../
 import { initAbilitiesPanel } from "../js/pages/character/panels/abilitiesPanel.js";
 import { initAttacksPanel } from "../js/pages/character/panels/attackPanel.js";
 import { initBuilderAbilitiesPanel } from "../js/pages/character/panels/builderAbilitiesPanel.js";
+import { initBuilderSummaryPanel } from "../js/pages/character/panels/builderSummaryPanel.js";
 import { initBasicsPanel } from "../js/pages/character/panels/basicsPanel.js";
 import { initEquipmentPanel } from "../js/pages/character/panels/equipmentPanel.js";
 import { initPersonalityPanel } from "../js/pages/character/panels/personalityPanel.js";
@@ -535,6 +536,17 @@ function buildCharacterPanelDom(document) {
   ["charTraits", "charIdeals", "charBonds", "charFlaws", "charCharNotes"].forEach((id) => append(personality, "textarea", { id }));
 
   const abilities = append(root, "section", { id: "charAbilitiesPanel" });
+  const saveOptions = append(abilities, "div", { id: "saveOptionsDropdown", className: "saveOptionsDropdown" });
+  append(saveOptions, "button", { id: "saveOptionsBtn", type: "button" });
+  const menu = append(saveOptions, "div", { id: "saveOptionsMenu", className: "saveOptionsMenu" });
+  menu.hidden = true;
+  const grid = append(menu, "div", { className: "saveOptionsGrid" });
+  TEST_ABILITY_KEYS.forEach((key) => {
+    const item = append(grid, "div", { className: "saveOpt" });
+    append(append(item, "div", { className: "saveOptTop" }), "input", { id: `miscSave_${key}`, type: "number" });
+    append(item, "div", { className: "saveOptLabel", text: `${key} Save` });
+  });
+  append(menu, "select", { id: "saveModToAllSelect", className: "settingsSelect abilitySaves" });
   append(abilities, "div", { className: "abilityGrid" });
 }
 
@@ -588,6 +600,13 @@ function installBuilderAbilitiesPanelDom(document) {
   });
 }
 
+function installBuilderSummaryPanelDom(document) {
+  const panel = append(document.body, "section", { id: "charBuilderSummaryPanel" });
+  panel.hidden = true;
+  panel.setAttribute("aria-hidden", "true");
+  append(panel, "div", { id: "charBuilderSummaryContent" });
+}
+
 function abilityBlock(root, key) {
   return root.querySelector(`.abilityBlock[data-ability="${key}"]`);
 }
@@ -598,6 +617,18 @@ function abilityScoreInput(root, key) {
 
 function abilityModText(root, key) {
   return abilityBlock(root, key).querySelector('[data-stat="mod"]').textContent;
+}
+
+function abilitySaveText(root, key) {
+  return abilityBlock(root, key).querySelector('[data-stat="save"]').textContent;
+}
+
+function abilityAdjustmentInput(root, key) {
+  return root.querySelector(`#miscSave_${key}`);
+}
+
+function builderSummaryAbilityText(root, key) {
+  return root.querySelector(`.builderAbilityRow[data-ability="${key}"] .builderAbilityValue`)?.textContent || "";
 }
 
 function abilityBuilderHint(root) {
@@ -769,8 +800,17 @@ describe("character panels active character resolution", () => {
 
     expect(freeform.abilities.str.score).toBe(14);
     expect(abilityModText(document, "str")).toBe("+2");
+    expect(abilitySaveText(document, "str")).toBe("+2");
+
+    const strAdjustment = abilityAdjustmentInput(document, "str");
+    strAdjustment.value = "2";
+    dispatchInput(strAdjustment);
+
+    expect(freeform.saveOptions.misc.str).toBe(2);
+    expect(abilitySaveText(document, "str")).toBe("+4");
     expect(freeform.build).toBeNull();
-    expect(deps.SaveManager.markDirty).toHaveBeenCalledTimes(1);
+    expect(freeform.overrides.abilities.str).toBe(0);
+    expect(deps.SaveManager.markDirty).toHaveBeenCalledTimes(2);
 
     api.destroy();
   });
@@ -806,6 +846,106 @@ describe("character panels active character resolution", () => {
     expect(deps.SaveManager.markDirty).not.toHaveBeenCalled();
     expect(readFileSync(resolve(process.cwd(), "js/pages/character/panels/abilitiesPanel.js"), "utf8"))
       .not.toContain("materializeDerivedCharacterFields");
+
+    api.destroy();
+  });
+
+  it("routes existing Abilities adjustment controls to builder ability overrides", () => {
+    installAbilityBlocks(document);
+    installBuilderSummaryPanelDom(document);
+    const builder = makeBuilder(
+      "char_builder",
+      { str: 15, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+      { str: 3, dex: 4, con: 5, int: 6, wis: 7, cha: 8 }
+    );
+    const beforeFlat = structuredClone(builder.abilities);
+    const state = { characters: { activeId: "char_builder", entries: [builder] }, combat: { workspace: {} } };
+    const deps = makeDeps(state);
+
+    const abilitiesApi = initAbilitiesPanel(deps);
+    const summaryApi = initBuilderSummaryPanel(deps);
+    const strScore = abilityScoreInput(document, "str");
+    const strAdjustment = abilityAdjustmentInput(document, "str");
+
+    expect(strScore.value).toBe("15");
+    expect(abilityModText(document, "str")).toBe("+2");
+    expect(strScore.disabled).toBe(true);
+    expect(strAdjustment.value).toBe("0");
+    expect(builder.abilities).toEqual(beforeFlat);
+    expect(builderSummaryAbilityText(document, "str")).toBe("15 (+2)");
+
+    strAdjustment.value = "3";
+    dispatchInput(strAdjustment);
+
+    expect(builder.overrides.abilities.str).toBe(3);
+    expect(strScore.value).toBe("18");
+    expect(abilityModText(document, "str")).toBe("+4");
+    expect(builder.abilities).toEqual(beforeFlat);
+    expect(builder.build.abilities.base.str).toBe(15);
+    expect(builderSummaryAbilityText(document, "str")).toBe("18 (+4)");
+
+    strAdjustment.value = "0";
+    dispatchInput(strAdjustment);
+
+    expect(builder.overrides.abilities.str).toBe(0);
+    expect(strScore.value).toBe("15");
+    expect(abilityModText(document, "str")).toBe("+2");
+    expect(builder.abilities).toEqual(beforeFlat);
+    expect(builderSummaryAbilityText(document, "str")).toBe("15 (+2)");
+
+    summaryApi.destroy();
+    abilitiesApi.destroy();
+  });
+
+  it("allows builder ability adjustment totals above 20 without clamping", () => {
+    installAbilityBlocks(document);
+    const builder = makeBuilder("char_builder", { str: 15, dex: 10, con: 10, int: 10, wis: 10, cha: 10 });
+    const state = { characters: { activeId: "char_builder", entries: [builder] }, combat: { workspace: {} } };
+    const deps = makeDeps(state);
+
+    const api = initAbilitiesPanel(deps);
+    const strAdjustment = abilityAdjustmentInput(document, "str");
+
+    strAdjustment.value = "8";
+    dispatchInput(strAdjustment);
+
+    expect(builder.overrides.abilities.str).toBe(8);
+    expect(abilityScoreInput(document, "str").value).toBe("23");
+    expect(abilityModText(document, "str")).toBe("+6");
+
+    api.destroy();
+  });
+
+  it("blocks builder ability adjustments when builder ability base data is malformed", () => {
+    installAbilityBlocks(document);
+    const builder = makeBuilder("char_builder", { str: 15, dex: 10, con: 10, int: 10, wis: 10, cha: 10 });
+    delete builder.build.abilities.base.str;
+    builder.overrides.abilities.str = 4;
+    const beforeFlat = structuredClone(builder.abilities);
+    const beforeOverrides = structuredClone(builder.overrides);
+    const state = { characters: { activeId: "char_builder", entries: [builder] }, combat: { workspace: {} } };
+    const deps = makeDeps(state);
+
+    const api = initAbilitiesPanel(deps);
+    const strScore = abilityScoreInput(document, "str");
+    const strAdjustment = abilityAdjustmentInput(document, "str");
+
+    expect(strScore.value).toBe("");
+    expect(abilityModText(document, "str")).toBe("—");
+    expect(strScore.disabled).toBe(true);
+    expect(strScore.readOnly).toBe(true);
+    expect(strAdjustment.value).toBe("");
+    expect(strAdjustment.disabled).toBe(true);
+
+    strAdjustment.value = "3";
+    dispatchInput(strAdjustment);
+    strScore.value = "20";
+    dispatchInput(strScore);
+
+    expect(builder.overrides).toEqual(beforeOverrides);
+    expect(builder.abilities).toEqual(beforeFlat);
+    expect(builder.build.abilities.base.str).toBeUndefined();
+    expect(deps.SaveManager.markDirty).not.toHaveBeenCalled();
 
     api.destroy();
   });
@@ -873,21 +1013,31 @@ describe("character panels active character resolution", () => {
     const deps = makeDeps(state);
     const api = initAbilitiesPanel(deps);
     const strScore = abilityScoreInput(document, "str");
+    const strAdjustment = abilityAdjustmentInput(document, "str");
 
     expect(strScore.value).toBe("16");
     expect(strScore.disabled).toBe(true);
+    expect(strAdjustment.value).toBe("0");
+
+    strAdjustment.value = "2";
+    dispatchInput(strAdjustment);
+    expect(builderA.overrides.abilities.str).toBe(2);
+    expect(strScore.value).toBe("18");
 
     state.characters.activeId = "char_builder_b";
     notifyActiveCharacterChanged({ previousId: "char_builder_a", activeId: "char_builder_b" });
     expect(strScore.value).toBe("8");
     expect(abilityModText(document, "str")).toBe("-1");
     expect(strScore.disabled).toBe(true);
+    expect(strAdjustment.value).toBe("0");
+    expect(builderB.overrides.abilities.str).toBe(0);
 
     state.characters.activeId = "char_free";
     notifyActiveCharacterChanged({ previousId: "char_builder_b", activeId: "char_free" });
     expect(strScore.value).toBe("12");
     expect(strScore.disabled).toBe(false);
     expect(strScore.readOnly).toBe(false);
+    expect(strAdjustment.value).toBe("0");
 
     strScore.value = "13";
     dispatchInput(strScore);
@@ -896,8 +1046,10 @@ describe("character panels active character resolution", () => {
 
     state.characters.activeId = "char_builder_a";
     notifyActiveCharacterChanged({ previousId: "char_free", activeId: "char_builder_a" });
-    expect(strScore.value).toBe("16");
+    expect(strScore.value).toBe("18");
     expect(strScore.disabled).toBe(true);
+    expect(strAdjustment.value).toBe("2");
+    expect(freeform.overrides.abilities.str).toBe(0);
 
     api.destroy();
   });
@@ -915,11 +1067,20 @@ describe("character panels active character resolution", () => {
       selectors: EMBEDDED_PANEL_HOST_SELECTORS.abilities
     });
     const strScore = abilityScoreInput(host, "str");
+    const strAdjustment = abilityAdjustmentInput(host, "str");
 
     expect(strScore.value).toBe("15");
     expect(abilityModText(host, "str")).toBe("+2");
     expect(strScore.disabled).toBe(true);
     expect(abilityBuilderHint(host).textContent).toContain("Builder Abilities");
+    expect(builder.abilities.str.score).toBeNull();
+
+    strAdjustment.value = "3";
+    dispatchInput(strAdjustment);
+
+    expect(builder.overrides.abilities.str).toBe(3);
+    expect(strScore.value).toBe("18");
+    expect(abilityModText(host, "str")).toBe("+4");
     expect(builder.abilities.str.score).toBeNull();
 
     api.destroy();
