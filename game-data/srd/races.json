@@ -1,0 +1,389 @@
+[
+  {
+    "id": "dragonborn",
+    "kind": "race",
+    "name": "Dragonborn",
+    "source": "srd-5.1",
+    "size": "Medium",
+    "speed": 30,
+    "abilityScoreIncreases": [
+      {
+        "ability": "str",
+        "bonus": 2
+      },
+      {
+        "ability": "cha",
+        "bonus": 1
+      }
+    ],
+    "traits": [
+      "draconic-ancestry",
+      "breath-weapon",
+      "damage-resistance"
+    ],
+    "languages": [
+      "common",
+      "draconic"
+    ],
+    "subraceIds": [],
+    "lore": {
+      "age": "Young dragonborn grow quickly. They walk hours after hatching, attain the size and development of a 10-year-old human child by the age of 3, and reach adulthood by 15. They live to be around 80.",
+      "alignment": "Dragonborn tend to extremes, making a conscious choice for one side or the other in the cosmic war between good and evil. Most dragonborn are good, but those who side with evil can be terrible villains.",
+      "sizeDescription": "Dragonborn are taller and heavier than humans, standing well over 6 feet tall and averaging almost 250 pounds. Your size is Medium.",
+      "languageDesc": "You can speak, read, and write Common and Draconic. Draconic is thought to be one of the oldest languages and is often used in the study of magic. The language sounds harsh to most other creatures and includes numerous hard consonants and sibilants."
+    }
+  },
+  {
+    "id": "dwarf",
+    "kind": "race",
+    "name": "Dwarf",
+    "source": "srd-5.1",
+    "size": "Medium",
+    "speed": 25,
+    "abilityScoreIncreases": [
+      {
+        "ability": "con",
+        "bonus": 2
+      }
+    ],
+    "traits": [
+      "darkvision",
+      "dwarven-resilience",
+      "stonecunning",
+      "dwarven-combat-training",
+      "tool-proficiency"
+    ],
+    "languages": [
+      "common",
+      "dwarvish"
+    ],
+    "subraceIds": [
+      "hill-dwarf"
+    ],
+    "lore": {
+      "age": "Dwarves mature at the same rate as humans, but they're considered young until they reach the age of 50. On average, they live about 350 years.",
+      "alignment": "Most dwarves are lawful, believing firmly in the benefits of a well-ordered society. They tend toward good as well, with a strong sense of fair play and a belief that everyone deserves to share in the benefits of a just order.",
+      "sizeDescription": "Dwarves stand between 4 and 5 feet tall and average about 150 pounds. Your size is Medium.",
+      "languageDesc": "You can speak, read, and write Common and Dwarvish. Dwarvish is full of hard consonants and guttural sounds, and those characteristics spill over into whatever other language a dwarf might speak."
+    }
+  },
+  {
+    "id": "elf",
+    "kind": "race",
+    "name": "Elf",
+    "source": "srd-5.1",
+    "size": "Medium",
+    "speed": 30,
+    "abilityScoreIncreases": [
+      {
+        "ability": "dex",
+        "bonus": 2
+      }
+    ],
+    "traits": [
+      "darkvision",
+      "fey-ancestry",
+      "trance",
+      "keen-senses"
+    ],
+    "languages": [
+      "common",
+      "elvish"
+    ],
+    "subraceIds": [
+      "high-elf"
+    ],
+    "lore": {
+      "age": "Although elves reach physical maturity at about the same age as humans, the elven understanding of adulthood goes beyond physical growth to encompass worldly experience. An elf typically claims adulthood and an adult name around the age of 100 and can live to be 750 years old.",
+      "alignment": "Elves love freedom, variety, and self-expression, so they lean strongly toward the gentler aspects of chaos. They value and protect others' freedom as well as their own, and they are more often good than not.",
+      "sizeDescription": "Elves range from under 5 to over 6 feet tall and have slender builds. Your size is Medium.",
+      "languageDesc": "You can speak, read, and write Common and Elvish. Elvish is fluid, with subtle intonations and intricate grammar. Elven literature is rich and varied, and their songs and poems are famous among other races. Many bards learn their language so they can add Elvish ballads to their repertoires."
+    }
+  },
+  {
+    "id": "gnome",
+    "kind": "race",
+    "name": "Gnome",
+    "source": "srd-5.1",
+    "size": "Small",
+    "speed": 25,
+    "abilityScoreIncreases": [
+      {
+        "ability": "int",
+        "bonus": 2
+      }
+    ],
+    "traits": [
+      "darkvision",
+      "gnome-cunning"
+    ],
+    "languages": [
+      "common",
+      "gnomish"
+    ],
+    "subraceIds": [
+      "rock-gnome"
+    ],
+    "lore": {
+      "age": "Gnomes mature at the same rate humans do, and most are expected to settle down into an adult life by around age 40. They can live 350 to almost 500 years.",
+      "alignment": "Gnomes are most often good. Those who tend toward law are sages, engineers, researchers, scholars, investigators, or inventors. Those who tend toward chaos are minstrels, tricksters, wanderers, or fanciful jewelers. Gnomes are good-hearted, and even the tricksters among them are more playful than vicious.",
+      "sizeDescription": "Gnomes are between 3 and 4 feet tall and average about 40 pounds. Your size is Small.",
+      "languageDesc": "You can speak, read, and write Common and Gnomish. The Gnomish language, which uses the Dwarvish script, is renowned for its technical treatises and its catalogs of knowledge about the natural world."
+    }
+  },
+  {
+    "id": "half-elf",
+    "kind": "race",
+    "name": "Half-Elf",
+    "source": "srd-5.1",
+    "size": "Medium",
+    "speed": 30,
+    "abilityScoreIncreases": [
+      {
+        "ability": "cha",
+        "bonus": 2
+      }
+    ],
+    "traits": [
+      "darkvision",
+      "fey-ancestry",
+      "skill-versatility"
+    ],
+    "languages": [
+      "common",
+      "elvish"
+    ],
+    "subraceIds": [],
+    "lore": {
+      "age": "Half-elves mature at the same rate humans do and reach adulthood around the age of 20. They live much longer than humans, however, often exceeding 180 years.",
+      "alignment": "Half-elves share the chaotic bent of their elven heritage. They value both personal freedom and creative expression, demonstrating neither love of leaders nor desire for followers. They chafe at rules, resent others' demands, and sometimes prove unreliable, or at least unpredictable.",
+      "sizeDescription": "Half-elves are about the same size as humans, ranging from 5 to 6 feet tall. Your size is Medium.",
+      "languageDesc": "You can speak, read, and write Common, Elvish, and one extra language of your choice."
+    }
+  },
+  {
+    "id": "half-orc",
+    "kind": "race",
+    "name": "Half-Orc",
+    "source": "srd-5.1",
+    "size": "Medium",
+    "speed": 30,
+    "abilityScoreIncreases": [
+      {
+        "ability": "str",
+        "bonus": 2
+      },
+      {
+        "ability": "con",
+        "bonus": 1
+      }
+    ],
+    "traits": [
+      "darkvision",
+      "savage-attacks",
+      "relentless-endurance",
+      "menacing"
+    ],
+    "languages": [
+      "common",
+      "orc"
+    ],
+    "subraceIds": [],
+    "lore": {
+      "age": "Half-orcs mature a little faster than humans, reaching adulthood around age 14. They age noticeably faster and rarely live longer than 75 years.",
+      "alignment": "Half-orcs inherit a tendency toward chaos from their orc parents and are not strongly inclined toward good. Half-orcs raised among orcs and willing to live out their lives among them are usually evil.",
+      "sizeDescription": "Half-orcs are somewhat larger and bulkier than humans, and they range from 5 to well over 6 feet tall. Your size is Medium.",
+      "languageDesc": "You can speak, read, and write Common and Orc. Orc is a harsh, grating language with hard consonants. It has no script of its own but is written in the Dwarvish script."
+    }
+  },
+  {
+    "id": "halfling",
+    "kind": "race",
+    "name": "Halfling",
+    "source": "srd-5.1",
+    "size": "Small",
+    "speed": 25,
+    "abilityScoreIncreases": [
+      {
+        "ability": "dex",
+        "bonus": 2
+      }
+    ],
+    "traits": [
+      "brave",
+      "halfling-nimbleness",
+      "lucky"
+    ],
+    "languages": [
+      "common",
+      "halfling"
+    ],
+    "subraceIds": [
+      "lightfoot-halfling"
+    ],
+    "lore": {
+      "age": "A halfling reaches adulthood at the age of 20 and generally lives into the middle of his or her second century.",
+      "alignment": "Most halflings are lawful good. As a rule, they are good-hearted and kind, hate to see others in pain, and have no tolerance for oppression. They are also very orderly and traditional, leaning heavily on the support of their community and the comfort of their old ways.",
+      "sizeDescription": "Halflings average about 3 feet tall and weigh about 40 pounds. Your size is Small.",
+      "languageDesc": "You can speak, read, and write Common and Halfling. The Halfling language isn't secret, but halflings are loath to share it with others. They write very little, so they don't have a rich body of literature. Their oral tradition, however, is very strong. Almost all halflings speak Common to converse with the people in whose lands they dwell or through which they are traveling."
+    }
+  },
+  {
+    "id": "human",
+    "kind": "race",
+    "name": "Human",
+    "source": "srd-5.1",
+    "size": "Medium",
+    "speed": 30,
+    "abilityScoreIncreases": [
+      {
+        "ability": "str",
+        "bonus": 1
+      },
+      {
+        "ability": "dex",
+        "bonus": 1
+      },
+      {
+        "ability": "con",
+        "bonus": 1
+      },
+      {
+        "ability": "int",
+        "bonus": 1
+      },
+      {
+        "ability": "wis",
+        "bonus": 1
+      },
+      {
+        "ability": "cha",
+        "bonus": 1
+      }
+    ],
+    "traits": [],
+    "languages": [
+      "common"
+    ],
+    "subraceIds": [],
+    "lore": {
+      "age": "Humans reach adulthood in their late teens and live less than a century.",
+      "alignment": "Humans tend toward no particular alignment. The best and the worst are found among them.",
+      "sizeDescription": "Humans vary widely in height and build, from barely 5 feet to well over 6 feet tall. Regardless of your position in that range, your size is Medium.",
+      "languageDesc": "You can speak, read, and write Common and one extra language of your choice. Humans typically learn the languages of other peoples they deal with, including obscure dialects. They are fond of sprinkling their speech with words borrowed from other tongues: Orc curses, Elvish musical expressions, Dwarvish military phrases, and so on."
+    }
+  },
+  {
+    "id": "tiefling",
+    "kind": "race",
+    "name": "Tiefling",
+    "source": "srd-5.1",
+    "size": "Medium",
+    "speed": 30,
+    "abilityScoreIncreases": [
+      {
+        "ability": "int",
+        "bonus": 1
+      },
+      {
+        "ability": "cha",
+        "bonus": 2
+      }
+    ],
+    "traits": [
+      "darkvision",
+      "hellish-resistance",
+      "infernal-legacy"
+    ],
+    "languages": [
+      "common",
+      "infernal"
+    ],
+    "subraceIds": [],
+    "lore": {
+      "age": "Tieflings mature at the same rate as humans but live a few years longer.",
+      "alignment": "Tieflings might not have an innate tendency toward evil, but many of them end up there. Evil or not, an independent nature inclines many tieflings toward a chaotic alignment.",
+      "sizeDescription": "Tieflings are about the same size and build as humans. Your size is Medium.",
+      "languageDesc": "You can speak, read, and write Common and Infernal."
+    }
+  },
+  {
+    "id": "high-elf",
+    "kind": "subrace",
+    "name": "High Elf",
+    "source": "srd-5.1",
+    "parentRace": "elf",
+    "abilityScoreIncreases": [
+      {
+        "ability": "int",
+        "bonus": 1
+      }
+    ],
+    "traits": [
+      "elf-weapon-training",
+      "high-elf-cantrip",
+      "extra-language"
+    ],
+    "lore": {
+      "desc": "As a high elf, you have a keen mind and a mastery of at least the basics of magic. In many fantasy gaming worlds, there are two kinds of high elves. One type is haughty and reclusive, believing themselves to be superior to non-elves and even other elves. The other type is more common and more friendly, and often encountered among humans and other races."
+    }
+  },
+  {
+    "id": "hill-dwarf",
+    "kind": "subrace",
+    "name": "Hill Dwarf",
+    "source": "srd-5.1",
+    "parentRace": "dwarf",
+    "abilityScoreIncreases": [
+      {
+        "ability": "wis",
+        "bonus": 1
+      }
+    ],
+    "traits": [
+      "dwarven-toughness"
+    ],
+    "lore": {
+      "desc": "As a hill dwarf, you have keen senses, deep intuition, and remarkable resilience."
+    }
+  },
+  {
+    "id": "lightfoot-halfling",
+    "kind": "subrace",
+    "name": "Lightfoot Halfling",
+    "source": "srd-5.1",
+    "parentRace": "halfling",
+    "abilityScoreIncreases": [
+      {
+        "ability": "cha",
+        "bonus": 1
+      }
+    ],
+    "traits": [
+      "naturally-stealthy"
+    ],
+    "lore": {
+      "desc": "As a lightfoot halfling, you can easily hide from notice, even using other people as cover. You're inclined to be affable and get along well with others. Lightfoots are more prone to wanderlust than other halflings, and often dwell alongside other races or take up a nomadic life."
+    }
+  },
+  {
+    "id": "rock-gnome",
+    "kind": "subrace",
+    "name": "Rock Gnome",
+    "source": "srd-5.1",
+    "parentRace": "gnome",
+    "abilityScoreIncreases": [
+      {
+        "ability": "con",
+        "bonus": 1
+      }
+    ],
+    "traits": [
+      "artificers-lore",
+      "tinker"
+    ],
+    "lore": {
+      "desc": "As a rock gnome, you have a natural inventiveness and hardiness beyond that of other gnomes."
+    }
+  }
+]
