@@ -1,6 +1,6 @@
 # SRD Licensing Notes
 
-_Last updated: 2026-04-17_
+_Last updated: 2026-04-20_
 
 ## Purpose
 
@@ -45,90 +45,64 @@ This matches the project's overall architecture goals: stable, well-documented, 
 
 ---
 
-## SRD 5.2.1
+## SRD 5.1
 
-`SRD 5.2.1` is provided by Wizards of the Coast under the **Creative Commons Attribution 4.0 International License (CC BY 4.0)**. The SRD itself states that users are free to use the content as permitted by CC BY 4.0, provided they include the attribution statement supplied in the document.  [oai_citation:0‡SRD_CC_v5.2.1.pdf](sediment://file_000000009064722f8981ca4561917792)
+`SRD 5.1` was originally released under the Open Gaming License v1.0a. In January 2023, Wizards of the Coast re-released SRD 5.1 under the **Creative Commons Attribution 4.0 International License (CC BY 4.0)**, permanently. This re-release was irrevocable and is the basis for the project's current content strategy.
 
-The SRD 5.2.1 document also provides the attribution statement that must be included in works using that material, and it specifically says not to include other attribution to Wizards or its parent/affiliates beyond the provided statement. It also says a work may describe itself as “compatible with fifth edition” or “5E compatible.”  [oai_citation:1‡SRD_CC_v5.2.1.pdf](sediment://file_000000009064722f8981ca4561917792)
+The CC-BY-4.0 re-release eliminates the OGL compliance burden for new works using SRD 5.1 content. Works using SRD 5.1 content under CC-BY-4.0 must include the attribution statement provided by Wizards of the Coast.
 
 ### Practical meaning for Lore Ledger
 
-For Lore Ledger, SRD 5.2.1 should be treated as the **primary source** for future builtin rules/content work whenever the needed content exists there.
+SRD 5.1 is the **primary source** for all builtin builder content.
 
-Reasons:
+- Both SRD 5.1 and SRD 5.2.1 are CC-BY-4.0 licensed — licensing is not a differentiator between them.
+- SRD 5.1 is the more complete and widely-used reference; SRD 5.2.1 has been retired from this project.
+- All `game-data/srd/*.json` files use `"source": "srd-5.1"`.
 
-- clearer modern licensing model for project use
-- explicit attribution language included in the document
-- easier long-term maintenance than relying on OGL-governed text
-- cleaner provenance story for a portfolio app
+### Attribution text for SRD 5.1
 
-### Attribution text for SRD 5.2.1
+When Lore Ledger distributes builtin material derived from SRD 5.1, include this attribution statement:
 
-When Lore Ledger distributes builtin material derived from SRD 5.2.1, include this attribution statement exactly as given in the SRD:
+> This work includes material taken from the System Reference Document 5.1 ("SRD 5.1") by Wizards of the Coast LLC and available at https://dnd.wizards.com/resources/systems-reference-document. The SRD 5.1 is licensed under the Creative Commons Attribution 4.0 International License available at https://creativecommons.org/licenses/by/4.0/legalcode.
 
-> This work includes material from the System Reference Document 5.2.1 (“SRD 5.2.1”) by Wizards of the Coast LLC, available at https://www.dndbeyond.com/srd. The SRD 5.2.1 is licensed under the Creative Commons Attribution 4.0 International License, available at https://creativecommons.org/licenses/by/4.0/legalcode.
-
-Source of this required attribution text: SRD 5.2.1 legal information page.  [oai_citation:2‡SRD_CC_v5.2.1.pdf](sediment://file_000000009064722f8981ca4561917792)
+This statement is also in `LEGAL.md` at the repo root. Keep both in sync.
 
 ### Recommended implementation rule
 
-If Lore Ledger ships builtin content derived from SRD 5.2.1, the app and repo should contain a clear attribution notice in an appropriate place such as:
+If Lore Ledger ships builtin content derived from SRD 5.1, the app and repo should contain a clear attribution notice in an appropriate place such as:
 
 - About / Credits / Legal section in-app
-- distributed NOTICE / acknowledgments documentation
+- `LEGAL.md` in the repo root
 - any future website or README section covering third-party content attribution
+
+See `docs/reference/attribution-requirements.md` for the in-app requirements and timeline.
 
 ---
 
-## SRD 5.1
+## SRD 5.2.1
 
-`SRD 5.1` is released for use through the **Open Gaming License v1.0a**. The document says permission to copy, modify, and distribute SRD 5.1 is granted solely through use of the OGL v1.0a, and it instructs the reader to read and understand that license before using the material.  [oai_citation:3‡SRD-OGL_V5.1.pdf](sediment://file_00000000bacc722f841e47b69d027b27)
+`SRD 5.2.1` is provided by Wizards of the Coast under CC-BY-4.0. It has been **retired** from Lore Ledger.
 
-The SRD 5.1 file also identifies certain items as **Product Identity** and says all the rest of SRD 5.1 is Open Game Content.  [oai_citation:4‡SRD-OGL_V5.1.pdf](sediment://file_00000000bacc722f841e47b69d027b27)
+Both SRD 5.1 and SRD 5.2.1 are CC-BY-4.0 licensed with identical attribution obligations. SRD 5.2.1 has no licensing advantage over SRD 5.1. The previous data derived from SRD 5.2.1 has been deleted from `game-data/srd/`.
 
-The OGL text included in SRD 5.1 also says:
-
-- you must update the COPYRIGHT NOTICE portion when copying, modifying, or distributing Open Game Content
-- you must clearly indicate which portions of the distributed work are Open Game Content
-- you must include a copy of the license with every copy of the Open Game Content you distribute
-- you may not use Product Identity except as separately licensed  [oai_citation:5‡SRD-OGL_V5.1.pdf](sediment://file_00000000bacc722f841e47b69d027b27)
-
-### Practical meaning for Lore Ledger
-
-SRD 5.1 should be treated as a **reference and fallback source**, not the preferred basis for new shipped builtin content, unless there is a deliberate reason to use it.
-
-Why:
-
-- it has more licensing handling requirements than SRD 5.2.1
-- it requires care around OGL notice handling and Product Identity boundaries
-- it is less clean as a modern default for new project content policy
-
-### Conservative project rule for SRD 5.1
-
-For Lore Ledger:
-
-- prefer SRD 5.2.1 over SRD 5.1 for new builtin content whenever possible
-- do not casually mix SRD 5.1-derived text into builtin files unless we have intentionally decided how OGL compliance will be handled
-- if any future shipped builtin content depends on SRD 5.1 specifically, document that dependency explicitly in repo docs before implementation
+Do not use SRD 5.2.1 as a source for any new builtin content.
 
 ---
 
 ## Product Identity and Safe Naming
 
-SRD 5.1 explicitly identifies certain names and terms as Product Identity and therefore not Open Game Content. The document includes examples such as Dungeons & Dragons, D&D, various setting names, and many protected creature/proper names.  [oai_citation:6‡SRD-OGL_V5.1.pdf](sediment://file_00000000bacc722f841e47b69d027b27)
-
-### Project rule
-
-Lore Ledger contributors should avoid:
+SRD 5.1 identifies certain names and terms as Product Identity. Lore Ledger contributors should avoid:
 
 - using protected product identity terms as builtin branded content
 - implying official endorsement
-- using non-SRD proprietary subclasses, species, settings, monsters, or named lore as shipped builtin data unless their status has been explicitly reviewed and documented
+- using non-SRD proprietary subclasses, races, settings, monsters, or named lore as shipped builtin data unless their status has been explicitly reviewed and documented
 
 When in doubt:
 
 - do not add it as builtin
 - treat it as user-added custom content instead
+
+Note: the app and repo may describe themselves as "compatible with fifth edition" or "5E compatible." Do not use "Dungeons & Dragons" or "D&D."
 
 ---
 
@@ -153,7 +127,7 @@ Custom content is any user-authored or user-imported content that does not ship 
 
 Examples include:
 
-- homebrew species
+- homebrew races
 - homebrew classes/subclasses
 - non-approved 5E content
 - campaign-specific rules content
@@ -189,7 +163,7 @@ When working on Lore Ledger builtin content:
 1. Do not add non-greenlit content as builtin.
 2. Do not assume "common D&D knowledge" is automatically safe to ship.
 3. Do not use unofficial websites as authority for builtin content decisions.
-4. Prefer SRD 5.2.1 as the source for new builtin content.
+4. Use SRD 5.1 as the source for all new builtin content. SRD 5.2.1 is retired.
 5. Keep legal/policy reasoning in markdown and implementation data in JSON.
 6. If source status is unclear, do not implement it as builtin until reviewed.
 
@@ -200,22 +174,13 @@ When working on Lore Ledger builtin content:
 At the current stage of Lore Ledger's builder work, the safest approach is:
 
 - keep the official SRD PDFs in `docs/reference/`
+- use SRD 5.1 (CC-BY-4.0, re-released 2023) as the sole active builtin content source
 - use a project-maintained greenlist to define what may ship as builtin
-- model approved builtin data in `game-data/srd/*.json`
+- model approved builtin data in `game-data/srd/*.json` with `"source": "srd-5.1"`
 - treat everything else as custom user content
+- include the CC-BY-4.0 attribution statement from `LEGAL.md` in-app before public release
 
 This keeps the content system explicit, auditable, and maintainable.
-
----
-
-## Open Questions for Later
-
-These questions do not block current document setup, but should be finalized before broad builtin content expansion:
-
-- exact in-app location of attribution text
-- whether any shipped builtin data will intentionally rely on SRD 5.1 instead of SRD 5.2.1
-- whether NOTICE/CREDITS text will live only in-app, only in repo docs, or both
-- how import/export should label builtin-source versus custom-source content in portable files
 
 ---
 
@@ -223,9 +188,10 @@ These questions do not block current document setup, but should be finalized bef
 
 Current Lore Ledger licensing posture:
 
-- **Primary builtin-content source:** SRD 5.2.1
-- **Reference/fallback source:** SRD 5.1
+- **Primary builtin-content source:** SRD 5.1 (CC-BY-4.0, re-released January 2023)
+- **Retired source:** SRD 5.2.1 (data deleted from game-data/srd/)
 - **Policy stance:** conservative, greenlist-based, builtin vs custom separated
 - **Default rule:** if it is not clearly approved for builtin scope, treat it as custom content
+- **Attribution:** CC-BY-4.0 statement in `LEGAL.md`; in-app credits page required before public release (Phase 4)
 
 This document should be updated whenever the project's shipped builtin content scope or attribution strategy changes.

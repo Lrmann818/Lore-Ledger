@@ -213,6 +213,29 @@ When in doubt, do not ship it as builtin.
 
 ---
 
+## SRD Data Fetch Pipeline
+
+`game-data/srd/*.json` files are produced by running adapter scripts — they are **not hand-edited**.
+
+The pipeline is:
+
+```
+scripts/fetch-srd-data.js    ← orchestrator
+scripts/adapters/
+  racesAdapter.js            ← produces races.json
+  classesAdapter.js          ← produces classes.json
+  backgroundsAdapter.js
+  equipmentAdapter.js
+  spellsAdapter.js
+  ... etc
+```
+
+These scripts fetch from `dnd5eapi.co` during development and transform the results into the repo's structured JSON format. The JSON files are then committed and shipped with the app — there are no runtime API calls.
+
+**Rule for coding agents:** If the content in a `game-data/srd/*.json` file needs to change, edit the relevant adapter script in `scripts/adapters/` and re-run it. Do not edit the JSON files directly. Direct edits will be overwritten the next time the adapter runs.
+
+---
+
 ## Practical Working Rule
 
 For Lore Ledger builder work:
