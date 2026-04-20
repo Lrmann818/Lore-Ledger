@@ -188,7 +188,7 @@ describe("isBuilderCharacter", () => {
     expect(isBuilderCharacter({ build: { arbitrary: true } })).toBe(false);
     expect(isBuilderCharacter({ build: { classId: null, raceId: null } })).toBe(false);
     expect(isBuilderCharacter({ build: { classId: "class_fighter" } })).toBe(true);
-    expect(isBuilderCharacter({ build: { version: 1, ruleset: "srd-5.2.1" } })).toBe(true);
+    expect(isBuilderCharacter({ build: { version: 1, ruleset: "srd-5.1" } })).toBe(true);
     expect(isBuilderCharacter({ build: { abilities: { base: { str: 15 } } } })).toBe(true);
   });
 });

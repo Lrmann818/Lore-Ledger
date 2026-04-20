@@ -66,7 +66,7 @@ describe("rules derivation", () => {
       background: "Legacy Background",
       build: {
         version: 1,
-        ruleset: "srd-5.2.1",
+        ruleset: "srd-5.1",
         raceId: "race_human",
         classId: "class_fighter",
         backgroundId: "background_soldier",
@@ -304,7 +304,7 @@ describe("rules derivation", () => {
     const character = {
       build: {
         version: 1,
-        ruleset: "srd-5.2.1",
+        ruleset: "srd-5.1",
         raceId: "race_human",
         classId: "class_fighter",
         backgroundId: "background_soldier",

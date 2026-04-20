@@ -1263,7 +1263,7 @@ describe("character page selector", () => {
       name: "Malformed Builder",
       build: {
         version: 1,
-        ruleset: "srd-5.2.1",
+        ruleset: "srd-5.1",
         classId: "class_fighter",
         level: 3,
         abilities: { base: { str: 15 } }
@@ -1744,7 +1744,7 @@ describe("character page selector", () => {
       name: "Malformed Builder",
       build: {
         version: 1,
-        ruleset: "srd-5.2.1",
+        ruleset: "srd-5.1",
         classId: "class_fighter",
         level: 3,
         abilities: { base: { str: 15 } }
@@ -1983,7 +1983,7 @@ describe("character page selector", () => {
       name: "Malformed Builder",
       build: {
         version: 1,
-        ruleset: "srd-5.2.1",
+        ruleset: "srd-5.1",
         classId: "class_fighter",
         level: 3,
         abilities: { base: { str: 15 } }
