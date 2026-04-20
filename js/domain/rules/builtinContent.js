@@ -8,12 +8,12 @@
  *   kind: BuiltinContentKind,
  *   name: string,
  *   source: "builtin",
- *   ruleset: "srd-5.2.1",
+ *   ruleset: "srd-5.1",
  *   data: Record<string, unknown>
  * }} BuiltinContentEntry
  */
 
-const RULESET = "srd-5.2.1";
+const RULESET = "srd-5.1";
 
 /** @type {readonly BuiltinContentEntry[]} */
 export const BUILTIN_CONTENT = Object.freeze([

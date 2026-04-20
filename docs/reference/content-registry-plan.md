@@ -146,7 +146,7 @@ Each item should declare where it comes from.
 
 For shipped builtin SRD content, use:
 
-- `"source": "srd-5.2.1"`
+- `"source": "srd-5.1"`
 
 This keeps the provenance explicit.
 
@@ -202,7 +202,7 @@ Every registry record should at minimum follow this shared shape:
   "id": "fighter",
   "kind": "class",
   "name": "Fighter",
-  "source": "srd-5.2.1"
+  "source": "srd-5.1"
 }
 ```
 
@@ -227,7 +227,7 @@ Recommended shape:
   "id": "dwarf",
   "kind": "species",
   "name": "Dwarf",
-  "source": "srd-5.2.1",
+  "source": "srd-5.1",
   "size": "Medium",
   "speed": 30,
   "abilityBonuses": {
@@ -284,7 +284,7 @@ Recommended shape:
   "id": "fighter",
   "kind": "class",
   "name": "Fighter",
-  "source": "srd-5.2.1",
+  "source": "srd-5.1",
   "hitDie": 10,
   "primaryAbilities": [
     "str",
@@ -379,7 +379,7 @@ Recommended shape:
   "id": "soldier",
   "kind": "background",
   "name": "Soldier",
-  "source": "srd-5.2.1",
+  "source": "srd-5.1",
   "skillProficiencies": [
     "athletics",
     "intimidation"
@@ -412,7 +412,7 @@ Recommended shape:
   "id": "tough",
   "kind": "feat",
   "name": "Tough",
-  "source": "srd-5.2.1",
+  "source": "srd-5.1",
   "category": "general",
   "prerequisites": [],
   "effects": [
@@ -460,7 +460,7 @@ Recommended shape:
   "id": "champion",
   "kind": "subclass",
   "name": "Champion",
-  "source": "srd-5.2.1",
+  "source": "srd-5.1",
   "classId": "fighter",
   "featuresByLevel": {
     "3": ["improved_critical"],
@@ -490,7 +490,7 @@ Recommended shape:
   "id": "studded_leather",
   "kind": "armor",
   "name": "Studded Leather",
-  "source": "srd-5.2.1",
+  "source": "srd-5.1",
   "armorCategory": "light",
   "baseAC": 12,
   "addDex": true,
@@ -523,7 +523,7 @@ Recommended shape:
   "id": "longsword",
   "kind": "weapon",
   "name": "Longsword",
-  "source": "srd-5.2.1",
+  "source": "srd-5.1",
   "weaponCategory": "martial",
   "attackType": "melee",
   "damage": "1d8",
@@ -600,7 +600,7 @@ Examples:
 For the current Lore Ledger builder scope, shipped builtin records should use:
 
 ```json
-"source": "srd-5.2.1"
+"source": "srd-5.1"
 ```
 
 If the project ever introduces other approved builtin source packs later, the source field will make that distinction explicit.
@@ -621,13 +621,13 @@ Example:
     "id": "fighter",
     "kind": "class",
     "name": "Fighter",
-    "source": "srd-5.2.1"
+    "source": "srd-5.1"
   },
   {
     "id": "wizard",
     "kind": "class",
     "name": "Wizard",
-    "source": "srd-5.2.1"
+    "source": "srd-5.1"
   }
 ]
 ```

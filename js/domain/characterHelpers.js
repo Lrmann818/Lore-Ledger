@@ -9,7 +9,7 @@
 
 export const CHARACTER_ABILITY_KEYS = Object.freeze(["str", "dex", "con", "int", "wis", "cha"]);
 export const DEFAULT_CHARACTER_BUILD_VERSION = 1;
-export const DEFAULT_CHARACTER_RULESET = "srd-5.2.1";
+export const DEFAULT_CHARACTER_RULESET = "srd-5.1";
 
 /**
  * Creates the Step 3 foundation override shape.

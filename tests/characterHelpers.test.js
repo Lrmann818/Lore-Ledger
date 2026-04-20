@@ -84,7 +84,7 @@ describe("makeDefaultCharacterBuild", () => {
   it("returns the minimal Step 3 builder metadata shape", () => {
     expect(makeDefaultCharacterBuild()).toEqual({
       version: 1,
-      ruleset: "srd-5.2.1",
+      ruleset: "srd-5.1",
       speciesId: null,
       classId: null,
       subclassId: null,
