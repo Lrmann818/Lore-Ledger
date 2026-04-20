@@ -2,7 +2,7 @@
 // Minimal read-only builtin content for the Step 3 rules foundation.
 
 /**
- * @typedef {"species" | "class" | "background"} BuiltinContentKind
+ * @typedef {"race" | "class" | "background"} BuiltinContentKind
  * @typedef {{
  *   id: string,
  *   kind: BuiltinContentKind,
@@ -18,24 +18,24 @@ const RULESET = "srd-5.1";
 /** @type {readonly BuiltinContentEntry[]} */
 export const BUILTIN_CONTENT = Object.freeze([
   Object.freeze({
-    id: "species_human",
-    kind: "species",
+    id: "race_human",
+    kind: "race",
     name: "Human",
     source: "builtin",
     ruleset: RULESET,
     data: Object.freeze({ speed: 30 })
   }),
   Object.freeze({
-    id: "species_dwarf",
-    kind: "species",
+    id: "race_dwarf",
+    kind: "race",
     name: "Dwarf",
     source: "builtin",
     ruleset: RULESET,
     data: Object.freeze({ speed: 30 })
   }),
   Object.freeze({
-    id: "species_elf",
-    kind: "species",
+    id: "race_elf",
+    kind: "race",
     name: "Elf",
     source: "builtin",
     ruleset: RULESET,

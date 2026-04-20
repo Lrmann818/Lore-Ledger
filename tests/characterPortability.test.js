@@ -666,7 +666,7 @@ describe("character portability round trip", () => {
   it("round-trips Step 3 build and overrides without changing the export format version", async () => {
     const build = {
       ...makeDefaultCharacterBuild(),
-      speciesId: "species_human",
+      raceId: "race_human",
       classId: "class_fighter",
       backgroundId: "background_soldier",
       level: 4,

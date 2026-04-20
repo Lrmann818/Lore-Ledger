@@ -436,14 +436,14 @@ function installBuilderIdentityDom(document) {
   appendWithId(document, panel, "h2", "charBuilderIdentityTitle").textContent = "Builder Identity";
   const content = appendWithId(document, panel, "div", "charBuilderIdentityContent", "builderIdentityContent");
   appendWithId(document, content, "p", "charBuilderIdentityNote", "builderIdentityNote")
-    .textContent = "Choose species, class, background, and level here. Basics uses those builder choices for identity text.";
+    .textContent = "Choose race, class, background, and level here. Basics uses those builder choices for identity text.";
   const unavailable = appendWithId(document, content, "p", "charBuilderIdentityUnavailable", "builderIdentityNote");
   unavailable.hidden = true;
   unavailable.textContent = "Builder Mode is active, but this character's builder data is not editable by the current identity editor.";
   const grid = appendWithId(document, content, "div", "charBuilderIdentityGrid", "builderIdentityGrid");
-  appendWithId(document, grid, "span", "charBuilderSpeciesLabel").textContent = "Species";
-  const species = appendWithId(document, grid, "select", "charBuilderSpeciesSelect");
-  species.setAttribute("aria-labelledby", "charBuilderSpeciesLabel");
+  appendWithId(document, grid, "span", "charBuilderRaceLabel").textContent = "Race";
+  const species = appendWithId(document, grid, "select", "charBuilderRaceSelect");
+  species.setAttribute("aria-labelledby", "charBuilderRaceLabel");
   appendWithId(document, grid, "span", "charBuilderClassLabel").textContent = "Class";
   const classSelect = appendWithId(document, grid, "select", "charBuilderClassSelect");
   classSelect.setAttribute("aria-labelledby", "charBuilderClassLabel");
@@ -639,7 +639,7 @@ function makeBuilderCharacter({
   id = "char_builder",
   name = "Builder",
   classId = "class_fighter",
-  speciesId = "species_elf",
+  raceId = "race_elf",
   backgroundId = "background_soldier",
   level = 5,
   abilities = { str: 16, dex: 14, con: 13, int: 12, wis: 10, cha: 8 },
@@ -664,7 +664,7 @@ function makeBuilderCharacter({
     build: {
       ...makeDefaultCharacterBuild(),
       classId,
-      speciesId,
+      raceId,
       backgroundId,
       level,
       abilities: { base: abilities }
@@ -692,15 +692,15 @@ describe("character page selector", () => {
     expect(html).toContain('id="charSelector" class="charSelectorSelect panelSelect"');
     expect(html).toContain('class="charBuilderModeBadge" id="charBuilderModeBadge"');
     expect(html).toContain('class="panel builderIdentityPanel" id="charBuilderIdentityPanel" hidden aria-hidden="true"');
-    expect(html).toContain('id="charBuilderSpeciesSelect"');
-    expect(html).toContain('id="charBuilderSpeciesSelect" aria-labelledby="charBuilderSpeciesLabel"');
+    expect(html).toContain('id="charBuilderRaceSelect"');
+    expect(html).toContain('id="charBuilderRaceSelect" aria-labelledby="charBuilderRaceLabel"');
     expect(html).toContain('id="charBuilderClassSelect"');
     expect(html).toContain('id="charBuilderClassSelect" aria-labelledby="charBuilderClassLabel"');
     expect(html).toContain('id="charBuilderBackgroundSelect"');
     expect(html).toContain('id="charBuilderBackgroundSelect" aria-labelledby="charBuilderBackgroundLabel"');
     expect(html).toContain('id="charBuilderLevelInput" type="number" min="1" max="20"');
     expect(html).toContain('aria-labelledby="charBuilderLevelLabel"');
-    expect(html).toContain("Choose species, class, background, and level here. Basics uses those builder choices for identity text.");
+    expect(html).toContain("Choose race, class, background, and level here. Basics uses those builder choices for identity text.");
     expect(html).toContain("Builder Mode is active, but this character's builder data is not editable by the current identity editor.");
     expect(html).toContain('class="panel builderAbilitiesPanel" id="charBuilderAbilitiesPanel" hidden aria-hidden="true"');
     expect(html).toContain("Builder Abilities");
@@ -1201,7 +1201,7 @@ describe("character page selector", () => {
     expect(panel.getAttribute("aria-hidden")).toBe("false");
     expect(document.getElementById("charBuilderIdentityGrid").hidden).toBe(false);
     expect(document.getElementById("charBuilderIdentityUnavailable").hidden).toBe(true);
-    expect(document.getElementById("charBuilderSpeciesSelect").value).toBe("species_elf");
+    expect(document.getElementById("charBuilderRaceSelect").value).toBe("race_elf");
     expect(document.getElementById("charBuilderClassSelect").value).toBe("class_fighter");
     expect(document.getElementById("charBuilderBackgroundSelect").value).toBe("background_soldier");
     expect(document.getElementById("charBuilderLevelInput").value).toBe("5");
@@ -1218,9 +1218,9 @@ describe("character page selector", () => {
 
     const controller = initCharacterPageUI(deps);
 
-    expect(document.getElementById("charBuilderSpeciesSelect").getAttribute("aria-labelledby"))
-      .toBe("charBuilderSpeciesLabel");
-    expect(document.getElementById("charBuilderSpeciesLabel").textContent).toBe("Species");
+    expect(document.getElementById("charBuilderRaceSelect").getAttribute("aria-labelledby"))
+      .toBe("charBuilderRaceLabel");
+    expect(document.getElementById("charBuilderRaceLabel").textContent).toBe("Race");
     expect(document.getElementById("charBuilderClassSelect").getAttribute("aria-labelledby"))
       .toBe("charBuilderClassLabel");
     expect(document.getElementById("charBuilderClassLabel").textContent).toBe("Class");
@@ -1247,7 +1247,7 @@ describe("character page selector", () => {
     expect(document.getElementById("charBuilderIdentityPanel").getAttribute("aria-hidden")).toBe("true");
     expect(document.getElementById("charBuilderIdentityGrid").hidden).toBe(true);
     expect(document.getElementById("charBuilderIdentityUnavailable").hidden).toBe(true);
-    expect(document.getElementById("charBuilderSpeciesSelect").value).toBe("");
+    expect(document.getElementById("charBuilderRaceSelect").value).toBe("");
     expect(document.getElementById("charBuilderLevelInput").value).toBe("");
 
     controller.destroy();
@@ -1295,9 +1295,9 @@ describe("character page selector", () => {
 
     const controller = initCharacterPageUI(deps);
 
-    expect(getSelectOptions(document.getElementById("charBuilderSpeciesSelect"))).toEqual([
+    expect(getSelectOptions(document.getElementById("charBuilderRaceSelect"))).toEqual([
       { value: "", label: "Not selected" },
-      ...listContentByKind(BUILTIN_CONTENT_REGISTRY, "species").map((entry) => ({
+      ...listContentByKind(BUILTIN_CONTENT_REGISTRY, "race").map((entry) => ({
         value: entry.id,
         label: entry.name
       }))
@@ -1333,13 +1333,13 @@ describe("character page selector", () => {
 
     const entry = deps.state.characters.entries[2];
     expect(entry.build).toMatchObject({
-      speciesId: null,
+      raceId: null,
       classId: null,
       backgroundId: null,
       level: 1
     });
     expect(document.getElementById("charBuilderIdentityPanel").hidden).toBe(false);
-    expect(document.getElementById("charBuilderSpeciesSelect").value).toBe("");
+    expect(document.getElementById("charBuilderRaceSelect").value).toBe("");
     expect(document.getElementById("charBuilderClassSelect").value).toBe("");
     expect(document.getElementById("charBuilderBackgroundSelect").value).toBe("");
     expect(document.getElementById("charBuilderLevelInput").value).toBe("1");
@@ -1354,7 +1354,7 @@ describe("character page selector", () => {
     const deps = createCharacterPageDeps(Popovers);
     deps.state.characters.entries[0] = makeBuilderCharacter({
       id: "char_a",
-      speciesId: "species_dwarf",
+      raceId: "race_dwarf",
       classId: "class_wizard",
       backgroundId: "background_sage",
       level: 7
@@ -1362,7 +1362,7 @@ describe("character page selector", () => {
 
     const controller = initCharacterPageUI(deps);
 
-    expect(document.getElementById("charBuilderSpeciesSelect").value).toBe("species_dwarf");
+    expect(document.getElementById("charBuilderRaceSelect").value).toBe("race_dwarf");
     expect(document.getElementById("charBuilderClassSelect").value).toBe("class_wizard");
     expect(document.getElementById("charBuilderBackgroundSelect").value).toBe("background_sage");
     expect(document.getElementById("charBuilderLevelInput").value).toBe("7");
@@ -1398,10 +1398,10 @@ describe("character page selector", () => {
 
     const controller = initCharacterPageUI(deps);
 
-    const speciesSelect = document.getElementById("charBuilderSpeciesSelect");
-    speciesSelect.value = "species_human";
-    dispatchChange(speciesSelect);
-    expect(builder.build.speciesId).toBe("species_human");
+    const raceSelect = document.getElementById("charBuilderRaceSelect");
+    raceSelect.value = "race_human";
+    dispatchChange(raceSelect);
+    expect(builder.build.raceId).toBe("race_human");
     expect(builder.build.classId).toBe("class_fighter");
     expect(builder.build.backgroundId).toBe("background_soldier");
     expect(builder.build.level).toBe(5);
@@ -1410,7 +1410,7 @@ describe("character page selector", () => {
     classSelect.value = "class_wizard";
     dispatchChange(classSelect);
     expect(builder.build.classId).toBe("class_wizard");
-    expect(builder.build.speciesId).toBe("species_human");
+    expect(builder.build.raceId).toBe("race_human");
     expect(builder.build.backgroundId).toBe("background_soldier");
     expect(builder.build.level).toBe(5);
 
@@ -1418,7 +1418,7 @@ describe("character page selector", () => {
     backgroundSelect.value = "background_sage";
     dispatchChange(backgroundSelect);
     expect(builder.build.backgroundId).toBe("background_sage");
-    expect(builder.build.speciesId).toBe("species_human");
+    expect(builder.build.raceId).toBe("race_human");
     expect(builder.build.classId).toBe("class_wizard");
     expect(builder.build.level).toBe(5);
 
@@ -1426,7 +1426,7 @@ describe("character page selector", () => {
     levelInput.value = "6";
     dispatchChange(levelInput);
     expect(builder.build.level).toBe(6);
-    expect(builder.build.speciesId).toBe("species_human");
+    expect(builder.build.raceId).toBe("race_human");
     expect(builder.build.classId).toBe("class_wizard");
     expect(builder.build.backgroundId).toBe("background_sage");
 
@@ -1453,13 +1453,13 @@ describe("character page selector", () => {
 
     const controller = initCharacterPageUI(deps);
 
-    ["charBuilderSpeciesSelect", "charBuilderClassSelect", "charBuilderBackgroundSelect"].forEach((id) => {
+    ["charBuilderRaceSelect", "charBuilderClassSelect", "charBuilderBackgroundSelect"].forEach((id) => {
       const select = document.getElementById(id);
       select.value = "";
       dispatchChange(select);
     });
 
-    expect(builder.build.speciesId).toBeNull();
+    expect(builder.build.raceId).toBeNull();
     expect(builder.build.classId).toBeNull();
     expect(builder.build.backgroundId).toBeNull();
 
@@ -1473,7 +1473,7 @@ describe("character page selector", () => {
     const deps = createCharacterPageDeps(Popovers);
     const builder = makeBuilderCharacter({
       id: "char_a",
-      speciesId: "species_elf",
+      raceId: "race_elf",
       classId: "class_fighter",
       backgroundId: null
     });
@@ -1482,11 +1482,11 @@ describe("character page selector", () => {
 
     const controller = initCharacterPageUI(deps);
 
-    const speciesSelect = document.getElementById("charBuilderSpeciesSelect");
-    speciesSelect.value = "class_fighter";
-    dispatchChange(speciesSelect);
+    const raceSelect = document.getElementById("charBuilderRaceSelect");
+    raceSelect.value = "class_fighter";
+    dispatchChange(raceSelect);
     expect(builder.build).toEqual(beforeBuild);
-    expect(speciesSelect.value).toBe("species_elf");
+    expect(raceSelect.value).toBe("race_elf");
 
     const classSelect = document.getElementById("charBuilderClassSelect");
     classSelect.value = "class_missing";
@@ -1572,7 +1572,7 @@ describe("character page selector", () => {
 
     const controller = initCharacterPageUI(deps);
 
-    ["charBuilderSpeciesSelect", "charBuilderClassSelect", "charBuilderBackgroundSelect", "charBuilderLevelInput"].forEach((id) => {
+    ["charBuilderRaceSelect", "charBuilderClassSelect", "charBuilderBackgroundSelect", "charBuilderLevelInput"].forEach((id) => {
       const input = document.getElementById(id);
       expect(input.disabled).toBe(false);
       expect(input.readOnly).toBe(false);
@@ -1589,19 +1589,19 @@ describe("character page selector", () => {
     const Popovers = createFakePopovers();
     const deps = createCharacterPageDeps(Popovers);
     deps.state.characters.entries = [
-      makeBuilderCharacter({ id: "char_a", speciesId: "species_elf", classId: "class_fighter", backgroundId: "background_soldier", level: 5 }),
+      makeBuilderCharacter({ id: "char_a", raceId: "race_elf", classId: "class_fighter", backgroundId: "background_soldier", level: 5 }),
       { id: "char_b", name: "Bram", build: null },
-      makeBuilderCharacter({ id: "char_c", speciesId: "species_human", classId: "class_wizard", backgroundId: "background_acolyte", level: 1 })
+      makeBuilderCharacter({ id: "char_c", raceId: "race_human", classId: "class_wizard", backgroundId: "background_acolyte", level: 1 })
     ];
     deps.state.characters.activeId = "char_a";
 
     const controller = initCharacterPageUI(deps);
-    expect(document.getElementById("charBuilderSpeciesSelect").value).toBe("species_elf");
+    expect(document.getElementById("charBuilderRaceSelect").value).toBe("race_elf");
 
     deps.state.characters.activeId = "char_c";
     notifyActiveCharacterChanged({ previousId: "char_a", activeId: "char_c" });
     expect(document.getElementById("charBuilderIdentityPanel").hidden).toBe(false);
-    expect(document.getElementById("charBuilderSpeciesSelect").value).toBe("species_human");
+    expect(document.getElementById("charBuilderRaceSelect").value).toBe("race_human");
     expect(document.getElementById("charBuilderClassSelect").value).toBe("class_wizard");
     expect(document.getElementById("charBuilderBackgroundSelect").value).toBe("background_acolyte");
     expect(document.getElementById("charBuilderLevelInput").value).toBe("1");
@@ -1609,7 +1609,7 @@ describe("character page selector", () => {
     deps.state.characters.activeId = "char_b";
     notifyActiveCharacterChanged({ previousId: "char_c", activeId: "char_b" });
     expect(document.getElementById("charBuilderIdentityPanel").hidden).toBe(true);
-    expect(document.getElementById("charBuilderSpeciesSelect").value).toBe("");
+    expect(document.getElementById("charBuilderRaceSelect").value).toBe("");
     expect(document.getElementById("charBuilderClassSelect").value).toBe("");
     expect(document.getElementById("charBuilderBackgroundSelect").value).toBe("");
     expect(document.getElementById("charBuilderLevelInput").value).toBe("");
@@ -1628,11 +1628,11 @@ describe("character page selector", () => {
     const secondController = initCharacterPageUI(deps);
     deps.SaveManager.markDirty.mockClear();
 
-    const speciesSelect = document.getElementById("charBuilderSpeciesSelect");
-    speciesSelect.value = "species_human";
-    dispatchChange(speciesSelect);
+    const raceSelect = document.getElementById("charBuilderRaceSelect");
+    raceSelect.value = "race_human";
+    dispatchChange(raceSelect);
 
-    expect(deps.state.characters.entries[0].build.speciesId).toBe("species_human");
+    expect(deps.state.characters.entries[0].build.raceId).toBe("race_human");
     expect(deps.SaveManager.markDirty).toHaveBeenCalledTimes(1);
 
     firstController.destroy();
@@ -1947,7 +1947,7 @@ describe("character page selector", () => {
     expect(panel.getAttribute("aria-describedby")).toBe("charBuilderSummaryDescription");
     expect(content.textContent).toContain("Derived from builder data");
     expect(content.textContent).toContain("Class / LevelFighter 5");
-    expect(content.textContent).toContain("SpeciesElf");
+    expect(content.textContent).toContain("RaceElf");
     expect(content.textContent).toContain("BackgroundSoldier");
     expect(content.textContent).toContain("Level5");
     expect(content.textContent).toContain("Proficiency Bonus+3");
@@ -2058,7 +2058,7 @@ describe("character page selector", () => {
         id: "char_c",
         name: "Cora",
         classId: "class_wizard",
-        speciesId: null,
+        raceId: null,
         backgroundId: null,
         level: 1,
         abilities: { str: 10, dex: 10, con: 10, int: 16, wis: 12, cha: 8 }
@@ -2073,7 +2073,7 @@ describe("character page selector", () => {
     notifyActiveCharacterChanged({ previousId: "char_a", activeId: "char_c" });
     expect(document.getElementById("charBuilderSummaryPanel").hidden).toBe(false);
     expect(document.getElementById("charBuilderSummaryContent").textContent).toContain("Wizard 1");
-    expect(document.getElementById("charBuilderSummaryContent").textContent).toContain("SpeciesNot selected");
+    expect(document.getElementById("charBuilderSummaryContent").textContent).toContain("RaceNot selected");
     expect(document.getElementById("charBuilderSummaryContent").textContent).toContain("INT16 (+3)");
 
     deps.state.characters.activeId = "char_b";

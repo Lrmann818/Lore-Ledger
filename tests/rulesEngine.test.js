@@ -24,10 +24,10 @@ describe("builtin content registry", () => {
   });
 
   it("lists content by kind", () => {
-    expect(listContentByKind(BUILTIN_CONTENT_REGISTRY, "species").map((entry) => entry.id)).toEqual([
-      "species_human",
-      "species_dwarf",
-      "species_elf"
+    expect(listContentByKind(BUILTIN_CONTENT_REGISTRY, "race").map((entry) => entry.id)).toEqual([
+      "race_human",
+      "race_dwarf",
+      "race_elf"
     ]);
     expect(listContentByKind(BUILTIN_CONTENT_REGISTRY, "class").map((entry) => entry.id)).toEqual([
       "class_fighter",
@@ -48,10 +48,10 @@ describe("builtin content registry", () => {
 
   it("can create a registry from a caller-provided entry list", () => {
     const registry = createContentRegistry([
-      { id: "species_test", kind: "species", name: "Test Species", source: "test" }
+      { id: "race_test", kind: "race", name: "Test Race", source: "test" }
     ]);
 
-    expect(getContentById(registry, "species_test")).toMatchObject({ name: "Test Species" });
+    expect(getContentById(registry, "race_test")).toMatchObject({ name: "Test Race" });
     expect(listContentByKind(registry, "class")).toEqual([]);
   });
 });
@@ -67,7 +67,7 @@ describe("rules derivation", () => {
       build: {
         version: 1,
         ruleset: "srd-5.2.1",
-        speciesId: "species_human",
+        raceId: "race_human",
         classId: "class_fighter",
         backgroundId: "background_soldier",
         level: 5,
@@ -223,7 +223,7 @@ describe("rules derivation", () => {
   it("reports warnings for unknown builder content ids without throwing", () => {
     const derived = deriveCharacter({
       build: {
-        speciesId: "species_missing",
+        raceId: "race_missing",
         classId: "class_missing",
         backgroundId: "background_missing",
         level: 1
@@ -235,14 +235,14 @@ describe("rules derivation", () => {
     expect(derived.vitals).toEqual({ speed: null, hitDieAmt: 1, hitDieSize: null });
     expect(derived.warnings).toEqual([
       "Unknown class content: class_missing",
-      "Unknown species content: species_missing",
+      "Unknown race content: race_missing",
       "Unknown background content: background_missing"
     ]);
   });
 
   it("keeps malformed builder Vitals derivation blank-safe with warnings", () => {
     const registry = createContentRegistry([
-      { id: "species_bad", kind: "species", name: "Bad Species", source: "test", data: { speed: "fast" } },
+      { id: "race_bad", kind: "race", name: "Bad Species", source: "test", data: { speed: "fast" } },
       { id: "class_bad", kind: "class", name: "Bad Class", source: "test", data: { hitDie: "d8" } }
     ]);
     const character = {
@@ -251,7 +251,7 @@ describe("rules derivation", () => {
       hitDieSize: 99,
       build: {
         version: 1,
-        speciesId: "species_bad",
+        raceId: "race_bad",
         classId: "class_bad",
         level: Symbol("bad-level")
       }
@@ -260,7 +260,7 @@ describe("rules derivation", () => {
       speed: character.speed,
       hitDieAmt: character.hitDieAmt,
       hitDieSize: character.hitDieSize,
-      build: { version: 1, speciesId: "species_bad", classId: "class_bad" }
+      build: { version: 1, raceId: "race_bad", classId: "class_bad" }
     });
 
     const derived = deriveCharacter(character, registry);
@@ -271,20 +271,20 @@ describe("rules derivation", () => {
     expect(derived.vitals).toEqual({ speed: null, hitDieAmt: null, hitDieSize: null });
     expect(derived.warnings).toEqual([
       "Missing or malformed builder level",
-      "Malformed species speed content: species_bad",
+      "Malformed race speed content: race_bad",
       "Malformed class hit die content: class_bad"
     ]);
     expect(character.speed).toBe(before.speed);
     expect(character.hitDieAmt).toBe(before.hitDieAmt);
     expect(character.hitDieSize).toBe(before.hitDieSize);
-    expect(character.build.speciesId).toBe(before.build.speciesId);
+    expect(character.build.raceId).toBe(before.build.raceId);
     expect(character.build.classId).toBe(before.build.classId);
   });
 
   it("does not mutate the input character", () => {
     const character = {
       build: {
-        speciesId: "species_human",
+        raceId: "race_human",
         classId: "class_fighter",
         backgroundId: "background_soldier",
         level: 1,
@@ -305,7 +305,7 @@ describe("rules derivation", () => {
       build: {
         version: 1,
         ruleset: "srd-5.2.1",
-        speciesId: "species_human",
+        raceId: "race_human",
         classId: "class_fighter",
         backgroundId: "background_soldier",
         level: 1,
@@ -316,7 +316,7 @@ describe("rules derivation", () => {
     };
 
     character.build.level = 9;
-    character.build.speciesId = "species_elf";
+    character.build.raceId = "race_elf";
     character.build.classId = "class_wizard";
     character.build.backgroundId = "background_sage";
     const beforeDerive = structuredClone(character);
@@ -334,7 +334,7 @@ describe("rules derivation", () => {
     expect(beforeDerive).toMatchObject({
       build: {
         level: 9,
-        speciesId: "species_elf",
+        raceId: "race_elf",
         classId: "class_wizard",
         backgroundId: "background_sage"
       }
@@ -350,7 +350,7 @@ describe("rules derivation", () => {
       race: "",
       background: "",
       build: {
-        speciesId: "species_human",
+        raceId: "race_human",
         classId: "class_fighter",
         backgroundId: "background_soldier",
         level: 1,

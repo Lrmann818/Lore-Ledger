@@ -310,7 +310,7 @@ export const SCHEMA_MIGRATION_HISTORY = Object.freeze([
  * @typedef {{
  *   version?: number,
  *   ruleset?: string,
- *   speciesId?: string | null,
+ *   raceId?: string | null,
  *   classId?: string | null,
  *   subclassId?: string | null,
  *   backgroundId?: string | null,

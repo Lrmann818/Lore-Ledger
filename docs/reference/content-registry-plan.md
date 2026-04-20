@@ -61,7 +61,7 @@ The registry should never be replaced by scattered hardcoded data in UI modules.
 
 The planned builtin registry files are:
 
-- `game-data/srd/species.json`
+- `game-data/srd/races.json`
 - `game-data/srd/classes.json`
 - `game-data/srd/backgrounds.json`
 - `game-data/srd/feats.json`
@@ -156,7 +156,7 @@ Each record should declare its category.
 
 Examples:
 
-- `"kind": "species"`
+- `"kind": "race"`
 - `"kind": "class"`
 - `"kind": "background"`
 - `"kind": "feat"`
@@ -218,14 +218,14 @@ The following sections define the recommended first-pass shape for each current 
 
 Stored in:
 
-- `game-data/srd/species.json`
+- `game-data/srd/races.json`
 
 Recommended shape:
 
 ```json
 {
   "id": "dwarf",
-  "kind": "species",
+  "kind": "race",
   "name": "Dwarf",
   "source": "srd-5.1",
   "size": "Medium",
@@ -253,9 +253,9 @@ Notes:
 - if later needed, trait definitions can live in a separate trait registry or embedded structured objects
 - keep the initial version simple enough to support builder derivation without overengineering
 
-#### Spell-grant note for species
+#### Spell-grant note for races
 
-If a species grants a cantrip or spell as part of builtin builder content, that should be represented as structured data rather than buried in prose.
+If a race grants a cantrip or spell as part of builtin builder content, that should be represented as structured data rather than buried in prose.
 
 Example:
 
@@ -579,7 +579,7 @@ Examples:
 
 - `classId`
 - `subclassId`
-- `speciesId`
+- `raceId`
 - `backgroundId`
 
 ### Arrays of related IDs
@@ -735,7 +735,7 @@ Lore Ledger's content registry should be:
 
 Current planned builtin registry files:
 
-- `species.json`
+- `races.json`
 - `classes.json`
 - `backgrounds.json`
 - `feats.json`

@@ -10,7 +10,7 @@ The following spell-related capabilities are part of the current intended shippe
 - spellcasting ability metadata
 - spell slot progression
 - spell level access/progression
-- automatically granted spells or cantrips from builtin species, classes, subclasses, feats, backgrounds, or similar builder-backed content
+- automatically granted spells or cantrips from builtin races, classes, subclasses, feats, backgrounds, or similar builder-backed content
 
 This means the builder is allowed to determine things like:
 
@@ -102,13 +102,13 @@ If a future builtin item depends specifically on SRD 5.1, that decision should b
 
 The following categories are approved for builtin builder support, provided they are sourced from approved SRD material and represented in the project's structured data files.
 
-### 1. Species
+### 1. Race
 
 **Greenlit as builtin category:** Yes
 
-Builtin species may be shipped if they are approved SRD species and are modeled in `game-data/srd/species.json`.
+Builtin races may be shipped if they are approved SRD races and are modeled in `game-data/srd/races.json`.
 
-Current expected builtin species scope includes SRD-safe species such as:
+Current expected builtin race scope includes SRD-safe races such as:
 
 - Dragonborn
 - Dwarf
@@ -122,9 +122,9 @@ Current expected builtin species scope includes SRD-safe species such as:
 
 Project rule:
 
-- species are part of the required shipped scope for the character builder
-- if a species is in the approved SRD scope and Lore Ledger can legally use it, it should be treated as greenlit builtin content
-- species support should remain structured and data-driven
+- races are part of the required shipped scope for the character builder
+- if a race is in the approved SRD scope and Lore Ledger can legally use it, it should be treated as greenlit builtin content
+- race support should remain structured and data-driven
 
 ### 2. Classes
 
@@ -234,7 +234,7 @@ The following spell-related capabilities are part of the current intended shippe
 - spellcasting ability metadata
 - spell slot progression
 - spell level access/progression
-- automatically granted spells or cantrips from builtin species, classes, subclasses, feats, backgrounds, or similar builder-backed content
+- automatically granted spells or cantrips from builtin races, classes, subclasses, feats, backgrounds, or similar builder-backed content
 
 This means the builder is allowed to determine things like:
 
@@ -264,7 +264,7 @@ The builder may derive spellcasting progression data and surface automatically g
 
 The following should be treated as **custom-only unless explicitly reviewed and added later**:
 
-- non-SRD species
+- non-SRD races
 - non-SRD classes
 - non-SRD subclasses
 - non-SRD feats
@@ -326,7 +326,7 @@ At the current stage of Lore Ledger builder development, the safe working builti
 
 ### Approved current focus
 
-- species
+- races
 - classes
 - backgrounds
 - subclasses
@@ -365,7 +365,7 @@ Lore Ledger's current builder greenlist is conservative where it needs to be, bu
 
 **Approved builtin direction right now:**
 
-- species
+- races
 - classes
 - backgrounds
 - subclasses

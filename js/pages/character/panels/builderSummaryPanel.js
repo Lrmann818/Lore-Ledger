@@ -81,7 +81,7 @@ function getSafeAbilityRows(derived) {
  * @param {unknown} character
  * @returns {{
  *   classLevelLabel: string,
- *   speciesLabel: string,
+ *   raceLabel: string,
  *   backgroundLabel: string,
  *   level: number,
  *   proficiencyBonus: number,
@@ -114,7 +114,7 @@ function getBuilderSummaryViewModel(character) {
 
   return {
     classLevelLabel,
-    speciesLabel: cleanString(labels.race) || PLACEHOLDER,
+    raceLabel: cleanString(labels.race) || PLACEHOLDER,
     backgroundLabel: cleanString(labels.background) || PLACEHOLDER,
     level: derived.level,
     proficiencyBonus: derived.proficiencyBonus,
@@ -155,7 +155,7 @@ function renderSummary(contentEl, vm) {
   const rows = appendDiv(contentEl, "builderSummaryRows");
   [
     ["Class / Level", vm.classLevelLabel],
-    ["Species", vm.speciesLabel],
+    ["Race", vm.raceLabel],
     ["Background", vm.backgroundLabel],
     ["Level", String(vm.level)],
     ["Proficiency Bonus", signedNumber(vm.proficiencyBonus)]

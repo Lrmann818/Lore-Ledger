@@ -21,9 +21,9 @@ const NOT_SELECTED_LABEL = "Not selected";
 const MIN_LEVEL = 1;
 const MAX_LEVEL = 20;
 
-/** @type {Readonly<Record<"species" | "class" | "background", string>>} */
+/** @type {Readonly<Record<"race" | "class" | "background", string>>} */
 const BUILD_FIELD_BY_KIND = Object.freeze({
-  species: "speciesId",
+  race: "raceId",
   class: "classId",
   background: "backgroundId"
 });
@@ -142,7 +142,7 @@ export function initBuilderIdentityPanel(deps = {}) {
       content: "#charBuilderIdentityContent",
       unavailable: "#charBuilderIdentityUnavailable",
       grid: "#charBuilderIdentityGrid",
-      species: "#charBuilderSpeciesSelect",
+      race: "#charBuilderRaceSelect",
       class: "#charBuilderClassSelect",
       background: "#charBuilderBackgroundSelect",
       level: "#charBuilderLevelInput"
@@ -161,7 +161,7 @@ export function initBuilderIdentityPanel(deps = {}) {
   const contentEl = /** @type {HTMLElement} */ (guard.els.content);
   const unavailableEl = /** @type {HTMLElement} */ (guard.els.unavailable);
   const gridEl = /** @type {HTMLElement} */ (guard.els.grid);
-  const speciesSelect = /** @type {HTMLSelectElement} */ (guard.els.species);
+  const raceSelect = /** @type {HTMLSelectElement} */ (guard.els.race);
   const classSelect = /** @type {HTMLSelectElement} */ (guard.els.class);
   const backgroundSelect = /** @type {HTMLSelectElement} */ (guard.els.background);
   const levelInput = /** @type {HTMLInputElement} */ (guard.els.level);
@@ -175,7 +175,7 @@ export function initBuilderIdentityPanel(deps = {}) {
   destroyFns.push(() => listenerController.abort());
 
   function resetControls() {
-    speciesSelect.value = "";
+    raceSelect.value = "";
     classSelect.value = "";
     backgroundSelect.value = "";
     levelInput.value = "";
@@ -185,7 +185,7 @@ export function initBuilderIdentityPanel(deps = {}) {
    * @param {Record<string, unknown>} build
    */
   function syncControls(build) {
-    populateContentSelect(speciesSelect, "species", build.speciesId);
+    populateContentSelect(raceSelect, "race", build.raceId);
     populateContentSelect(classSelect, "class", build.classId);
     populateContentSelect(backgroundSelect, "background", build.backgroundId);
     levelInput.value = String(normalizeLevel(build.level) ?? MIN_LEVEL);
@@ -243,7 +243,7 @@ export function initBuilderIdentityPanel(deps = {}) {
   }
 
   /**
-   * @param {"species" | "class" | "background"} kind
+   * @param {"race" | "class" | "background"} kind
    * @param {unknown} rawValue
    */
   function updateContentId(kind, rawValue) {
@@ -298,7 +298,7 @@ export function initBuilderIdentityPanel(deps = {}) {
     refresh();
   }
 
-  speciesSelect.addEventListener("change", () => updateContentId("species", speciesSelect.value), {
+  raceSelect.addEventListener("change", () => updateContentId("race", raceSelect.value), {
     signal: listenerSignal
   });
   classSelect.addEventListener("change", () => updateContentId("class", classSelect.value), {

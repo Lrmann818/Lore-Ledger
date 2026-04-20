@@ -108,7 +108,7 @@ export function proficiencyBonusForLevel(value) {
 
 /**
  * @param {Record<string, unknown>} build
- * @param {"species" | "class" | "background"} kind
+ * @param {"race" | "class" | "background"} kind
  * @returns {string}
  */
 function getBuildContentId(build, kind) {
@@ -119,7 +119,7 @@ function getBuildContentId(build, kind) {
 
 /**
  * @param {ContentRegistry} registry
- * @param {"species" | "class" | "background"} kind
+ * @param {"race" | "class" | "background"} kind
  * @param {unknown} id
  * @returns {import("./builtinContent.js").BuiltinContentEntry | null}
  */
@@ -204,14 +204,14 @@ export function deriveCharacter(character, registry = BUILTIN_CONTENT_REGISTRY) 
   const warnings = [];
 
   const classId = build ? getBuildContentId(build, "class") : "";
-  const speciesId = build ? getBuildContentId(build, "species") : "";
+  const raceId = build ? getBuildContentId(build, "race") : "";
   const backgroundId = build ? getBuildContentId(build, "background") : "";
   const classEntry = build ? getContentByFlexibleId(registry, "class", classId) : null;
-  const speciesEntry = build ? getContentByFlexibleId(registry, "species", speciesId) : null;
+  const raceEntry = build ? getContentByFlexibleId(registry, "race", raceId) : null;
   const backgroundEntry = build ? getContentByFlexibleId(registry, "background", backgroundId) : null;
 
   if (build && classId && !classEntry) warnings.push(`Unknown class content: ${classId}`);
-  if (build && speciesId && !speciesEntry) warnings.push(`Unknown species content: ${speciesId}`);
+  if (build && raceId && !raceEntry) warnings.push(`Unknown race content: ${raceId}`);
   if (build && backgroundId && !backgroundEntry) warnings.push(`Unknown background content: ${backgroundId}`);
 
   const level = build
@@ -222,14 +222,14 @@ export function deriveCharacter(character, registry = BUILTIN_CONTENT_REGISTRY) 
     ? proficiencyBonusForLevel(level)
     : finiteNumberOrNull(source.proficiency);
 
-  const builderSpeed = build && speciesEntry
-    ? finitePositiveNumberOrNull(speciesEntry.data?.speed)
+  const builderSpeed = build && raceEntry
+    ? finitePositiveNumberOrNull(raceEntry.data?.speed)
     : null;
   const builderHitDieSize = build && classEntry
     ? finitePositiveNumberOrNull(classEntry.data?.hitDie)
     : null;
-  if (build && !speciesId) warnings.push("Missing species content for speed");
-  if (build && speciesEntry && builderSpeed == null) warnings.push(`Malformed species speed content: ${speciesEntry.id}`);
+  if (build && !raceId) warnings.push("Missing race content for speed");
+  if (build && raceEntry && builderSpeed == null) warnings.push(`Malformed race speed content: ${raceEntry.id}`);
   if (build && !classId) warnings.push("Missing class content for hit dice");
   if (build && classEntry && builderHitDieSize == null) warnings.push(`Malformed class hit die content: ${classEntry.id}`);
 
@@ -305,7 +305,7 @@ export function deriveCharacter(character, registry = BUILTIN_CONTENT_REGISTRY) 
       classLevel: build
         ? [classEntry?.name || "", level ? String(level) : ""].filter(Boolean).join(" ")
         : cleanString(source.classLevel),
-      race: build ? speciesEntry?.name || "" : cleanString(source.race),
+      race: build ? raceEntry?.name || "" : cleanString(source.race),
       background: build ? backgroundEntry?.name || "" : cleanString(source.background)
     },
     level,

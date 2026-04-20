@@ -209,7 +209,7 @@ If a `characterId` points to a character that no longer exists (data corruption,
 
 ## Step 3 — Rules engine and character builder
 
-**Status:** In progress. The original design below still describes the larger target. Current shipped scope is schema v6 builder metadata, pure first-slice derivation, minimal builder-character creation, an informational Builder Mode badge, a minimal Builder Identity editor for builtin species/class/background/level IDs, and a display-only Builder Summary panel. No full builder wizard, ability editing, subclass choices, field locking, derived-field materialization, level-up flow, custom content, or HP/AC/spell/combat automation has shipped yet.
+**Status:** In progress. The original design below still describes the larger target. Current shipped scope is schema v6 builder metadata, pure first-slice derivation, minimal builder-character creation, an informational Builder Mode badge, a minimal Builder Identity editor for builtin race/class/background/level IDs, and a display-only Builder Summary panel. No full builder wizard, ability editing, subclass choices, field locking, derived-field materialization, level-up flow, custom content, or HP/AC/spell/combat automation has shipped yet.
 
 ### Goal
 
@@ -225,7 +225,7 @@ Each character entry gains a `build` object and an `overrides` object alongside 
   
   // Build choices (source of truth for the rules engine)
   build: {
-    species: "dwarf",           // green-list id or custom id
+    race: "dwarf",           // green-list id or custom id
     class: "fighter",
     subclass: "champion",       // null until subclass level
     level: 3,
@@ -276,7 +276,7 @@ If `build` is null, the character operates in freeform mode — exactly like tod
 
 If `build` is present, the rules engine computes derived fields. The flat fields are written by the engine and should not be directly edited by the user (the UI disables direct input on computed fields and provides the override modal instead, like the Fifth Edition Character Sheet app).
 
-Current implementation note: builder characters do not yet lock fields or materialize derived values. Phase 3B adds a small Builder Identity panel before the Builder Summary that can edit only `build.speciesId`, `build.classId`, `build.backgroundId`, and `build.level` using the shipped builtin SRD-safe content IDs. The Builder Summary remains display-only and reads `deriveCharacter(...)` without persisting derived labels, proficiency bonuses, or ability totals back into flat fields such as `classLevel`, `race`, `background`, `proficiency`, abilities, HP, or AC. Existing freeform sheet fields remain editable. The full builder wizard, ability editing, subclass choices, field locking, HP/AC/spell automation, and custom content remain future work.
+Current implementation note: builder characters do not yet lock fields or materialize derived values. Phase 3B adds a small Builder Identity panel before the Builder Summary that can edit only `build.raceId`, `build.classId`, `build.backgroundId`, and `build.level` using the shipped builtin SRD-safe content IDs. The Builder Summary remains display-only and reads `deriveCharacter(...)` without persisting derived labels, proficiency bonuses, or ability totals back into flat fields such as `classLevel`, `race`, `background`, `proficiency`, abilities, HP, or AC. Existing freeform sheet fields remain editable. The full builder wizard, ability editing, subclass choices, field locking, HP/AC/spell automation, and custom content remain future work.
 
 ### Content model
 
@@ -285,7 +285,7 @@ Every piece of game content follows one schema:
 ```
 {
   id: string,
-  kind: "species" | "class" | "subclass" | "background" | "feat" | "spell" | "armor" | "weapon",
+  kind: "race" | "class" | "subclass" | "background" | "feat" | "spell" | "armor" | "weapon",
   name: string,
   source: "builtin" | "custom",
   data: { ... }   // kind-specific payload
@@ -513,7 +513,7 @@ One character at a time. No batch export/import.
 
 1. **`status` field**: Resolved in Step 2. Characters gained a `status: ""` field (schema v5). Linked cards read and write status from the character entry via `cardLinking.js`. Status is character-level state, visible everywhere the character appears.
 
-2. **Content registry storage location**: The builtin/custom content registry (species, classes, spells, etc.) should live at app level, not per-campaign. Need to decide exact storage shape and where in the vault it goes.
+2. **Content registry storage location**: The builtin/custom content registry (races, classes, spells, etc.) should live at app level, not per-campaign. Need to decide exact storage shape and where in the vault it goes.
 
 3. **Spell notes scoping**: Resolved in Step 4. Spell notes remain campaign-scoped IDB text records (`textKey_spellNotes(campaignId, spellId)`). Character export bundles notes for the exported character's spell IDs, and import restores those notes under the destination campaign.
 

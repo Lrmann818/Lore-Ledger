@@ -33,7 +33,7 @@ export function makeDefaultCharacterOverrides() {
 
 /**
  * Creates the minimal Step 3 builder metadata shape.
- * This opts a character into builder mode without choosing species, class,
+ * This opts a character into builder mode without choosing race, class,
  * subclass, background, spells, feats, or any derived automation.
  * @returns {import("../state.js").CharacterBuildState}
  */
@@ -42,7 +42,7 @@ export function makeDefaultCharacterBuild() {
   return {
     version: DEFAULT_CHARACTER_BUILD_VERSION,
     ruleset: DEFAULT_CHARACTER_RULESET,
-    speciesId: null,
+    raceId: null,
     classId: null,
     subclassId: null,
     backgroundId: null,
@@ -147,7 +147,7 @@ function isFiniteNumberLike(value) {
 function hasMeaningfulBuilderShape(build) {
   if (isFiniteNumberLike(build.version)) return true;
   if (isNonEmptyString(build.ruleset)) return true;
-  if (isNonEmptyString(build.speciesId)) return true;
+  if (isNonEmptyString(build.raceId)) return true;
   if (isNonEmptyString(build.classId)) return true;
   if (isNonEmptyString(build.subclassId)) return true;
   if (isNonEmptyString(build.backgroundId)) return true;
