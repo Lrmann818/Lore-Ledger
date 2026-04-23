@@ -1,11 +1,11 @@
 
 
-# Lore Ledger / CampaignTracker Codex project config
+# Lore Ledger Codex project config
 # Keep this file small and conservative. Use AGENTS.md for most behavioral guidance.
 
 [project]
-name = "CampaignTracker"
-description = "Lore Ledger / CampaignTracker production SPA with SRD 5.2.1-backed builder work"
+name = "LoreLedger"
+description = "Lore Ledger production SPA with SRD 5.2.1-backed builder work"
 
 [context]
 primary_instructions_file = "AGENTS.md"
