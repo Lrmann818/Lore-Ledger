@@ -12,12 +12,12 @@ import { notifyPanelDataChanged, subscribePanelDataChanged } from "../../../ui/p
 function formatPossessive(name) {
   const n = (name || "").trim();
   if (!n) return "";
-  // If it ends with s/S, prefer: "Silas' Campaign Tracker"
+  // If it ends with s/S, prefer: "Silas' Lore Ledger"
   return /[sS]$/.test(n) ? `${n}'` : `${n}'s`;
 }
 
 function updateTabTitle(state) {
-  const base = "Campaign Tracker";
+  const base = "Lore Ledger";
   const name = getActiveCharacter(state)?.name || "";
   const poss = formatPossessive(name);
   document.title = poss ? `${poss} ${base}` : base;

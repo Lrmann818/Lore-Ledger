@@ -1,4 +1,4 @@
-# Contributing to Campaign Tracker / Lore Ledger
+# Contributing to Lore Ledger
 
 This project is a local-first, browser-only D&D campaign companion built with vanilla HTML, CSS, and JavaScript. It is designed to run entirely in the browser, work offline after install, and preserve user data across refreshes, backups, and version upgrades.
 

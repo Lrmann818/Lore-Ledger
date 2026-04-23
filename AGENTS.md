@@ -1,6 +1,6 @@
 # AGENTS.md
 
-This file is the canonical rules document for any coding agent (Claude Code, Codex, Cursor, or other AI assistants) working in the Lore Ledger / CampaignTracker repo.
+This file is the canonical rules document for any coding agent (Claude Code, Codex, Cursor, or other AI assistants) working in the Lore Ledger (`Lore-Ledger`) repo.
 
 It is also the canonical rules document for human contributors making AI-assisted changes.
 
@@ -10,7 +10,7 @@ If you only read one file before working in this repo, read this one. `CLAUDE.md
 
 ## Purpose
 
-This file tells coding agents how to work safely in the Lore Ledger / CampaignTracker repo. It exists to reduce ambiguity, prevent scope drift, keep implementation aligned with the project's architecture, and protect the project's reliability and backward-compatibility commitments.
+This file tells coding agents how to work safely in the Lore Ledger (`Lore-Ledger`) repo. It exists to reduce ambiguity, prevent scope drift, keep implementation aligned with the project's architecture, and protect the project's reliability and backward-compatibility commitments.
 
 If a requested change conflicts with this file or the docs it points to, **stop and surface the conflict**. Do not silently improvise around it.
 

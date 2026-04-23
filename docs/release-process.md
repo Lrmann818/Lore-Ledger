@@ -1,6 +1,6 @@
 # Release Process
 
-This document describes the current production release workflow for Campaign Tracker / Lore Ledger as it exists in this repository today.
+This document describes the current production release workflow for Lore Ledger as it exists in this repository today.
 
 The standard shipping path is:
 

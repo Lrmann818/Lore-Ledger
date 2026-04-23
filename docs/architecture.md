@@ -1,6 +1,6 @@
 # Architecture
 
-This document is the architecture source of truth for the current Lore Ledger / Campaign Tracker codebase. It describes the code that exists today, not a target refactor state. When a change alters startup order, state shape, persistence behavior, or module boundaries, update this file in the same change.
+This document is the architecture source of truth for the current Lore Ledger codebase. It describes the code that exists today, not a target refactor state. When a change alters startup order, state shape, persistence behavior, or module boundaries, update this file in the same change.
 
 > AI-assisted editing rules live in [`AI_RULES.md`](../AI_RULES.md).
 

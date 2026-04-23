@@ -1,6 +1,6 @@
 # Testing Guide
 
-This is the primary current manual testing guide for Campaign Tracker / Lore Ledger. It pulls together the current release/regression guidance from `docs/SMOKE_TEST.md`, `SMOKE_TEST.md`, and `docs/CSP_AUDIT.md`, while still treating those shorter docs as supplemental checklists and pointing to the current automated coverage for migration, persistence, backup/import, and save-lifecycle behavior.
+This is the primary current manual testing guide for Lore Ledger. It pulls together the current release/regression guidance from `docs/SMOKE_TEST.md`, `SMOKE_TEST.md`, and `docs/CSP_AUDIT.md`, while still treating those shorter docs as supplemental checklists and pointing to the current automated coverage for migration, persistence, backup/import, and save-lifecycle behavior.
 
 ## 1. Testing philosophy
 

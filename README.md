@@ -1,6 +1,6 @@
-# Campaign Tracker
+# Lore Ledger
 
-`CampaignTracker` is the repository for `Lore Ledger`, a local-first D&D campaign companion built with vanilla HTML, CSS, and JavaScript. It runs entirely in the browser, persists data on-device, and is packaged for GitHub Pages as an installable Progressive Web App (PWA).
+`Lore-Ledger` is the GitHub repository for `Lore Ledger`, a local-first D&D campaign companion built with vanilla HTML, CSS, and JavaScript. It runs entirely in the browser, persists data on-device, and is packaged for GitHub Pages as an installable Progressive Web App (PWA).
 
 ## 1. Project overview
 

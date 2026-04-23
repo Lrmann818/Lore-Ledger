@@ -1,6 +1,6 @@
 # Troubleshooting
 
-This guide covers common operational and development issues for Lore Ledger / Campaign Tracker and how to recover from them without changing app code.
+This guide covers common operational and development issues for Lore Ledger and how to recover from them without changing app code.
 
 Before using any destructive recovery step:
 

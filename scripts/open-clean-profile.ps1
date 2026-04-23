@@ -56,7 +56,7 @@ if (-not $selectedCmd) {
     throw "No supported browser executable found. Tried: $($browserOrder -join ', ')."
 }
 
-$profileDir = Join-Path ([System.IO.Path]::GetTempPath()) ("campaigntracker-smoke-" + [System.Guid]::NewGuid().ToString('N'))
+$profileDir = Join-Path ([System.IO.Path]::GetTempPath()) ("lore-ledger-smoke-" + [System.Guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $profileDir -Force | Out-Null
 
 $args = switch ($selected) {

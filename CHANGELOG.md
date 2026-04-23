@@ -78,7 +78,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Reliability issues around map history serialization, listener re-attachment, and update-banner behavior.
 - Release artifact hygiene so generated zip packages exclude repository-only files such as `.git/`.
 
-[Unreleased]: https://github.com/Lrmann818/CampaignTracker/compare/v0.5.0...HEAD
-[v0.5.0]: https://github.com/Lrmann818/CampaignTracker/compare/v0.4.0...v0.5.0
-[v0.4.0]: https://github.com/Lrmann818/CampaignTracker/compare/v0.3.0...v0.4.0
-[v0.3.0]: https://github.com/Lrmann818/CampaignTracker/tree/v0.3.0
+[Unreleased]: https://github.com/Lrmann818/Lore-Ledger/compare/v0.5.0...HEAD
+[v0.5.0]: https://github.com/Lrmann818/Lore-Ledger/compare/v0.4.0...v0.5.0
+[v0.4.0]: https://github.com/Lrmann818/Lore-Ledger/compare/v0.3.0...v0.4.0
+[v0.3.0]: https://github.com/Lrmann818/Lore-Ledger/tree/v0.3.0

@@ -22,11 +22,11 @@ Optional helper script (Windows PowerShell):
 Manual alternatives (if you do not use the helper script):
 - Edge:
 ```powershell
-msedge --user-data-dir="$env:TEMP\campaigntracker-smoke-edge" --new-window "http://localhost:5500"
+msedge --user-data-dir="$env:TEMP\lore-ledger-smoke-edge" --new-window "http://localhost:5500"
 ```
 - Chrome:
 ```powershell
-chrome --user-data-dir="$env:TEMP\campaigntracker-smoke-chrome" --new-window "http://localhost:5500"
+chrome --user-data-dir="$env:TEMP\lore-ledger-smoke-chrome" --new-window "http://localhost:5500"
 ```
 
 ## Smoke Checklist
