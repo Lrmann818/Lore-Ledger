@@ -30,4 +30,4 @@ temp/
 *.zip
 
 # Private personal notes
-docs/personal/
+docs/#personal/
