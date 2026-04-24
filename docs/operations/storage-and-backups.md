@@ -237,7 +237,7 @@ Exit/save hooks are best-effort only:
 
 Export lives in [`js/storage/backup.js`](../js/storage/backup.js).
 
-Single-character portability is a separate, narrower file flow owned by [`js/domain/characterPortability.js`](../js/domain/characterPortability.js). It exports one active character to `.ll-character.json` with a portrait data URL and bundled spell notes, then imports that file as a new standalone character in the active campaign. See [`docs/character-portability.md`](character-portability.md) for the file format and import-ordering rationale.
+Single-character portability is a separate, narrower file flow owned by [`js/domain/characterPortability.js`](../js/domain/characterPortability.js). It exports one active character to `.ll-character.json` with a portrait data URL and bundled spell notes, then imports that file as a new standalone character in the active campaign. See [`docs/features/character-portability.md`](../features/character-portability.md) for the file format and import-ordering rationale.
 
 Current flow:
 

@@ -113,8 +113,8 @@ Primary sources:
 
 - [`docs/testing-guide.md`](./testing-guide.md)
 - [`docs/SMOKE_TEST.md`](./SMOKE_TEST.md)
-- [`docs/PWA_NOTES.md`](./PWA_NOTES.md)
-- [`docs/CSP_AUDIT.md`](./CSP_AUDIT.md)
+- [`docs/operations/pwa-notes.md`](./pwa-notes.md)
+- [`docs/operations/csp-audit.md`](./csp-audit.md)
 
 Minimum pre-release expectation:
 

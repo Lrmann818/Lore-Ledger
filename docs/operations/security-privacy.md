@@ -2,7 +2,7 @@
 
 This project is a local-first browser app. It does not use an app-managed account system, cloud sync service, or server-side database for campaign data. That reduces some privacy exposure, but it is not the same as a formal security guarantee.
 
-This document summarizes the current implementation conservatively. [`docs/CSP_AUDIT.md`](./CSP_AUDIT.md) is a useful verification checklist for CSP behavior in development, but it is only one supporting document and not the full security story.
+This document summarizes the current implementation conservatively. [`docs/operations/csp-audit.md`](./csp-audit.md) is a useful verification checklist for CSP behavior in development, but it is only one supporting document and not the full security story.
 
 ## 1. Data storage model
 
@@ -98,7 +98,7 @@ Important limits of the current policy:
 - CSP helps reduce risk from unsafe script injection patterns, but it does not make unsafe rendering code safe by itself.
 - The CSP does not replace careful handling of imported data, stored data, or DOM updates.
 
-For development verification of CSP violations, see [`docs/CSP_AUDIT.md`](./CSP_AUDIT.md).
+For development verification of CSP violations, see [`docs/operations/csp-audit.md`](./csp-audit.md).
 
 ## 6. Import/export safety notes
 
@@ -158,12 +158,12 @@ When changing persistence, backup, import, or rendering behavior:
 - Keep user-controlled content in form values, `textContent`, and DOM-created nodes. Avoid rendering user or imported content with `innerHTML` or similar HTML-parsing APIs unless a sanitization strategy and security review are added first.
 - Be cautious about adding new network behavior or relaxing CSP directives. Document why the change is needed and what new trust assumptions it introduces.
 - Re-test the full local data lifecycle after storage changes: edit data, refresh, export backup, reset, import backup, and verify restore behavior.
-- Use [`docs/CSP_AUDIT.md`](./CSP_AUDIT.md) as one verification step when changing rendering paths, dialogs, dynamic UI creation, or policy-sensitive browser behavior.
+- Use [`docs/operations/csp-audit.md`](./csp-audit.md) as one verification step when changing rendering paths, dialogs, dynamic UI creation, or policy-sensitive browser behavior.
 
 ## Supporting references
 
 - [`docs/storage-and-backups.md`](./storage-and-backups.md)
-- [`docs/CSP_AUDIT.md`](./CSP_AUDIT.md)
+- [`docs/operations/csp-audit.md`](./csp-audit.md)
 - [`index.html`](../index.html)
 - [`js/state.js`](../js/state.js)
 - [`js/ui/support.js`](../js/ui/support.js)

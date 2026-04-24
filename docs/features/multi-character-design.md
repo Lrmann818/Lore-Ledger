@@ -447,7 +447,7 @@ Weapons (all SRD weapons):
 
 ## Step 4 — Cross-campaign character import
 
-**Status:** Complete, audited, and fully verified. See `STEP4_TASKS.md` and `docs/character-portability.md` for the full implementation rationale.
+**Status:** Complete, audited, and fully verified. See `STEP4_TASKS.md` and `./character-portability.md` for the full implementation rationale.
 
 ### Goal
 

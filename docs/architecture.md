@@ -2,7 +2,7 @@
 
 This document is the architecture source of truth for the current Lore Ledger codebase. It describes the code that exists today, not a target refactor state. When a change alters startup order, state shape, persistence behavior, or module boundaries, update this file in the same change.
 
-> AI-assisted editing rules live in [`AI_RULES.md`](../AI_RULES.md).
+> AI-assisted editing rules live in [`AGENTS.md`](../AGENTS.md).
 
 ## Design goals
 
@@ -404,7 +404,7 @@ Single-character export/import is narrower than campaign backup/restore and is o
 - Imported characters always receive fresh `char_...` IDs and are appended to `state.characters.entries`; import never replaces an existing character.
 - Linked tracker cards do not travel with exported characters. `characterId` relationships are campaign-local, so imported characters arrive standalone and can be linked to destination NPC/Party cards afterward.
 
-See `docs/character-portability.md` for the file format and import-ordering rationale.
+See `features/character-portability.md` for the file format and import-ordering rationale.
 
 ## Page-by-page ownership boundaries
 

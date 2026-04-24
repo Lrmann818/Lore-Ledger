@@ -2,7 +2,7 @@
 
 This project is a local-first, browser-only D&D campaign companion built with vanilla HTML, CSS, and JavaScript. It is designed to run entirely in the browser, work offline after install, and preserve user data across refreshes, backups, and version upgrades.
 
-This guide is for contributors and maintainers working in this repository. It complements, but does not replace, [AI_RULES.md](AI_RULES.md), which is the stricter AI-agent editing policy.
+This guide is for contributors and maintainers working in this repository. It complements, but does not replace, [AGENTS.md](AGENTS.md), which is the stricter AI-agent editing policy.
 
 ## 1. Project goals and guardrails
 
@@ -71,10 +71,10 @@ Primary maintainer references:
 - [README.md](README.md)
 - [docs/architecture.md](docs/architecture.md)
 - [docs/state-schema.md](docs/state-schema.md)
-- [docs/storage-and-backups.md](docs/storage-and-backups.md)
-- [docs/testing-guide.md](docs/testing-guide.md)
-- [docs/release-process.md](docs/release-process.md)
-- [AI_RULES.md](AI_RULES.md)
+- [docs/operations/storage-and-backups.md](docs/operations/storage-and-backups.md)
+- [docs/operations/testing-guide.md](docs/operations/testing-guide.md)
+- [docs/operations/release-process.md](docs/operations/release-process.md)
+- [AGENTS.md](AGENTS.md)
 
 ## 3. Branch and commit expectations
 
@@ -204,11 +204,11 @@ Update these files when their source-of-truth area changes:
 - `README.md`: project overview, setup, feature summary, or high-level architecture direction
 - `docs/architecture.md`: startup order, module boundaries, ownership, dependency direction, or page wiring
 - `docs/state-schema.md`: persisted field shape, schema versioning, or migration expectations
-- `docs/storage-and-backups.md`: persistence layers, save lifecycle, backup/import/export behavior, blob/text storage
-- `docs/testing-guide.md`: pre-merge or pre-release validation expectations
-- `docs/release-process.md`: versioning, tagging, deploy flow, release evidence, packaging workflow
-- typing and boundary-hardening docs: update `README.md`, `docs/architecture.md`, `docs/testing-guide.md`, `CONTRIBUTING.md`, and `AI_RULES.md` when the current `@ts-check` surface or contributor guardrails change
-- `AI_RULES.md`: only when the AI-agent editing contract itself changes
+- `docs/operations/storage-and-backups.md`: persistence layers, save lifecycle, backup/import/export behavior, blob/text storage
+- `docs/operations/testing-guide.md`: pre-merge or pre-release validation expectations
+- `docs/operations/release-process.md`: versioning, tagging, deploy flow, release evidence, packaging workflow
+- typing and boundary-hardening docs: update `README.md`, `docs/architecture.md`, `docs/operations/testing-guide.md`, `CONTRIBUTING.md`, and `AGENTS.md` when the current `@ts-check` surface or contributor guardrails change
+- `AGENTS.md`: only when the AI-agent editing contract itself changes
 
 Documentation rules:
 
@@ -231,9 +231,9 @@ Minimum expectation for any app change:
 Additional required checks by change type:
 
 - `@ts-check`, JSDoc, `types/*.d.ts`, or boundary-contract changes:
-  Run the current CheckJS command from [docs/testing-guide.md](docs/testing-guide.md) when practical, and avoid introducing new typing regressions in the touched area.
+  Run the current CheckJS command from [docs/operations/testing-guide.md](docs/operations/testing-guide.md) when practical, and avoid introducing new typing regressions in the touched area.
 - Persistence, schema, storage, image, or save-timing changes:
-  Run the persistence and backup flows in [docs/testing-guide.md](docs/testing-guide.md).
+  Run the persistence and backup flows in [docs/operations/testing-guide.md](docs/operations/testing-guide.md).
 - Tracker changes:
   Test Tracker add/edit/delete, relevant panel behavior, and reload persistence.
 - Character changes:
@@ -243,7 +243,7 @@ Additional required checks by change type:
 - PWA, asset-loading, routing-base, or startup changes:
   Test a production build with `npm run preview`.
 - CSP, boot, or theme changes:
-  Run the relevant checks from [docs/testing-guide.md](docs/testing-guide.md) and confirm saved theme application still works.
+  Run the relevant checks from [docs/operations/testing-guide.md](docs/operations/testing-guide.md) and confirm saved theme application still works.
 
 Release-sensitive changes should be validated in a clean browser profile with realistic seeded data. Any data-loss, restore, offline-shell, or CSP regression should block merge.
 
@@ -253,7 +253,7 @@ AI assistance is allowed, but human reviewers remain responsible for correctness
 
 Expectations:
 
-- Read [AI_RULES.md](AI_RULES.md) before using an AI tool on app code.
+- Read [AGENTS.md](AGENTS.md) before using an AI tool on app code.
 - Give the AI the relevant local context, especially `docs/architecture.md`, persistence docs, and the module it is editing.
 - Ask for small, bounded changes rather than whole-app rewrites.
 - Review every generated diff before merge.

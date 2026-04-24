@@ -144,7 +144,7 @@ Drawing tools are expressive but imprecise for structured campaign content. Stam
 - [!] Vitest unit and regression suite (30 test files, 478 tests — all passing)
 - [!] Playwright smoke tests for UI / navigation / PWA behavior
 - [!] Architecture documentation in `docs/`
-- [!] `MULTI-CHARACTER_DESIGN.md` kept current with schema and panel decisions
+- [!] `../features/multi-character-design.md` kept current with schema and panel decisions
 - [!] No broken saved data across migrations
 - [!] No multiply-registered event listeners on re-render
 - [!] No horizontal scroll or clipped controls on mobile
@@ -162,7 +162,7 @@ A portfolio project that accumulates silent regressions is not a portfolio proje
 
 ## Remaining Multi-Character Work
 
-*These items are tracked separately in `MULTI-CHARACTER_DESIGN.md` and are not part of the phase numbering above.*
+*These items are tracked separately in `../features/multi-character-design.md` and are not part of the phase numbering above.*
 
 ### Step 3 — Rules Engine and Character Builder
 

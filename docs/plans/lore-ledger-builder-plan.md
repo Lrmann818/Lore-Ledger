@@ -94,10 +94,10 @@ Everything needs to be consistent.
 - `speciesId` in build typedef description → `raceId`
 - `species` terminology → "race"
 
-`NEW-FEATURES-ROADMAP.md`
+`./new-features-roadmap.md`
 - "species" references in builder feature descriptions → "race"
 
-`MULTI-CHARACTER_DESIGN.md`
+`../features/multi-character-design.md`
 - `species` references → "race"
 - `speciesId` references → `raceId`
 - `"kind": "species"` in schema examples → `"kind": "race"`

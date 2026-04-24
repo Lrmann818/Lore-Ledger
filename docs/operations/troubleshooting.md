@@ -275,6 +275,6 @@ If you need to inspect the current browser state directly:
 ## Related docs
 
 - [`docs/storage-and-backups.md`](./storage-and-backups.md)
-- [`docs/PWA_NOTES.md`](./PWA_NOTES.md)
+- [`docs/operations/pwa-notes.md`](./pwa-notes.md)
 - [`docs/testing-guide.md`](./testing-guide.md)
 - [`README.md`](../README.md)

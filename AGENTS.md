@@ -140,7 +140,7 @@ Treat campaign data, app-level data, UI layout state, and combat/session state a
 
 Step 1 multi-character support is complete and verified. `STEP1_TASKS.md` is a completed implementation record, not pending work.
 
-Before modifying character architecture, character state, character panels, combat embedded character panels, backup/import/export, or campaign vault persistence, read `MULTI-CHARACTER_DESIGN.md` in the project root.
+Before modifying character architecture, character state, character panels, combat embedded character panels, backup/import/export, or campaign vault persistence, read `docs/features/multi-character-design.md`.
 
 Do not reintroduce the legacy singleton `state.character` model. That key is valid only in migration and backward-compatibility handling for old saves/backups. Production code must use:
 

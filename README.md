@@ -305,7 +305,7 @@ git push origin v0.4.0
 - Hash-based navigation is preserved for `#tracker`, `#character`, and `#map`
 - The Pages workflow is defined in [`.github/workflows/pages.yml`](.github/workflows/pages.yml)
 - On pushes to `main` and on manual dispatch, the workflow runs a `Verify and build` job that does `npm ci`, `npm run verify`, installs Playwright Chromium, runs `npm run test:smoke`, uploads `dist/`, and only then runs `Deploy`
-- Local equivalent: `npm ci`, then `npm run verify` and `npm run test:smoke`; release validation still also needs `npm run preview` plus the manual checks in [`docs/testing-guide.md`](docs/testing-guide.md)
+- Local equivalent: `npm ci`, then `npm run verify` and `npm run test:smoke`; release validation still also needs `npm run preview` plus the manual checks in [`docs/operations/testing-guide.md`](docs/operations/testing-guide.md)
 - If you deploy manually, publish the contents of `dist/`, not the repository root
 
 If the GitHub Pages path ever changes, update the following together:
@@ -349,29 +349,29 @@ Production builds register a service worker through `vite-plugin-pwa`. Dev build
 - The settings panel also exposes a `Check for updates` action
 - Old caches are cleaned up during updates via `cleanupOutdatedCaches: true`
 
-See [`docs/PWA_NOTES.md`](docs/PWA_NOTES.md) for offline test steps and cache reset guidance.
+See [`docs/operations/pwa-notes.md`](docs/operations/pwa-notes.md) for offline test steps and cache reset guidance.
 
 ## 14. Documentation index
 
 Core maintainer docs:
 
 - [`docs/architecture.md`](docs/architecture.md) - module boundaries, startup order, dependency direction, and page wiring
-- [`docs/storage-and-backups.md`](docs/storage-and-backups.md) - current localStorage/IndexedDB responsibilities, save lifecycle, backup/import flow, and reset behavior
+- [`docs/operations/storage-and-backups.md`](docs/operations/storage-and-backups.md) - current localStorage/IndexedDB responsibilities, save lifecycle, backup/import flow, and reset behavior
 - [`docs/state-schema.md`](docs/state-schema.md) - persisted state shape, schema history, migration rules, and restore compatibility notes
-- [`docs/testing-guide.md`](docs/testing-guide.md) - current automated test commands plus the manual release/regression checklist
-- [`docs/release-process.md`](docs/release-process.md) - tagging, verification, packaging, deploy, and release checklist
-- [`docs/security-privacy.md`](docs/security-privacy.md) - local-data, CSP, import/export, and privacy expectations
-- [`docs/character-portability.md`](docs/character-portability.md) - single-character export/import format and import-ordering rationale
-- [`docs/troubleshooting.md`](docs/troubleshooting.md) - common recovery steps for save, import, offline, and build issues
-- [`docs/browser-smoke-plan.md`](docs/browser-smoke-plan.md) - current Playwright smoke scope and the manual gaps it does not replace
-- [`docs/PWA_NOTES.md`](docs/PWA_NOTES.md) - offline cache behavior, update prompts, and cache reset steps
+- [`docs/operations/testing-guide.md`](docs/operations/testing-guide.md) - current automated test commands plus the manual release/regression checklist
+- [`docs/operations/release-process.md`](docs/operations/release-process.md) - tagging, verification, packaging, deploy, and release checklist
+- [`docs/operations/security-privacy.md`](docs/operations/security-privacy.md) - local-data, CSP, import/export, and privacy expectations
+- [`docs/features/character-portability.md`](docs/features/character-portability.md) - single-character export/import format and import-ordering rationale
+- [`docs/operations/troubleshooting.md`](docs/operations/troubleshooting.md) - common recovery steps for save, import, offline, and build issues
+- [`docs/operations/browser-smoke-status.md`](docs/operations/browser-smoke-status.md) - current Playwright smoke scope and the manual gaps it does not replace
+- [`docs/operations/pwa-notes.md`](docs/operations/pwa-notes.md) - offline cache behavior, update prompts, and cache reset steps
 
 Supplemental checklists and support docs:
 
-- [`docs/CSP_AUDIT.md`](docs/CSP_AUDIT.md) - dev-mode CSP verification checklist
+- [`docs/operations/csp-audit.md`](docs/operations/csp-audit.md) - dev-mode CSP verification checklist
 - [`docs/SMOKE_TEST.md`](docs/SMOKE_TEST.md) - persistence-focused manual smoke checklist
 - [`SMOKE_TEST.md`](SMOKE_TEST.md) - short Vite/offline validation checklist
-- [`AI_RULES.md`](AI_RULES.md) - repository editing rules for AI-assisted changes
+- [`AGENTS.md`](AGENTS.md) - repository editing rules for AI-assisted changes
 - [`.github/workflows/pages.yml`](.github/workflows/pages.yml) - production Pages build/deploy workflow
 
 Branch planning/history notes kept in `docs/`:
