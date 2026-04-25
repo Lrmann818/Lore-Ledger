@@ -1,0 +1,147 @@
+[
+  {
+    "id": "black",
+    "kind": "ancestry",
+    "name": "Black",
+    "source": "srd-5.1",
+    "sourceTraitId": "draconic-ancestry",
+    "category": "chromatic",
+    "damageType": "acid",
+    "breathWeapon": {
+      "shape": "line",
+      "width": 5,
+      "length": 30
+    },
+    "saveAbility": "dex"
+  },
+  {
+    "id": "blue",
+    "kind": "ancestry",
+    "name": "Blue",
+    "source": "srd-5.1",
+    "sourceTraitId": "draconic-ancestry",
+    "category": "chromatic",
+    "damageType": "lightning",
+    "breathWeapon": {
+      "shape": "line",
+      "width": 5,
+      "length": 30
+    },
+    "saveAbility": "dex"
+  },
+  {
+    "id": "brass",
+    "kind": "ancestry",
+    "name": "Brass",
+    "source": "srd-5.1",
+    "sourceTraitId": "draconic-ancestry",
+    "category": "metallic",
+    "damageType": "fire",
+    "breathWeapon": {
+      "shape": "line",
+      "width": 5,
+      "length": 30
+    },
+    "saveAbility": "dex"
+  },
+  {
+    "id": "bronze",
+    "kind": "ancestry",
+    "name": "Bronze",
+    "source": "srd-5.1",
+    "sourceTraitId": "draconic-ancestry",
+    "category": "metallic",
+    "damageType": "lightning",
+    "breathWeapon": {
+      "shape": "line",
+      "width": 5,
+      "length": 30
+    },
+    "saveAbility": "dex"
+  },
+  {
+    "id": "copper",
+    "kind": "ancestry",
+    "name": "Copper",
+    "source": "srd-5.1",
+    "sourceTraitId": "draconic-ancestry",
+    "category": "metallic",
+    "damageType": "acid",
+    "breathWeapon": {
+      "shape": "line",
+      "width": 5,
+      "length": 30
+    },
+    "saveAbility": "dex"
+  },
+  {
+    "id": "gold",
+    "kind": "ancestry",
+    "name": "Gold",
+    "source": "srd-5.1",
+    "sourceTraitId": "draconic-ancestry",
+    "category": "metallic",
+    "damageType": "fire",
+    "breathWeapon": {
+      "shape": "cone",
+      "size": 15
+    },
+    "saveAbility": "dex"
+  },
+  {
+    "id": "green",
+    "kind": "ancestry",
+    "name": "Green",
+    "source": "srd-5.1",
+    "sourceTraitId": "draconic-ancestry",
+    "category": "chromatic",
+    "damageType": "poison",
+    "breathWeapon": {
+      "shape": "cone",
+      "size": 15
+    },
+    "saveAbility": "con"
+  },
+  {
+    "id": "red",
+    "kind": "ancestry",
+    "name": "Red",
+    "source": "srd-5.1",
+    "sourceTraitId": "draconic-ancestry",
+    "category": "chromatic",
+    "damageType": "fire",
+    "breathWeapon": {
+      "shape": "cone",
+      "size": 15
+    },
+    "saveAbility": "dex"
+  },
+  {
+    "id": "silver",
+    "kind": "ancestry",
+    "name": "Silver",
+    "source": "srd-5.1",
+    "sourceTraitId": "draconic-ancestry",
+    "category": "metallic",
+    "damageType": "cold",
+    "breathWeapon": {
+      "shape": "cone",
+      "size": 15
+    },
+    "saveAbility": "con"
+  },
+  {
+    "id": "white",
+    "kind": "ancestry",
+    "name": "White",
+    "source": "srd-5.1",
+    "sourceTraitId": "draconic-ancestry",
+    "category": "chromatic",
+    "damageType": "cold",
+    "breathWeapon": {
+      "shape": "cone",
+      "size": 15
+    },
+    "saveAbility": "con"
+  }
+]

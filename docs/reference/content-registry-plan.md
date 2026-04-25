@@ -573,9 +573,9 @@ Recommended shape:
   "damageType": "fire",
   "breathWeapon": {
     "shape": "cone",
-    "size": 15,
-    "save": "dex"
-  }
+    "size": 15
+  },
+  "saveAbility": "dex"
 }
 ```
 
@@ -584,7 +584,8 @@ Notes:
 - `breathWeapon` is a structured object (not a stringly-encoded value like `"cone-15-dex"`) so each component is independently queryable and anchor-testable
 - `category` is `"chromatic"` or `"metallic"` and is lore metadata only — SRD 5.1 presents ancestries as a flat table with no chromatic/metallic split, so this field exists for UI grouping affordances, not as a schema-level grouping
 - `damageType` is one of `"acid"`, `"cold"`, `"fire"`, `"lightning"`, or `"poison"`
-- `breathWeapon.shape` is `"cone"` or `"line"`; `breathWeapon.size` is the area dimension in feet (5 or 15 in SRD 5.1); `breathWeapon.save` is `"dex"` or `"con"`
+- `breathWeapon.shape` is `"cone"` or `"line"`; cones use `size` in feet, and lines use explicit `width` and `length` in feet
+- `saveAbility` is `"dex"` or `"con"`
 - ten records total: black, blue, brass, bronze, copper, gold, green, red, silver, white — all values verified against the SRD 5.1 PDF Draconic Ancestry table
 
 ---
