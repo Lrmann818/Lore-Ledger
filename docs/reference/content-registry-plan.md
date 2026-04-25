@@ -666,10 +666,13 @@ Trait records in `traits.json` are purely descriptive.
 Allowed fields:
 
 - `id`
+- `kind`
 - `name`
 - `description`
 - `source`
 - `derivedFrom` (optional)
+
+For traits, use `"kind": "trait"`.
 
 Traits do not carry a `choiceRef` field.
 

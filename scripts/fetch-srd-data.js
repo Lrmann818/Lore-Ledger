@@ -7,6 +7,7 @@
 // Usage:
 //   node scripts/fetch-srd-data.js races
 //   node scripts/fetch-srd-data.js draconic-ancestries
+//   node scripts/fetch-srd-data.js traits
 //   node scripts/fetch-srd-data.js classes
 //   node scripts/fetch-srd-data.js all
 //
@@ -16,6 +17,7 @@ import { writeFile } from "fs/promises";
 import { join } from "path";
 import { buildDraconicAncestriesData } from "./adapters/draconicAncestriesAdapter.js";
 import { buildRacesData } from "./adapters/racesAdapter.js";
+import { buildTraitsData } from "./adapters/traitsAdapter.js";
 
 const OUTPUT_DIR = "game-data/srd";
 
@@ -27,6 +29,10 @@ const ADAPTERS = {
   "draconic-ancestries": {
     fn: buildDraconicAncestriesData,
     file: "draconic-ancestries.json",
+  },
+  traits: {
+    fn: buildTraitsData,
+    file: "traits.json",
   },
   // Add more adapters here as they are built:
   // classes: { fn: buildClassesData, file: "classes.json" },
