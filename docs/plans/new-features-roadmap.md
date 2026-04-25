@@ -168,6 +168,9 @@ A portfolio project that accumulates silent regressions is not a portfolio proje
 
 **Status:** [~] In progress
 
+Detailed builder sequencing lives in `docs/plans/lore-ledger-builder-plan.md`; this roadmap
+tracks outcomes, not adapter or schema implementation detail.
+
 - [x] Schema v6 builder foundation (`build` and `overrides` on character entries)
 - [x] Pure derivation foundation for first-slice builder values
 - [x] Minimal `New Builder Character` creation path
@@ -186,11 +189,14 @@ A portfolio project that accumulates silent regressions is not a portfolio proje
 - [ ] Field locking and override UI for computed fields
 - [ ] HP, AC, saves, skills, spells, combat, and linked-card automation
 - [ ] Custom content persistence and export/import story
-- [ ] SRD data registry expansion beyond the first builtin foundation
+- [ ] Prove the first vertical SRD registry slice end-to-end before widening content coverage
+- [ ] Expand builtin registry coverage incrementally after the first slice is proven
 - [ ] Content registry licensing attribution
 - [ ] Short rest / long rest mechanics
 
 This remains the largest active feature in the product. The foundation is now in place, but the shipped Step 3 UI is intentionally limited to minimal builder-character creation, an informational badge, a builtin-ID-only Builder Identity editor for race/class/background/level, a manual Builder Abilities editor for base scores, a display-only summary, builder-derived identity display in the normal Basics panel, builder-derived proficiency plus speed and hit-dice display in normal and embedded Vitals, builder-derived ability score/modifier display in the normal Abilities/Skills panel, builder-only use of the derived proficiency scalar in existing Abilities/Skills formulas, and builder-aware ability adjustments through the existing Abilities & Skills controls. Builder Identity remains temporary scaffolding for editing builder identity inputs, and Phase 3H adds no schema change or derived-field materialization. HP/AC automation, combat/card linking changes, new overrides, schema migration, materialization, the full builder wizard, subclass choices, save/skill override expansion, custom content, save/skill automation, and spell/combat automation are not shipped yet.
+
+The current implementation strategy is vertical-slice-first: prove one complete SRD data path through registry data, validation, and builder consumption before expanding the full registry category set.
 
 ### Step 4 — Cross-Campaign Character Import / Export
 
