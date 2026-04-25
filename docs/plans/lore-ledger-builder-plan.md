@@ -90,25 +90,39 @@ cross-record conventions belong in `docs/reference/content-registry-plan.md`.
 
 ---
 
-## Phase 1: Vertical-Slice SRD Registry Pipeline
+## Phase 1: Dragonborn Vertical-Slice SRD Registry Pipeline
 
 Goal: ship the smallest complete data slice that proves the full path from adapter output
 to builder consumption.
 
-Initial slice:
+The active first implementation slice is the Dragonborn race-choice path described in
+`docs/design/vertical-slice-schema.md#what-happens-next-implementation-sequence`. That
+sequence is the concrete Phase 1 plan; this document owns the implementation tracking,
+while the design record explains why this slice proves the schema.
 
-1. Use the existing adapter pipeline rather than hand-editing `game-data/srd/*.json`.
-2. Generate representative race data first, with only the supporting records required by
-   that slice.
-3. Include build-time choices inline on the parent record where the registry plan requires
-   it.
-4. Add or update referential-integrity coverage for any generated cross-record references.
-5. Consume the generated records through the registry loader and existing builder paths.
-6. Keep the slice narrow until data shape, validation, and UI/domain consumption are proven.
+Initial Phase 1 sequence:
 
-Expected first-slice content should be representative, not exhaustive. It may include a
-small number of races plus supporting trait, language, and ancestry records where needed
-to validate the model.
+1. Update `racesAdapter.js` to populate the `choices` field on races from
+   `raw.language_options` for races like Human and to hardcode the ancestry choice for
+   Dragonborn because the API race endpoint does not expose it directly.
+2. Build `draconicAncestriesAdapter.js` to pull from the SRD API trait endpoint for
+   Draconic Ancestry, extract the ancestry table, and produce normalized records in
+   `game-data/srd/draconic-ancestries.json`. Verify every mechanical field against the
+   SRD 5.1 PDF table.
+3. Build `traitsAdapter.js` to pull SRD trait records and include `derivedFrom` on traits
+   whose mechanics depend on the Dragonborn ancestry choice.
+4. Regenerate all affected `game-data/srd/*.json` files through the adapter pipeline.
+5. Write anchor tests for the generated Dragonborn race choice, draconic ancestry records,
+   and trait derivation fields using the strategy in `docs/design/vertical-slice-schema.md`.
+6. Write the referential integrity test for cross-record IDs, choice sources, choice
+   options, globally unique IDs, and `derivedFrom` references.
+7. Run the full applicable verification suite and confirm green.
+8. Commit the completed Phase 1 vertical slice.
+
+Expected first-slice content should be representative, not exhaustive. It should include
+Dragonborn, Human language-choice coverage, supporting traits, supporting languages, and
+dragonborn ancestry records where needed to validate the model. Do not broaden Phase 1
+into full race/class/background coverage before this slice is proven.
 
 Completion criteria:
 

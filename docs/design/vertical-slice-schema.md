@@ -4,7 +4,7 @@ _Status: **RATIFIED 2026-04-22.** All open design questions resolved. Project-of
 
 _This file is a design record. It explains **why** the build-time choices schema and vertical-slice-first SRD registry strategy were chosen. `docs/reference/content-registry-plan.md` and `AGENTS.md` remain the authoritative **what** and rules. If they conflict with this record, the reference docs win and this file should be updated to reflect the discrepancy._
 
-_Last updated: 2026-04-22_
+Last updated: 2026-04-22
 
 ---
 
@@ -51,7 +51,7 @@ Interpretation order:
 1. `srd-licensing-notes.md` defines what we may use
 2. `builder-scope-greenlist.md` defines what we intend to ship
 3. `content-registry-plan.md` defines how records are modeled (rule of record)
-4. **this document** explains *why* the rules in (3) are what they are
+4. **this document** explains _why_ the rules in (3) are what they are
 5. `game-data/srd/*.json` contains the actual data
 
 ---
@@ -76,7 +76,7 @@ These were worked through in conversation before the ratification questions and 
 
 Every content category has one canonical file. Records in other files reference content by id, never by inlining. This mirrors the dnd5eapi's URL-based reference pattern:
 
-```
+```Pseudocode
 races.json → dragonborn → traits: ["draconic-ancestry", ...]
                                      ↑
                                      │ id reference
@@ -127,7 +127,7 @@ Other shapes for `from`:
 - `skill` — chosen value must be an id in `skills.json`
 - `cantrip` — chosen value must be an id in `spells.json` (eventually)
 
-This vocabulary grows as we build more content. It must never grow *silently*; adding a new `kind` value means updating `content-registry-plan.md` and the referential integrity test.
+This vocabulary grows as we build more content. It must never grow _silently_; adding a new `kind` value means updating `content-registry-plan.md` and the referential integrity test.
 
 ### Recording a user's chosen value
 
@@ -266,7 +266,7 @@ What's not changing from the current shape: size, speed, ASIs, trait ids, langua
 }
 ```
 
-`draconic-ancestry` is purely descriptive — no `choiceRef`, no pointer. The trait *describes itself*. The choice it implies is owned by the race entry.
+`draconic-ancestry` is purely descriptive — no `choiceRef`, no pointer. The trait _describes itself_. The choice it implies is owned by the race entry.
 
 `breath-weapon` and `damage-resistance` carry `derivedFrom` because their displayed mechanics depend on the chosen ancestry.
 
@@ -369,7 +369,7 @@ A single test that walks every id-shaped field across all `game-data/srd/*.json`
 
 Pseudocode:
 
-```
+```Pseudocode
 load all *.json files from game-data/srd/
 build an index: { [fileKind]: Set<id> }
 
@@ -414,9 +414,12 @@ Cost of writing the test: one afternoon, once. Probably extending over time as n
 
 ---
 
-## What Happens Next (Implementation Sequence)
+## Initial Dragonborn Vertical Slice Sequence
 
-The design is ratified; implementation steps are:
+The design is ratified. This is the first implementation slice selected to prove the
+build-time choice schema through real generated SRD data. `docs/plans/lore-ledger-builder-plan.md`
+tracks this sequence as Phase 1; this design record preserves the rationale for why this
+slice comes first.
 
 1. Update `racesAdapter.js` to populate the `choices` field on races from `raw.language_options` (for races like Human) and to hardcode the ancestry choice for Dragonborn (since it isn't in the API's race endpoint directly).
 2. Build `draconicAncestriesAdapter.js` — new adapter pulling from `/api/2014/traits/draconic-ancestry` (or similar endpoint), extracting the ancestry table, producing normalized records. Every field verified against the SRD PDF table.
@@ -427,7 +430,9 @@ The design is ratified; implementation steps are:
 7. Run full test suite; confirm green.
 8. Commit.
 
-This is the implementation roadmap. Execute one step at a time, with the working discipline: AI writes plumbing, user writes interesting parts, walk through before commit.
+This is the intended first vertical slice before broader SRD expansion. If the active
+builder plan diverges from this sequence, resolve the disagreement explicitly before
+implementation.
 
 ---
 
@@ -464,7 +469,7 @@ This is the canonical contributor and coding-agent rules document. It now record
 
 The licensing posture is unaffected by this design. SRD source and attribution rules remain governed there.
 
-Reference docs are the single source of truth for what the rules *are*; this file remains the design record for *why they are what they are*.
+Reference docs are the single source of truth for what the rules _are_; this file remains the design record for _why they are what they are_.
 
 ---
 
