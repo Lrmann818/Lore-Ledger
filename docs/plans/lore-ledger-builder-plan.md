@@ -172,9 +172,9 @@ in-app attribution/credits page is required before public release (Phase 4 work)
 
 ---
 
-### 1.6 — Check the design folder doc before handing off to Claude Code
+### 1.6 — Check the #personal folder doc before handing off to Claude Code
 
-There is a file at `docs/design/SRD building master prompts.md` in your local branch.
+There is a file at `docs/#personal/SRD building master prompts.md` in your local branch.
 Review this manually before giving Claude Code any tasks. If it references 5.2.1 or
 "species," update it to match the new direction — otherwise Claude Code may find it and
 follow conflicting instructions.
@@ -453,7 +453,7 @@ Do not use "Dungeons & Dragons" or "D&D."
 
 In order:
 
-1. **Manually** review `docs/design/SRD building master prompts.md` for conflicting instructions before Claude Code touches anything
+1. **Manually** review `docs/#personal/SRD building master prompts.md` for conflicting instructions before Claude Code touches anything
 2. Rename `"species"` → `"race"` throughout JS files (see 1.1 for full file list)
 3. Update all `"srd-5.2.1"` strings to `"srd-5.1"` (see 1.2)
 4. Rewrite policy sections in `AGENTS.md` (see 1.3)

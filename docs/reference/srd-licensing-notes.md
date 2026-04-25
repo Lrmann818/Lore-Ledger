@@ -22,12 +22,11 @@ This is a project guidance document, not legal advice.
 
 The official source reference files stored in this repo are:
 
-- `docs/reference/SRD_CC_v5.2.1.pdf`
 - `docs/reference/SRD_OGL_v5.1.pdf`
 
-These PDFs are kept for provenance and reference.
+This PDF is kept for provenance and reference.
 
-They are **not** the preferred working format for implementation. Implementation-facing content decisions should be captured in markdown and structured JSON files elsewhere in the repo.
+It is **not** the preferred working format for implementation. Implementation-facing content decisions should be captured in markdown and structured JSON files elsewhere in the repo.
 
 ---
 

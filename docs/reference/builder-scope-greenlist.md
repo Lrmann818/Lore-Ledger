@@ -90,7 +90,7 @@ Lore Ledger is aiming for a production-grade, legally conservative, architectura
 
 ## Primary Source Standard
 
-For new builtin content, Lore Ledger should prefer **SRD 5.2.1** as the primary source.
+For new builtin content, Lore Ledger should prefer **SRD 5.1** as the primary source.
 
 `SRD 5.1` may still be useful as a reference, but it should not be the casual default for new builtin builder data.
 
