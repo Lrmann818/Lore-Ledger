@@ -117,7 +117,7 @@ Phase 1 sequence status, last verified April 25, 2026:
 - [x] Write the referential integrity test for cross-record IDs, choice sources, choice
    options, globally unique IDs, and `derivedFrom` references.
 - [x] Run the full applicable verification suite and confirm green.
-- [ ] Commit the completed Phase 1 vertical slice.
+- [x] Commit the completed Phase 1 vertical slice.
 
 Expected first-slice content should be representative, not exhaustive. It should include
 Dragonborn, Human language-choice coverage, supporting traits, supporting languages, and
