@@ -554,7 +554,15 @@ function installBuilderWizardDom(document) {
   const summary = appendWithId(document, body, "section", "builderWizardStepSummary", "builderWizardStep");
   summary.hidden = true;
   appendWithId(document, summary, "h3", "builderWizardSummaryTitle", "builderWizardStepTitle").textContent = "Summary";
-  appendWithId(document, summary, "div", "builderWizardSummary", "builderSummaryContent");
+  const summaryContent = appendWithId(document, summary, "div", "builderWizardSummary", "builderSummaryContent");
+  const summaryNameField = document.createElement("label");
+  summaryNameField.className = "builderSummaryNameField";
+  summaryNameField.setAttribute("for", "builderWizardSummaryName");
+  const summaryNameLabel = document.createElement("span");
+  summaryNameLabel.textContent = "Character Name";
+  summaryNameField.appendChild(summaryNameLabel);
+  appendWithId(document, summaryNameField, "input", "builderWizardSummaryName", "settingsInput");
+  summaryContent.appendChild(summaryNameField);
 
   const footer = appendWithId(document, panel, "div", "builderWizardFooter", "builderWizardFooter");
   appendWithId(document, footer, "button", "builderWizardCancel", "npcSmallBtn").type = "button";
