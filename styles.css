@@ -5646,6 +5646,94 @@ select.npcField:focus {
   background: var(--surface-2);
 }
 
+.abilitiesFeaturesEmpty {
+  padding: 4px 2px;
+}
+
+.abilitiesFeaturesList {
+  display: grid;
+  gap: 8px;
+}
+
+.featureActionCard {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--spell-card);
+  box-shadow: 0 4px 12px var(--shadow-drop);
+  padding: 10px;
+}
+
+.featureActionHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 8px;
+  margin-bottom: 8px;
+}
+
+.featureActionTitleWrap {
+  min-width: 0;
+}
+
+.featureActionTitle {
+  font-weight: 700;
+}
+
+.featureActionSource,
+.featureActionDescription {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.featureActionActivation {
+  flex: 0 0 auto;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-2);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 3px 8px;
+}
+
+.featureActionDetails {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.featureActionDetail {
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-2);
+  padding: 6px 8px;
+}
+
+.featureActionDetailLabel {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.featureActionDetailValue {
+  font-size: 13px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 600px) {
+  .featureActionDetails {
+    grid-template-columns: 1fr;
+  }
+
+  .featureActionHeader {
+    flex-direction: column;
+  }
+}
+
 .skillHeader {
   font-weight: 700;
   margin-bottom: 8px;

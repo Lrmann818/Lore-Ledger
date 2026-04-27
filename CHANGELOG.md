@@ -19,10 +19,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Dragonborn Draconic Ancestry derivation and Builder Summary display for damage resistance, breath weapon type/area, save ability, save DC, and level-scaled damage dice, while persisting only the selected ancestry ID.
 - Dragonborn Race Choices wizard preview for Draconic Ancestry, sourced from local registry/rules derivation rather than UI-only mechanics lookup.
 - Vitals display for derived Dragonborn Breath Weapon DC when applicable, keeping the value read-only and derived.
+- Phase 3C foundation: a normal Character page Abilities & Features panel with derived, display-only Dragonborn Breath Weapon as the first feature card, without persisting it into Weapons, Spells, Equipment, or flat character fields.
 
 ### Not Shipped Yet
 
-- Class/background choice pickers, equipment, level-up flow, field locking/override UI, action tracking, rest recharge, combat automation, and broader HP/AC/saves/skills/spells or linked-card automation are still future Step 3 work. Derived builder values are not persisted back into flat character fields by default.
+- Class/background choice pickers, equipment, level-up flow, field locking/override UI, Abilities & Features card polish, manual/freeform feature cards, custom feature cards, use tracking, Short Rest / Long Rest toolbar actions, rest recovery, combat automation, specialized resource-linked feature cards, and broader HP/AC/saves/skills/spells or linked-card automation are still future Step 3 work. Derived builder values are not persisted back into flat character fields by default.
 
 ## [v0.5.0] - 2026-04-16
 

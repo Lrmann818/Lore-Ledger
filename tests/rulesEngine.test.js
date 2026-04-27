@@ -465,6 +465,30 @@ describe("dragonborn ancestry derivation", () => {
     expect(da.breathWeapon.saveAbility).toBe("dex");
   });
 
+  it("derives Dragonborn Breath Weapon as a feature action", () => {
+    const derived = deriveCharacter(dragonbornCharacter({
+      choicesByLevel: { "1": { "dragonborn-ancestry": "blue" } }
+    }));
+
+    expect(derived.derivedFeatureActions).toEqual([
+      {
+        id: "dragonborn-breath-weapon",
+        name: "Breath Weapon",
+        source: "Dragonborn",
+        sourceDetail: "Blue Draconic Ancestry",
+        kind: "feature-action",
+        activation: "Action",
+        saveAbility: "dex",
+        saveDc: 12,
+        area: "5 by 30 ft. line",
+        damage: "2d6",
+        damageType: "Lightning",
+        recovery: "Short or Long Rest",
+        description: "Each creature in the area makes the listed save. Failed save takes full damage; successful save takes half."
+      }
+    ]);
+  });
+
   it("derives line ancestry fields for black (acid, 5 by 30 ft. line, Dexterity save)", () => {
     const character = dragonbornCharacter({
       choicesByLevel: { "1": { "dragonborn-ancestry": "black" } }
@@ -556,6 +580,7 @@ describe("dragonborn ancestry derivation", () => {
       overrides: { abilities: {}, saves: {}, skills: {}, initiative: 0 }
     };
     expect(deriveCharacter(character).dragonbornAncestry).toBeNull();
+    expect(deriveCharacter(character).derivedFeatureActions).toEqual([]);
   });
 
   it("returns null and emits a warning for an unresolvable ancestry id", () => {
@@ -576,6 +601,7 @@ describe("dragonborn ancestry derivation", () => {
       abilities: { con: { score: 14 } }
     };
     expect(deriveCharacter(character).dragonbornAncestry).toBeNull();
+    expect(deriveCharacter(character).derivedFeatureActions).toEqual([]);
   });
 
   it("does not mutate the input character when deriving ancestry", () => {

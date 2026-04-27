@@ -183,10 +183,12 @@ tracks outcomes, not adapter or schema implementation detail.
 - [x] Phase 3F: Display-only builder-derived Basics identity integration
 - [x] Phase 3G: Display-only builder-derived Vitals proficiency and builder-only Abilities/Skills proficiency scalar
 - [x] Phase 3H: No-schema-change builder-derived Vitals speed and hit-dice display in normal and embedded Vitals
+- [x] Abilities & Features panel foundation: derived Dragonborn Breath Weapon renders as the first display-only feature card
 - [ ] Full character creation wizard
 - [ ] Content pickers beyond the minimal identity/abilities editors and later choices
 - [ ] Level-up flow
 - [ ] Field locking and override UI for computed fields
+- [ ] Abilities & Features polish, manual/freeform cards, custom cards, use tracking, rest recovery, and specialized resource-linked cards
 - [ ] HP, AC, saves, skills, spells, combat, and linked-card automation
 - [ ] Custom content persistence and export/import story
 - [ ] Prove the first vertical SRD registry slice end-to-end before widening content coverage

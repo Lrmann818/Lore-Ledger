@@ -26,6 +26,9 @@ vi.mock("../js/pages/character/panels/proficienciesPanel.js", () => ({
 vi.mock("../js/pages/character/panels/abilitiesPanel.js", () => ({
   initAbilitiesPanel: () => ({ destroy: () => { } })
 }));
+vi.mock("../js/pages/character/panels/abilitiesFeaturesPanel.js", () => ({
+  initAbilitiesFeaturesPanel: () => ({ destroy: () => { } })
+}));
 vi.mock("../js/pages/character/panels/personalityPanel.js", () => ({
   initPersonalityPanel: () => ({ destroy: () => { } }),
   setupCharacterCollapsibleTextareas: () => ({ destroy: () => { } })

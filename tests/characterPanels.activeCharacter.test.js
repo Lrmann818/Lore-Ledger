@@ -10,6 +10,7 @@ import { initBuilderAbilitiesPanel } from "../js/pages/character/panels/builderA
 import { initBuilderIdentityPanel } from "../js/pages/character/panels/builderIdentityPanel.js";
 import { initBuilderSummaryPanel } from "../js/pages/character/panels/builderSummaryPanel.js";
 import { initBasicsPanel } from "../js/pages/character/panels/basicsPanel.js";
+import { initAbilitiesFeaturesPanel } from "../js/pages/character/panels/abilitiesFeaturesPanel.js";
 import { initEquipmentPanel } from "../js/pages/character/panels/equipmentPanel.js";
 import { initPersonalityPanel } from "../js/pages/character/panels/personalityPanel.js";
 import { initProficienciesPanel } from "../js/pages/character/panels/proficienciesPanel.js";
@@ -533,6 +534,10 @@ function buildCharacterPanelDom(document) {
 
   const prof = append(root, "section", { id: "charProfPanel" });
   ["charArmorProf", "charWeaponProf", "charToolProf", "charLanguages"].forEach((id) => append(prof, "textarea", { id }));
+
+  const features = append(root, "section", { id: "charAbilitiesFeaturesPanel" });
+  append(features, "div", { id: "charAbilitiesFeaturesEmpty", className: "mutedSmall abilitiesFeaturesEmpty" });
+  append(features, "div", { id: "charAbilitiesFeaturesList", className: "abilitiesFeaturesList" });
 
   const personality = append(root, "section", { id: "charPersonalityPanel" });
   ["charTraits", "charIdeals", "charBonds", "charFlaws", "charCharNotes"].forEach((id) => append(personality, "textarea", { id }));
@@ -1362,6 +1367,69 @@ describe("character panels active character resolution", () => {
     expect(builder.build).not.toHaveProperty("breathWeaponDC");
     expect(builder.build).not.toHaveProperty("breathWeapon");
     expect(deps.SaveManager.markDirty).not.toHaveBeenCalled();
+
+    api.destroy();
+  });
+
+  it("renders Dragonborn Breath Weapon in Abilities & Features from derived ancestry mechanics", () => {
+    const builder = makeBuilder("char_builder", { str: 10, dex: 10, con: 14, int: 10, wis: 10, cha: 10 });
+    builder.build.raceId = "dragonborn";
+    builder.build.classId = "class_fighter";
+    builder.build.level = 5;
+    builder.build.choicesByLevel = { "1": { "dragonborn-ancestry": "blue" } };
+    const state = { characters: { activeId: "char_builder", entries: [builder] }, combat: { workspace: {} } };
+    const deps = makeDeps(state);
+
+    const api = initAbilitiesFeaturesPanel(deps);
+    const card = document.querySelector('[data-feature-id="dragonborn-breath-weapon"]');
+
+    expect(card).not.toBeNull();
+    expect(card.textContent).toContain("Breath Weapon");
+    expect(card.textContent).toContain("Dragonborn / Blue Draconic Ancestry");
+    expect(card.textContent).toContain("Action");
+    expect(card.textContent).toContain("Dex DC 13");
+    expect(card.textContent).toContain("5 by 30 ft. line");
+    expect(card.textContent).toContain("2d6 Lightning");
+    expect(card.textContent).toContain("Short or Long Rest");
+    expect(card.textContent).toContain("successful save takes half");
+    expect(document.getElementById("charAbilitiesFeaturesEmpty").hidden).toBe(true);
+    expect(builder).not.toHaveProperty("derivedFeatureActions");
+    expect(builder.build).not.toHaveProperty("derivedFeatureActions");
+    expect(deps.SaveManager.markDirty).not.toHaveBeenCalled();
+
+    api.destroy();
+  });
+
+  it("does not render Dragonborn Breath Weapon in Abilities & Features for non-Dragonborn builders", () => {
+    const builder = makeBuilder("char_builder", { str: 10, dex: 10, con: 14, int: 10, wis: 10, cha: 10 });
+    builder.build.raceId = "race_human";
+    builder.build.choicesByLevel = { "1": { "dragonborn-ancestry": "blue" } };
+    const state = { characters: { activeId: "char_builder", entries: [builder] }, combat: { workspace: {} } };
+    const deps = makeDeps(state);
+
+    const api = initAbilitiesFeaturesPanel(deps);
+
+    expect(document.querySelector('[data-feature-id="dragonborn-breath-weapon"]')).toBeNull();
+    expect(document.getElementById("charAbilitiesFeaturesEmpty").hidden).toBe(false);
+
+    api.destroy();
+  });
+
+  it("keeps freeform characters out of derived Abilities & Features cards", () => {
+    const freeform = makeCharacter("char_free", "Freeform", {
+      build: null,
+      race: "Dragonborn",
+      proficiency: 2,
+      abilities: { con: { score: 14 } }
+    });
+    const state = { characters: { activeId: "char_free", entries: [freeform] }, combat: { workspace: {} } };
+    const deps = makeDeps(state);
+
+    const api = initAbilitiesFeaturesPanel(deps);
+
+    expect(deriveCharacter(freeform).derivedFeatureActions).toEqual([]);
+    expect(document.querySelector('[data-feature-id="dragonborn-breath-weapon"]')).toBeNull();
+    expect(document.getElementById("charAbilitiesFeaturesEmpty").hidden).toBe(false);
 
     api.destroy();
   });

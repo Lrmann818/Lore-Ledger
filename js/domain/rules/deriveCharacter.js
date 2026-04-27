@@ -23,6 +23,22 @@ import { BUILTIN_CONTENT_REGISTRY, getContentById } from "./registry.js";
  *     damageDice: string
  *   }
  * }} DragonbornAncestryDerived
+ *
+ * @typedef {{
+ *   id: string,
+ *   name: string,
+ *   source: string,
+ *   sourceDetail: string,
+ *   kind: "feature-action",
+ *   activation: string,
+ *   saveAbility: string,
+ *   saveDc: number | null,
+ *   area: string,
+ *   damage: string,
+ *   damageType: string,
+ *   recovery: string,
+ *   description: string
+ * }} DerivedFeatureAction
  */
 
 const SKILL_ABILITY = Object.freeze({
@@ -209,6 +225,29 @@ function dragonbornBreathDamageDice(level) {
 }
 
 /**
+ * @param {string} value
+ * @returns {string}
+ */
+function titleCaseLabel(value) {
+  const text = cleanString(value);
+  return text ? text.charAt(0).toUpperCase() + text.slice(1) : "";
+}
+
+/**
+ * @param {DragonbornAncestryDerived["breathWeapon"]} breathWeapon
+ * @returns {string}
+ */
+function formatBreathWeaponArea(breathWeapon) {
+  if (breathWeapon.shape === "line" && breathWeapon.width != null && breathWeapon.length != null) {
+    return `${breathWeapon.width} by ${breathWeapon.length} ft. line`;
+  }
+  if (breathWeapon.shape === "cone" && breathWeapon.size != null) {
+    return `${breathWeapon.size} ft. cone`;
+  }
+  return "";
+}
+
+/**
  * @param {unknown} character
  * @param {ContentRegistry} [registry]
  * @returns {{
@@ -223,6 +262,7 @@ function dragonbornBreathDamageDice(level) {
  *   skills: Record<string, { ability: string, level: string, misc: number, override: number, total: number | null }>,
  *   initiative: number | null,
  *   dragonbornAncestry: DragonbornAncestryDerived | null,
+ *   derivedFeatureActions: DerivedFeatureAction[],
  *   warnings: string[]
  * }}
  */
@@ -391,6 +431,27 @@ export function deriveCharacter(character, registry = BUILTIN_CONTENT_REGISTRY) 
     }
   }
 
+  /** @type {DerivedFeatureAction[]} */
+  const derivedFeatureActions = [];
+  if (dragonbornAncestry) {
+    const breathWeapon = dragonbornAncestry.breathWeapon;
+    derivedFeatureActions.push({
+      id: "dragonborn-breath-weapon",
+      name: "Breath Weapon",
+      source: "Dragonborn",
+      sourceDetail: dragonbornAncestry.name ? `${dragonbornAncestry.name} Draconic Ancestry` : "",
+      kind: "feature-action",
+      activation: "Action",
+      saveAbility: breathWeapon.saveAbility,
+      saveDc: breathWeapon.saveDC,
+      area: formatBreathWeaponArea(breathWeapon),
+      damage: breathWeapon.damageDice,
+      damageType: titleCaseLabel(dragonbornAncestry.damageType),
+      recovery: "Short or Long Rest",
+      description: "Each creature in the area makes the listed save. Failed save takes full damage; successful save takes half."
+    });
+  }
+
   return {
     mode,
     labels: {
@@ -413,6 +474,7 @@ export function deriveCharacter(character, registry = BUILTIN_CONTENT_REGISTRY) 
     skills,
     initiative,
     dragonbornAncestry,
+    derivedFeatureActions,
     warnings
   };
 }

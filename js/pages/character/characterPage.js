@@ -13,6 +13,7 @@ import { initBuilderSummaryPanel } from "../character/panels/builderSummaryPanel
 import { initBuilderWizard } from "../character/builderWizard.js";
 import { initProficienciesPanel } from "../character/panels/proficienciesPanel.js";
 import { initAbilitiesPanel } from "../character/panels/abilitiesPanel.js";
+import { initAbilitiesFeaturesPanel } from "../character/panels/abilitiesFeaturesPanel.js";
 import { initPersonalityPanel, setupCharacterCollapsibleTextareas } from "../character/panels/personalityPanel.js";
 import { numberOrNull } from "../../utils/number.js";
 import { requireMany, getNoopDestroyApi } from "../../utils/domGuards.js";
@@ -242,6 +243,8 @@ export function initCharacterPageUI(deps) {
     runPanelInit("Personality panel", () => initPersonalityPanel({ ...deps, bindText }));
 
     runPanelInit("Abilities panel", () => initAbilitiesPanel({ ...deps, bindNumber, bindText }));
+
+    runPanelInit("Abilities & Features panel", () => initAbilitiesFeaturesPanel(deps));
     runPanelInit("Character section reorder", () => setupCharacterSectionReorder({ state, SaveManager }));
     runPanelInit("Character textarea collapse", () => setupCharacterCollapsibleTextareas({ state, SaveManager }));
   }

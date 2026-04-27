@@ -254,21 +254,31 @@ Completed April 27, 2026.
 Still deferred beyond Phase 3B:
 
 - Action tracking, uses/rest tracking, rest recharge, and combat automation for Breath Weapon.
-- Broader normal-sheet surfacing for derived ancestry mechanics beyond the current Vitals display of Breath Weapon DC.
 
-### Phase 3C: Abilities & Features Panel Foundation — PLANNED
+### Phase 3C: Abilities & Features Panel Foundation — FOUNDATION COMPLETE
 
 Goal: add the normal character-page home for special rule-backed abilities and feature actions that do not fit cleanly into Weapons, Spells, Vitals, or simple resource trackers.
 
-This is the next planned slice after Dragonborn ancestry preview and Breath Weapon DC display. It is an architecture/product decision, not shipped behavior yet.
+Completed April 27, 2026.
 
-Initial scope:
+Phase 3C foundation complete: derived Dragonborn Breath Weapon now renders as the first display-only Abilities & Features card. Visual polish, manual/freeform feature cards, use tracking, rest recovery, and broader feature coverage remain future work.
 
-- Add a character-page panel named "Abilities & Features" as the shared normal-sheet surface for builder and freeform characters.
-- Display special rule-backed abilities/features such as Dragonborn Breath Weapon, Dhampir Vampiric Bite, class/race feature actions, and other feature-like mechanics that need fields beyond normal weapon tiles, spell sections, or vitals/resource tiles.
-- Start simple for Dragonborn: Breath Weapon should first appear as a derived, display-only Abilities & Features card.
-- The initial Dragonborn card should not track uses, automate rests, mutate Weapons or Spells, or copy derived mechanics into flat character fields.
-- Keep freeform behavior unaffected while establishing the shared panel surface.
+Shipped foundation scope:
+
+- Added a normal character-page panel named "Abilities & Features" as the shared normal-sheet surface for special rule-backed abilities and feature actions.
+- Dragonborn builder characters with a selected Draconic Ancestry now render Breath Weapon as a derived, display-only Abilities & Features card.
+- The card is derived from existing builder/rules data and the persisted ancestry choice ID.
+- Breath Weapon is not persisted into Weapons, Spells, Equipment, or flat character fields.
+- Vitals still shows Breath Weapon DC as a derived combat stat when derivable.
+- Freeform characters remain unchanged for this slice.
+- No use tracking, rest buttons, reset logic, manual feature editor, custom feature cards, or broader class-feature system shipped in this foundation slice.
+
+Long-term model:
+
+- Builder characters can receive derived feature cards from rules/build choices.
+- Freeform characters should eventually be able to create manual feature cards.
+- Builder-derived and freeform/manual cards should render through the same Abilities & Features panel UI.
+- Builder-derived cards should not be duplicated into manual/freeform card state unless a later explicit copy, customize, or override behavior is designed.
 
 Surface ownership:
 
@@ -286,6 +296,16 @@ Resource ownership:
 - Short Rest and Long Rest should eventually apply recovery rules across all relevant systems from the character-level action path.
 - Complex features/resources may later need specialized cards or renderers. For example, Sorcery Points plus Metamagic plus Flexible Casting may need a specialized UI. Even specialized UIs must read/write the same canonical resource counter.
 
+Future Abilities & Features work:
+
+- Visual/card polish for Abilities & Features cards.
+- Freeform/manual Abilities & Features cards.
+- User-created/custom feature cards.
+- Use tracking for limited-use features.
+- Short Rest and Long Rest toolbar actions.
+- Rest/recovery rules across resources and feature uses.
+- Specialized resource-linked feature cards later, such as Sorcery Points, Metamagic, and Flexible Casting.
+
 ### Derived Resources and Derived Combat Stats Pattern
 
 Derived table-use values should appear in the normal character sheet panel where users need them during play. Builder Summary can collect and explain builder-derived mechanics, but it must not be the only place users can find values they need at the table.
@@ -293,7 +313,7 @@ Derived table-use values should appear in the normal character sheet panel where
 Current example:
 
 - Dragonborn Breath Weapon DC is derivable from ancestry, Constitution modifier, and proficiency bonus, so Vitals is the appropriate normal-sheet home for that combat DC.
-- Dragonborn Breath Weapon's full action-style mechanics belong in the planned Abilities & Features panel, not in Spells or Weapons.
+- Dragonborn Breath Weapon's full action-style mechanics now render as the first derived, display-only Abilities & Features card, not in Spells or Weapons.
 
 Future examples may include class-derived resources such as Sorcery Points or similar level/class features. These values should be derived and read-only first. Do not persist them into flat/freeform fields unless a later explicit tracking or editing slice intentionally adds that behavior.
 
@@ -388,7 +408,6 @@ Expansion rules:
 - Update `docs/reference/content-registry-plan.md` before changing schema or conventions.
 - Keep generated JSON adapter-owned.
 - Add tests for new category relationships and derived mechanics.
-
 
 ## Verification Expectations
 

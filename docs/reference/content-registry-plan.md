@@ -675,16 +675,28 @@ Normal sheet ownership should stay explicit:
 
 Do not route Breath Weapon or similar feature actions into Spells just because
 they have DCs, damage, descriptions, or limited uses. Do not route them into
-Weapons unless they are actually normal weapon/equipment attacks. Dragonborn
-Breath Weapon should first surface as a derived, display-only Abilities &
-Features card, while its derived save DC may also appear in Vitals as a compact
-combat stat.
+Weapons unless they are actually normal weapon/equipment attacks. Phase 3C
+foundation complete: Dragonborn Breath Weapon now renders as the first derived,
+display-only Abilities & Features card, while its derived save DC may also
+appear in Vitals as a compact combat stat. This is the foundation slice only;
+visual/card polish, manual/freeform feature cards, user-created/custom feature
+cards, use tracking, rest recovery, and broader feature coverage remain future
+work.
 
 Resource state must have one canonical counter. Feature cards may reference,
 spend, restore, or explain that resource, but they must not duplicate the
 counter. Rest actions should be character-level actions, not panel-local
 buttons, so Short Rest and Long Rest can eventually apply recovery rules across
 all relevant systems.
+
+Long term, builder characters can receive derived feature cards from rules/build
+choices, and freeform characters should be able to create manual feature cards.
+Both should render through the same Abilities & Features panel UI. Builder-derived
+cards should not be duplicated into manual/freeform card state unless a later
+explicit copy, customize, or override behavior is designed. Specialized
+resource-linked feature cards, such as Sorcery Points, Metamagic, and Flexible
+Casting, may need dedicated renderers later, but they must still use the single
+canonical resource counter.
 
 These derived values are not registry records and are not flat stored character
 fields by default. Race bonuses, derived combat stats, damage resistance, breath
