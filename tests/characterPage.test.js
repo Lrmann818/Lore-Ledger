@@ -593,6 +593,24 @@ function installBuilderWizardDom(document) {
   ["Str", "Dex", "Con", "Int", "Wis", "Cha"].forEach((suffix) => {
     appendWithId(document, standardArrayGrid, "select", `builderWizardStandardArray${suffix}`);
   });
+  const pointBuyGrid = appendWithId(document, abilities, "div", "builderWizardPointBuyGrid", "builderPointBuySection");
+  pointBuyGrid.hidden = true;
+  appendWithId(document, pointBuyGrid, "strong", "builderWizardPointBuyRemaining").textContent = "27";
+  ["Str", "Dex", "Con", "Int", "Wis", "Cha"].forEach((suffix) => {
+    const key = suffix.toLowerCase();
+    const field = appendWithId(document, pointBuyGrid, "div", `builderWizardPointBuy${suffix}Field`, "builderPointBuyField");
+    const decrease = appendWithId(document, field, "button", `builderWizardPointBuy${suffix}Decrease`);
+    decrease.type = "button";
+    decrease.dataset.pointBuyAbility = key;
+    decrease.dataset.pointBuyAction = "decrease";
+    decrease.setAttribute("aria-label", `Decrease ${suffix}`);
+    appendWithId(document, field, "strong", `builderWizardPointBuy${suffix}Value`).textContent = "8";
+    const increase = appendWithId(document, field, "button", `builderWizardPointBuy${suffix}Increase`);
+    increase.type = "button";
+    increase.dataset.pointBuyAbility = key;
+    increase.dataset.pointBuyAction = "increase";
+    increase.setAttribute("aria-label", `Increase ${suffix}`);
+  });
 
   const summary = appendWithId(document, body, "section", "builderWizardStepSummary", "builderWizardStep");
   summary.hidden = true;
@@ -693,6 +711,13 @@ function completeBuilderIdentity({
   document.getElementById("builderWizardBackground").value = backgroundId;
 }
 
+function openBuilderWizardToAbilities(actionMenuButton) {
+  actionMenuButton.dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+  document.getElementById("charActionNewBuilderBtn").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+  completeBuilderIdentity();
+  document.getElementById("builderWizardNext").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+}
+
 function chooseBuilderAbilityMethod(methodId) {
   const manualRadio = document.getElementById("builderWizardAbilityMethodManual");
   const targetRadio = methodId === "manual"
@@ -710,6 +735,18 @@ function assignStandardArrayScores(scoresBySuffix) {
     select.value = String(score);
     select.dispatchEvent(new Event("change", { bubbles: true, cancelable: true }));
   });
+}
+
+function clickPointBuy(suffix, action, times = 1) {
+  const id = `builderWizardPointBuy${suffix}${action === "increase" ? "Increase" : "Decrease"}`;
+  const button = document.getElementById(id);
+  for (let i = 0; i < times; i += 1) {
+    button.dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+  }
+}
+
+function getPointBuyScore(suffix) {
+  return document.getElementById(`builderWizardPointBuy${suffix}Value`).textContent;
 }
 
 function createFakePopovers() {
@@ -1579,7 +1616,7 @@ describe("character page selector", () => {
     controller.destroy();
   });
 
-  it("keeps Point Buy and Roll discoverable but unavailable while Standard Array is enabled", async () => {
+  it("enables Point Buy while Roll remains discoverable but unavailable", async () => {
     const { document, actionMenuButton } = installCharacterSelectorDom();
     installBuilderWizardDom(document);
     const Popovers = createFakePopovers();
@@ -1596,17 +1633,19 @@ describe("character page selector", () => {
     expect(standardArray.disabled).toBe(false);
     expect(standardArray.getAttribute("aria-disabled")).not.toBe("true");
     expect(standardArray.getAttribute("tabindex")).not.toBe("-1");
-    ["point-buy", "roll"].forEach((methodId) => {
-      const input = document.getElementById(`builderWizardAbilityMethod-${methodId}`);
-      expect(input.disabled).toBe(false);
-      expect(input.getAttribute("aria-disabled")).toBe("true");
-      expect(input.getAttribute("tabindex")).toBe("-1");
-    });
+    const pointBuy = document.getElementById("builderWizardAbilityMethod-point-buy");
+    expect(pointBuy.disabled).toBe(false);
+    expect(pointBuy.getAttribute("aria-disabled")).not.toBe("true");
+    expect(pointBuy.getAttribute("tabindex")).not.toBe("-1");
+    const roll = document.getElementById("builderWizardAbilityMethod-roll");
+    expect(roll.disabled).toBe(false);
+    expect(roll.getAttribute("aria-disabled")).toBe("true");
+    expect(roll.getAttribute("tabindex")).toBe("-1");
 
     controller.destroy();
   });
 
-  it("confirms unavailable ability score method radios expose aria-disabled and tabindex after wizard open", async () => {
+  it("confirms only unavailable ability score method radios expose aria-disabled and tabindex after wizard open", async () => {
     const { document, actionMenuButton } = installCharacterSelectorDom();
     installBuilderWizardDom(document);
     const Popovers = createFakePopovers();
@@ -1628,19 +1667,23 @@ describe("character page selector", () => {
     expect(standardArrayRadio.getAttribute("tabindex")).not.toBe("-1");
     expect(standardArrayRadio.disabled).toBe(false);
 
-    ["point-buy", "roll"].forEach((methodId) => {
-      const radio = document.getElementById(`builderWizardAbilityMethod-${methodId}`);
-      expect(radio).not.toBeNull();
-      expect(radio.getAttribute("aria-disabled")).toBe("true");
-      expect(radio.getAttribute("tabindex")).toBe("-1");
-      // Native `disabled` must NOT be set — that's the whole point of the migration.
-      expect(radio.disabled).toBe(false);
-    });
+    const pointBuyRadio = document.getElementById("builderWizardAbilityMethod-point-buy");
+    expect(pointBuyRadio).not.toBeNull();
+    expect(pointBuyRadio.getAttribute("aria-disabled")).not.toBe("true");
+    expect(pointBuyRadio.getAttribute("tabindex")).not.toBe("-1");
+    expect(pointBuyRadio.disabled).toBe(false);
+
+    const rollRadio = document.getElementById("builderWizardAbilityMethod-roll");
+    expect(rollRadio).not.toBeNull();
+    expect(rollRadio.getAttribute("aria-disabled")).toBe("true");
+    expect(rollRadio.getAttribute("tabindex")).toBe("-1");
+    // Native `disabled` must NOT be set — that's the whole point of the migration.
+    expect(rollRadio.disabled).toBe(false);
 
     controller.destroy();
   });
 
-  it("confirms activating an unavailable ability score method radio does not change the selected method", async () => {
+  it("confirms activating the unavailable Roll ability score method radio does not change the selected method", async () => {
     const { document, actionMenuButton } = installCharacterSelectorDom();
     installBuilderWizardDom(document);
     const Popovers = createFakePopovers();
@@ -1652,23 +1695,216 @@ describe("character page selector", () => {
     await flushPromises();
 
     const manualRadio = document.getElementById("builderWizardAbilityMethodManual");
-    const pointBuyRadio = document.getElementById("builderWizardAbilityMethod-point-buy");
-    expect(pointBuyRadio).not.toBeNull();
+    const rollRadio = document.getElementById("builderWizardAbilityMethod-roll");
+    expect(rollRadio).not.toBeNull();
 
     expect(manualRadio.checked).toBe(true);
-    expect(pointBuyRadio.checked).toBe(false);
+    expect(rollRadio.checked).toBe(false);
 
     // Simulate what a real browser does pre-event: radio click flips .checked
     // BEFORE the change handler runs. The guard should catch aria-disabled and
     // renderAbilityMethods() should restore manual as the checked radio.
-    pointBuyRadio.checked = true;
+    rollRadio.checked = true;
     manualRadio.checked = false;
-    pointBuyRadio.dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
-    pointBuyRadio.dispatchEvent(new Event("change", { bubbles: true, cancelable: true }));
+    rollRadio.dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    rollRadio.dispatchEvent(new Event("change", { bubbles: true, cancelable: true }));
     await flushPromises();
 
     expect(manualRadio.checked).toBe(true);
-    expect(pointBuyRadio.checked).toBe(false);
+    expect(rollRadio.checked).toBe(false);
+
+    controller.destroy();
+  });
+
+  it("starts Point Buy at 8 for all abilities with 27 remaining points", async () => {
+    const { document, actionMenuButton } = installCharacterSelectorDom();
+    installBuilderWizardDom(document);
+    const Popovers = createFakePopovers();
+    const deps = createCharacterPageDeps(Popovers);
+
+    const controller = initCharacterPageUI(deps);
+    openBuilderWizardToAbilities(actionMenuButton);
+    chooseBuilderAbilityMethod("point-buy");
+
+    expect(document.getElementById("builderWizardPointBuyGrid").hidden).toBe(false);
+    expect(document.getElementById("builderWizardManualAbilityGrid").hidden).toBe(true);
+    expect(document.getElementById("builderWizardStandardArrayGrid").hidden).toBe(true);
+    expect(document.getElementById("builderWizardPointBuyRemaining").textContent).toBe("27");
+    ["Str", "Dex", "Con", "Int", "Wis", "Cha"].forEach((suffix) => {
+      expect(getPointBuyScore(suffix)).toBe("8");
+      expect(document.getElementById(`builderWizardPointBuy${suffix}Decrease`).disabled).toBe(true);
+      expect(document.getElementById(`builderWizardPointBuy${suffix}Increase`).disabled).toBe(false);
+    });
+    expect(document.getElementById("builderWizardAbilityValidation").hidden).toBe(true);
+
+    controller.destroy();
+  });
+
+  it("updates Point Buy scores and remaining points using the 5e cost table", async () => {
+    const { document, actionMenuButton } = installCharacterSelectorDom();
+    installBuilderWizardDom(document);
+    const Popovers = createFakePopovers();
+    const deps = createCharacterPageDeps(Popovers);
+
+    const controller = initCharacterPageUI(deps);
+    openBuilderWizardToAbilities(actionMenuButton);
+    chooseBuilderAbilityMethod("point-buy");
+
+    clickPointBuy("Str", "increase", 5);
+    expect(getPointBuyScore("Str")).toBe("13");
+    expect(document.getElementById("builderWizardPointBuyRemaining").textContent).toBe("22");
+
+    clickPointBuy("Str", "increase");
+    expect(getPointBuyScore("Str")).toBe("14");
+    expect(document.getElementById("builderWizardPointBuyRemaining").textContent).toBe("20");
+
+    clickPointBuy("Str", "increase");
+    expect(getPointBuyScore("Str")).toBe("15");
+    expect(document.getElementById("builderWizardPointBuyRemaining").textContent).toBe("18");
+    expect(document.getElementById("builderWizardPointBuyStrIncrease").disabled).toBe(true);
+
+    clickPointBuy("Str", "increase");
+    expect(getPointBuyScore("Str")).toBe("15");
+    expect(document.getElementById("builderWizardPointBuyRemaining").textContent).toBe("18");
+
+    controller.destroy();
+  });
+
+  it("prevents Point Buy decreases below 8 and spending beyond 27 points", async () => {
+    const { document, actionMenuButton } = installCharacterSelectorDom();
+    installBuilderWizardDom(document);
+    const Popovers = createFakePopovers();
+    const deps = createCharacterPageDeps(Popovers);
+
+    const controller = initCharacterPageUI(deps);
+    openBuilderWizardToAbilities(actionMenuButton);
+    chooseBuilderAbilityMethod("point-buy");
+
+    clickPointBuy("Str", "decrease");
+    expect(getPointBuyScore("Str")).toBe("8");
+    expect(document.getElementById("builderWizardPointBuyRemaining").textContent).toBe("27");
+
+    ["Str", "Dex", "Con"].forEach((suffix) => clickPointBuy(suffix, "increase", 7));
+    expect(document.getElementById("builderWizardPointBuyRemaining").textContent).toBe("0");
+    expect(getPointBuyScore("Str")).toBe("15");
+    expect(getPointBuyScore("Dex")).toBe("15");
+    expect(getPointBuyScore("Con")).toBe("15");
+    ["Int", "Wis", "Cha"].forEach((suffix) => {
+      expect(document.getElementById(`builderWizardPointBuy${suffix}Increase`).disabled).toBe(true);
+    });
+
+    clickPointBuy("Int", "increase");
+    expect(getPointBuyScore("Int")).toBe("8");
+    expect(document.getElementById("builderWizardPointBuyRemaining").textContent).toBe("0");
+
+    controller.destroy();
+  });
+
+  it("allows unspent Point Buy points and previews Point Buy values in Summary", async () => {
+    const { document, actionMenuButton } = installCharacterSelectorDom();
+    installBuilderWizardDom(document);
+    const Popovers = createFakePopovers();
+    const deps = createCharacterPageDeps(Popovers);
+
+    const controller = initCharacterPageUI(deps);
+    actionMenuButton.dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    document.getElementById("charActionNewBuilderBtn").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    completeBuilderIdentity({ name: "Point Mira" });
+    document.getElementById("builderWizardNext").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    chooseBuilderAbilityMethod("point-buy");
+    clickPointBuy("Str", "increase", 2);
+    clickPointBuy("Dex", "increase", 1);
+
+    expect(document.getElementById("builderWizardPointBuyRemaining").textContent).toBe("24");
+    document.getElementById("builderWizardNext").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+
+    const summary = document.getElementById("builderWizardSummary").textContent;
+    expect(summary).toContain("Point Mira");
+    expect(summary).toContain("STR10 (+0)");
+    expect(summary).toContain("DEX9 (-1)");
+    expect(summary).toContain("CHA8 (-1)");
+
+    controller.destroy();
+  });
+
+  it("finishes from Point Buy with only canonical base scores persisted", async () => {
+    const { document, actionMenuButton } = installCharacterSelectorDom();
+    installBuilderWizardDom(document);
+    const Popovers = createFakePopovers();
+    const deps = createCharacterPageDeps(Popovers);
+
+    const controller = initCharacterPageUI(deps);
+    openBuilderWizardToAbilities(actionMenuButton);
+    chooseBuilderAbilityMethod("point-buy");
+    clickPointBuy("Str", "increase", 7);
+    clickPointBuy("Dex", "increase", 6);
+    document.getElementById("builderWizardNext").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    document.getElementById("builderWizardFinish").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    await flushPromises();
+
+    const build = deps.state.characters.entries[2].build;
+    expect(build.abilities.base).toEqual({ str: 15, dex: 14, con: 8, int: 8, wis: 8, cha: 8 });
+    expect("abilityMethod" in build).toBe(false);
+    expect("pointBuy" in build.abilities).toBe(false);
+    expect("remainingPoints" in build.abilities).toBe(false);
+    expect("spent" in build.abilities).toBe(false);
+
+    controller.destroy();
+  });
+
+  it("preserves Manual, Standard Array, and Point Buy draft state independently when switching methods", async () => {
+    const { document, actionMenuButton } = installCharacterSelectorDom();
+    installBuilderWizardDom(document);
+    const Popovers = createFakePopovers();
+    const deps = createCharacterPageDeps(Popovers);
+
+    const controller = initCharacterPageUI(deps);
+    openBuilderWizardToAbilities(actionMenuButton);
+
+    document.getElementById("builderWizardAbilityStr").value = "18";
+    document.getElementById("builderWizardAbilityDex").value = "11";
+    chooseBuilderAbilityMethod("standard-array");
+    assignStandardArrayScores({ Str: 15, Dex: 14, Con: 13, Int: 12, Wis: 10, Cha: 8 });
+    chooseBuilderAbilityMethod("point-buy");
+    clickPointBuy("Str", "increase", 2);
+    clickPointBuy("Wis", "increase", 1);
+    chooseBuilderAbilityMethod("manual");
+    expect(document.getElementById("builderWizardAbilityStr").value).toBe("18");
+    expect(document.getElementById("builderWizardAbilityDex").value).toBe("11");
+
+    chooseBuilderAbilityMethod("standard-array");
+    expect(document.getElementById("builderWizardStandardArrayStr").value).toBe("15");
+    expect(document.getElementById("builderWizardStandardArrayDex").value).toBe("14");
+
+    chooseBuilderAbilityMethod("point-buy");
+    expect(getPointBuyScore("Str")).toBe("10");
+    expect(getPointBuyScore("Wis")).toBe("9");
+    expect(document.getElementById("builderWizardPointBuyRemaining").textContent).toBe("24");
+
+    controller.destroy();
+  });
+
+  it("blocks progression and Finish from a forced invalid Point Buy state", async () => {
+    const { document, actionMenuButton } = installCharacterSelectorDom();
+    installBuilderWizardDom(document);
+    const Popovers = createFakePopovers();
+    const deps = createCharacterPageDeps(Popovers);
+
+    const controller = initCharacterPageUI(deps);
+    openBuilderWizardToAbilities(actionMenuButton);
+    chooseBuilderAbilityMethod("point-buy");
+    document.getElementById("builderWizardPointBuyStrValue").textContent = "16";
+    document.getElementById("builderWizardNext").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+
+    expect(document.getElementById("builderWizardStepAbilities").hidden).toBe(false);
+    expect(document.getElementById("builderWizardStepSummary").hidden).toBe(true);
+    expect(document.getElementById("builderWizardAbilityValidation").textContent)
+      .toBe("Point Buy scores must stay between 8 and 15 and spend no more than 27 points.");
+    expect(deps.state.characters.entries).toHaveLength(2);
+
+    document.getElementById("builderWizardFinish").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    await flushPromises();
+    expect(deps.state.characters.entries).toHaveLength(2);
 
     controller.destroy();
   });

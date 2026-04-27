@@ -1188,10 +1188,9 @@
               <input type="radio" name="builderWizardAbilityMethod" value="standard-array">
               <span>Standard Array</span>
             </label>
-            <label class="builderAbilityMethodOption isDisabled">
-              <input type="radio" name="builderWizardAbilityMethod" value="point-buy" aria-disabled="true" tabindex="-1">
+            <label class="builderAbilityMethodOption">
+              <input type="radio" name="builderWizardAbilityMethod" value="point-buy">
               <span>Point Buy</span>
-              <small>Coming soon</small>
             </label>
             <label class="builderAbilityMethodOption isDisabled">
               <input type="radio" name="builderWizardAbilityMethod" value="roll" aria-disabled="true" tabindex="-1">
@@ -1254,6 +1253,62 @@
               <span>Charisma</span>
               <select id="builderWizardStandardArrayCha" class="settingsSelect"></select>
             </label>
+          </div>
+          <div class="builderPointBuySection" id="builderWizardPointBuyGrid" hidden>
+            <div class="builderPointBuyBudget" aria-live="polite">
+              <span>Remaining Points</span>
+              <strong id="builderWizardPointBuyRemaining" aria-label="27 point buy points remaining">27</strong>
+            </div>
+            <div class="builderWizardAbilityGrid builderPointBuyGrid">
+              <div class="builderPointBuyField">
+                <span>Strength</span>
+                <div class="builderPointBuyControls">
+                  <button type="button" class="npcSmallBtn" id="builderWizardPointBuyStrDecrease" data-point-buy-ability="str" data-point-buy-action="decrease" aria-label="Decrease Strength">-</button>
+                  <strong id="builderWizardPointBuyStrValue">8</strong>
+                  <button type="button" class="npcSmallBtn" id="builderWizardPointBuyStrIncrease" data-point-buy-ability="str" data-point-buy-action="increase" aria-label="Increase Strength">+</button>
+                </div>
+              </div>
+              <div class="builderPointBuyField">
+                <span>Dexterity</span>
+                <div class="builderPointBuyControls">
+                  <button type="button" class="npcSmallBtn" id="builderWizardPointBuyDexDecrease" data-point-buy-ability="dex" data-point-buy-action="decrease" aria-label="Decrease Dexterity">-</button>
+                  <strong id="builderWizardPointBuyDexValue">8</strong>
+                  <button type="button" class="npcSmallBtn" id="builderWizardPointBuyDexIncrease" data-point-buy-ability="dex" data-point-buy-action="increase" aria-label="Increase Dexterity">+</button>
+                </div>
+              </div>
+              <div class="builderPointBuyField">
+                <span>Constitution</span>
+                <div class="builderPointBuyControls">
+                  <button type="button" class="npcSmallBtn" id="builderWizardPointBuyConDecrease" data-point-buy-ability="con" data-point-buy-action="decrease" aria-label="Decrease Constitution">-</button>
+                  <strong id="builderWizardPointBuyConValue">8</strong>
+                  <button type="button" class="npcSmallBtn" id="builderWizardPointBuyConIncrease" data-point-buy-ability="con" data-point-buy-action="increase" aria-label="Increase Constitution">+</button>
+                </div>
+              </div>
+              <div class="builderPointBuyField">
+                <span>Intelligence</span>
+                <div class="builderPointBuyControls">
+                  <button type="button" class="npcSmallBtn" id="builderWizardPointBuyIntDecrease" data-point-buy-ability="int" data-point-buy-action="decrease" aria-label="Decrease Intelligence">-</button>
+                  <strong id="builderWizardPointBuyIntValue">8</strong>
+                  <button type="button" class="npcSmallBtn" id="builderWizardPointBuyIntIncrease" data-point-buy-ability="int" data-point-buy-action="increase" aria-label="Increase Intelligence">+</button>
+                </div>
+              </div>
+              <div class="builderPointBuyField">
+                <span>Wisdom</span>
+                <div class="builderPointBuyControls">
+                  <button type="button" class="npcSmallBtn" id="builderWizardPointBuyWisDecrease" data-point-buy-ability="wis" data-point-buy-action="decrease" aria-label="Decrease Wisdom">-</button>
+                  <strong id="builderWizardPointBuyWisValue">8</strong>
+                  <button type="button" class="npcSmallBtn" id="builderWizardPointBuyWisIncrease" data-point-buy-ability="wis" data-point-buy-action="increase" aria-label="Increase Wisdom">+</button>
+                </div>
+              </div>
+              <div class="builderPointBuyField">
+                <span>Charisma</span>
+                <div class="builderPointBuyControls">
+                  <button type="button" class="npcSmallBtn" id="builderWizardPointBuyChaDecrease" data-point-buy-ability="cha" data-point-buy-action="decrease" aria-label="Decrease Charisma">-</button>
+                  <strong id="builderWizardPointBuyChaValue">8</strong>
+                  <button type="button" class="npcSmallBtn" id="builderWizardPointBuyChaIncrease" data-point-buy-ability="cha" data-point-buy-action="increase" aria-label="Increase Charisma">+</button>
+                </div>
+              </div>
+            </div>
           </div>
         </section>
 

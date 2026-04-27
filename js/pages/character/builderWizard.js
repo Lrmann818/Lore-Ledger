@@ -18,10 +18,23 @@ const MAX_ABILITY_SCORE = 20;
 const DEFAULT_NAME = "New Builder Character";
 const NOT_SELECTED_LABEL = "Not selected";
 const STANDARD_ARRAY_SCORES = Object.freeze([15, 14, 13, 12, 10, 8]);
+const POINT_BUY_BUDGET = 27;
+const POINT_BUY_MIN_SCORE = 8;
+const POINT_BUY_MAX_SCORE = 15;
+const POINT_BUY_COSTS = Object.freeze({
+  8: 0,
+  9: 1,
+  10: 2,
+  11: 3,
+  12: 4,
+  13: 5,
+  14: 7,
+  15: 9
+});
 const ABILITY_METHODS = Object.freeze([
   { id: "manual", label: "Manual", enabled: true },
   { id: "standard-array", label: "Standard Array", enabled: true },
-  { id: "point-buy", label: "Point Buy", enabled: false },
+  { id: "point-buy", label: "Point Buy", enabled: true },
   { id: "roll", label: "Roll", enabled: false }
 ]);
 
@@ -237,6 +250,8 @@ export function initBuilderWizard(deps = {}) {
   }
   const manualAbilityGrid = /** @type {HTMLElement | null} */ (root.querySelector?.("#builderWizardManualAbilityGrid"));
   const standardArrayGrid = /** @type {HTMLElement | null} */ (root.querySelector?.("#builderWizardStandardArrayGrid"));
+  const pointBuyGrid = /** @type {HTMLElement | null} */ (root.querySelector?.("#builderWizardPointBuyGrid"));
+  const pointBuyRemaining = /** @type {HTMLElement | null} */ (root.querySelector?.("#builderWizardPointBuyRemaining"));
   const abilityValidation = /** @type {HTMLElement | null} */ (root.querySelector?.("#builderWizardAbilityValidation"));
   const methodNote = /** @type {HTMLElement | null} */ (root.querySelector?.("#builderWizardAbilityMethodNote"));
   /** @type {Record<string, HTMLSelectElement>} */
@@ -245,6 +260,23 @@ export function initBuilderWizard(deps = {}) {
     const suffix = ABILITY_META[key]?.suffix || key;
     const select = root.querySelector?.(`#builderWizardStandardArray${suffix}`);
     if (hasTagName(select, "select")) standardArraySelects[key] = /** @type {HTMLSelectElement} */ (select);
+  }
+  /** @type {Record<string, HTMLElement>} */
+  const pointBuyValues = {};
+  /** @type {Record<string, HTMLButtonElement>} */
+  const pointBuyDecreaseButtons = {};
+  /** @type {Record<string, HTMLButtonElement>} */
+  const pointBuyIncreaseButtons = {};
+  for (const key of CHARACTER_ABILITY_KEYS) {
+    const suffix = ABILITY_META[key]?.suffix || key;
+    const value = root.querySelector?.(`#builderWizardPointBuy${suffix}Value`);
+    if (value && typeof value === "object" && "textContent" in value) {
+      pointBuyValues[key] = /** @type {HTMLElement} */ (value);
+    }
+    const decrease = root.querySelector?.(`#builderWizardPointBuy${suffix}Decrease`);
+    if (hasTagName(decrease, "button")) pointBuyDecreaseButtons[key] = /** @type {HTMLButtonElement} */ (decrease);
+    const increase = root.querySelector?.(`#builderWizardPointBuy${suffix}Increase`);
+    if (hasTagName(increase, "button")) pointBuyIncreaseButtons[key] = /** @type {HTMLButtonElement} */ (increase);
   }
 
   const listenerController = new AbortController();
@@ -259,6 +291,8 @@ export function initBuilderWizard(deps = {}) {
   let manualAbilityBase = {};
   /** @type {Record<string, string>} */
   let standardArrayAssignments = {};
+  /** @type {Record<string, number>} */
+  let pointBuyAbilityBase = {};
   /** @type {Array<{ rebuild?: () => void, close?: () => void, destroy?: () => void }>} */
   const enhancedSelects = [];
   /** @type {BuilderWizardResult} */
@@ -272,6 +306,34 @@ export function initBuilderWizard(deps = {}) {
     const base = {};
     for (const key of CHARACTER_ABILITY_KEYS) base[key] = 10;
     return base;
+  }
+
+  function getDefaultPointBuyBase() {
+    /** @type {Record<string, number>} */
+    const base = {};
+    for (const key of CHARACTER_ABILITY_KEYS) base[key] = POINT_BUY_MIN_SCORE;
+    return base;
+  }
+
+  /**
+   * @param {unknown} score
+   * @returns {number}
+   */
+  function getPointBuyCost(score) {
+    const value = Number(score);
+    return POINT_BUY_COSTS[/** @type {keyof typeof POINT_BUY_COSTS} */ (value)] ?? Number.POSITIVE_INFINITY;
+  }
+
+  /**
+   * @param {Record<string, number>} base
+   * @returns {number}
+   */
+  function getPointBuySpent(base) {
+    return CHARACTER_ABILITY_KEYS.reduce((total, key) => total + getPointBuyCost(base[key]), 0);
+  }
+
+  function getPointBuyRemainingPoints() {
+    return POINT_BUY_BUDGET - getPointBuySpent(pointBuyAbilityBase);
   }
 
   function syncManualDraftFromControls() {
@@ -289,6 +351,14 @@ export function initBuilderWizard(deps = {}) {
     for (const key of CHARACTER_ABILITY_KEYS) {
       const value = standardArraySelects[key]?.value || "";
       standardArrayAssignments[key] = STANDARD_ARRAY_SCORES.includes(Number(value)) ? value : "";
+    }
+  }
+
+  function syncPointBuyDraftFromControls() {
+    for (const key of CHARACTER_ABILITY_KEYS) {
+      const raw = pointBuyValues[key]?.textContent;
+      const value = Number(raw);
+      pointBuyAbilityBase[key] = Number.isInteger(value) ? value : Number.NaN;
     }
   }
 
@@ -315,8 +385,22 @@ export function initBuilderWizard(deps = {}) {
     return base;
   }
 
+  function getPointBuyBaseOrNull() {
+    const spent = getPointBuySpent(pointBuyAbilityBase);
+    if (spent < 0 || spent > POINT_BUY_BUDGET) return null;
+    /** @type {Record<string, number>} */
+    const base = {};
+    for (const key of CHARACTER_ABILITY_KEYS) {
+      const value = Number(pointBuyAbilityBase[key]);
+      if (!Number.isInteger(value) || value < POINT_BUY_MIN_SCORE || value > POINT_BUY_MAX_SCORE) return null;
+      base[key] = value;
+    }
+    return base;
+  }
+
   function getActiveAbilityBaseOrNull() {
     if (abilityMethod === "standard-array") return getStandardArrayBaseOrNull();
+    if (abilityMethod === "point-buy") return getPointBuyBaseOrNull();
     return { ...manualAbilityBase };
   }
 
@@ -324,12 +408,17 @@ export function initBuilderWizard(deps = {}) {
    * @param {{ showIncomplete?: boolean }} [options]
    */
   function getAbilityValidationMessage(options = {}) {
-    if (abilityMethod !== "standard-array") return "";
-    const duplicate = getStandardArrayDuplicateScore();
-    if (duplicate) return `Standard Array score ${duplicate} is already assigned. Each score can be used once.`;
-    const incomplete = CHARACTER_ABILITY_KEYS.some((key) => !standardArrayAssignments[key]);
-    if (incomplete && !options.showIncomplete) return "";
-    return incomplete ? "Assign each Standard Array score before continuing." : "";
+    if (abilityMethod === "standard-array") {
+      const duplicate = getStandardArrayDuplicateScore();
+      if (duplicate) return `Standard Array score ${duplicate} is already assigned. Each score can be used once.`;
+      const incomplete = CHARACTER_ABILITY_KEYS.some((key) => !standardArrayAssignments[key]);
+      if (incomplete && !options.showIncomplete) return "";
+      return incomplete ? "Assign each Standard Array score before continuing." : "";
+    }
+    if (abilityMethod === "point-buy" && !getPointBuyBaseOrNull()) {
+      return "Point Buy scores must stay between 8 and 15 and spend no more than 27 points.";
+    }
+    return "";
   }
 
   function getIdentityValidationMessage() {
@@ -372,12 +461,34 @@ export function initBuilderWizard(deps = {}) {
   function renderAbilityControlsForMethod() {
     if (manualAbilityGrid) manualAbilityGrid.hidden = abilityMethod !== "manual";
     if (standardArrayGrid) standardArrayGrid.hidden = abilityMethod !== "standard-array";
+    if (pointBuyGrid) pointBuyGrid.hidden = abilityMethod !== "point-buy";
     for (const key of CHARACTER_ABILITY_KEYS) {
       const input = abilityInputs[key];
       if (input) input.value = String(manualAbilityBase[key] ?? 10);
     }
     renderStandardArraySelects();
+    renderPointBuyControls();
     showAbilityValidation(getAbilityValidationMessage({ showIncomplete: abilityValidationAttempted }));
+  }
+
+  function renderPointBuyControls() {
+    const remaining = getPointBuyRemainingPoints();
+    if (pointBuyRemaining) {
+      pointBuyRemaining.textContent = String(remaining);
+      pointBuyRemaining.setAttribute("aria-label", `${remaining} point buy points remaining`);
+    }
+    for (const key of CHARACTER_ABILITY_KEYS) {
+      const score = Number(pointBuyAbilityBase[key]);
+      const currentCost = getPointBuyCost(score);
+      const nextCost = getPointBuyCost(score + 1);
+      const canDecrease = Number.isInteger(score) && score > POINT_BUY_MIN_SCORE;
+      const canIncrease = Number.isInteger(score) &&
+        score < POINT_BUY_MAX_SCORE &&
+        nextCost - currentCost <= remaining;
+      if (pointBuyValues[key]) pointBuyValues[key].textContent = Number.isFinite(score) ? String(score) : "Invalid";
+      if (pointBuyDecreaseButtons[key]) pointBuyDecreaseButtons[key].disabled = !canDecrease;
+      if (pointBuyIncreaseButtons[key]) pointBuyIncreaseButtons[key].disabled = !canIncrease;
+    }
   }
 
   function renderStandardArraySelects() {
@@ -418,6 +529,7 @@ export function initBuilderWizard(deps = {}) {
     if (nextMethod === abilityMethod) return true;
     if (abilityMethod === "manual") syncManualDraftFromControls();
     else if (abilityMethod === "standard-array") syncStandardArrayDraftFromControls();
+    else if (abilityMethod === "point-buy") syncPointBuyDraftFromControls();
     abilityMethod = nextMethod;
     syncAbilityBaseToDraft();
     renderAbilityControlsForMethod();
@@ -443,6 +555,8 @@ export function initBuilderWizard(deps = {}) {
       syncManualDraftFromControls();
     } else if (abilityMethod === "standard-array") {
       syncStandardArrayDraftFromControls();
+    } else if (abilityMethod === "point-buy") {
+      syncPointBuyDraftFromControls();
     }
     syncAbilityBaseToDraft();
   }
@@ -456,6 +570,7 @@ export function initBuilderWizard(deps = {}) {
     draft.build.level = MIN_LEVEL;
     levelDisplay.textContent = "Level 1";
     manualAbilityBase = { ...getDefaultAbilityBase(), ...draft.build.abilities.base };
+    pointBuyAbilityBase = getDefaultPointBuyBase();
     standardArrayAssignments = {};
     for (const key of CHARACTER_ABILITY_KEYS) {
       const input = abilityInputs[key];
@@ -516,9 +631,13 @@ export function initBuilderWizard(deps = {}) {
       if (note) note.textContent = method.enabled ? "" : "Coming soon";
     }
     if (methodNote) {
-      methodNote.textContent = abilityMethod === "standard-array"
-        ? "Assign each Standard Array score to exactly one ability."
-        : "Manual is available now. Point Buy and Roll are reserved for later builder passes.";
+      if (abilityMethod === "standard-array") {
+        methodNote.textContent = "Assign each Standard Array score to exactly one ability.";
+      } else if (abilityMethod === "point-buy") {
+        methodNote.textContent = "Adjust scores from 8 to 15 with a 27 point budget. Unspent points are allowed.";
+      } else {
+        methodNote.textContent = "Enter final base scores manually. Roll is reserved for a later builder pass.";
+      }
     }
   }
 
@@ -536,7 +655,7 @@ export function initBuilderWizard(deps = {}) {
       renderAbilityMethods();
       return;
     }
-    const nextMethod = input.value === "standard-array" ? "standard-array" : "manual";
+    const nextMethod = input.value === "standard-array" || input.value === "point-buy" ? input.value : "manual";
     switchAbilityMethod(nextMethod);
     renderAbilityMethods();
   }
@@ -563,6 +682,36 @@ export function initBuilderWizard(deps = {}) {
     standardArrayAssignments[key] = nextValue;
     syncAbilityBaseToDraft();
     renderStandardArraySelects();
+    showAbilityValidation(getAbilityValidationMessage({ showIncomplete: abilityValidationAttempted }));
+  }
+
+  /**
+   * @param {Event} event
+   */
+  function handlePointBuyClick(event) {
+    const target = event.target;
+    const button = hasTagName(target, "button")
+      ? /** @type {HTMLButtonElement} */ (target)
+      : target && typeof target === "object" && "closest" in target
+        ? /** @type {HTMLButtonElement | null} */ (
+          /** @type {{ closest?: (selector: string) => Element | null }} */ (target)
+            .closest?.("button[data-point-buy-ability][data-point-buy-action]") || null
+        )
+        : null;
+    if (!button || button.disabled) return;
+    const key = button.dataset.pointBuyAbility || "";
+    if (!CHARACTER_ABILITY_KEYS.includes(/** @type {typeof CHARACTER_ABILITY_KEYS[number]} */ (key))) return;
+    const action = button.dataset.pointBuyAction;
+    const current = Number(pointBuyAbilityBase[key]);
+    const next = action === "increase" ? current + 1 : current - 1;
+    if (!Number.isInteger(next) || next < POINT_BUY_MIN_SCORE || next > POINT_BUY_MAX_SCORE) return;
+    if (action === "increase") {
+      const extraCost = getPointBuyCost(next) - getPointBuyCost(current);
+      if (extraCost > getPointBuyRemainingPoints()) return;
+    }
+    pointBuyAbilityBase[key] = next;
+    syncAbilityBaseToDraft();
+    renderPointBuyControls();
     showAbilityValidation(getAbilityValidationMessage({ showIncomplete: abilityValidationAttempted }));
   }
 
@@ -758,6 +907,7 @@ export function initBuilderWizard(deps = {}) {
   cancelBtn.addEventListener("click", close, { signal });
   closeBtn.addEventListener("click", close, { signal });
   panel.addEventListener("click", handleAbilityMethodActivation, { signal });
+  panel.addEventListener("click", handlePointBuyClick, { signal });
   panel.addEventListener("change", handleAbilityMethodActivation, { signal });
   for (const select of [raceSelect, classSelect, backgroundSelect]) {
     select.addEventListener("change", () => {

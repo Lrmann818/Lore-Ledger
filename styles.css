@@ -3977,6 +3977,77 @@ div.mutedSmall {
   font-weight: 700;
 }
 
+#builderWizardPanel .builderPointBuySection {
+  display: grid;
+  gap: 12px;
+}
+
+#builderWizardPanel .builderPointBuySection[hidden] {
+  display: none;
+}
+
+#builderWizardPanel .builderPointBuyBudget {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface-3) 58%, transparent);
+  color: var(--text);
+  font-weight: 700;
+}
+
+#builderWizardPanel .builderPointBuyBudget strong {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 42px;
+  min-height: 32px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+
+#builderWizardPanel .builderPointBuyField {
+  display: grid;
+  gap: 7px;
+  padding: 10px;
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface-3) 70%, transparent);
+}
+
+#builderWizardPanel .builderPointBuyControls {
+  display: grid;
+  grid-template-columns: 36px minmax(38px, 1fr) 36px;
+  align-items: center;
+  gap: 6px;
+}
+
+#builderWizardPanel .builderPointBuyControls button {
+  min-width: 36px;
+  min-height: 36px;
+  padding: 0;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+#builderWizardPanel .builderPointBuyControls strong {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  min-height: 36px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 1rem;
+}
+
 #builderWizardSummary {
   gap: 12px;
 }
@@ -4894,9 +4965,14 @@ select.npcField:focus {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  #builderWizardPanel .builderWizardAbilityGrid>.builderAbilitiesField {
+  #builderWizardPanel .builderWizardAbilityGrid>.builderAbilitiesField,
+  #builderWizardPanel .builderPointBuyField {
     grid-template-columns: minmax(0, 1fr) minmax(60px, 78px);
     align-items: center;
+  }
+
+  #builderWizardPanel .builderPointBuyGrid {
+    grid-template-columns: 1fr;
   }
 
   #builderWizardPanel .builderWizardAbilityGrid input[type="number"] {
