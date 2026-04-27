@@ -63,6 +63,10 @@ import {
   listContentByKind
 } from "../js/domain/rules/registry.js";
 import { deriveCharacter } from "../js/domain/rules/deriveCharacter.js";
+import {
+  rollBuilderAbilityScore,
+  rollBuilderAbilityScorePool
+} from "../js/pages/character/builderWizard.js";
 
 class FakeClassList {
   constructor(owner) {
@@ -574,11 +578,9 @@ function installBuilderWizardDom(document) {
     if (methodId === "manual") {
       input.id = "builderWizardAbilityMethodManual";
       input.checked = true;
-    } else if (methodId !== "standard-array") {
-      input.setAttribute("aria-disabled", "true");
-      input.setAttribute("tabindex", "-1");
     }
   });
+  appendWithId(document, abilities, "p", "builderWizardAbilityMethodNote", "builderAbilityMethodNote");
   const validation = appendWithId(document, abilities, "div", "builderWizardAbilityValidation", "builderAbilityValidation");
   validation.hidden = true;
   validation.setAttribute("role", "status");
@@ -610,6 +612,22 @@ function installBuilderWizardDom(document) {
     increase.dataset.pointBuyAbility = key;
     increase.dataset.pointBuyAction = "increase";
     increase.setAttribute("aria-label", `Increase ${suffix}`);
+  });
+  const rollSection = appendWithId(document, abilities, "div", "builderWizardRollSection", "builderRollSection");
+  rollSection.hidden = true;
+  const rollMode = appendWithId(document, rollSection, "select", "builderWizardRollMode");
+  ["4d6-drop-lowest", "3d6-straight"].forEach((mode) => {
+    const option = document.createElement("option");
+    option.value = mode;
+    option.textContent = mode === "3d6-straight" ? "3d6 straight" : "4d6 drop lowest";
+    rollMode.appendChild(option);
+  });
+  appendWithId(document, rollSection, "button", "builderWizardRollButton").type = "button";
+  appendWithId(document, rollSection, "div", "builderWizardRollPool", "builderRollPool");
+  const rollAssignmentGrid = appendWithId(document, rollSection, "div", "builderWizardRollAssignmentGrid", "builderWizardAbilityGrid builderRollAssignmentGrid");
+  rollAssignmentGrid.hidden = true;
+  ["Str", "Dex", "Con", "Int", "Wis", "Cha"].forEach((suffix) => {
+    appendWithId(document, rollAssignmentGrid, "select", `builderWizardRoll${suffix}`);
   });
 
   const summary = appendWithId(document, body, "section", "builderWizardStepSummary", "builderWizardStep");
@@ -747,6 +765,32 @@ function clickPointBuy(suffix, action, times = 1) {
 
 function getPointBuyScore(suffix) {
   return document.getElementById(`builderWizardPointBuy${suffix}Value`).textContent;
+}
+
+function getRollSelect(suffix) {
+  return document.getElementById(`builderWizardRoll${suffix}`);
+}
+
+function clickRollScores() {
+  document.getElementById("builderWizardRollButton").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+}
+
+function assignRollScoresByIndex(suffixes = ["Str", "Dex", "Con", "Int", "Wis", "Cha"]) {
+  suffixes.forEach((suffix) => {
+    const select = getRollSelect(suffix);
+    const option = select.children[1];
+    select.value = option?.value || "";
+    select.dispatchEvent(new Event("change", { bubbles: true, cancelable: true }));
+  });
+}
+
+function mockDiceRolls(values) {
+  let index = 0;
+  return vi.spyOn(Math, "random").mockImplementation(() => {
+    const next = values[index];
+    index += 1;
+    return ((next ?? 1) - 1) / 6;
+  });
 }
 
 function createFakePopovers() {
@@ -888,6 +932,7 @@ function makeBuilderCharacter({
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
   vi.clearAllMocks();
 });
 
@@ -1616,7 +1661,7 @@ describe("character page selector", () => {
     controller.destroy();
   });
 
-  it("enables Point Buy while Roll remains discoverable but unavailable", async () => {
+  it("enables Roll alongside Manual, Standard Array, and Point Buy", async () => {
     const { document, actionMenuButton } = installCharacterSelectorDom();
     installBuilderWizardDom(document);
     const Popovers = createFakePopovers();
@@ -1639,13 +1684,13 @@ describe("character page selector", () => {
     expect(pointBuy.getAttribute("tabindex")).not.toBe("-1");
     const roll = document.getElementById("builderWizardAbilityMethod-roll");
     expect(roll.disabled).toBe(false);
-    expect(roll.getAttribute("aria-disabled")).toBe("true");
-    expect(roll.getAttribute("tabindex")).toBe("-1");
+    expect(roll.getAttribute("aria-disabled")).not.toBe("true");
+    expect(roll.getAttribute("tabindex")).not.toBe("-1");
 
     controller.destroy();
   });
 
-  it("confirms only unavailable ability score method radios expose aria-disabled and tabindex after wizard open", async () => {
+  it("confirms ability score method radios are all keyboard reachable after wizard open", async () => {
     const { document, actionMenuButton } = installCharacterSelectorDom();
     installBuilderWizardDom(document);
     const Popovers = createFakePopovers();
@@ -1675,15 +1720,14 @@ describe("character page selector", () => {
 
     const rollRadio = document.getElementById("builderWizardAbilityMethod-roll");
     expect(rollRadio).not.toBeNull();
-    expect(rollRadio.getAttribute("aria-disabled")).toBe("true");
-    expect(rollRadio.getAttribute("tabindex")).toBe("-1");
-    // Native `disabled` must NOT be set — that's the whole point of the migration.
+    expect(rollRadio.getAttribute("aria-disabled")).not.toBe("true");
+    expect(rollRadio.getAttribute("tabindex")).not.toBe("-1");
     expect(rollRadio.disabled).toBe(false);
 
     controller.destroy();
   });
 
-  it("confirms activating the unavailable Roll ability score method radio does not change the selected method", async () => {
+  it("defaults Roll to 4d6 drop lowest when selected", async () => {
     const { document, actionMenuButton } = installCharacterSelectorDom();
     installBuilderWizardDom(document);
     const Popovers = createFakePopovers();
@@ -1694,24 +1738,281 @@ describe("character page selector", () => {
     document.getElementById("charActionNewBuilderBtn").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
     await flushPromises();
 
-    const manualRadio = document.getElementById("builderWizardAbilityMethodManual");
-    const rollRadio = document.getElementById("builderWizardAbilityMethod-roll");
-    expect(rollRadio).not.toBeNull();
-
-    expect(manualRadio.checked).toBe(true);
-    expect(rollRadio.checked).toBe(false);
-
-    // Simulate what a real browser does pre-event: radio click flips .checked
-    // BEFORE the change handler runs. The guard should catch aria-disabled and
-    // renderAbilityMethods() should restore manual as the checked radio.
-    rollRadio.checked = true;
-    manualRadio.checked = false;
-    rollRadio.dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
-    rollRadio.dispatchEvent(new Event("change", { bubbles: true, cancelable: true }));
+    openBuilderWizardToAbilities(actionMenuButton);
+    chooseBuilderAbilityMethod("roll");
     await flushPromises();
 
-    expect(manualRadio.checked).toBe(true);
-    expect(rollRadio.checked).toBe(false);
+    expect(document.getElementById("builderWizardAbilityMethod-roll").checked).toBe(true);
+    expect(document.getElementById("builderWizardRollSection").hidden).toBe(false);
+    expect(document.getElementById("builderWizardRollMode").value).toBe("4d6-drop-lowest");
+    expect(document.getElementById("builderWizardRollButton").textContent).toBe("Roll Scores");
+    expect(document.getElementById("builderWizardRollPool").textContent).toBe("No scores rolled yet.");
+    expect(document.getElementById("builderWizardRollAssignmentGrid").hidden).toBe(true);
+    expect(document.getElementById("builderWizardAbilityValidation").hidden).toBe(true);
+
+    controller.destroy();
+  });
+
+  it("calculates Roll scores with deterministic dice for both supported modes", () => {
+    expect(rollBuilderAbilityScore("4d6-drop-lowest", vi.fn()
+      .mockReturnValueOnce(1)
+      .mockReturnValueOnce(6)
+      .mockReturnValueOnce(3)
+      .mockReturnValueOnce(4))).toBe(13);
+    expect(rollBuilderAbilityScore("3d6-straight", vi.fn()
+      .mockReturnValueOnce(2)
+      .mockReturnValueOnce(5)
+      .mockReturnValueOnce(6))).toBe(13);
+  });
+
+  it("generates six Roll score instances with deterministic 4d6 drop lowest dice", () => {
+    const dice = [
+      1, 6, 3, 4,
+      2, 2, 2, 2,
+      6, 6, 6, 1,
+      5, 4, 3, 2,
+      1, 1, 1, 1,
+      3, 3, 4, 4
+    ];
+    let index = 0;
+    const pool = rollBuilderAbilityScorePool("4d6-drop-lowest", () => dice[index++], 7);
+    expect(pool).toEqual([
+      { id: "roll-7-1", value: 13 },
+      { id: "roll-7-2", value: 6 },
+      { id: "roll-7-3", value: 18 },
+      { id: "roll-7-4", value: 12 },
+      { id: "roll-7-5", value: 3 },
+      { id: "roll-7-6", value: 11 }
+    ]);
+  });
+
+  it("generates six Roll score instances from the wizard button and supports duplicate numeric scores", async () => {
+    const { document, actionMenuButton } = installCharacterSelectorDom();
+    installBuilderWizardDom(document);
+    const Popovers = createFakePopovers();
+    const deps = createCharacterPageDeps(Popovers);
+    mockDiceRolls([
+      6, 6, 3, 3,
+      6, 6, 3, 3,
+      5, 5, 5, 1,
+      4, 4, 4, 1,
+      3, 3, 3, 1,
+      2, 2, 2, 1
+    ]);
+
+    const controller = initCharacterPageUI(deps);
+    openBuilderWizardToAbilities(actionMenuButton);
+    chooseBuilderAbilityMethod("roll");
+    clickRollScores();
+
+    expect(document.getElementById("builderWizardRollButton").textContent).toBe("Reroll Scores");
+    expect(document.getElementById("builderWizardRollPool").textContent).toContain("Generated scores: 15, 15, 15, 12, 9, 6");
+    expect(document.getElementById("builderWizardRollAssignmentGrid").hidden).toBe(false);
+
+    const strOptions = getSelectOptions(getRollSelect("Str"));
+    expect(strOptions.map((option) => option.label)).toEqual(["Choose score", "15", "15", "15", "12", "9", "6"]);
+    expect(new Set(strOptions.map((option) => option.value)).size).toBe(7);
+
+    controller.destroy();
+  });
+
+  it("uses 3d6 straight when the Roll mode is changed", async () => {
+    const { document, actionMenuButton } = installCharacterSelectorDom();
+    installBuilderWizardDom(document);
+    const Popovers = createFakePopovers();
+    const deps = createCharacterPageDeps(Popovers);
+    mockDiceRolls([
+      1, 2, 3,
+      2, 3, 4,
+      3, 4, 5,
+      4, 5, 6,
+      1, 1, 1,
+      6, 6, 6
+    ]);
+
+    const controller = initCharacterPageUI(deps);
+    openBuilderWizardToAbilities(actionMenuButton);
+    chooseBuilderAbilityMethod("roll");
+    const mode = document.getElementById("builderWizardRollMode");
+    mode.value = "3d6-straight";
+    dispatchChange(mode);
+    clickRollScores();
+
+    expect(document.getElementById("builderWizardRollPool").textContent).toContain("Generated scores: 6, 9, 12, 15, 3, 18");
+
+    controller.destroy();
+  });
+
+  it("removes used Roll score instances from other dropdowns while keeping the owner selected", async () => {
+    const { document, actionMenuButton } = installCharacterSelectorDom();
+    installBuilderWizardDom(document);
+    const Popovers = createFakePopovers();
+    const deps = createCharacterPageDeps(Popovers);
+    mockDiceRolls([
+      6, 6, 3, 3,
+      6, 6, 3, 3,
+      5, 5, 5, 1,
+      4, 4, 4, 1,
+      3, 3, 3, 1,
+      2, 2, 2, 1
+    ]);
+
+    const controller = initCharacterPageUI(deps);
+    openBuilderWizardToAbilities(actionMenuButton);
+    chooseBuilderAbilityMethod("roll");
+    clickRollScores();
+
+    const strSelect = getRollSelect("Str");
+    const dexSelect = getRollSelect("Dex");
+    const firstRollId = strSelect.children[1].value;
+    strSelect.value = firstRollId;
+    dispatchChange(strSelect);
+
+    expect(getSelectOptionValues(strSelect)).toContain(firstRollId);
+    expect(getSelectOptionValues(dexSelect)).not.toContain(firstRollId);
+    expect(getSelectOptions(dexSelect).filter((option) => option.label === "15")).toHaveLength(2);
+    expect(getEnhancedDropdownValues(dexSelect)).not.toContain(firstRollId);
+
+    controller.destroy();
+  });
+
+  it("rerolling clears old Roll assignments and validation", async () => {
+    const { document, actionMenuButton } = installCharacterSelectorDom();
+    installBuilderWizardDom(document);
+    const Popovers = createFakePopovers();
+    const deps = createCharacterPageDeps(Popovers);
+    mockDiceRolls([
+      6, 6, 3, 3, 5, 5, 5, 1, 4, 4, 4, 1, 3, 3, 3, 1, 2, 2, 2, 1, 1, 1, 1, 1,
+      6, 6, 6, 1, 5, 5, 5, 1, 4, 4, 4, 1, 3, 3, 3, 1, 2, 2, 2, 1, 1, 1, 1, 1
+    ]);
+
+    const controller = initCharacterPageUI(deps);
+    openBuilderWizardToAbilities(actionMenuButton);
+    chooseBuilderAbilityMethod("roll");
+    clickRollScores();
+    assignRollScoresByIndex(["Str", "Dex"]);
+    document.getElementById("builderWizardNext").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    expect(document.getElementById("builderWizardAbilityValidation").textContent)
+      .toBe("Assign each rolled score before continuing.");
+
+    clickRollScores();
+
+    expect(getRollSelect("Str").value).toBe("");
+    expect(getRollSelect("Dex").value).toBe("");
+    expect(document.getElementById("builderWizardAbilityValidation").hidden).toBe(true);
+    expect(document.getElementById("builderWizardAbilityValidation").textContent).toBe("");
+
+    controller.destroy();
+  });
+
+  it("blocks Roll progression before rolling with a clear validation message", async () => {
+    const { document, actionMenuButton } = installCharacterSelectorDom();
+    installBuilderWizardDom(document);
+    const Popovers = createFakePopovers();
+    const deps = createCharacterPageDeps(Popovers);
+
+    const controller = initCharacterPageUI(deps);
+    openBuilderWizardToAbilities(actionMenuButton);
+    chooseBuilderAbilityMethod("roll");
+    document.getElementById("builderWizardNext").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+
+    expect(document.getElementById("builderWizardStepAbilities").hidden).toBe(false);
+    expect(document.getElementById("builderWizardStepSummary").hidden).toBe(true);
+    expect(document.getElementById("builderWizardAbilityValidation").textContent)
+      .toBe("Roll scores before continuing.");
+
+    controller.destroy();
+  });
+
+  it("blocks Roll progression after rolling until all abilities are assigned", async () => {
+    const { document, actionMenuButton } = installCharacterSelectorDom();
+    installBuilderWizardDom(document);
+    const Popovers = createFakePopovers();
+    const deps = createCharacterPageDeps(Popovers);
+    mockDiceRolls(Array(24).fill(4));
+
+    const controller = initCharacterPageUI(deps);
+    openBuilderWizardToAbilities(actionMenuButton);
+    chooseBuilderAbilityMethod("roll");
+    clickRollScores();
+    assignRollScoresByIndex(["Str", "Dex", "Con", "Int", "Wis"]);
+    document.getElementById("builderWizardNext").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+
+    expect(document.getElementById("builderWizardStepAbilities").hidden).toBe(false);
+    expect(document.getElementById("builderWizardStepSummary").hidden).toBe(true);
+    expect(document.getElementById("builderWizardAbilityValidation").textContent)
+      .toBe("Assign each rolled score before continuing.");
+
+    controller.destroy();
+  });
+
+  it("previews Roll values in Summary and finishes with only canonical base scores persisted", async () => {
+    const { document, actionMenuButton } = installCharacterSelectorDom();
+    installBuilderWizardDom(document);
+    const Popovers = createFakePopovers();
+    const deps = createCharacterPageDeps(Popovers);
+    mockDiceRolls([
+      6, 6, 6, 1,
+      5, 5, 5, 1,
+      4, 4, 4, 1,
+      3, 3, 3, 1,
+      2, 2, 2, 1,
+      1, 1, 1, 1
+    ]);
+
+    const controller = initCharacterPageUI(deps);
+    openBuilderWizardToAbilities(actionMenuButton);
+    chooseBuilderAbilityMethod("roll");
+    clickRollScores();
+    assignRollScoresByIndex();
+    document.getElementById("builderWizardNext").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+
+    const summary = document.getElementById("builderWizardSummary").textContent;
+    expect(summary).toContain("STR18 (+4)");
+    expect(summary).toContain("DEX15 (+2)");
+    expect(summary).toContain("CHA3 (-4)");
+
+    document.getElementById("builderWizardFinish").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    await flushPromises();
+
+    const build = deps.state.characters.entries[2].build;
+    expect(build.abilities.base).toEqual({ str: 18, dex: 15, con: 12, int: 9, wis: 6, cha: 3 });
+    expect("abilityMethod" in build).toBe(false);
+    expect("rollMode" in build.abilities).toBe(false);
+    expect("rollPool" in build.abilities).toBe(false);
+    expect("rollAssignments" in build.abilities).toBe(false);
+    expect("rolledDice" in build.abilities).toBe(false);
+    expect("randomSeed" in build.abilities).toBe(false);
+
+    controller.destroy();
+  });
+
+  it("blocks forced duplicate Roll assignments defensively", async () => {
+    const { document, actionMenuButton } = installCharacterSelectorDom();
+    installBuilderWizardDom(document);
+    const Popovers = createFakePopovers();
+    const deps = createCharacterPageDeps(Popovers);
+    mockDiceRolls(Array(24).fill(5));
+
+    const controller = initCharacterPageUI(deps);
+    openBuilderWizardToAbilities(actionMenuButton);
+    chooseBuilderAbilityMethod("roll");
+    clickRollScores();
+    const firstId = getRollSelect("Str").children[1].value;
+    getRollSelect("Str").value = firstId;
+    dispatchChange(getRollSelect("Str"));
+    const forcedOption = document.createElement("option");
+    forcedOption.value = firstId;
+    forcedOption.textContent = "15";
+    getRollSelect("Dex").appendChild(forcedOption);
+    getRollSelect("Dex").value = firstId;
+    dispatchChange(getRollSelect("Dex"));
+
+    expect(getRollSelect("Dex").value).toBe("");
+    expect(document.getElementById("builderWizardAbilityValidation").textContent)
+      .toContain("is already assigned");
+    document.getElementById("builderWizardNext").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    expect(document.getElementById("builderWizardStepAbilities").hidden).toBe(false);
 
     controller.destroy();
   });
@@ -1852,11 +2153,19 @@ describe("character page selector", () => {
     controller.destroy();
   });
 
-  it("preserves Manual, Standard Array, and Point Buy draft state independently when switching methods", async () => {
+  it("preserves Manual, Standard Array, Point Buy, and Roll draft state independently when switching methods", async () => {
     const { document, actionMenuButton } = installCharacterSelectorDom();
     installBuilderWizardDom(document);
     const Popovers = createFakePopovers();
     const deps = createCharacterPageDeps(Popovers);
+    mockDiceRolls([
+      6, 6, 6, 1,
+      5, 5, 5, 1,
+      4, 4, 4, 1,
+      3, 3, 3, 1,
+      2, 2, 2, 1,
+      1, 1, 1, 1
+    ]);
 
     const controller = initCharacterPageUI(deps);
     openBuilderWizardToAbilities(actionMenuButton);
@@ -1868,6 +2177,9 @@ describe("character page selector", () => {
     chooseBuilderAbilityMethod("point-buy");
     clickPointBuy("Str", "increase", 2);
     clickPointBuy("Wis", "increase", 1);
+    chooseBuilderAbilityMethod("roll");
+    clickRollScores();
+    assignRollScoresByIndex(["Str", "Dex"]);
     chooseBuilderAbilityMethod("manual");
     expect(document.getElementById("builderWizardAbilityStr").value).toBe("18");
     expect(document.getElementById("builderWizardAbilityDex").value).toBe("11");
@@ -1880,6 +2192,11 @@ describe("character page selector", () => {
     expect(getPointBuyScore("Str")).toBe("10");
     expect(getPointBuyScore("Wis")).toBe("9");
     expect(document.getElementById("builderWizardPointBuyRemaining").textContent).toBe("24");
+
+    chooseBuilderAbilityMethod("roll");
+    expect(document.getElementById("builderWizardRollPool").textContent).toContain("Generated scores: 18, 15, 12, 9, 6, 3");
+    expect(getRollSelect("Str").value).toBe("roll-1-1");
+    expect(getRollSelect("Dex").value).toBe("roll-1-2");
 
     controller.destroy();
   });

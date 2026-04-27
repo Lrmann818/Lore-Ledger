@@ -3982,7 +3982,9 @@ div.mutedSmall {
   gap: 12px;
 }
 
-#builderWizardPanel .builderPointBuySection[hidden] {
+#builderWizardPanel .builderPointBuySection[hidden],
+#builderWizardPanel .builderRollSection[hidden],
+#builderWizardPanel .builderRollAssignmentGrid[hidden] {
   display: none;
 }
 
@@ -4046,6 +4048,45 @@ div.mutedSmall {
   background: var(--surface-2);
   color: var(--text);
   font-size: 1rem;
+}
+
+#builderWizardPanel .builderRollSection {
+  display: grid;
+  gap: 12px;
+}
+
+#builderWizardPanel .builderRollControls {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+}
+
+#builderWizardPanel .builderRollControls>.builderAbilitiesField {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+
+#builderWizardPanel .builderRollControls .npcSmallBtn {
+  min-height: 36px;
+}
+
+#builderWizardPanel .builderRollPool {
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface-3) 58%, transparent);
+  color: var(--text);
+  font-weight: 700;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+#builderWizardPanel .builderRollAssignmentGrid select {
+  text-align: center;
+  font-weight: 700;
 }
 
 #builderWizardSummary {
@@ -4969,6 +5010,10 @@ select.npcField:focus {
   #builderWizardPanel .builderPointBuyField {
     grid-template-columns: minmax(0, 1fr) minmax(60px, 78px);
     align-items: center;
+  }
+
+  #builderWizardPanel .builderRollControls {
+    grid-template-columns: 1fr;
   }
 
   #builderWizardPanel .builderPointBuyGrid {

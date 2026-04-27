@@ -1192,14 +1192,13 @@
               <input type="radio" name="builderWizardAbilityMethod" value="point-buy">
               <span>Point Buy</span>
             </label>
-            <label class="builderAbilityMethodOption isDisabled">
-              <input type="radio" name="builderWizardAbilityMethod" value="roll" aria-disabled="true" tabindex="-1">
+            <label class="builderAbilityMethodOption">
+              <input type="radio" name="builderWizardAbilityMethod" value="roll">
               <span>Roll</span>
-              <small>Coming soon</small>
             </label>
           </fieldset>
           <p class="builderAbilityMethodNote" id="builderWizardAbilityMethodNote">
-            Manual is available now. Point Buy and Roll are reserved for later builder passes.
+            Enter final base scores manually.
           </p>
           <div class="builderAbilityValidation" id="builderWizardAbilityValidation" role="status" aria-live="polite" hidden></div>
           <div class="builderWizardAbilityGrid" id="builderWizardManualAbilityGrid">
@@ -1308,6 +1307,45 @@
                   <button type="button" class="npcSmallBtn" id="builderWizardPointBuyChaIncrease" data-point-buy-ability="cha" data-point-buy-action="increase" aria-label="Increase Charisma">+</button>
                 </div>
               </div>
+            </div>
+          </div>
+          <div class="builderRollSection" id="builderWizardRollSection" hidden>
+            <div class="builderRollControls">
+              <label class="builderAbilitiesField" for="builderWizardRollMode">
+                <span>Roll Mode</span>
+                <select id="builderWizardRollMode" class="settingsSelect">
+                  <option value="4d6-drop-lowest">4d6 drop lowest</option>
+                  <option value="3d6-straight">3d6 straight</option>
+                </select>
+              </label>
+              <button type="button" class="npcSmallBtn" id="builderWizardRollButton">Roll Scores</button>
+            </div>
+            <div class="builderRollPool" id="builderWizardRollPool" aria-live="polite">No scores rolled yet.</div>
+            <div class="builderWizardAbilityGrid builderRollAssignmentGrid" id="builderWizardRollAssignmentGrid" hidden>
+              <label class="builderAbilitiesField" for="builderWizardRollStr">
+                <span>Strength</span>
+                <select id="builderWizardRollStr" class="settingsSelect"></select>
+              </label>
+              <label class="builderAbilitiesField" for="builderWizardRollDex">
+                <span>Dexterity</span>
+                <select id="builderWizardRollDex" class="settingsSelect"></select>
+              </label>
+              <label class="builderAbilitiesField" for="builderWizardRollCon">
+                <span>Constitution</span>
+                <select id="builderWizardRollCon" class="settingsSelect"></select>
+              </label>
+              <label class="builderAbilitiesField" for="builderWizardRollInt">
+                <span>Intelligence</span>
+                <select id="builderWizardRollInt" class="settingsSelect"></select>
+              </label>
+              <label class="builderAbilitiesField" for="builderWizardRollWis">
+                <span>Wisdom</span>
+                <select id="builderWizardRollWis" class="settingsSelect"></select>
+              </label>
+              <label class="builderAbilitiesField" for="builderWizardRollCha">
+                <span>Charisma</span>
+                <select id="builderWizardRollCha" class="settingsSelect"></select>
+              </label>
             </div>
           </div>
         </section>

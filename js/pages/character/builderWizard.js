@@ -18,6 +18,12 @@ const MAX_ABILITY_SCORE = 20;
 const DEFAULT_NAME = "New Builder Character";
 const NOT_SELECTED_LABEL = "Not selected";
 const STANDARD_ARRAY_SCORES = Object.freeze([15, 14, 13, 12, 10, 8]);
+const ROLL_MODE_4D6_DROP_LOWEST = "4d6-drop-lowest";
+const ROLL_MODE_3D6_STRAIGHT = "3d6-straight";
+const ROLL_MODES = Object.freeze([
+  { id: ROLL_MODE_4D6_DROP_LOWEST, label: "4d6 drop lowest" },
+  { id: ROLL_MODE_3D6_STRAIGHT, label: "3d6 straight" }
+]);
 const POINT_BUY_BUDGET = 27;
 const POINT_BUY_MIN_SCORE = 8;
 const POINT_BUY_MAX_SCORE = 15;
@@ -35,7 +41,7 @@ const ABILITY_METHODS = Object.freeze([
   { id: "manual", label: "Manual", enabled: true },
   { id: "standard-array", label: "Standard Array", enabled: true },
   { id: "point-buy", label: "Point Buy", enabled: true },
-  { id: "roll", label: "Roll", enabled: false }
+  { id: "roll", label: "Roll", enabled: true }
 ]);
 
 const ABILITY_META = Object.freeze({
@@ -135,6 +141,45 @@ function appendDiv(parent, className, text) {
 }
 
 /**
+ * @param {string} mode
+ * @param {() => number} rollDie
+ * @returns {number}
+ */
+export function rollBuilderAbilityScore(mode, rollDie = () => Math.floor(Math.random() * 6) + 1) {
+  const diceCount = mode === ROLL_MODE_3D6_STRAIGHT ? 3 : 4;
+  const rolls = [];
+  for (let i = 0; i < diceCount; i += 1) {
+    const value = Math.trunc(Number(rollDie()));
+    if (!Number.isInteger(value) || value < 1 || value > 6) {
+      throw new Error("Builder ability roll die result must be an integer from 1 to 6.");
+    }
+    rolls.push(value);
+  }
+  if (mode === ROLL_MODE_3D6_STRAIGHT) {
+    return rolls.reduce((total, value) => total + value, 0);
+  }
+  const sorted = [...rolls].sort((a, b) => a - b);
+  return sorted.slice(1).reduce((total, value) => total + value, 0);
+}
+
+/**
+ * @param {string} mode
+ * @param {() => number} rollDie
+ * @param {number} generation
+ * @returns {Array<{ id: string, value: number }>}
+ */
+export function rollBuilderAbilityScorePool(mode, rollDie = () => Math.floor(Math.random() * 6) + 1, generation = 1) {
+  const pool = [];
+  for (let i = 0; i < 6; i += 1) {
+    pool.push({
+      id: `roll-${generation}-${i + 1}`,
+      value: rollBuilderAbilityScore(mode, rollDie)
+    });
+  }
+  return pool;
+}
+
+/**
  * @param {HTMLElement} panel
  * @returns {HTMLElement[]}
  */
@@ -170,6 +215,7 @@ function hasTagName(value, tagName) {
  * @param {{
  *   root?: ParentNode,
  *   Popovers?: import("../../ui/popovers.js").PopoversApi | null,
+ *   rollDie?: () => number,
  *   onFinish?: (result: BuilderWizardResult) => void,
  *   setStatus?: (message: string, options?: Record<string, unknown>) => void
  * }} [deps]
@@ -179,6 +225,7 @@ export function initBuilderWizard(deps = {}) {
   const {
     root = document,
     Popovers = null,
+    rollDie = () => Math.floor(Math.random() * 6) + 1,
     onFinish,
     setStatus
   } = deps;
@@ -251,6 +298,11 @@ export function initBuilderWizard(deps = {}) {
   const manualAbilityGrid = /** @type {HTMLElement | null} */ (root.querySelector?.("#builderWizardManualAbilityGrid"));
   const standardArrayGrid = /** @type {HTMLElement | null} */ (root.querySelector?.("#builderWizardStandardArrayGrid"));
   const pointBuyGrid = /** @type {HTMLElement | null} */ (root.querySelector?.("#builderWizardPointBuyGrid"));
+  const rollSection = /** @type {HTMLElement | null} */ (root.querySelector?.("#builderWizardRollSection"));
+  const rollModeSelect = /** @type {HTMLSelectElement | null} */ (root.querySelector?.("#builderWizardRollMode"));
+  const rollButton = /** @type {HTMLButtonElement | null} */ (root.querySelector?.("#builderWizardRollButton"));
+  const rollPoolEl = /** @type {HTMLElement | null} */ (root.querySelector?.("#builderWizardRollPool"));
+  const rollAssignmentGrid = /** @type {HTMLElement | null} */ (root.querySelector?.("#builderWizardRollAssignmentGrid"));
   const pointBuyRemaining = /** @type {HTMLElement | null} */ (root.querySelector?.("#builderWizardPointBuyRemaining"));
   const abilityValidation = /** @type {HTMLElement | null} */ (root.querySelector?.("#builderWizardAbilityValidation"));
   const methodNote = /** @type {HTMLElement | null} */ (root.querySelector?.("#builderWizardAbilityMethodNote"));
@@ -260,6 +312,13 @@ export function initBuilderWizard(deps = {}) {
     const suffix = ABILITY_META[key]?.suffix || key;
     const select = root.querySelector?.(`#builderWizardStandardArray${suffix}`);
     if (hasTagName(select, "select")) standardArraySelects[key] = /** @type {HTMLSelectElement} */ (select);
+  }
+  /** @type {Record<string, HTMLSelectElement>} */
+  const rollAssignmentSelects = {};
+  for (const key of CHARACTER_ABILITY_KEYS) {
+    const suffix = ABILITY_META[key]?.suffix || key;
+    const select = root.querySelector?.(`#builderWizardRoll${suffix}`);
+    if (hasTagName(select, "select")) rollAssignmentSelects[key] = /** @type {HTMLSelectElement} */ (select);
   }
   /** @type {Record<string, HTMLElement>} */
   const pointBuyValues = {};
@@ -293,6 +352,13 @@ export function initBuilderWizard(deps = {}) {
   let standardArrayAssignments = {};
   /** @type {Record<string, number>} */
   let pointBuyAbilityBase = {};
+  /** @type {string} */
+  let rollMode = ROLL_MODE_4D6_DROP_LOWEST;
+  /** @type {Array<{ id: string, value: number }>} */
+  let rollPool = [];
+  /** @type {Record<string, string>} */
+  let rollAssignments = {};
+  let rollGeneration = 0;
   /** @type {Array<{ rebuild?: () => void, close?: () => void, destroy?: () => void }>} */
   const enhancedSelects = [];
   /** @type {BuilderWizardResult} */
@@ -362,6 +428,16 @@ export function initBuilderWizard(deps = {}) {
     }
   }
 
+  function syncRollDraftFromControls() {
+    if (rollModeSelect && ROLL_MODES.some((mode) => mode.id === rollModeSelect.value)) {
+      rollMode = rollModeSelect.value;
+    }
+    for (const key of CHARACTER_ABILITY_KEYS) {
+      const value = rollAssignmentSelects[key]?.value || "";
+      rollAssignments[key] = rollPool.some((score) => score.id === value) ? value : "";
+    }
+  }
+
   function getStandardArrayDuplicateScore() {
     const seen = new Set();
     for (const key of CHARACTER_ABILITY_KEYS) {
@@ -385,6 +461,32 @@ export function initBuilderWizard(deps = {}) {
     return base;
   }
 
+  function getRollDuplicateAssignment() {
+    const seen = new Set();
+    for (const key of CHARACTER_ABILITY_KEYS) {
+      const id = rollAssignments[key];
+      if (!id) continue;
+      if (seen.has(id)) return id;
+      seen.add(id);
+    }
+    return "";
+  }
+
+  function getRollBaseOrNull() {
+    if (rollPool.length !== 6) return null;
+    if (getRollDuplicateAssignment()) return null;
+    const scoresById = new Map(rollPool.map((score) => [score.id, score.value]));
+    /** @type {Record<string, number>} */
+    const base = {};
+    for (const key of CHARACTER_ABILITY_KEYS) {
+      const id = rollAssignments[key];
+      const value = scoresById.get(id);
+      if (!id || !Number.isInteger(value) || value < 3 || value > 18) return null;
+      base[key] = value;
+    }
+    return base;
+  }
+
   function getPointBuyBaseOrNull() {
     const spent = getPointBuySpent(pointBuyAbilityBase);
     if (spent < 0 || spent > POINT_BUY_BUDGET) return null;
@@ -401,6 +503,7 @@ export function initBuilderWizard(deps = {}) {
   function getActiveAbilityBaseOrNull() {
     if (abilityMethod === "standard-array") return getStandardArrayBaseOrNull();
     if (abilityMethod === "point-buy") return getPointBuyBaseOrNull();
+    if (abilityMethod === "roll") return getRollBaseOrNull();
     return { ...manualAbilityBase };
   }
 
@@ -417,6 +520,20 @@ export function initBuilderWizard(deps = {}) {
     }
     if (abilityMethod === "point-buy" && !getPointBuyBaseOrNull()) {
       return "Point Buy scores must stay between 8 and 15 and spend no more than 27 points.";
+    }
+    if (abilityMethod === "roll") {
+      const duplicate = getRollDuplicateAssignment();
+      if (duplicate) {
+        const score = rollPool.find((item) => item.id === duplicate)?.value;
+        return `Rolled score${score ? ` ${score}` : ""} is already assigned. Each rolled score can be used once.`;
+      }
+      if (rollPool.length !== 6) {
+        return options.showIncomplete ? "Roll scores before continuing." : "";
+      }
+      const incomplete = CHARACTER_ABILITY_KEYS.some((key) => !rollAssignments[key]);
+      if (incomplete && !options.showIncomplete) return "";
+      if (incomplete) return "Assign each rolled score before continuing.";
+      return getRollBaseOrNull() ? "" : "Roll assignments must use valid scores from 3 to 18.";
     }
     return "";
   }
@@ -462,12 +579,14 @@ export function initBuilderWizard(deps = {}) {
     if (manualAbilityGrid) manualAbilityGrid.hidden = abilityMethod !== "manual";
     if (standardArrayGrid) standardArrayGrid.hidden = abilityMethod !== "standard-array";
     if (pointBuyGrid) pointBuyGrid.hidden = abilityMethod !== "point-buy";
+    if (rollSection) rollSection.hidden = abilityMethod !== "roll";
     for (const key of CHARACTER_ABILITY_KEYS) {
       const input = abilityInputs[key];
       if (input) input.value = String(manualAbilityBase[key] ?? 10);
     }
     renderStandardArraySelects();
     renderPointBuyControls();
+    renderRollControls();
     showAbilityValidation(getAbilityValidationMessage({ showIncomplete: abilityValidationAttempted }));
   }
 
@@ -521,6 +640,52 @@ export function initBuilderWizard(deps = {}) {
     syncEnhancedSelects();
   }
 
+  function renderRollControls() {
+    if (rollModeSelect) {
+      rollModeSelect.innerHTML = "";
+      for (const mode of ROLL_MODES) {
+        const option = document.createElement("option");
+        option.value = mode.id;
+        option.textContent = mode.label;
+        rollModeSelect.appendChild(option);
+      }
+      rollModeSelect.value = ROLL_MODES.some((mode) => mode.id === rollMode) ? rollMode : ROLL_MODE_4D6_DROP_LOWEST;
+    }
+    if (rollButton) rollButton.textContent = rollPool.length ? "Reroll Scores" : "Roll Scores";
+    if (rollPoolEl) {
+      rollPoolEl.textContent = rollPool.length
+        ? `Generated scores: ${rollPool.map((score) => score.value).join(", ")}`
+        : "No scores rolled yet.";
+    }
+    if (rollAssignmentGrid) rollAssignmentGrid.hidden = rollPool.length !== 6;
+    for (const key of CHARACTER_ABILITY_KEYS) {
+      const select = rollAssignmentSelects[key];
+      if (!select) continue;
+      const current = rollAssignments[key] || "";
+      select.innerHTML = "";
+
+      const emptyOption = document.createElement("option");
+      emptyOption.value = "";
+      emptyOption.textContent = "Choose score";
+      select.appendChild(emptyOption);
+
+      for (const score of rollPool) {
+        const usedByOtherAbility = CHARACTER_ABILITY_KEYS.some((otherKey) =>
+          otherKey !== key && rollAssignments[otherKey] === score.id
+        );
+        if (usedByOtherAbility && score.id !== current) continue;
+
+        const option = document.createElement("option");
+        option.value = score.id;
+        option.textContent = String(score.value);
+        select.appendChild(option);
+      }
+
+      select.value = current;
+    }
+    syncEnhancedSelects();
+  }
+
   /**
    * @param {string} nextMethod
    * @returns {boolean}
@@ -530,6 +695,7 @@ export function initBuilderWizard(deps = {}) {
     if (abilityMethod === "manual") syncManualDraftFromControls();
     else if (abilityMethod === "standard-array") syncStandardArrayDraftFromControls();
     else if (abilityMethod === "point-buy") syncPointBuyDraftFromControls();
+    else if (abilityMethod === "roll") syncRollDraftFromControls();
     abilityMethod = nextMethod;
     syncAbilityBaseToDraft();
     renderAbilityControlsForMethod();
@@ -557,6 +723,8 @@ export function initBuilderWizard(deps = {}) {
       syncStandardArrayDraftFromControls();
     } else if (abilityMethod === "point-buy") {
       syncPointBuyDraftFromControls();
+    } else if (abilityMethod === "roll") {
+      syncRollDraftFromControls();
     }
     syncAbilityBaseToDraft();
   }
@@ -572,6 +740,10 @@ export function initBuilderWizard(deps = {}) {
     manualAbilityBase = { ...getDefaultAbilityBase(), ...draft.build.abilities.base };
     pointBuyAbilityBase = getDefaultPointBuyBase();
     standardArrayAssignments = {};
+    rollMode = ROLL_MODE_4D6_DROP_LOWEST;
+    rollPool = [];
+    rollAssignments = {};
+    rollGeneration = 0;
     for (const key of CHARACTER_ABILITY_KEYS) {
       const input = abilityInputs[key];
       if (!input) continue;
@@ -635,8 +807,10 @@ export function initBuilderWizard(deps = {}) {
         methodNote.textContent = "Assign each Standard Array score to exactly one ability.";
       } else if (abilityMethod === "point-buy") {
         methodNote.textContent = "Adjust scores from 8 to 15 with a 27 point budget. Unspent points are allowed.";
+      } else if (abilityMethod === "roll") {
+        methodNote.textContent = "Roll six scores, then assign each rolled score to exactly one ability.";
       } else {
-        methodNote.textContent = "Enter final base scores manually. Roll is reserved for a later builder pass.";
+        methodNote.textContent = "Enter final base scores manually.";
       }
     }
   }
@@ -655,7 +829,9 @@ export function initBuilderWizard(deps = {}) {
       renderAbilityMethods();
       return;
     }
-    const nextMethod = input.value === "standard-array" || input.value === "point-buy" ? input.value : "manual";
+    const nextMethod = input.value === "standard-array" || input.value === "point-buy" || input.value === "roll"
+      ? input.value
+      : "manual";
     switchAbilityMethod(nextMethod);
     renderAbilityMethods();
   }
@@ -712,6 +888,64 @@ export function initBuilderWizard(deps = {}) {
     pointBuyAbilityBase[key] = next;
     syncAbilityBaseToDraft();
     renderPointBuyControls();
+    showAbilityValidation(getAbilityValidationMessage({ showIncomplete: abilityValidationAttempted }));
+  }
+
+  function handleRollButtonClick() {
+    if (rollModeSelect && ROLL_MODES.some((mode) => mode.id === rollModeSelect.value)) {
+      rollMode = rollModeSelect.value;
+    }
+    rollGeneration += 1;
+    try {
+      rollPool = rollBuilderAbilityScorePool(rollMode, rollDie, rollGeneration);
+    } catch (err) {
+      rollPool = [];
+      rollAssignments = {};
+      const message = err instanceof Error ? err.message : "Unable to roll ability scores.";
+      showAbilityValidation(message);
+      return;
+    }
+    rollAssignments = {};
+    abilityValidationAttempted = false;
+    renderRollControls();
+    showAbilityValidation("");
+  }
+
+  /**
+   * @param {Event} event
+   */
+  function handleRollModeChange(event) {
+    const target = event.target;
+    if (target !== rollModeSelect || !rollModeSelect) return;
+    rollMode = ROLL_MODES.some((mode) => mode.id === rollModeSelect.value)
+      ? rollModeSelect.value
+      : ROLL_MODE_4D6_DROP_LOWEST;
+    syncEnhancedSelects();
+  }
+
+  /**
+   * @param {Event} event
+   */
+  function handleRollAssignmentChange(event) {
+    const target = event.target;
+    if (!hasTagName(target, "select")) return;
+    const key = CHARACTER_ABILITY_KEYS.find((abilityKey) => rollAssignmentSelects[abilityKey] === target);
+    if (!key) return;
+    const nextValue = /** @type {HTMLSelectElement} */ (target).value;
+    const duplicate = nextValue && CHARACTER_ABILITY_KEYS.some((abilityKey) =>
+      abilityKey !== key && rollAssignments[abilityKey] === nextValue
+    );
+    if (duplicate) {
+      /** @type {HTMLSelectElement} */ (target).value = "";
+      rollAssignments[key] = "";
+      renderRollControls();
+      const score = rollPool.find((item) => item.id === nextValue)?.value;
+      showAbilityValidation(`Rolled score${score ? ` ${score}` : ""} is already assigned. Each rolled score can be used once.`);
+      return;
+    }
+    rollAssignments[key] = rollPool.some((score) => score.id === nextValue) ? nextValue : "";
+    syncAbilityBaseToDraft();
+    renderRollControls();
     showAbilityValidation(getAbilityValidationMessage({ showIncomplete: abilityValidationAttempted }));
   }
 
@@ -909,6 +1143,8 @@ export function initBuilderWizard(deps = {}) {
   panel.addEventListener("click", handleAbilityMethodActivation, { signal });
   panel.addEventListener("click", handlePointBuyClick, { signal });
   panel.addEventListener("change", handleAbilityMethodActivation, { signal });
+  rollButton?.addEventListener("click", handleRollButtonClick, { signal });
+  rollModeSelect?.addEventListener("change", handleRollModeChange, { signal });
   for (const select of [raceSelect, classSelect, backgroundSelect]) {
     select.addEventListener("change", () => {
       if (!identityValidationAttempted) return;
@@ -917,6 +1153,9 @@ export function initBuilderWizard(deps = {}) {
   }
   for (const select of Object.values(standardArraySelects)) {
     select.addEventListener("change", handleStandardArrayChange, { signal });
+  }
+  for (const select of Object.values(rollAssignmentSelects)) {
+    select.addEventListener("change", handleRollAssignmentChange, { signal });
   }
   overlay.addEventListener("click", (event) => {
     if (event.target === overlay) close();
@@ -928,7 +1167,9 @@ export function initBuilderWizard(deps = {}) {
       raceSelect,
       classSelect,
       backgroundSelect,
-      ...Object.values(standardArraySelects)
+      ...(rollModeSelect ? [rollModeSelect] : []),
+      ...Object.values(standardArraySelects),
+      ...Object.values(rollAssignmentSelects)
     ]) {
       const enhanced = enhanceSelectDropdown({
         select,

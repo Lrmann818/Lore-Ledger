@@ -1,7 +1,7 @@
 # Lore Ledger — Character Builder Implementation Plan
 
 Drafted: April 20, 2026  
-Last updated: April 25, 2026
+Last updated: April 27, 2026
 
 ---
 
@@ -155,11 +155,15 @@ Work items:
 
 Initial step order:
 
-1. Identity — name, race, class, background, level
-2. Ability scores — manual first, then standard array, point buy, and roll support through wizard-local draft state
-3. Class and background choices — only after data supports them
-4. Equipment — only after the equipment slice exists
-5. Summary — review before finishing
+1. Identity — name, race, class, background, fixed starting level 1
+2. Race choices — required race-specific build choices once data supports them
+3. Class choices — required class/subclass/proficiency/spell choices once data supports them
+4. Background choices — required background choices once data supports them
+5. Ability scores — Manual, Standard Array, Point Buy, and Roll through wizard-local draft state
+6. Equipment — only after the equipment slice exists
+7. Summary — review before finishing
+
+NOTE: Ability-score methods were implemented before the full choice flow as an isolated Phase 2B slice, but the final wizard order should place ability scores after identity and supported race/class/background choices so users can assign scores with better context.
 
 Phase 2A polish scope:
 
@@ -171,20 +175,30 @@ Phase 2A polish scope:
 
 Phase 2B ability-score method scope:
 
-- Add a method selector for Manual, Standard Array, Point Buy, and Roll.
+- Added a method selector for Manual, Standard Array, Point Buy, and Roll.
 - Manual uses six numeric fields constrained to 1–20.
 - Standard Array exposes the pool `15, 14, 13, 12, 10, 8` and prevents duplicate assignment.
 - Point Buy starts all scores at 8, shows remaining points clearly, and disables invalid increases/decreases.
 - Roll supports `3d6` and `4d6 drop lowest`, generates a rolled pool, and assigns rolled values to abilities.
-- Keep method-specific intermediate values in wizard-local draft state; persist only the final ability base scores used by builder derivation.
-- Add tests for validation, disabled states, assignment uniqueness, point-buy cost rules, and roll-pool assignment before widening the UI.
+- Kept method-specific intermediate values in wizard-local draft state; persist only the final ability base scores used by builder derivation.
+- Added tests for validation, disabled states, assignment uniqueness, point-buy cost rules, and roll-pool assignment before widening the UI.
 
 Summary review scope:
 
-- Show the final derived preview before Finish.
-- Include an editable character name field on Summary as a final review convenience.
-- The Summary name field must update the same draft character name used by Identity, not a separate copy.
+- Shows the final derived preview before Finish.
+- Includes an editable character name field on Summary as a final review convenience.
+- The Summary name field updates the same draft character name used by Identity, not a separate copy.
 - Finishing the wizard must still produce a character whose name can be edited later through the normal character sheet flow.
+
+Completed:
+
+- Phase 2A established and polished the builder wizard shell using existing modal/dropdown patterns.
+- Phase 2B completed all ability-score entry methods: Manual, Standard Array, Point Buy, and Roll.
+- Identity now requires race, class, and background before progression.
+- Builder-created characters are fixed at level 1 for this phase.
+- Ability-score methods remain wizard-local draft state and persist only final `build.abilities.base` scores.
+- Roll supports duplicate numeric results by tracking rolled score instances rather than score values alone.
+- The final wizard order should place ability scores after supported race/class/background choices, even though ability-score methods were implemented first as an isolated slice.
 
 ---
 
@@ -200,6 +214,7 @@ Work items:
 - Avoid materializing derived fields into persisted character fields unless a later phase
   explicitly requires it.
 - Add tests for derivation behavior before widening the content set.
+- Add race ability bonus previews to the Ability Scores step once racial modifiers are derived.
 
 Examples of likely choice areas:
 
@@ -274,17 +289,6 @@ Expansion rules:
 - Keep generated JSON adapter-owned.
 - Add tests for new category relationships and derived mechanics.
 
----
-
-## Phase 2B Follow-ups (open items from 2A polish pass)
-
-These items were identified during the Phase 2A polish pass review and are deferred to Phase 2B:
-
-- **Disabled method button focusability**: Non-manual ability-score method buttons currently use native `disabled`, which removes them from the tab order entirely. Keyboard-only users cannot discover or read their labels. Switch to `aria-disabled="true"` + `tabindex="-1"` when wiring up non-manual methods so the options remain discoverable.
-- **`installBuilderWizardDom` test helper**: The helper does not add `#builderWizardSummaryName`. The summary-name-sync test may be passing silently against optional-chaining no-ops in the wizard rather than exercising the feature. Verify and update the helper to add the element before adding more summary-step tests.
-- **`abilityMethod` persistence decision**: Closed for Phase 2B. Ability-score entry method remains wizard-local draft state and is not persisted on the build object. Derivation and sheet-editing paths consume only the final `build.abilities.base` scores after creation, not the method used to enter them, including after builder-only scaffolding panels retire and the normal character sheet becomes builder-aware. The only plausible consumer would be a future "reopen wizard with previous method preselected" feature, which is not on the roadmap.
-
----
 
 ## Verification Expectations
 
