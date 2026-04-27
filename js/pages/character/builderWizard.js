@@ -385,15 +385,27 @@ export function initBuilderWizard(deps = {}) {
       const select = standardArraySelects[key];
       if (!select) continue;
       const current = standardArrayAssignments[key] || "";
-      select.value = current;
-      for (const option of Array.from(select.children)) {
-        if (!hasTagName(option, "option")) continue;
-        const optionValue = /** @type {HTMLOptionElement} */ (option).value;
+      select.innerHTML = "";
+
+      const emptyOption = document.createElement("option");
+      emptyOption.value = "";
+      emptyOption.textContent = "Choose score";
+      select.appendChild(emptyOption);
+
+      for (const score of STANDARD_ARRAY_SCORES) {
+        const value = String(score);
         const usedByOtherAbility = CHARACTER_ABILITY_KEYS.some((otherKey) =>
-          otherKey !== key && standardArrayAssignments[otherKey] === optionValue
+          otherKey !== key && standardArrayAssignments[otherKey] === value
         );
-        /** @type {HTMLOptionElement} */ (option).disabled = !!optionValue && usedByOtherAbility;
+        if (usedByOtherAbility && value !== current) continue;
+
+        const option = document.createElement("option");
+        option.value = value;
+        option.textContent = value;
+        select.appendChild(option);
       }
+
+      select.value = current;
     }
     syncEnhancedSelects();
   }

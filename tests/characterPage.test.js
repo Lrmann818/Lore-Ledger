@@ -641,10 +641,20 @@ function installFlatAbilitiesDom(document) {
 }
 
 function getSelectOptions(select) {
-  return select.children.map((option) => ({
+  return Array.from(select.children).map((option) => ({
     value: option.value,
     label: option.textContent
   }));
+}
+
+function getSelectOptionValues(select) {
+  return getSelectOptions(select).map((option) => option.value);
+}
+
+function getEnhancedDropdownValues(select) {
+  const menu = select.nextElementSibling?.querySelector(".dropdownMenu");
+  return Array.from(menu?.querySelectorAll("button") || [])
+    .map((button) => button.dataset.value);
 }
 
 function dispatchChange(el) {
@@ -1663,7 +1673,7 @@ describe("character page selector", () => {
     controller.destroy();
   });
 
-  it("assigns all six Standard Array scores and previews them in Summary", async () => {
+  it("assigns all six Standard Array scores, previews them in Summary, and persists only canonical base scores", async () => {
     const { document, actionMenuButton } = installCharacterSelectorDom();
     installBuilderWizardDom(document);
     const Popovers = createFakePopovers();
@@ -1761,14 +1771,47 @@ describe("character page selector", () => {
     const dexSelect = document.getElementById("builderWizardStandardArrayDex");
     const dexWrap = dexSelect.nextElementSibling;
     const dexButton = dexWrap?.querySelector(".builderWizardSelectBtn");
-    const dexMenu = dexWrap?.querySelector(".dropdownMenu");
     expect(strSelect.classList.contains("nativeSelectHidden")).toBe(true);
     expect(dexSelect.classList.contains("nativeSelectHidden")).toBe(true);
     expect(dexWrap?.classList.contains("selectDropdown")).toBe(true);
     expect(dexButton?.getAttribute("aria-expanded")).toBe("false");
-    const usedScoreButton = Array.from(dexMenu?.querySelectorAll("button") || [])
-      .find((button) => button.dataset.value === "15");
-    expect(usedScoreButton?.disabled).toBe(true);
+    expect(getSelectOptionValues(strSelect)).toContain("15");
+    expect(getEnhancedDropdownValues(strSelect)).toContain("15");
+    expect(getSelectOptionValues(dexSelect)).not.toContain("15");
+    expect(getEnhancedDropdownValues(dexSelect)).not.toContain("15");
+    expect(getEnhancedDropdownValues(dexSelect)).toContain("");
+
+    controller.destroy();
+  });
+
+  it("returns a changed Standard Array score to the available pool for other abilities", async () => {
+    const { document, actionMenuButton } = installCharacterSelectorDom();
+    installBuilderWizardDom(document);
+    const Popovers = createFakePopovers();
+    const deps = createCharacterPageDeps(Popovers);
+
+    const controller = initCharacterPageUI(deps);
+    actionMenuButton.dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    document.getElementById("charActionNewBuilderBtn").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    completeBuilderIdentity();
+    document.getElementById("builderWizardNext").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+
+    chooseBuilderAbilityMethod("standard-array");
+    assignStandardArrayScores({ Str: 15 });
+
+    const strSelect = document.getElementById("builderWizardStandardArrayStr");
+    const dexSelect = document.getElementById("builderWizardStandardArrayDex");
+    expect(getSelectOptionValues(dexSelect)).not.toContain("15");
+
+    strSelect.value = "14";
+    dispatchChange(strSelect);
+
+    expect(getSelectOptionValues(strSelect)).toContain("14");
+    expect(getEnhancedDropdownValues(strSelect)).toContain("14");
+    expect(getSelectOptionValues(dexSelect)).toContain("15");
+    expect(getEnhancedDropdownValues(dexSelect)).toContain("15");
+    expect(getSelectOptionValues(dexSelect)).not.toContain("14");
+    expect(getEnhancedDropdownValues(dexSelect)).not.toContain("14");
 
     controller.destroy();
   });
@@ -1788,6 +1831,10 @@ describe("character page selector", () => {
     chooseBuilderAbilityMethod("standard-array");
     assignStandardArrayScores({ Str: 15 });
     const dexSelect = document.getElementById("builderWizardStandardArrayDex");
+    const forcedOption = document.createElement("option");
+    forcedOption.value = "15";
+    forcedOption.textContent = "15";
+    dexSelect.appendChild(forcedOption);
     dexSelect.value = "15";
     dexSelect.dispatchEvent(new Event("change", { bubbles: true, cancelable: true }));
 
