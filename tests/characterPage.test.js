@@ -555,8 +555,11 @@ function installBuilderWizardDom(document) {
   appendWithId(document, identityGrid, "select", "builderWizardRace");
   appendWithId(document, identityGrid, "select", "builderWizardClass");
   appendWithId(document, identityGrid, "select", "builderWizardBackground");
-  const level = appendWithId(document, identityGrid, "input", "builderWizardLevel");
-  level.type = "number";
+  appendWithId(document, identityGrid, "span", "builderWizardLevel", "builderWizardReadonlyValue").textContent = "Level 1";
+  const identityValidation = appendWithId(document, identity, "div", "builderWizardIdentityValidation", "builderWizardValidation");
+  identityValidation.hidden = true;
+  identityValidation.setAttribute("role", "status");
+  identityValidation.setAttribute("aria-live", "polite");
 
   const abilities = appendWithId(document, body, "section", "builderWizardStepAbilities", "builderWizardStep");
   abilities.hidden = true;
@@ -571,15 +574,24 @@ function installBuilderWizardDom(document) {
     if (methodId === "manual") {
       input.id = "builderWizardAbilityMethodManual";
       input.checked = true;
-    } else {
+    } else if (methodId !== "standard-array") {
       input.setAttribute("aria-disabled", "true");
       input.setAttribute("tabindex", "-1");
     }
   });
-  const abilityGrid = appendWithId(document, abilities, "div", "builderWizardAbilityGrid", "builderWizardAbilityGrid");
+  const validation = appendWithId(document, abilities, "div", "builderWizardAbilityValidation", "builderAbilityValidation");
+  validation.hidden = true;
+  validation.setAttribute("role", "status");
+  validation.setAttribute("aria-live", "polite");
+  const abilityGrid = appendWithId(document, abilities, "div", "builderWizardManualAbilityGrid", "builderWizardAbilityGrid");
   ["Str", "Dex", "Con", "Int", "Wis", "Cha"].forEach((suffix) => {
     const input = appendWithId(document, abilityGrid, "input", `builderWizardAbility${suffix}`);
     input.type = "number";
+  });
+  const standardArrayGrid = appendWithId(document, abilities, "div", "builderWizardStandardArrayGrid", "builderWizardAbilityGrid builderStandardArrayGrid");
+  standardArrayGrid.hidden = true;
+  ["Str", "Dex", "Con", "Int", "Wis", "Cha"].forEach((suffix) => {
+    appendWithId(document, standardArrayGrid, "select", `builderWizardStandardArray${suffix}`);
   });
 
   const summary = appendWithId(document, body, "section", "builderWizardStepSummary", "builderWizardStep");
@@ -644,14 +656,12 @@ async function finishBuilderWizardWith({
   raceId = "race_human",
   classId = "class_fighter",
   backgroundId = "background_soldier",
-  level = "5",
   abilities = { Str: 15, Dex: 14, Con: 13, Int: 12, Wis: 10, Cha: 8 }
 } = {}) {
   document.getElementById("builderWizardName").value = name;
   document.getElementById("builderWizardRace").value = raceId;
   document.getElementById("builderWizardClass").value = classId;
   document.getElementById("builderWizardBackground").value = backgroundId;
-  document.getElementById("builderWizardLevel").value = String(level);
   document.getElementById("builderWizardNext").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
   Object.entries(abilities).forEach(([suffix, value]) => {
     document.getElementById(`builderWizardAbility${suffix}`).value = String(value);
@@ -659,6 +669,37 @@ async function finishBuilderWizardWith({
   document.getElementById("builderWizardNext").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
   document.getElementById("builderWizardFinish").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
   await flushPromises();
+}
+
+function completeBuilderIdentity({
+  name = "Builder Mira",
+  raceId = "race_human",
+  classId = "class_fighter",
+  backgroundId = "background_soldier"
+} = {}) {
+  document.getElementById("builderWizardName").value = name;
+  document.getElementById("builderWizardRace").value = raceId;
+  document.getElementById("builderWizardClass").value = classId;
+  document.getElementById("builderWizardBackground").value = backgroundId;
+}
+
+function chooseBuilderAbilityMethod(methodId) {
+  const manualRadio = document.getElementById("builderWizardAbilityMethodManual");
+  const targetRadio = methodId === "manual"
+    ? manualRadio
+    : document.getElementById(`builderWizardAbilityMethod-${methodId}`);
+  manualRadio.checked = methodId === "manual";
+  targetRadio.checked = true;
+  targetRadio.dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+  targetRadio.dispatchEvent(new Event("change", { bubbles: true, cancelable: true }));
+}
+
+function assignStandardArrayScores(scoresBySuffix) {
+  Object.entries(scoresBySuffix).forEach(([suffix, score]) => {
+    const select = document.getElementById(`builderWizardStandardArray${suffix}`);
+    select.value = String(score);
+    select.dispatchEvent(new Event("change", { bubbles: true, cancelable: true }));
+  });
 }
 
 function createFakePopovers() {
@@ -1317,6 +1358,68 @@ describe("character page selector", () => {
     controller.destroy();
   });
 
+  it("keeps Identity validation hidden until Next is attempted", async () => {
+    const { document, actionMenuButton } = installCharacterSelectorDom();
+    installBuilderWizardDom(document);
+    const Popovers = createFakePopovers();
+    const deps = createCharacterPageDeps(Popovers);
+
+    const controller = initCharacterPageUI(deps);
+    actionMenuButton.dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    document.getElementById("charActionNewBuilderBtn").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+
+    expect(document.getElementById("builderWizardIdentityValidation").hidden).toBe(true);
+    expect(document.getElementById("builderWizardIdentityValidation").textContent).toBe("");
+
+    controller.destroy();
+  });
+
+  it("blocks Identity progression until race, class, and background are selected", async () => {
+    const { document, actionMenuButton } = installCharacterSelectorDom();
+    installBuilderWizardDom(document);
+    const Popovers = createFakePopovers();
+    const deps = createCharacterPageDeps(Popovers);
+
+    const controller = initCharacterPageUI(deps);
+    actionMenuButton.dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    document.getElementById("charActionNewBuilderBtn").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    document.getElementById("builderWizardName").value = "Incomplete";
+    document.getElementById("builderWizardNext").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    await flushPromises();
+
+    expect(document.getElementById("builderWizardStepIdentity").hidden).toBe(false);
+    expect(document.getElementById("builderWizardStepAbilities").hidden).toBe(true);
+    expect(document.getElementById("builderWizardIdentityValidation").textContent)
+      .toBe("Race, class, and background are required before continuing.");
+    expect(deps.setStatus).toHaveBeenCalledWith(
+      "Race, class, and background are required before continuing.",
+      { stickyMs: 2500 }
+    );
+    expect(deps.state.characters.entries).toHaveLength(2);
+    expect(deps.SaveManager.markDirty).not.toHaveBeenCalled();
+
+    controller.destroy();
+  });
+
+  it("allows complete Identity selections to progress to Ability Scores", async () => {
+    const { document, actionMenuButton } = installCharacterSelectorDom();
+    installBuilderWizardDom(document);
+    const Popovers = createFakePopovers();
+    const deps = createCharacterPageDeps(Popovers);
+
+    const controller = initCharacterPageUI(deps);
+    actionMenuButton.dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    document.getElementById("charActionNewBuilderBtn").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    completeBuilderIdentity();
+    document.getElementById("builderWizardNext").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+
+    expect(document.getElementById("builderWizardStepIdentity").hidden).toBe(true);
+    expect(document.getElementById("builderWizardStepAbilities").hidden).toBe(false);
+    expect(document.getElementById("builderWizardIdentityValidation").hidden).toBe(true);
+
+    controller.destroy();
+  });
+
   it("creates a populated builder character on wizard Finish", async () => {
     const { document, actionMenuButton } = installCharacterSelectorDom();
     installBuilderWizardDom(document);
@@ -1343,7 +1446,7 @@ describe("character page selector", () => {
         classId: "class_fighter",
         subclassId: null,
         backgroundId: "background_soldier",
-        level: 5,
+        level: 1,
         abilities: {
           base: { str: 15, dex: 14, con: 13, int: 12, wis: 10, cha: 8 }
         },
@@ -1358,11 +1461,11 @@ describe("character page selector", () => {
     const derived = deriveCharacter(entries[2]);
     expect(derived.mode).toBe("builder");
     expect(derived.labels).toEqual({
-      classLevel: "Fighter 5",
+      classLevel: "Fighter 1",
       race: "Human",
       background: "Soldier"
     });
-    expect(derived.proficiencyBonus).toBe(3);
+    expect(derived.proficiencyBonus).toBe(2);
     expect(derived.abilities.str).toMatchObject({ base: 15, total: 15, modifier: 2 });
 
     controller.destroy();
@@ -1396,11 +1499,12 @@ describe("character page selector", () => {
     actionMenuButton.dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
     document.getElementById("charActionNewBuilderBtn").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
 
-    document.getElementById("builderWizardName").value = "Preview Mira";
-    document.getElementById("builderWizardRace").value = "race_elf";
-    document.getElementById("builderWizardClass").value = "class_wizard";
-    document.getElementById("builderWizardBackground").value = "background_sage";
-    document.getElementById("builderWizardLevel").value = "9";
+    completeBuilderIdentity({
+      name: "Preview Mira",
+      raceId: "race_elf",
+      classId: "class_wizard",
+      backgroundId: "background_sage"
+    });
     document.getElementById("builderWizardNext").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
     document.getElementById("builderWizardAbilityInt").value = "16";
     document.getElementById("builderWizardNext").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
@@ -1409,11 +1513,29 @@ describe("character page selector", () => {
     expect(deps.SaveManager.markDirty).not.toHaveBeenCalled();
     const summary = document.getElementById("builderWizardSummary").textContent;
     expect(summary).toContain("Preview Mira");
-    expect(summary).toContain("Wizard 9");
+    expect(summary).toContain("Wizard 1");
     expect(summary).toContain("Elf");
     expect(summary).toContain("Sage");
-    expect(summary).toContain("+4");
+    expect(summary).toContain("+2");
     expect(summary).toContain("16 (+3)");
+
+    controller.destroy();
+  });
+
+  it("does not expose an editable builder wizard level input", async () => {
+    const { document, actionMenuButton } = installCharacterSelectorDom();
+    installBuilderWizardDom(document);
+    const Popovers = createFakePopovers();
+    const deps = createCharacterPageDeps(Popovers);
+
+    const controller = initCharacterPageUI(deps);
+    actionMenuButton.dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    document.getElementById("charActionNewBuilderBtn").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+
+    const levelDisplay = document.getElementById("builderWizardLevel");
+    expect(levelDisplay.tagName).toBe("SPAN");
+    expect(levelDisplay.textContent).toBe("Level 1");
+    expect(["INPUT", "SELECT", "TEXTAREA"]).not.toContain(levelDisplay.tagName);
 
     controller.destroy();
   });
@@ -1427,7 +1549,7 @@ describe("character page selector", () => {
     const controller = initCharacterPageUI(deps);
     actionMenuButton.dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
     document.getElementById("charActionNewBuilderBtn").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
-    document.getElementById("builderWizardName").value = "Identity Name";
+    completeBuilderIdentity({ name: "Identity Name" });
     document.getElementById("builderWizardNext").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
     document.getElementById("builderWizardNext").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
 
@@ -1447,7 +1569,7 @@ describe("character page selector", () => {
     controller.destroy();
   });
 
-  it("keeps non-manual ability score methods discoverable but unavailable for the polish pass", async () => {
+  it("keeps Point Buy and Roll discoverable but unavailable while Standard Array is enabled", async () => {
     const { document, actionMenuButton } = installCharacterSelectorDom();
     installBuilderWizardDom(document);
     const Popovers = createFakePopovers();
@@ -1456,10 +1578,15 @@ describe("character page selector", () => {
     const controller = initCharacterPageUI(deps);
     actionMenuButton.dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
     document.getElementById("charActionNewBuilderBtn").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    completeBuilderIdentity();
     document.getElementById("builderWizardNext").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
 
     expect(document.getElementById("builderWizardAbilityMethodManual").checked).toBe(true);
-    ["standard-array", "point-buy", "roll"].forEach((methodId) => {
+    const standardArray = document.getElementById("builderWizardAbilityMethod-standard-array");
+    expect(standardArray.disabled).toBe(false);
+    expect(standardArray.getAttribute("aria-disabled")).not.toBe("true");
+    expect(standardArray.getAttribute("tabindex")).not.toBe("-1");
+    ["point-buy", "roll"].forEach((methodId) => {
       const input = document.getElementById(`builderWizardAbilityMethod-${methodId}`);
       expect(input.disabled).toBe(false);
       expect(input.getAttribute("aria-disabled")).toBe("true");
@@ -1469,7 +1596,7 @@ describe("character page selector", () => {
     controller.destroy();
   });
 
-  it("confirms non-manual ability score method radios expose aria-disabled and tabindex after wizard open", async () => {
+  it("confirms unavailable ability score method radios expose aria-disabled and tabindex after wizard open", async () => {
     const { document, actionMenuButton } = installCharacterSelectorDom();
     installBuilderWizardDom(document);
     const Popovers = createFakePopovers();
@@ -1485,7 +1612,13 @@ describe("character page selector", () => {
     expect(manualRadio.getAttribute("tabindex")).not.toBe("-1");
     expect(manualRadio.checked).toBe(true);
 
-    ["standard-array", "point-buy", "roll"].forEach((methodId) => {
+    const standardArrayRadio = document.getElementById("builderWizardAbilityMethod-standard-array");
+    expect(standardArrayRadio).not.toBeNull();
+    expect(standardArrayRadio.getAttribute("aria-disabled")).not.toBe("true");
+    expect(standardArrayRadio.getAttribute("tabindex")).not.toBe("-1");
+    expect(standardArrayRadio.disabled).toBe(false);
+
+    ["point-buy", "roll"].forEach((methodId) => {
       const radio = document.getElementById(`builderWizardAbilityMethod-${methodId}`);
       expect(radio).not.toBeNull();
       expect(radio.getAttribute("aria-disabled")).toBe("true");
@@ -1497,7 +1630,7 @@ describe("character page selector", () => {
     controller.destroy();
   });
 
-  it("confirms activating a non-manual ability score method radio does not change the selected method from manual", async () => {
+  it("confirms activating an unavailable ability score method radio does not change the selected method", async () => {
     const { document, actionMenuButton } = installCharacterSelectorDom();
     installBuilderWizardDom(document);
     const Popovers = createFakePopovers();
@@ -1509,23 +1642,222 @@ describe("character page selector", () => {
     await flushPromises();
 
     const manualRadio = document.getElementById("builderWizardAbilityMethodManual");
-    const standardArrayRadio = document.getElementById("builderWizardAbilityMethod-standard-array");
-    expect(standardArrayRadio).not.toBeNull();
+    const pointBuyRadio = document.getElementById("builderWizardAbilityMethod-point-buy");
+    expect(pointBuyRadio).not.toBeNull();
 
     expect(manualRadio.checked).toBe(true);
-    expect(standardArrayRadio.checked).toBe(false);
+    expect(pointBuyRadio.checked).toBe(false);
 
     // Simulate what a real browser does pre-event: radio click flips .checked
     // BEFORE the change handler runs. The guard should catch aria-disabled and
     // renderAbilityMethods() should restore manual as the checked radio.
-    standardArrayRadio.checked = true;
+    pointBuyRadio.checked = true;
     manualRadio.checked = false;
-    standardArrayRadio.dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
-    standardArrayRadio.dispatchEvent(new Event("change", { bubbles: true, cancelable: true }));
+    pointBuyRadio.dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    pointBuyRadio.dispatchEvent(new Event("change", { bubbles: true, cancelable: true }));
     await flushPromises();
 
     expect(manualRadio.checked).toBe(true);
-    expect(standardArrayRadio.checked).toBe(false);
+    expect(pointBuyRadio.checked).toBe(false);
+
+    controller.destroy();
+  });
+
+  it("assigns all six Standard Array scores and previews them in Summary", async () => {
+    const { document, actionMenuButton } = installCharacterSelectorDom();
+    installBuilderWizardDom(document);
+    const Popovers = createFakePopovers();
+    const deps = createCharacterPageDeps(Popovers);
+
+    const controller = initCharacterPageUI(deps);
+    actionMenuButton.dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    document.getElementById("charActionNewBuilderBtn").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    completeBuilderIdentity({ name: "Array Mira" });
+    document.getElementById("builderWizardNext").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+
+    chooseBuilderAbilityMethod("standard-array");
+    expect(document.getElementById("builderWizardManualAbilityGrid").hidden).toBe(true);
+    expect(document.getElementById("builderWizardStandardArrayGrid").hidden).toBe(false);
+    assignStandardArrayScores({ Str: 15, Dex: 14, Con: 13, Int: 12, Wis: 10, Cha: 8 });
+    document.getElementById("builderWizardNext").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+
+    const summary = document.getElementById("builderWizardSummary").textContent;
+    expect(summary).toContain("Array Mira");
+    expect(summary).toContain("STR15 (+2)");
+    expect(summary).toContain("DEX14 (+2)");
+    expect(summary).toContain("CHA8 (-1)");
+
+    document.getElementById("builderWizardFinish").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    await flushPromises();
+
+    const build = deps.state.characters.entries[2].build;
+    expect(build.abilities.base).toEqual({ str: 15, dex: 14, con: 13, int: 12, wis: 10, cha: 8 });
+    expect("abilityMethod" in build).toBe(false);
+
+    controller.destroy();
+  });
+
+  it("keeps Standard Array incomplete validation hidden until Next is attempted", async () => {
+    const { document, actionMenuButton } = installCharacterSelectorDom();
+    installBuilderWizardDom(document);
+    const Popovers = createFakePopovers();
+    const deps = createCharacterPageDeps(Popovers);
+
+    const controller = initCharacterPageUI(deps);
+    actionMenuButton.dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    document.getElementById("charActionNewBuilderBtn").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    completeBuilderIdentity();
+    document.getElementById("builderWizardNext").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+
+    chooseBuilderAbilityMethod("standard-array");
+
+    expect(document.getElementById("builderWizardAbilityValidation").hidden).toBe(true);
+    expect(document.getElementById("builderWizardAbilityValidation").textContent).toBe("");
+
+    controller.destroy();
+  });
+
+  it("clears Standard Array incomplete validation after all six scores are assigned", async () => {
+    const { document, actionMenuButton } = installCharacterSelectorDom();
+    installBuilderWizardDom(document);
+    const Popovers = createFakePopovers();
+    const deps = createCharacterPageDeps(Popovers);
+
+    const controller = initCharacterPageUI(deps);
+    actionMenuButton.dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    document.getElementById("charActionNewBuilderBtn").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    completeBuilderIdentity();
+    document.getElementById("builderWizardNext").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+
+    chooseBuilderAbilityMethod("standard-array");
+    document.getElementById("builderWizardNext").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    expect(document.getElementById("builderWizardAbilityValidation").textContent)
+      .toBe("Assign each Standard Array score before continuing.");
+
+    assignStandardArrayScores({ Str: 15, Dex: 14, Con: 13, Int: 12, Wis: 10, Cha: 8 });
+
+    expect(document.getElementById("builderWizardAbilityValidation").hidden).toBe(true);
+    expect(document.getElementById("builderWizardAbilityValidation").textContent).toBe("");
+
+    controller.destroy();
+  });
+
+  it("enhances Standard Array score selects with the shared select dropdown", async () => {
+    const { document, actionMenuButton } = installCharacterSelectorDom();
+    installBuilderWizardDom(document);
+    const Popovers = createFakePopovers();
+    const deps = createCharacterPageDeps(Popovers);
+
+    const controller = initCharacterPageUI(deps);
+    actionMenuButton.dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    document.getElementById("charActionNewBuilderBtn").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    completeBuilderIdentity();
+    document.getElementById("builderWizardNext").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+
+    chooseBuilderAbilityMethod("standard-array");
+    assignStandardArrayScores({ Str: 15 });
+
+    const strSelect = document.getElementById("builderWizardStandardArrayStr");
+    const dexSelect = document.getElementById("builderWizardStandardArrayDex");
+    const dexWrap = dexSelect.nextElementSibling;
+    const dexButton = dexWrap?.querySelector(".builderWizardSelectBtn");
+    const dexMenu = dexWrap?.querySelector(".dropdownMenu");
+    expect(strSelect.classList.contains("nativeSelectHidden")).toBe(true);
+    expect(dexSelect.classList.contains("nativeSelectHidden")).toBe(true);
+    expect(dexWrap?.classList.contains("selectDropdown")).toBe(true);
+    expect(dexButton?.getAttribute("aria-expanded")).toBe("false");
+    const usedScoreButton = Array.from(dexMenu?.querySelectorAll("button") || [])
+      .find((button) => button.dataset.value === "15");
+    expect(usedScoreButton?.disabled).toBe(true);
+
+    controller.destroy();
+  });
+
+  it("prevents duplicate Standard Array assignments", async () => {
+    const { document, actionMenuButton } = installCharacterSelectorDom();
+    installBuilderWizardDom(document);
+    const Popovers = createFakePopovers();
+    const deps = createCharacterPageDeps(Popovers);
+
+    const controller = initCharacterPageUI(deps);
+    actionMenuButton.dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    document.getElementById("charActionNewBuilderBtn").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    completeBuilderIdentity();
+    document.getElementById("builderWizardNext").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+
+    chooseBuilderAbilityMethod("standard-array");
+    assignStandardArrayScores({ Str: 15 });
+    const dexSelect = document.getElementById("builderWizardStandardArrayDex");
+    dexSelect.value = "15";
+    dexSelect.dispatchEvent(new Event("change", { bubbles: true, cancelable: true }));
+
+    expect(dexSelect.value).toBe("");
+    expect(document.getElementById("builderWizardAbilityValidation").textContent)
+      .toContain("score 15 is already assigned");
+    expect(deps.setStatus).toHaveBeenCalledWith(
+      "Standard Array score 15 is already assigned. Each score can be used once.",
+      { stickyMs: 2500 }
+    );
+
+    controller.destroy();
+  });
+
+  it("blocks Standard Array Summary/Finish when assignments are incomplete", async () => {
+    const { document, actionMenuButton } = installCharacterSelectorDom();
+    installBuilderWizardDom(document);
+    const Popovers = createFakePopovers();
+    const deps = createCharacterPageDeps(Popovers);
+
+    const controller = initCharacterPageUI(deps);
+    actionMenuButton.dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    document.getElementById("charActionNewBuilderBtn").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    completeBuilderIdentity();
+    document.getElementById("builderWizardNext").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+
+    chooseBuilderAbilityMethod("standard-array");
+    assignStandardArrayScores({ Str: 15, Dex: 14, Con: 13, Int: 12, Wis: 10 });
+    document.getElementById("builderWizardNext").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    document.getElementById("builderWizardFinish").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    await flushPromises();
+
+    expect(document.getElementById("builderWizardStepAbilities").hidden).toBe(false);
+    expect(document.getElementById("builderWizardStepSummary").hidden).toBe(true);
+    expect(document.getElementById("builderWizardAbilityValidation").textContent)
+      .toBe("Assign each Standard Array score before continuing.");
+    expect(deps.state.characters.entries).toHaveLength(2);
+
+    controller.destroy();
+  });
+
+  it("switches methods without corrupting Manual draft ability values", async () => {
+    const { document, actionMenuButton } = installCharacterSelectorDom();
+    installBuilderWizardDom(document);
+    const Popovers = createFakePopovers();
+    const deps = createCharacterPageDeps(Popovers);
+
+    const controller = initCharacterPageUI(deps);
+    actionMenuButton.dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    document.getElementById("charActionNewBuilderBtn").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    completeBuilderIdentity();
+    document.getElementById("builderWizardNext").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+
+    document.getElementById("builderWizardAbilityStr").value = "18";
+    document.getElementById("builderWizardAbilityDex").value = "11";
+    chooseBuilderAbilityMethod("standard-array");
+    assignStandardArrayScores({ Str: 15, Dex: 14, Con: 13, Int: 12, Wis: 10, Cha: 8 });
+    chooseBuilderAbilityMethod("manual");
+
+    expect(document.getElementById("builderWizardManualAbilityGrid").hidden).toBe(false);
+    expect(document.getElementById("builderWizardStandardArrayGrid").hidden).toBe(true);
+    expect(document.getElementById("builderWizardAbilityStr").value).toBe("18");
+    expect(document.getElementById("builderWizardAbilityDex").value).toBe("11");
+
+    document.getElementById("builderWizardNext").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    document.getElementById("builderWizardFinish").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    await flushPromises();
+
+    expect(deps.state.characters.entries[2].build.abilities.base.str).toBe(18);
+    expect(deps.state.characters.entries[2].build.abilities.base.dex).toBe(11);
 
     controller.destroy();
   });

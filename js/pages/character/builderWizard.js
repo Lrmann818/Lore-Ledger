@@ -17,9 +17,10 @@ const MIN_ABILITY_SCORE = 1;
 const MAX_ABILITY_SCORE = 20;
 const DEFAULT_NAME = "New Builder Character";
 const NOT_SELECTED_LABEL = "Not selected";
+const STANDARD_ARRAY_SCORES = Object.freeze([15, 14, 13, 12, 10, 8]);
 const ABILITY_METHODS = Object.freeze([
   { id: "manual", label: "Manual", enabled: true },
-  { id: "standard-array", label: "Standard Array", enabled: false },
+  { id: "standard-array", label: "Standard Array", enabled: true },
   { id: "point-buy", label: "Point Buy", enabled: false },
   { id: "roll", label: "Roll", enabled: false }
 ]);
@@ -180,6 +181,7 @@ export function initBuilderWizard(deps = {}) {
       class: "#builderWizardClass",
       background: "#builderWizardBackground",
       level: "#builderWizardLevel",
+      identityValidation: "#builderWizardIdentityValidation",
       methodManual: "#builderWizardAbilityMethodManual",
       stepIdentity: "#builderWizardStepIdentity",
       stepAbilities: "#builderWizardStepAbilities",
@@ -214,7 +216,8 @@ export function initBuilderWizard(deps = {}) {
   const raceSelect = /** @type {HTMLSelectElement} */ (guard.els.race);
   const classSelect = /** @type {HTMLSelectElement} */ (guard.els.class);
   const backgroundSelect = /** @type {HTMLSelectElement} */ (guard.els.background);
-  const levelInput = /** @type {HTMLInputElement} */ (guard.els.level);
+  const levelDisplay = /** @type {HTMLElement} */ (guard.els.level);
+  const identityValidation = /** @type {HTMLElement} */ (guard.els.identityValidation);
   const methodManualInput = /** @type {HTMLInputElement} */ (guard.els.methodManual);
   const stepIdentity = /** @type {HTMLElement} */ (guard.els.stepIdentity);
   const stepAbilities = /** @type {HTMLElement} */ (guard.els.stepAbilities);
@@ -232,6 +235,17 @@ export function initBuilderWizard(deps = {}) {
     const input = root.querySelector?.(`#builderWizardAbility${suffix}`);
     if (hasTagName(input, "input")) abilityInputs[key] = /** @type {HTMLInputElement} */ (input);
   }
+  const manualAbilityGrid = /** @type {HTMLElement | null} */ (root.querySelector?.("#builderWizardManualAbilityGrid"));
+  const standardArrayGrid = /** @type {HTMLElement | null} */ (root.querySelector?.("#builderWizardStandardArrayGrid"));
+  const abilityValidation = /** @type {HTMLElement | null} */ (root.querySelector?.("#builderWizardAbilityValidation"));
+  const methodNote = /** @type {HTMLElement | null} */ (root.querySelector?.("#builderWizardAbilityMethodNote"));
+  /** @type {Record<string, HTMLSelectElement>} */
+  const standardArraySelects = {};
+  for (const key of CHARACTER_ABILITY_KEYS) {
+    const suffix = ABILITY_META[key]?.suffix || key;
+    const select = root.querySelector?.(`#builderWizardStandardArray${suffix}`);
+    if (hasTagName(select, "select")) standardArraySelects[key] = /** @type {HTMLSelectElement} */ (select);
+  }
 
   const listenerController = new AbortController();
   const signal = listenerController.signal;
@@ -239,6 +253,12 @@ export function initBuilderWizard(deps = {}) {
   let previousFocus = null;
   let stepIndex = 0;
   let abilityMethod = "manual";
+  let identityValidationAttempted = false;
+  let abilityValidationAttempted = false;
+  /** @type {Record<string, number>} */
+  let manualAbilityBase = {};
+  /** @type {Record<string, string>} */
+  let standardArrayAssignments = {};
   /** @type {Array<{ rebuild?: () => void, close?: () => void, destroy?: () => void }>} */
   const enhancedSelects = [];
   /** @type {BuilderWizardResult} */
@@ -246,6 +266,151 @@ export function initBuilderWizard(deps = {}) {
     name: DEFAULT_NAME,
     build: makeDefaultCharacterBuild()
   };
+
+  function getDefaultAbilityBase() {
+    /** @type {Record<string, number>} */
+    const base = {};
+    for (const key of CHARACTER_ABILITY_KEYS) base[key] = 10;
+    return base;
+  }
+
+  function syncManualDraftFromControls() {
+    for (const key of CHARACTER_ABILITY_KEYS) {
+      manualAbilityBase[key] = clampInteger(
+        abilityInputs[key]?.value,
+        MIN_ABILITY_SCORE,
+        MAX_ABILITY_SCORE,
+        Number(manualAbilityBase[key]) || 10
+      );
+    }
+  }
+
+  function syncStandardArrayDraftFromControls() {
+    for (const key of CHARACTER_ABILITY_KEYS) {
+      const value = standardArraySelects[key]?.value || "";
+      standardArrayAssignments[key] = STANDARD_ARRAY_SCORES.includes(Number(value)) ? value : "";
+    }
+  }
+
+  function getStandardArrayDuplicateScore() {
+    const seen = new Set();
+    for (const key of CHARACTER_ABILITY_KEYS) {
+      const value = standardArrayAssignments[key];
+      if (!value) continue;
+      if (seen.has(value)) return value;
+      seen.add(value);
+    }
+    return "";
+  }
+
+  function getStandardArrayBaseOrNull() {
+    if (getStandardArrayDuplicateScore()) return null;
+    /** @type {Record<string, number>} */
+    const base = {};
+    for (const key of CHARACTER_ABILITY_KEYS) {
+      const value = Number(standardArrayAssignments[key]);
+      if (!STANDARD_ARRAY_SCORES.includes(value)) return null;
+      base[key] = value;
+    }
+    return base;
+  }
+
+  function getActiveAbilityBaseOrNull() {
+    if (abilityMethod === "standard-array") return getStandardArrayBaseOrNull();
+    return { ...manualAbilityBase };
+  }
+
+  /**
+   * @param {{ showIncomplete?: boolean }} [options]
+   */
+  function getAbilityValidationMessage(options = {}) {
+    if (abilityMethod !== "standard-array") return "";
+    const duplicate = getStandardArrayDuplicateScore();
+    if (duplicate) return `Standard Array score ${duplicate} is already assigned. Each score can be used once.`;
+    const incomplete = CHARACTER_ABILITY_KEYS.some((key) => !standardArrayAssignments[key]);
+    if (incomplete && !options.showIncomplete) return "";
+    return incomplete ? "Assign each Standard Array score before continuing." : "";
+  }
+
+  function getIdentityValidationMessage() {
+    const missing = [];
+    if (!normalizeContentId(raceSelect.value, "race")) missing.push("race");
+    if (!normalizeContentId(classSelect.value, "class")) missing.push("class");
+    if (!normalizeContentId(backgroundSelect.value, "background")) missing.push("background");
+    return missing.length
+      ? "Race, class, and background are required before continuing."
+      : "";
+  }
+
+  /**
+   * @param {string} message
+   */
+  function showIdentityValidation(message) {
+    identityValidation.textContent = message;
+    identityValidation.hidden = !message;
+    if (message) setStatus?.(message, { stickyMs: 2500 });
+  }
+
+  /**
+   * @param {string} message
+   */
+  function showAbilityValidation(message) {
+    if (abilityValidation) {
+      abilityValidation.textContent = message;
+      abilityValidation.hidden = !message;
+    }
+    if (message) setStatus?.(message, { stickyMs: 2500 });
+  }
+
+  function syncAbilityBaseToDraft() {
+    const base = getActiveAbilityBaseOrNull();
+    if (!base) return false;
+    draft.build.abilities.base = { ...base };
+    return true;
+  }
+
+  function renderAbilityControlsForMethod() {
+    if (manualAbilityGrid) manualAbilityGrid.hidden = abilityMethod !== "manual";
+    if (standardArrayGrid) standardArrayGrid.hidden = abilityMethod !== "standard-array";
+    for (const key of CHARACTER_ABILITY_KEYS) {
+      const input = abilityInputs[key];
+      if (input) input.value = String(manualAbilityBase[key] ?? 10);
+    }
+    renderStandardArraySelects();
+    showAbilityValidation(getAbilityValidationMessage({ showIncomplete: abilityValidationAttempted }));
+  }
+
+  function renderStandardArraySelects() {
+    for (const key of CHARACTER_ABILITY_KEYS) {
+      const select = standardArraySelects[key];
+      if (!select) continue;
+      const current = standardArrayAssignments[key] || "";
+      select.value = current;
+      for (const option of Array.from(select.children)) {
+        if (!hasTagName(option, "option")) continue;
+        const optionValue = /** @type {HTMLOptionElement} */ (option).value;
+        const usedByOtherAbility = CHARACTER_ABILITY_KEYS.some((otherKey) =>
+          otherKey !== key && standardArrayAssignments[otherKey] === optionValue
+        );
+        /** @type {HTMLOptionElement} */ (option).disabled = !!optionValue && usedByOtherAbility;
+      }
+    }
+    syncEnhancedSelects();
+  }
+
+  /**
+   * @param {string} nextMethod
+   * @returns {boolean}
+   */
+  function switchAbilityMethod(nextMethod) {
+    if (nextMethod === abilityMethod) return true;
+    if (abilityMethod === "manual") syncManualDraftFromControls();
+    else if (abilityMethod === "standard-array") syncStandardArrayDraftFromControls();
+    abilityMethod = nextMethod;
+    syncAbilityBaseToDraft();
+    renderAbilityControlsForMethod();
+    return true;
+  }
 
   function syncDraftFromControls() {
     const summaryNameInput = /** @type {HTMLInputElement | null} */ (root.querySelector?.("#builderWizardSummaryName"));
@@ -255,22 +420,19 @@ export function initBuilderWizard(deps = {}) {
     draft.build.raceId = normalizeContentId(raceSelect.value, "race");
     draft.build.classId = normalizeContentId(classSelect.value, "class");
     draft.build.backgroundId = normalizeContentId(backgroundSelect.value, "background");
-    draft.build.level = clampInteger(levelInput.value, MIN_LEVEL, MAX_LEVEL, draft.build.level || MIN_LEVEL);
+    draft.build.level = MIN_LEVEL;
     if (!draft.build.abilities || typeof draft.build.abilities !== "object") {
       draft.build.abilities = { base: {} };
     }
     if (!draft.build.abilities.base || typeof draft.build.abilities.base !== "object") {
       draft.build.abilities.base = {};
     }
-    abilityMethod = "manual";
-    for (const key of CHARACTER_ABILITY_KEYS) {
-      draft.build.abilities.base[key] = clampInteger(
-        abilityInputs[key]?.value,
-        MIN_ABILITY_SCORE,
-        MAX_ABILITY_SCORE,
-        Number(draft.build.abilities.base[key]) || 10
-      );
+    if (abilityMethod === "manual") {
+      syncManualDraftFromControls();
+    } else if (abilityMethod === "standard-array") {
+      syncStandardArrayDraftFromControls();
     }
+    syncAbilityBaseToDraft();
   }
 
   function syncControlsFromDraft() {
@@ -279,19 +441,41 @@ export function initBuilderWizard(deps = {}) {
     populateContentSelect(classSelect, "class", draft.build.classId);
     populateContentSelect(backgroundSelect, "background", draft.build.backgroundId);
     syncEnhancedSelects();
-    levelInput.value = String(clampInteger(draft.build.level, MIN_LEVEL, MAX_LEVEL, MIN_LEVEL));
-    levelInput.min = String(MIN_LEVEL);
-    levelInput.max = String(MAX_LEVEL);
-    levelInput.step = "1";
+    draft.build.level = MIN_LEVEL;
+    levelDisplay.textContent = "Level 1";
+    manualAbilityBase = { ...getDefaultAbilityBase(), ...draft.build.abilities.base };
+    standardArrayAssignments = {};
     for (const key of CHARACTER_ABILITY_KEYS) {
       const input = abilityInputs[key];
       if (!input) continue;
-      input.value = String(clampInteger(draft.build.abilities.base[key], MIN_ABILITY_SCORE, MAX_ABILITY_SCORE, 10));
+      manualAbilityBase[key] = clampInteger(draft.build.abilities.base[key], MIN_ABILITY_SCORE, MAX_ABILITY_SCORE, 10);
+      input.value = String(manualAbilityBase[key]);
       input.min = String(MIN_ABILITY_SCORE);
       input.max = String(MAX_ABILITY_SCORE);
       input.step = "1";
     }
+    for (const key of CHARACTER_ABILITY_KEYS) {
+      const select = standardArraySelects[key];
+      if (!select) continue;
+      select.innerHTML = "";
+      const emptyOption = document.createElement("option");
+      emptyOption.value = "";
+      emptyOption.textContent = "Choose score";
+      select.appendChild(emptyOption);
+      for (const score of STANDARD_ARRAY_SCORES) {
+        const option = document.createElement("option");
+        option.value = String(score);
+        option.textContent = String(score);
+        select.appendChild(option);
+      }
+      select.value = "";
+    }
+    abilityMethod = "manual";
+    identityValidationAttempted = false;
+    abilityValidationAttempted = false;
+    showIdentityValidation("");
     methodManualInput.checked = true;
+    renderAbilityControlsForMethod();
   }
 
   function syncEnhancedSelects() {
@@ -314,6 +498,15 @@ export function initBuilderWizard(deps = {}) {
         input.setAttribute("aria-disabled", "true");
         input.setAttribute("tabindex", "-1");
       }
+      const label = input.closest?.(".builderAbilityMethodOption");
+      label?.classList?.toggle?.("isDisabled", !method.enabled);
+      const note = label?.querySelector?.("small");
+      if (note) note.textContent = method.enabled ? "" : "Coming soon";
+    }
+    if (methodNote) {
+      methodNote.textContent = abilityMethod === "standard-array"
+        ? "Assign each Standard Array score to exactly one ability."
+        : "Manual is available now. Point Buy and Roll are reserved for later builder passes.";
     }
   }
 
@@ -322,20 +515,48 @@ export function initBuilderWizard(deps = {}) {
    */
   function handleAbilityMethodActivation(event) {
     const target = event.target;
-    if (!hasTagName(target, "input") || target.name !== "builderWizardAbilityMethod") return;
-    if (target.getAttribute("aria-disabled") === "true") {
+    if (!hasTagName(target, "input")) return;
+    const input = /** @type {HTMLInputElement} */ (target);
+    if (input.name !== "builderWizardAbilityMethod") return;
+    if (input.getAttribute("aria-disabled") === "true") {
       event.preventDefault();
       event.stopPropagation();
       renderAbilityMethods();
       return;
     }
-    abilityMethod = target.value === "manual" ? "manual" : abilityMethod;
+    const nextMethod = input.value === "standard-array" ? "standard-array" : "manual";
+    switchAbilityMethod(nextMethod);
     renderAbilityMethods();
+  }
+
+  /**
+   * @param {Event} event
+   */
+  function handleStandardArrayChange(event) {
+    const target = event.target;
+    if (!hasTagName(target, "select")) return;
+    const key = CHARACTER_ABILITY_KEYS.find((abilityKey) => standardArraySelects[abilityKey] === target);
+    if (!key) return;
+    const nextValue = /** @type {HTMLSelectElement} */ (target).value;
+    const duplicate = nextValue && CHARACTER_ABILITY_KEYS.some((abilityKey) =>
+      abilityKey !== key && standardArrayAssignments[abilityKey] === nextValue
+    );
+    if (duplicate) {
+      /** @type {HTMLSelectElement} */ (target).value = "";
+      standardArrayAssignments[key] = "";
+      renderStandardArraySelects();
+      showAbilityValidation(`Standard Array score ${nextValue} is already assigned. Each score can be used once.`);
+      return;
+    }
+    standardArrayAssignments[key] = nextValue;
+    syncAbilityBaseToDraft();
+    renderStandardArraySelects();
+    showAbilityValidation(getAbilityValidationMessage({ showIncomplete: abilityValidationAttempted }));
   }
 
   function renderSummary() {
     syncDraftFromControls();
-    levelInput.value = String(draft.build.level);
+    levelDisplay.textContent = `Level ${MIN_LEVEL}`;
     for (const key of CHARACTER_ABILITY_KEYS) {
       if (abilityInputs[key]) abilityInputs[key].value = String(draft.build.abilities.base[key]);
     }
@@ -437,6 +658,7 @@ export function initBuilderWizard(deps = {}) {
       name: DEFAULT_NAME,
       build: makeDefaultCharacterBuild()
     };
+    draft.build.level = MIN_LEVEL;
     stepIndex = 0;
     previousFocus = document.activeElement;
     summaryEl.innerHTML = "";
@@ -491,6 +713,18 @@ export function initBuilderWizard(deps = {}) {
 
   nextBtn.addEventListener("click", () => {
     syncDraftFromControls();
+    if (stepIndex === 0) {
+      identityValidationAttempted = true;
+      const identityMessage = getIdentityValidationMessage();
+      showIdentityValidation(identityMessage);
+      if (identityMessage) return;
+    }
+    if (stepIndex === 1) abilityValidationAttempted = true;
+    const validationMessage = getAbilityValidationMessage({ showIncomplete: abilityValidationAttempted });
+    if (stepIndex === 1 && validationMessage) {
+      showAbilityValidation(validationMessage);
+      return;
+    }
     stepIndex = Math.min(2, stepIndex + 1);
     syncStep();
   }, { signal });
@@ -499,18 +733,41 @@ export function initBuilderWizard(deps = {}) {
     stepIndex = Math.max(0, stepIndex - 1);
     syncStep();
   }, { signal });
-  finishBtn.addEventListener("click", finish, { signal });
+  finishBtn.addEventListener("click", () => {
+    syncDraftFromControls();
+    abilityValidationAttempted = true;
+    const validationMessage = getAbilityValidationMessage({ showIncomplete: true });
+    if (validationMessage) {
+      showAbilityValidation(validationMessage);
+      return;
+    }
+    finish();
+  }, { signal });
   cancelBtn.addEventListener("click", close, { signal });
   closeBtn.addEventListener("click", close, { signal });
   panel.addEventListener("click", handleAbilityMethodActivation, { signal });
   panel.addEventListener("change", handleAbilityMethodActivation, { signal });
+  for (const select of [raceSelect, classSelect, backgroundSelect]) {
+    select.addEventListener("change", () => {
+      if (!identityValidationAttempted) return;
+      showIdentityValidation(getIdentityValidationMessage());
+    }, { signal });
+  }
+  for (const select of Object.values(standardArraySelects)) {
+    select.addEventListener("change", handleStandardArrayChange, { signal });
+  }
   overlay.addEventListener("click", (event) => {
     if (event.target === overlay) close();
   }, { signal });
   document.addEventListener("keydown", handleKeydown, { signal });
 
   if (Popovers) {
-    for (const select of [raceSelect, classSelect, backgroundSelect]) {
+    for (const select of [
+      raceSelect,
+      classSelect,
+      backgroundSelect,
+      ...Object.values(standardArraySelects)
+    ]) {
       const enhanced = enhanceSelectDropdown({
         select,
         Popovers,

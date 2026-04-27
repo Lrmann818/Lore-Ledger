@@ -3846,6 +3846,20 @@ div.mutedSmall {
   box-shadow: 0 0 0 1px var(--shadow-inset) inset;
 }
 
+#builderWizardPanel .builderWizardReadonlyValue {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  min-height: 36px;
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface-3) 70%, transparent);
+  color: var(--muted);
+  padding: 7px 9px;
+  font-weight: 700;
+}
+
 #builderWizardPanel select {
   appearance: none;
   -webkit-appearance: none;
@@ -3935,6 +3949,15 @@ div.mutedSmall {
   line-height: 1.35;
 }
 
+#builderWizardPanel .builderWizardValidation,
+#builderWizardPanel .builderAbilityValidation {
+  margin: -4px 0 0;
+  color: var(--danger);
+  font-size: 0.86rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
 #builderWizardPanel .builderWizardAbilityGrid>.builderAbilitiesField {
   display: grid;
   gap: 7px;
@@ -3945,6 +3968,11 @@ div.mutedSmall {
 }
 
 #builderWizardPanel .builderWizardAbilityGrid input[type="number"] {
+  text-align: center;
+  font-weight: 700;
+}
+
+#builderWizardPanel .builderStandardArrayGrid select {
   text-align: center;
   font-weight: 700;
 }

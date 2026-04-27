@@ -1168,11 +1168,12 @@
               <span>Background</span>
               <select id="builderWizardBackground" class="settingsSelect builderWizardSelect"></select>
             </label>
-            <label class="builderIdentityField" for="builderWizardLevel">
-              <span>Level</span>
-              <input id="builderWizardLevel" type="number" min="1" max="20" step="1" inputmode="numeric" />
-            </label>
+            <div class="builderIdentityField" aria-labelledby="builderWizardLevelLabel">
+              <span id="builderWizardLevelLabel">Level</span>
+              <span id="builderWizardLevel" class="builderWizardReadonlyValue" aria-readonly="true">Level 1</span>
+            </div>
           </div>
+          <div class="builderWizardValidation" id="builderWizardIdentityValidation" role="status" aria-live="polite" hidden></div>
         </section>
 
         <section class="builderWizardStep" id="builderWizardStepAbilities" aria-labelledby="builderWizardAbilitiesTitle" hidden>
@@ -1183,10 +1184,9 @@
               <input id="builderWizardAbilityMethodManual" type="radio" name="builderWizardAbilityMethod" value="manual" checked>
               <span>Manual</span>
             </label>
-            <label class="builderAbilityMethodOption isDisabled">
-              <input type="radio" name="builderWizardAbilityMethod" value="standard-array" aria-disabled="true" tabindex="-1">
+            <label class="builderAbilityMethodOption">
+              <input type="radio" name="builderWizardAbilityMethod" value="standard-array">
               <span>Standard Array</span>
-              <small>Coming soon</small>
             </label>
             <label class="builderAbilityMethodOption isDisabled">
               <input type="radio" name="builderWizardAbilityMethod" value="point-buy" aria-disabled="true" tabindex="-1">
@@ -1200,9 +1200,10 @@
             </label>
           </fieldset>
           <p class="builderAbilityMethodNote" id="builderWizardAbilityMethodNote">
-            Manual is available now. Other methods are reserved for the next builder pass.
+            Manual is available now. Point Buy and Roll are reserved for later builder passes.
           </p>
-          <div class="builderWizardAbilityGrid">
+          <div class="builderAbilityValidation" id="builderWizardAbilityValidation" role="status" aria-live="polite" hidden></div>
+          <div class="builderWizardAbilityGrid" id="builderWizardManualAbilityGrid">
             <label class="builderAbilitiesField" for="builderWizardAbilityStr">
               <span>Strength</span>
               <input id="builderWizardAbilityStr" type="number" min="1" max="20" step="1" inputmode="numeric" />
@@ -1226,6 +1227,32 @@
             <label class="builderAbilitiesField" for="builderWizardAbilityCha">
               <span>Charisma</span>
               <input id="builderWizardAbilityCha" type="number" min="1" max="20" step="1" inputmode="numeric" />
+            </label>
+          </div>
+          <div class="builderWizardAbilityGrid builderStandardArrayGrid" id="builderWizardStandardArrayGrid" hidden>
+            <label class="builderAbilitiesField" for="builderWizardStandardArrayStr">
+              <span>Strength</span>
+              <select id="builderWizardStandardArrayStr" class="settingsSelect"></select>
+            </label>
+            <label class="builderAbilitiesField" for="builderWizardStandardArrayDex">
+              <span>Dexterity</span>
+              <select id="builderWizardStandardArrayDex" class="settingsSelect"></select>
+            </label>
+            <label class="builderAbilitiesField" for="builderWizardStandardArrayCon">
+              <span>Constitution</span>
+              <select id="builderWizardStandardArrayCon" class="settingsSelect"></select>
+            </label>
+            <label class="builderAbilitiesField" for="builderWizardStandardArrayInt">
+              <span>Intelligence</span>
+              <select id="builderWizardStandardArrayInt" class="settingsSelect"></select>
+            </label>
+            <label class="builderAbilitiesField" for="builderWizardStandardArrayWis">
+              <span>Wisdom</span>
+              <select id="builderWizardStandardArrayWis" class="settingsSelect"></select>
+            </label>
+            <label class="builderAbilitiesField" for="builderWizardStandardArrayCha">
+              <span>Charisma</span>
+              <select id="builderWizardStandardArrayCha" class="settingsSelect"></select>
             </label>
           </div>
         </section>
