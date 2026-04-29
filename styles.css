@@ -1968,6 +1968,7 @@ body[data-shell-mode="hub"] main {
 .charSelectorBar {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 6px;
   margin-bottom: 8px;
   min-width: 0;
@@ -2016,6 +2017,11 @@ button.charSelectorSelectBtn [data-select-label] {
 
 .charBuilderModeBadge[hidden] {
   display: none;
+}
+
+.charRestBtn {
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 
 .charActionMenu {

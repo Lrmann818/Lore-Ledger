@@ -680,14 +680,37 @@ foundation complete: Dragonborn Breath Weapon now renders as the first derived,
 display-only Abilities & Features card, while its derived save DC may also
 appear in Vitals as a compact combat stat. This is the foundation slice only;
 visual/card polish, manual/freeform feature cards, user-created/custom feature
-cards, use tracking, rest recovery, and broader feature coverage remain future
-work.
+cards, use tracking, broader rest/resource recovery, and broader feature
+coverage remain future work.
 
 Resource state must have one canonical counter. Feature cards may reference,
 spend, restore, or explain that resource, but they must not duplicate the
-counter. Rest actions should be character-level actions, not panel-local
-buttons, so Short Rest and Long Rest can eventually apply recovery rules across
-all relevant systems.
+counter. Rest actions are character-level actions, not panel-local buttons, so
+Short Rest and Long Rest can eventually apply recovery rules across all relevant
+systems.
+
+Rest/recovery metadata should use the shared vocabulary `shortRest`,
+`longRest`, `shortOrLongRest`, `manual`, and `none`. Phase 3D foundation
+complete: Character page Short Rest / Long Rest toolbar controls now route
+through `recoverCharacterForRest(character, "shortRest" | "longRest")` for
+active-character recovery. The current helper supports only explicit
+`character.resources[]` counters with the existing current/max shape and
+matching recovery metadata: `shortRest` recovers `shortRest` and
+`shortOrLongRest`; `longRest` recovers `longRest` and `shortOrLongRest`.
+Missing, `manual`, `none`, unknown recovery metadata, already-full counters,
+malformed counters, unrelated fields, and existing manual resource trackers
+without recovery metadata are intentionally left unchanged.
+
+Phase 3E is planned as the Resource Recovery Settings Dialog slice. That UI
+should write the selected Vitals resource tracker's existing `recovery` field
+using the same vocabulary above. It should not add a new schema, duplicate
+settings store, panel-owned recovery map, or bulk migration for existing
+untagged resources. Missing recovery metadata may be displayed as "Manual" in
+the dialog for user understanding, but saving must be explicit and scoped to
+the selected resource only.
+Limited-use feature usage should be modeled as character-owned resource/use
+entries referenced by feature cards, not as duplicate counters owned by the
+Abilities & Features panel.
 
 Long term, builder characters can receive derived feature cards from rules/build
 choices, and freeform characters should be able to create manual feature cards.

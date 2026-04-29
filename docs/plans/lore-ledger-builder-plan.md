@@ -260,7 +260,7 @@ Goal: add the normal character-page home for special rule-backed abilities and f
 
 Completed April 27, 2026.
 
-Phase 3C foundation complete: derived Dragonborn Breath Weapon now renders as the first display-only Abilities & Features card. Visual polish, manual/freeform feature cards, use tracking, rest recovery, and broader feature coverage remain future work.
+Phase 3C foundation complete: derived Dragonborn Breath Weapon now renders as the first display-only Abilities & Features card. Visual polish, manual/freeform feature cards, use tracking, broader rest/resource recovery, and broader feature coverage remain future work.
 
 Shipped foundation scope:
 
@@ -270,7 +270,7 @@ Shipped foundation scope:
 - Breath Weapon is not persisted into Weapons, Spells, Equipment, or flat character fields.
 - Vitals still shows Breath Weapon DC as a derived combat stat when derivable.
 - Freeform characters remain unchanged for this slice.
-- No use tracking, rest buttons, reset logic, manual feature editor, custom feature cards, or broader class-feature system shipped in this foundation slice.
+- No use tracking, manual feature editor, custom feature cards, or broader class-feature system shipped in this foundation slice.
 
 Long-term model:
 
@@ -285,7 +285,7 @@ Surface ownership:
 - Weapons owns normal weapon/equipment attacks. Do not put Breath Weapon or similar feature actions into Weapons unless they are actually normal weapon/equipment attacks.
 - Spells owns actual spells. Do not put Breath Weapon or similar feature actions into Spells just because they have DCs, damage, descriptions, or limited uses.
 - Abilities & Features owns the structured "how this ability works" display: activation, source, save type, DC, area/range, damage, damage type, recovery, cost, and rules description.
-- Rest buttons should live near the character page menu button as character-level actions, not inside Abilities & Features.
+- Rest buttons live near the character page menu button as character-level actions, not inside Abilities & Features.
 
 Resource ownership:
 
@@ -301,9 +301,138 @@ Future Abilities & Features work:
 - Freeform/manual Abilities & Features cards.
 - User-created/custom feature cards.
 - Use tracking for limited-use features.
-- Short Rest and Long Rest toolbar actions.
-- Rest/recovery rules across resources and feature uses.
+- Manual recovery metadata UI for Vitals resource trackers.
+- Rest/recovery rules across feature uses and broader character systems.
+- Breath Weapon use tracking through canonical resource/use entries.
+- Spell slot recovery later.
+- Combat/linked-character rest behavior later, if desired.
 - Specialized resource-linked feature cards later, such as Sorcery Points, Metamagic, and Flexible Casting.
+
+### Phase 3D: Rest & Resource Recovery Foundation — FOUNDATION COMPLETE
+
+Goal: add the first character-level Short Rest / Long Rest action path while preserving the broader rest/resource ownership contract.
+
+Completed April 29, 2026.
+
+Phase 3D foundation complete: Character page Short Rest / Long Rest toolbar controls now route through a central active-character recovery helper for explicitly tagged `character.resources[]` counters. Manual recovery metadata UI, feature-use tracking, spell slot recovery, and broader class-feature automation remain future work.
+
+Recovery vocabulary:
+
+- `shortRest` means a counter or feature use recovers on Short Rest.
+- `longRest` means it recovers on Long Rest only.
+- `shortOrLongRest` means either rest action recovers it.
+- `manual` means the app may explain that the user must update the value manually, but rest actions must not reset it automatically.
+- `none` means no rest recovery applies.
+
+Character-level action ownership:
+
+- Short Rest and Long Rest controls live near the Character page menu button as character-level toolbar actions.
+- Rest controls do not belong inside Vitals or Abilities & Features, because a rest may eventually affect multiple character-owned systems.
+- The foundation slice affects only the active character. It does not rest every character, selected combat participants, or linked combat character views.
+- Combat embedded character panels should continue reading canonical active character data; they should not get separate rest state or duplicate counters.
+
+Resource and feature-use ownership:
+
+- Vitals/resource trackers own canonical resource counters.
+- Resources must not be tracked in multiple places.
+- Feature cards may reference, spend, restore, or explain a canonical resource, but they must not duplicate its counter.
+- Limited-use feature usage should be modeled as explicit character-owned resource/use entries with recovery metadata, referenced by feature cards through stable IDs.
+- A separate panel-owned feature-use map is not the preferred direction because it would make rest recovery, persistence, import/export, and combat embedded views coordinate across multiple state stores.
+- Builder-derived cards stay derived from rules/build choices and are not copied into manual feature state unless a later explicit copy, customize, or override behavior is designed.
+- Freeform/manual feature cards remain future work, but they should render through the same Abilities & Features panel UI once added.
+
+Manual resource tracker policy:
+
+- Existing user-created resource trackers must not be reset by Short Rest or Long Rest unless they have explicit recovery metadata.
+- Untagged/manual resources should be left unchanged so old saves and freeform characters do not lose user-entered values.
+- Manual recovery settings on user-created resources are a future UI slice. Until that exists, rest recovery should be opt-in through explicit data, not inferred from resource names.
+
+Shipped foundation scope:
+
+- Added Character page Short Rest and Long Rest toolbar controls near the page menu.
+- Added `recoverCharacterForRest(character, "shortRest" | "longRest")` in `js/domain/characterRest.js`.
+- Recovery currently supports only explicit `character.resources[]` counters with the existing `cur` / `max` shape.
+- `shortRest` recovers entries tagged `shortRest` or `shortOrLongRest`.
+- `longRest` recovers entries tagged `longRest` or `shortOrLongRest`.
+- Missing, `manual`, `none`, unknown recovery metadata, already-full counters, malformed counters, and unrelated fields are left unchanged.
+- The helper returns `{ character, changed }`.
+- The Character page marks dirty, saves, and re-renders only when `changed === true`.
+- If nothing recoverable exists, the UI shows a no-op status and does not mutate state.
+- Buttons disable when there is no active character.
+
+Still out of scope after this foundation slice:
+
+- Spell slot automation.
+- Sorcery Points, Metamagic, or Flexible Casting automation.
+- A full class-feature system.
+- Broad SRD resource import.
+- Automatic assumptions for existing manual resource trackers without recovery metadata.
+- Combat-wide rest actions or all-character rest actions.
+- Linked combat character rest behavior.
+- Breath Weapon use tracking.
+- Abilities & Features visual polish.
+- Manual/freeform feature-card editing.
+
+### Phase 3E: Resource Recovery Settings Dialog — PLANNED
+
+Goal: let users assign rest-recovery metadata to existing Vitals resource trackers without cluttering the compact resource tiles.
+
+Phase 3E is a planned UX and architecture slice. Do not mark it implemented until the Resource Settings dialog, activation behavior, Vitals tip, persistence path, and focused tests ship.
+
+Interaction contract:
+
+- Do not add another visible button, gear, or ellipsis to Vitals resource tiles. The tiles are already small and visually crowded.
+- Pointer and touch users open Resource Settings by pressing and holding the resource tile.
+- Keyboard users open Resource Settings by focusing the resource tile and pressing Enter or Space.
+- Long-press handling must not trigger when the gesture starts on interactive controls inside the tile, such as current/max inputs, increment/decrement buttons, or delete buttons.
+- Add a small Vitals panel tip, matching the existing Spells panel tip pattern: "Tip: press and hold a resource tile to choose how it recovers on rests."
+- The long-press gesture is a convenience path, not the only path. Keyboard activation is required for accessibility.
+
+First dialog scope:
+
+- Show the resource name. It may be read-only or reuse the current editable-name behavior, but Phase 3E should not redesign resource editing.
+- Let the user choose one recovery setting: Manual, Short Rest, Long Rest, Short or Long Rest, or Does not recover on rest.
+- Provide Cancel and Save actions.
+- Save writes only the selected resource entry's existing `recovery` field.
+- Save must preserve the selected resource's existing current/max values and unrelated fields.
+- Cancel or Escape closes without saving.
+
+Recovery metadata storage:
+
+- Use the existing Phase 3D recovery vocabulary: `manual`, `shortRest`, `longRest`, `shortOrLongRest`, and `none`.
+- Do not introduce a duplicate settings store, panel-owned recovery map, or derived flat field for the dialog.
+- Existing resources without recovery metadata remain unchanged. The dialog may display missing recovery metadata as "Manual" for user understanding, but saving must be intentional and must not bulk-migrate unrelated resources.
+
+Accessibility requirements:
+
+- Any resource tile that opens settings needs a keyboard-reachable focus target.
+- Enter and Space must open the Resource Settings dialog from that focus target.
+- The dialog needs an accessible title/name.
+- Recovery choices need proper labels.
+- Escape and Cancel should close without saving.
+- Save should preserve existing current/max values and only change the selected resource's recovery metadata.
+
+First implementation slice:
+
+- Add long-press handling to Vitals resource tiles only.
+- Add keyboard activation for focused resource tiles.
+- Add the Resource Settings dialog with recovery setting only.
+- Add the Vitals panel tip.
+- Save only the selected resource's recovery metadata.
+- Verify Short Rest and Long Rest buttons recover newly tagged resources.
+- Add focused tests for long-press guards, keyboard activation, dialog save/cancel behavior, and rest recovery of newly tagged resources.
+
+Still out of scope for Phase 3E:
+
+- Extra visible settings buttons on resource tiles.
+- Partial regain amount fields.
+- "Regain short" or "regain long" numeric fields.
+- Spendable vs Static toggles unless the current resource code already has that concept.
+- Breath Weapon use tracking.
+- Manual Abilities & Features card editing.
+- Sorcery Points, Metamagic, or Flexible Casting automation.
+- Spell slot automation.
+- A broad class-feature system.
 
 ### Derived Resources and Derived Combat Stats Pattern
 

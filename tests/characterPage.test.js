@@ -357,6 +357,7 @@ function matchesSelector(el, selector) {
   if (selector === "button.active:not([disabled])") {
     return el.tagName === "BUTTON" && el.classList.contains("active") && !el.disabled;
   }
+  if (selector === "[data-character-rest]") return !!el.dataset?.characterRest;
   if (selector.startsWith("input[")) {
     const nameMatch = selector.match(/\[name="([^"]+)"\]/);
     const valueMatch = selector.match(/\[value="([^"]+)"\]/);
@@ -391,6 +392,14 @@ function installCharacterSelectorDom() {
   builderBadge.setAttribute("aria-label", "Builder mode active. Full builder tools are not enabled yet.");
   builderBadge.setAttribute("title", "Builder mode active. Full builder tools are not enabled yet.");
   builderBadge.hidden = true;
+  const shortRestButton = appendWithId(document, bar, "button", "charShortRestBtn", "panelBtnSm charRestBtn");
+  shortRestButton.type = "button";
+  shortRestButton.dataset.characterRest = "shortRest";
+  shortRestButton.textContent = "Short Rest";
+  const longRestButton = appendWithId(document, bar, "button", "charLongRestBtn", "panelBtnSm charRestBtn");
+  longRestButton.type = "button";
+  longRestButton.dataset.characterRest = "longRest";
+  longRestButton.textContent = "Long Rest";
   const actionMenu = appendWithId(document, bar, "div", "charActionMenu", "dropdown charActionMenu");
   const actionMenuButton = appendWithId(document, actionMenu, "button", "charActionMenuBtn", CHARACTER_ACTION_BUTTON_CLASSES);
   actionMenuButton.type = "button";
@@ -1177,6 +1186,8 @@ describe("character page selector", () => {
 
     const controller = initCharacterPageUI(deps);
 
+    expect(document.getElementById("charShortRestBtn").disabled).toBe(true);
+    expect(document.getElementById("charLongRestBtn").disabled).toBe(true);
     expect(document.getElementById("charActionAddNpcBtn").disabled).toBe(true);
     expect(document.getElementById("charActionAddPartyBtn").disabled).toBe(true);
     expect(document.getElementById("charActionExportBtn").disabled).toBe(true);
@@ -1184,6 +1195,89 @@ describe("character page selector", () => {
     document.getElementById("charActionExportBtn").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
     await flushPromises();
     expect(exportActiveCharacter).not.toHaveBeenCalled();
+
+    controller.destroy();
+  });
+
+  it("applies rest recovery only to the active character", async () => {
+    installCharacterSelectorDom();
+    const Popovers = createFakePopovers();
+    const deps = createCharacterPageDeps(Popovers);
+    deps.state.characters.entries[0].resources = [
+      { id: "active_short", name: "Active Short", cur: 1, max: 3, recovery: "shortRest" },
+      { id: "active_long", name: "Active Long", cur: 1, max: 3, recovery: "longRest" },
+      { id: "active_manual", name: "Active Manual", cur: 1, max: 3, recovery: "manual" },
+    ];
+    deps.state.characters.entries[1].resources = [
+      { id: "inactive_short", name: "Inactive Short", cur: 1, max: 3, recovery: "shortRest" },
+    ];
+
+    const controller = initCharacterPageUI(deps);
+    document.getElementById("charShortRestBtn").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    await flushPromises();
+
+    expect(deps.state.characters.entries[0].resources.map((resource) => resource.cur)).toEqual([3, 1, 1]);
+    expect(deps.state.characters.entries[1].resources[0].cur).toBe(1);
+    expect(deps.SaveManager.markDirty).toHaveBeenCalledTimes(1);
+    expect(deps.setStatus).toHaveBeenCalledWith("Short rest applied.", { stickyMs: 2000 });
+
+    controller.destroy();
+  });
+
+  it("does not mark dirty or re-render when rest recovery changes nothing", async () => {
+    installCharacterSelectorDom();
+    const Popovers = createFakePopovers();
+    const deps = createCharacterPageDeps(Popovers);
+    deps.state.characters.entries[0].resources = [
+      { id: "manual", name: "Manual", cur: 1, max: 3, recovery: "manual" },
+      { id: "untagged", name: "Untagged", cur: 1, max: 3 },
+    ];
+
+    const controller = initCharacterPageUI(deps);
+    document.getElementById("charShortRestBtn").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    await flushPromises();
+
+    expect(deps.state.characters.entries[0].resources.map((resource) => resource.cur)).toEqual([1, 1]);
+    expect(deps.SaveManager.markDirty).not.toHaveBeenCalled();
+    expect(deps.setStatus).toHaveBeenCalledWith("No recoverable resources for this rest.", { stickyMs: 2000 });
+    expect(Popovers.handles).toHaveLength(2);
+
+    controller.destroy();
+  });
+
+  it("preserves freeform and builder character state while applying explicit rest resources", async () => {
+    installCharacterSelectorDom();
+    const Popovers = createFakePopovers();
+    const deps = createCharacterPageDeps(Popovers);
+    const builder = makeBuilderCharacter({
+      id: "char_builder",
+      name: "Builder Rest",
+      flatFields: {
+        resources: [{ id: "builder_use", name: "Builder Use", cur: 0, max: 1, recovery: "longRest" }]
+      }
+    });
+    deps.state.characters = {
+      activeId: "char_builder",
+      entries: [
+        {
+          id: "char_freeform",
+          name: "Freeform Rest",
+          build: null,
+          resources: [{ id: "freeform_use", name: "Freeform Use", cur: 0, max: 1, recovery: "longRest" }]
+        },
+        builder
+      ]
+    };
+
+    const controller = initCharacterPageUI(deps);
+    document.getElementById("charLongRestBtn").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    await flushPromises();
+
+    expect(deps.state.characters.entries[0].build).toBeNull();
+    expect(deps.state.characters.entries[0].resources[0].cur).toBe(0);
+    expect(deps.state.characters.entries[1].build).toEqual(builder.build);
+    expect(deps.state.characters.entries[1].resources[0].cur).toBe(1);
+    expect(deps.SaveManager.markDirty).toHaveBeenCalledTimes(1);
 
     controller.destroy();
   });

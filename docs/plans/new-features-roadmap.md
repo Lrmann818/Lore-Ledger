@@ -184,19 +184,23 @@ tracks outcomes, not adapter or schema implementation detail.
 - [x] Phase 3G: Display-only builder-derived Vitals proficiency and builder-only Abilities/Skills proficiency scalar
 - [x] Phase 3H: No-schema-change builder-derived Vitals speed and hit-dice display in normal and embedded Vitals
 - [x] Abilities & Features panel foundation: derived Dragonborn Breath Weapon renders as the first display-only feature card
+- [x] Rest/resource Phase 3D foundation: active-character Short Rest / Long Rest toolbar actions recover explicitly tagged `character.resources[]` counters only
 - [ ] Full character creation wizard
 - [ ] Content pickers beyond the minimal identity/abilities editors and later choices
 - [ ] Level-up flow
 - [ ] Field locking and override UI for computed fields
-- [ ] Abilities & Features polish, manual/freeform cards, custom cards, use tracking, rest recovery, and specialized resource-linked cards
+- [ ] Abilities & Features polish, manual/freeform cards, custom cards, feature-use tracking, broader rest recovery, and specialized resource-linked cards
+- [ ] Rest/resource Phase 3E: Resource Recovery Settings Dialog for Vitals resource tracker recovery metadata
+- [ ] Breath Weapon use tracking through canonical resource/use entries
+- [ ] Spell slot recovery later
+- [ ] Combat/linked-character rest behavior later, if desired
 - [ ] HP, AC, saves, skills, spells, combat, and linked-card automation
 - [ ] Custom content persistence and export/import story
 - [ ] Prove the first vertical SRD registry slice end-to-end before widening content coverage
 - [ ] Expand builtin registry coverage incrementally after the first slice is proven
 - [ ] Content registry licensing attribution
-- [ ] Short rest / long rest mechanics
 
-This remains the largest active feature in the product. The foundation is now in place, but the shipped Step 3 UI is intentionally limited to minimal builder-character creation, an informational badge, a builtin-ID-only Builder Identity editor for race/class/background/level, a manual Builder Abilities editor for base scores, a display-only summary, builder-derived identity display in the normal Basics panel, builder-derived proficiency plus speed and hit-dice display in normal and embedded Vitals, builder-derived ability score/modifier display in the normal Abilities/Skills panel, builder-only use of the derived proficiency scalar in existing Abilities/Skills formulas, and builder-aware ability adjustments through the existing Abilities & Skills controls. Builder Identity remains temporary scaffolding for editing builder identity inputs, and Phase 3H adds no schema change or derived-field materialization. HP/AC automation, combat/card linking changes, new overrides, schema migration, materialization, the full builder wizard, subclass choices, save/skill override expansion, custom content, save/skill automation, and spell/combat automation are not shipped yet.
+This remains the largest active feature in the product. The foundation is now in place, but the shipped Step 3 UI is intentionally limited to minimal builder-character creation, an informational badge, a builtin-ID-only Builder Identity editor for race/class/background/level, a manual Builder Abilities editor for base scores, a display-only summary, builder-derived identity display in the normal Basics panel, builder-derived proficiency plus speed and hit-dice display in normal and embedded Vitals, builder-derived ability score/modifier display in the normal Abilities/Skills panel, builder-only use of the derived proficiency scalar in existing Abilities/Skills formulas, builder-aware ability adjustments through the existing Abilities & Skills controls, a display-only derived Dragonborn Breath Weapon card, and active-character Short Rest / Long Rest toolbar actions that recover only explicitly tagged `character.resources[]` counters. Builder Identity remains temporary scaffolding for editing builder identity inputs, and Phase 3H adds no schema change or derived-field materialization. HP/AC automation, combat/card linking changes, new overrides, schema migration, materialization, the full builder wizard, subclass choices, save/skill override expansion, custom content, save/skill automation, spell/combat automation, the rest/resource Phase 3E Resource Recovery Settings Dialog, feature-use tracking, and broader rest/resource automation are not shipped yet.
 
 The current implementation strategy is vertical-slice-first: prove one complete SRD data path through registry data, validation, and builder consumption before expanding the full registry category set. Design rationale lives in `docs/design/vertical-slice-schema.md`.
 

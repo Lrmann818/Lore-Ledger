@@ -24,6 +24,7 @@ import {
   makeDefaultBuilderCharacterEntry,
   makeDefaultCharacterEntry
 } from "../../domain/characterHelpers.js";
+import { recoverCharacterForRest } from "../../domain/characterRest.js";
 import { notifyActiveCharacterChanged } from "../../domain/characterEvents.js";
 import { createStateActions } from "../../domain/stateActions.js";
 import { makeNpc, makePartyMember } from "../../domain/factories.js";
@@ -260,11 +261,14 @@ export function initCharacterPageUI(deps) {
   function initCharacterSelectorBar() {
     const selectorEl = /** @type {HTMLSelectElement | null} */ (document.getElementById("charSelector"));
     const builderBadgeEl = /** @type {HTMLElement | null} */ (document.getElementById("charBuilderModeBadge"));
+    const restButtons = /** @type {HTMLButtonElement[]} */ (
+      Array.from(document.querySelectorAll("[data-character-rest]"))
+    );
     const actionMenuButtonEl = /** @type {HTMLButtonElement | null} */ (document.getElementById("charActionMenuBtn"));
     const actionMenuEl = /** @type {HTMLElement | null} */ (document.getElementById("charActionDropdownMenu"));
     if (!selectorEl || !actionMenuButtonEl || !actionMenuEl) return;
 
-    const { addTrackerCard, mutateState } = createStateActions({ state, SaveManager });
+    const { addTrackerCard, mutateCharacter, mutateState } = createStateActions({ state, SaveManager });
 
     /**
      * @param {(state: import("../../state.js").State) => unknown} mutator
@@ -343,9 +347,39 @@ export function initCharacterPageUI(deps) {
     if (builderBadgeEl) {
       builderBadgeEl.hidden = !isBuilderCharacter(activeCharacterForActions);
     }
+    restButtons.forEach((button) => {
+      button.disabled = !activeCharacterForActions;
+      button.setAttribute("aria-disabled", (!activeCharacterForActions).toString());
+    });
     [...addToTrackerButtons, ...exportButtons].forEach((button) => {
       button.disabled = !activeCharacterForActions;
       button.setAttribute("aria-disabled", (!activeCharacterForActions).toString());
+    });
+
+    function runCharacterRestAction(restType) {
+      const updated = mutateCharacter((character) => {
+        const result = recoverCharacterForRest(character, restType);
+        if (!result.changed) return false;
+        Object.assign(character, result.character);
+        return true;
+      });
+      if (!updated) {
+        if (typeof setStatus === "function") setStatus("No recoverable resources for this rest.", { stickyMs: 2000 });
+        return;
+      }
+      rerender();
+      if (typeof setStatus === "function") {
+        setStatus(restType === "shortRest" ? "Short rest applied." : "Long rest applied.", { stickyMs: 2000 });
+      }
+    }
+
+    restButtons.forEach((button) => {
+      addListener("actions", button, "click", (event) => {
+        event.preventDefault();
+        const restType = button.dataset.characterRest;
+        if (restType !== "shortRest" && restType !== "longRest") return;
+        runCharacterRestAction(restType);
+      });
     });
 
     const setActionMenuClosed = () => {
