@@ -23,7 +23,10 @@ const MANUAL_FEATURE_FIELDS = Object.freeze([
   ["activation", "Activation", "Action, bonus action, reaction, passive, etc."],
   ["rangeArea", "Range / Area", "Self, 30 ft., 15 ft. cone, etc."],
   ["saveDc", "Save / DC", "Dex DC 13, Str save, none, etc."],
-  ["damageEffect", "Damage / Effect", "2d6 fire, advantage on checks, etc."],
+  ["attackRoll", "Attack Roll", "+5 to hit, Ranged Spell Attack, etc."],
+  ["damageRoll", "Damage Roll", "3d6 fire, 1d8+3 slashing, etc."],
+  ["effectText", "Effect", "Target charmed, blinded until end of next turn, etc."],
+  ["damageEffect", "Damage / Effect", "Combined damage or effect text (legacy field)"],
   ["description", "Description / Notes", "Rules notes or table reminder"]
 ]);
 
@@ -59,6 +62,9 @@ function normalizeManualFeatureCard(value) {
     rangeArea: cleanString(source.rangeArea),
     saveDc: cleanString(source.saveDc),
     damageEffect: cleanString(source.damageEffect),
+    attackRoll: cleanString(source.attackRoll),
+    damageRoll: cleanString(source.damageRoll),
+    effectText: cleanString(source.effectText),
     description: cleanString(source.description)
   };
 }
@@ -69,7 +75,10 @@ function normalizeManualFeatureCard(value) {
  */
 function normalizeManualFeatureCards(value) {
   if (!Array.isArray(value)) return [];
-  return value.map(normalizeManualFeatureCard).filter(Boolean);
+  return value.map(normalizeManualFeatureCard).filter(
+    /** @param {import("../../../state.js").ManualFeatureCard | null} x @returns {x is import("../../../state.js").ManualFeatureCard} */
+    (x) => x !== null
+  );
 }
 
 /**
@@ -85,6 +94,9 @@ function makeManualFeatureDraft(card = null) {
     rangeArea: card?.rangeArea || "",
     saveDc: card?.saveDc || "",
     damageEffect: card?.damageEffect || "",
+    attackRoll: card?.attackRoll || "",
+    damageRoll: card?.damageRoll || "",
+    effectText: card?.effectText || "",
     description: card?.description || ""
   };
 }
@@ -104,19 +116,34 @@ function appendDiv(parent, className, text = "") {
 }
 
 /**
+ * @param {EventTarget | null} target
+ * @returns {boolean}
+ */
+function isInteractive(target) {
+  return target instanceof Element && !!target.closest(
+    "button, input, select, textarea, a, label, summary, [role='button'], [role='link']"
+  );
+}
+
+/**
  * @param {HTMLElement} parent
- * @param {string} text
- * @param {string} action
+ * @param {number} direction
+ * @param {boolean} disabled
+ * @param {string} featureId
  * @returns {HTMLButtonElement}
  */
-function appendCardButton(parent, text, action) {
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = "npcSmallBtn featureActionCardBtn";
-  button.dataset.featureAction = action;
-  button.textContent = text;
-  parent.appendChild(button);
-  return button;
+function appendMoveButton(parent, direction, disabled, featureId) {
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "moveBtn";
+  btn.textContent = direction < 0 ? "↑" : "↓";
+  btn.title = direction < 0 ? "Move feature up" : "Move feature down";
+  btn.setAttribute("aria-label", direction < 0 ? "Move feature up" : "Move feature down");
+  btn.dataset.featureAction = direction < 0 ? "move-up" : "move-down";
+  btn.dataset.featureId = featureId;
+  btn.disabled = !!disabled;
+  parent.appendChild(btn);
+  return btn;
 }
 
 /**
@@ -136,7 +163,7 @@ function renderDerivedFeatureCard(list, feature) {
   appendDiv(header, "featureActionActivation", feature.activation);
 
   const details = appendDiv(card, "featureActionDetails");
-  const saveLabel = ABILITY_SAVE_LABELS[feature.saveAbility] || cleanString(feature.saveAbility);
+  const saveLabel = ABILITY_SAVE_LABELS[/** @type {keyof typeof ABILITY_SAVE_LABELS} */ (feature.saveAbility)] || cleanString(feature.saveAbility);
   const saveText = saveLabel
     ? `${saveLabel}${feature.saveDc == null ? "" : ` DC ${feature.saveDc}`}`
     : (feature.saveDc == null ? "" : `DC ${feature.saveDc}`);
@@ -159,37 +186,115 @@ function renderDerivedFeatureCard(list, feature) {
 /**
  * @param {HTMLElement} list
  * @param {import("../../../state.js").ManualFeatureCard} feature
+ * @param {number} index
+ * @param {number} total
+ * @param {Set<string>} collapsedCards
+ * @param {Set<string>} collapsedNotes
  */
-function renderManualFeatureCard(list, feature) {
+function renderManualFeatureCard(list, feature, index, total, collapsedCards, collapsedNotes) {
+  const isCollapsed = collapsedCards.has(feature.id);
+  const isNotesCollapsed = collapsedNotes.has(feature.id);
+
   const card = appendDiv(list, "featureActionCard manualFeatureCard");
   card.dataset.manualFeatureId = feature.id;
   card.dataset.featureKind = "manual";
+  card.dataset.featureCollapsed = isCollapsed ? "true" : "false";
+  card.dataset.notesCollapsed = isNotesCollapsed ? "true" : "false";
 
-  const header = appendDiv(card, "featureActionHeader");
+  // Header — clickable to collapse the card body
+  const header = appendDiv(card, "featureActionHeader panelHeaderClickable");
+  header.dataset.featureCollapseHeader = feature.id;
+  header.setAttribute("aria-expanded", isCollapsed ? "false" : "true");
+
   const titleWrap = appendDiv(header, "featureActionTitleWrap");
   appendDiv(titleWrap, "featureActionTitle", feature.name || "Untitled Feature");
   if (feature.sourceType) appendDiv(titleWrap, "featureActionSource", feature.sourceType);
 
-  const actions = appendDiv(header, "featureActionHeaderActions");
-  if (feature.activation) appendDiv(actions, "featureActionActivation", feature.activation);
-  const buttons = appendDiv(actions, "featureActionCardButtons");
-  appendCardButton(buttons, "Edit", "edit");
-  appendCardButton(buttons, "Delete", "delete");
+  // Right-side controls: activation pill, move buttons, gear button+menu
+  const headerActions = appendDiv(header, "featureActionHeaderActions");
+  if (feature.activation) appendDiv(headerActions, "featureActionActivation", feature.activation);
 
-  const details = appendDiv(card, "featureActionDetails");
-  const rows = [
-    ["Range / Area", feature.rangeArea],
-    ["Save / DC", feature.saveDc],
-    ["Damage / Effect", feature.damageEffect]
-  ];
-  for (const [label, value] of rows) {
-    if (!value) continue;
-    const row = appendDiv(details, "featureActionDetail");
-    appendDiv(row, "featureActionDetailLabel", label);
-    appendDiv(row, "featureActionDetailValue", value);
+  appendMoveButton(headerActions, -1, index === 0, feature.id);
+  appendMoveButton(headerActions, +1, index >= total - 1, feature.id);
+
+  // Gear button + inline settings menu
+  const gearWrap = appendDiv(headerActions, "featureCardGearWrap");
+  gearWrap.dataset.featureSettingsWrap = feature.id;
+
+  const gearBtn = document.createElement("button");
+  gearBtn.type = "button";
+  gearBtn.className = "featureCardGearBtn";
+  gearBtn.dataset.featureAction = "gear";
+  gearBtn.dataset.featureId = feature.id;
+  gearBtn.textContent = "⚙";
+  gearBtn.title = "Feature settings";
+  gearBtn.setAttribute("aria-label", `Feature settings: ${feature.name || "Untitled Feature"}`);
+  gearBtn.setAttribute("aria-haspopup", "true");
+  gearWrap.appendChild(gearBtn);
+
+  const menu = document.createElement("div");
+  menu.className = "featureCardSettingsMenu";
+  menu.hidden = true;
+  menu.setAttribute("role", "menu");
+  menu.dataset.featureSettingsMenu = feature.id;
+
+  const editBtn = document.createElement("button");
+  editBtn.type = "button";
+  editBtn.className = "featureCardSettingsMenuBtn";
+  editBtn.dataset.featureAction = "edit";
+  editBtn.dataset.featureId = feature.id;
+  editBtn.textContent = "Edit";
+  editBtn.setAttribute("role", "menuitem");
+  menu.appendChild(editBtn);
+
+  const deleteBtn = document.createElement("button");
+  deleteBtn.type = "button";
+  deleteBtn.className = "featureCardSettingsMenuBtn danger";
+  deleteBtn.dataset.featureAction = "delete";
+  deleteBtn.dataset.featureId = feature.id;
+  deleteBtn.textContent = "Delete";
+  deleteBtn.setAttribute("role", "menuitem");
+  menu.appendChild(deleteBtn);
+
+  gearWrap.appendChild(menu);
+
+  // Card body — hidden when card is collapsed
+  const body = appendDiv(card, "featureCardBody");
+
+  // Detail rows: show only populated fields
+  const detailRows = /** @type {[string, string][]} */ ([
+    ["Range / Area", feature.rangeArea || ""],
+    ["Save / DC", feature.saveDc || ""],
+    ["Attack Roll", feature.attackRoll || ""],
+    ["Damage Roll", feature.damageRoll || ""],
+    ["Effect", feature.effectText || ""],
+    ["Damage / Effect", feature.damageEffect || ""]
+  ].filter(([, v]) => !!v));
+
+  if (detailRows.length > 0) {
+    const details = appendDiv(body, "featureActionDetails");
+    for (const [label, value] of detailRows) {
+      const row = appendDiv(details, "featureActionDetail");
+      appendDiv(row, "featureActionDetailLabel", label);
+      appendDiv(row, "featureActionDetailValue", value || "");
+    }
   }
 
-  if (feature.description) appendDiv(card, "featureActionDescription", feature.description);
+  // Collapsible notes/description
+  if (feature.description) {
+    const notesToggle = document.createElement("button");
+    notesToggle.type = "button";
+    notesToggle.className = "featureCardNotesToggleBtn";
+    notesToggle.dataset.featureAction = "notes-toggle";
+    notesToggle.dataset.featureId = feature.id;
+    notesToggle.textContent = isNotesCollapsed ? "▸" : "▾";
+    notesToggle.setAttribute("aria-expanded", isNotesCollapsed ? "false" : "true");
+    body.appendChild(notesToggle);
+
+    const notesArea = appendDiv(body, "featureCardNotesArea");
+    notesArea.dataset.featureNotesArea = feature.id;
+    notesArea.textContent = feature.description;
+  }
 }
 
 /**
@@ -215,12 +320,14 @@ export function initAbilitiesFeaturesPanel(deps = {}) {
     },
     { root, setStatus, context: "Abilities & Features panel" }
   );
-  if (!guard.ok) return guard.destroy;
+  if (!guard.ok) return getNoopDestroyApi();
 
-  const list = /** @type {HTMLElement} */ (guard.els.list);
-  const empty = /** @type {HTMLElement} */ (guard.els.empty);
-  const addButton = /** @type {HTMLButtonElement} */ (guard.els.addButton);
+  const guardEls = /** @type {{ list: HTMLElement, empty: HTMLElement, addButton: HTMLButtonElement }} */ (guard.els);
+  const list = guardEls.list;
+  const empty = guardEls.empty;
+  const addButton = guardEls.addButton;
   const { mutateCharacter } = createStateActions({ state, SaveManager });
+  /** @type {Array<() => void>} */
   const destroyFns = [];
   const listenerController = new AbortController();
   destroyFns.push(() => listenerController.abort());
@@ -228,10 +335,22 @@ export function initAbilitiesFeaturesPanel(deps = {}) {
   /** @type {HTMLElement | null} */
   let featureDialogOverlay = null;
 
+  // In-memory collapse state (UI-only, not persisted)
+  /** @type {Set<string>} */
+  const collapsedCards = new Set();
+  /** @type {Set<string>} */
+  const collapsedNotes = new Set();
+
   function markChanged(message = "") {
     try { SaveManager?.markDirty?.(); } catch { /* noop */ }
     if (message && typeof setStatus === "function") setStatus(message, { stickyMs: 1600 });
     render();
+  }
+
+  function closeAllSettingsMenus() {
+    list.querySelectorAll("[data-feature-settings-menu]").forEach((menu) => {
+      if (menu instanceof HTMLElement) menu.hidden = true;
+    });
   }
 
   function ensureFeatureDialog() {
@@ -332,8 +451,9 @@ export function initAbilitiesFeaturesPanel(deps = {}) {
     if (!restoreFocus) return;
     requestAnimationFrame(() => {
       if (destroyed) return;
+      // Focus the gear button for the card that was edited, or the add button
       const opener = openerId
-        ? list.querySelector(`[data-manual-feature-id="${openerId}"] [data-feature-action="edit"]`)
+        ? list.querySelector(`[data-manual-feature-id="${openerId}"] [data-feature-action="gear"]`)
         : addButton;
       if (opener instanceof HTMLElement) {
         try { opener.focus({ preventScroll: true }); } catch { opener.focus(); }
@@ -352,11 +472,11 @@ export function initAbilitiesFeaturesPanel(deps = {}) {
     for (const [key] of MANUAL_FEATURE_FIELDS) {
       const input = overlay.querySelector(`[data-feature-field="${key}"]`);
       if (input instanceof HTMLInputElement || input instanceof HTMLTextAreaElement) {
-        input.value = String(draft[key] || "");
+        input.value = String((/** @type {Record<string, unknown>} */ (draft))[key] || "");
       }
     }
-    const title = overlay.querySelector("#featureCardDialogTitle");
-    if (title) title.textContent = card ? "Edit Feature" : "Add Feature";
+    const titleEl = overlay.querySelector("#featureCardDialogTitle");
+    if (titleEl) titleEl.textContent = card ? "Edit Feature" : "Add Feature";
     overlay.hidden = false;
     overlay.setAttribute("aria-hidden", "false");
     const first = overlay.querySelector("[data-feature-field='name']");
@@ -385,6 +505,9 @@ export function initAbilitiesFeaturesPanel(deps = {}) {
       rangeArea: values.rangeArea || "",
       saveDc: values.saveDc || "",
       damageEffect: values.damageEffect || "",
+      attackRoll: values.attackRoll || "",
+      damageRoll: values.damageRoll || "",
+      effectText: values.effectText || "",
       description: values.description || ""
     };
   }
@@ -405,7 +528,7 @@ export function initAbilitiesFeaturesPanel(deps = {}) {
     closeFeatureDialog();
   }
 
-  function deleteManualFeature(featureId) {
+  function deleteManualFeature(/** @type {string} */ featureId) {
     const updated = mutateCharacter((character) => {
       const cards = normalizeManualFeatureCards(character.manualFeatureCards);
       const nextCards = cards.filter((card) => card.id !== featureId);
@@ -414,6 +537,26 @@ export function initAbilitiesFeaturesPanel(deps = {}) {
       return true;
     }, { queueSave: false });
     if (updated) markChanged("Feature deleted.");
+  }
+
+  /**
+   * @param {string} featureId
+   * @param {number} direction
+   */
+  function moveManualFeature(featureId, direction) {
+    const updated = mutateCharacter((character) => {
+      const cards = normalizeManualFeatureCards(character.manualFeatureCards);
+      const index = cards.findIndex((card) => card.id === featureId);
+      if (index === -1) return false;
+      const nextIndex = index + direction;
+      if (nextIndex < 0 || nextIndex >= cards.length) return false;
+      const temp = cards[index];
+      cards[index] = cards[nextIndex];
+      cards[nextIndex] = temp;
+      character.manualFeatureCards = cards;
+      return true;
+    }, { queueSave: false });
+    if (updated) markChanged();
   }
 
   function render() {
@@ -425,28 +568,102 @@ export function initAbilitiesFeaturesPanel(deps = {}) {
     addButton.disabled = !character;
     empty.hidden = derivedFeatures.length + manualFeatures.length > 0;
     for (const feature of derivedFeatures) renderDerivedFeatureCard(list, feature);
-    for (const feature of manualFeatures) renderManualFeatureCard(list, feature);
+    for (let i = 0; i < manualFeatures.length; i++) {
+      renderManualFeatureCard(list, manualFeatures[i], i, manualFeatures.length, collapsedCards, collapsedNotes);
+    }
   }
 
   addButton.addEventListener("click", () => openFeatureDialog(), { signal: listenerController.signal });
+
   list.addEventListener("click", (event) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
+
+    // Card header collapse — click anywhere non-interactive on the header
+    const collapseHeader = target.closest("[data-feature-collapse-header]");
+    if (collapseHeader instanceof HTMLElement && !isInteractive(target)) {
+      const featureId = cleanString(collapseHeader.dataset.featureCollapseHeader);
+      if (featureId) {
+        if (collapsedCards.has(featureId)) collapsedCards.delete(featureId);
+        else collapsedCards.add(featureId);
+        const isNowCollapsed = collapsedCards.has(featureId);
+        const cardEl = list.querySelector(`[data-manual-feature-id="${featureId}"]`);
+        if (cardEl instanceof HTMLElement) {
+          cardEl.dataset.featureCollapsed = isNowCollapsed ? "true" : "false";
+        }
+        collapseHeader.setAttribute("aria-expanded", isNowCollapsed ? "false" : "true");
+        return;
+      }
+    }
+
     const button = target.closest("[data-feature-action]");
     if (!(button instanceof HTMLElement)) return;
+
+    const action = button.dataset.featureAction;
+    const featureId = cleanString(button.dataset.featureId);
+
+    // Notes toggle — in the card body, independent of card collapse
+    if (action === "notes-toggle") {
+      if (collapsedNotes.has(featureId)) collapsedNotes.delete(featureId);
+      else collapsedNotes.add(featureId);
+      const isNowCollapsed = collapsedNotes.has(featureId);
+      const cardEl = list.querySelector(`[data-manual-feature-id="${featureId}"]`);
+      if (cardEl instanceof HTMLElement) {
+        cardEl.dataset.notesCollapsed = isNowCollapsed ? "true" : "false";
+      }
+      button.textContent = isNowCollapsed ? "▸ Notes" : "▾ Notes";
+      button.setAttribute("aria-expanded", isNowCollapsed ? "false" : "true");
+      return;
+    }
+
+    // Settings gear toggle
+    if (action === "gear") {
+      const menu = list.querySelector(`[data-feature-settings-menu="${featureId}"]`);
+      if (menu instanceof HTMLElement) {
+        const wasOpen = !menu.hidden;
+        closeAllSettingsMenus();
+        if (!wasOpen) menu.hidden = false;
+      }
+      return;
+    }
+
+    // Edit, Delete, Move — get the card for validation
     const cardEl = button.closest("[data-manual-feature-id]");
-    if (!(cardEl instanceof HTMLElement)) return;
-    const featureId = cleanString(cardEl.dataset.manualFeatureId);
-    if (!featureId) return;
-    const character = getActiveCharacter(state);
-    const card = normalizeManualFeatureCards(character?.manualFeatureCards).find((item) => item.id === featureId) || null;
-    if (button.dataset.featureAction === "edit") openFeatureDialog(card);
-    else if (button.dataset.featureAction === "delete") deleteManualFeature(featureId);
+
+    if (action === "edit") {
+      closeAllSettingsMenus();
+      const character = getActiveCharacter(state);
+      const card = normalizeManualFeatureCards(character?.manualFeatureCards).find((item) => item.id === featureId) || null;
+      openFeatureDialog(card);
+      return;
+    }
+
+    if (action === "delete") {
+      closeAllSettingsMenus();
+      deleteManualFeature(featureId);
+      return;
+    }
+
+    if (action === "move-up") {
+      moveManualFeature(featureId, -1);
+      return;
+    }
+
+    if (action === "move-down") {
+      moveManualFeature(featureId, +1);
+      return;
+    }
+
+    void cardEl; // suppress unused warning
   }, { signal: listenerController.signal });
 
   document.addEventListener("click", (event) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
+    // Close settings menus when clicking outside any gear wrap
+    if (!target.closest("[data-feature-settings-wrap]")) {
+      closeAllSettingsMenus();
+    }
     if (target.closest("[data-feature-dialog-cancel]")) closeFeatureDialog();
     if (target.closest("[data-feature-dialog-save]")) saveFeatureDialog();
   }, { signal: listenerController.signal });

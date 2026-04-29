@@ -336,6 +336,9 @@ describe("migrateState", () => {
         rangeArea: "",
         saveDc: "",
         damageEffect: "",
+        attackRoll: "",
+        damageRoll: "",
+        effectText: "",
         description: ""
       }]);
     });

@@ -536,7 +536,7 @@ function buildCharacterPanelDom(document) {
   ["charArmorProf", "charWeaponProf", "charToolProf", "charLanguages"].forEach((id) => append(prof, "textarea", { id }));
 
   const features = append(root, "section", { id: "charAbilitiesFeaturesPanel" });
-  append(features, "button", { id: "addFeatureCardBtn" });
+  append(features, "button", { id: "addFeatureCardBtn", className: "headerAddBtn" });
   append(features, "div", { id: "charAbilitiesFeaturesEmpty", className: "mutedSmall abilitiesFeaturesEmpty" });
   append(features, "div", { id: "charAbilitiesFeaturesList", className: "abilitiesFeaturesList" });
 
@@ -1775,8 +1775,12 @@ describe("character panels active character resolution", () => {
 
     expect(derived).not.toBeNull();
     expect(manual).not.toBeNull();
+    // Derived cards have no management controls
+    expect(derived.querySelector("[data-feature-action='gear']")).toBeNull();
     expect(derived.querySelector("[data-feature-action='edit']")).toBeNull();
     expect(derived.querySelector("[data-feature-action='delete']")).toBeNull();
+    // Manual cards have gear button + edit/delete inside the settings menu
+    expect(manual.querySelector("[data-feature-action='gear']")).not.toBeNull();
     expect(manual.querySelector("[data-feature-action='edit']")).not.toBeNull();
     expect(manual.querySelector("[data-feature-action='delete']")).not.toBeNull();
     expect(builder.manualFeatureCards).toHaveLength(1);
@@ -1833,6 +1837,290 @@ describe("character panels active character resolution", () => {
 
     api.destroy();
   });
+
+  // ── Phase 3F polish tests ──────────────────────────────────────────────────
+
+  it("addFeatureCardBtn has headerAddBtn class for correct panel header alignment", () => {
+    const freeform = makeCharacter("char_free", "Free", { build: null });
+    const state = { characters: { activeId: "char_free", entries: [freeform] }, combat: { workspace: {} } };
+    const deps = makeDeps(state);
+    const api = initAbilitiesFeaturesPanel(deps);
+
+    const btn = document.getElementById("addFeatureCardBtn");
+    expect(btn.classList.contains("headerAddBtn")).toBe(true);
+
+    api.destroy();
+  });
+
+  it("settings gear button opens menu with Edit and Delete items", () => {
+    const freeform = makeCharacter("char_free", "Free", {
+      build: null,
+      manualFeatureCards: [{ id: "feat_a", name: "Stealth", sourceType: "Skill", activation: "Action", rangeArea: "", saveDc: "", damageEffect: "", description: "" }]
+    });
+    const state = { characters: { activeId: "char_free", entries: [freeform] }, combat: { workspace: {} } };
+    const deps = makeDeps(state);
+    const api = initAbilitiesFeaturesPanel(deps);
+    const list = document.getElementById("charAbilitiesFeaturesList");
+    const card = list.querySelector('[data-manual-feature-id="feat_a"]');
+    const gearBtn = card.querySelector("[data-feature-action='gear']");
+    const menu = card.querySelector("[data-feature-settings-menu]");
+
+    // Menu initially hidden
+    expect(menu.hidden).toBe(true);
+    // Click gear — menu opens
+    dispatchTargetedEvent(list, "click", gearBtn);
+    expect(menu.hidden).toBe(false);
+    expect(menu.querySelector("[data-feature-action='edit']")).not.toBeNull();
+    expect(menu.querySelector("[data-feature-action='delete']")).not.toBeNull();
+    // Click gear again — menu closes
+    dispatchTargetedEvent(list, "click", gearBtn);
+    expect(menu.hidden).toBe(true);
+
+    api.destroy();
+  });
+
+  it("edit through settings menu opens dialog and saves updated data", () => {
+    const freeform = makeCharacter("char_free", "Free", {
+      build: null,
+      manualFeatureCards: [{ id: "feat_edit", name: "Old Name", sourceType: "", activation: "", rangeArea: "", saveDc: "", damageEffect: "Old dmg", description: "" }]
+    });
+    const state = { characters: { activeId: "char_free", entries: [freeform] }, combat: { workspace: {} } };
+    const deps = makeDeps(state);
+    const api = initAbilitiesFeaturesPanel(deps);
+    const list = document.getElementById("charAbilitiesFeaturesList");
+    // Dispatch click directly on the edit button (simulates user having opened the menu)
+    const edit = list.querySelector('[data-manual-feature-id="feat_edit"] [data-feature-action="edit"]');
+    dispatchTargetedEvent(list, "click", edit);
+    fillFeatureDialog({ name: "New Name", damageEffect: "New dmg" });
+    clickDialogButton("[data-feature-dialog-save]");
+
+    expect(freeform.manualFeatureCards[0]).toMatchObject({ id: "feat_edit", name: "New Name", damageEffect: "New dmg" });
+    expect(deps.SaveManager.markDirty).toHaveBeenCalledTimes(1);
+
+    api.destroy();
+  });
+
+  it("delete through settings menu removes the feature card", () => {
+    const freeform = makeCharacter("char_free", "Free", {
+      build: null,
+      manualFeatureCards: [{ id: "feat_del", name: "Expendable", sourceType: "", activation: "", rangeArea: "", saveDc: "", damageEffect: "", description: "" }]
+    });
+    const state = { characters: { activeId: "char_free", entries: [freeform] }, combat: { workspace: {} } };
+    const deps = makeDeps(state);
+    const api = initAbilitiesFeaturesPanel(deps);
+    const list = document.getElementById("charAbilitiesFeaturesList");
+    const del = list.querySelector('[data-manual-feature-id="feat_del"] [data-feature-action="delete"]');
+    dispatchTargetedEvent(list, "click", del);
+
+    expect(freeform.manualFeatureCards).toHaveLength(0);
+    expect(list.querySelector('[data-manual-feature-id="feat_del"]')).toBeNull();
+    expect(deps.SaveManager.markDirty).toHaveBeenCalledTimes(1);
+
+    api.destroy();
+  });
+
+  it("feature card header click toggles card collapse state", () => {
+    const freeform = makeCharacter("char_free", "Free", {
+      build: null,
+      manualFeatureCards: [{ id: "feat_col", name: "Collapse Me", sourceType: "", activation: "", rangeArea: "", saveDc: "", damageEffect: "1d6", description: "Some notes" }]
+    });
+    const state = { characters: { activeId: "char_free", entries: [freeform] }, combat: { workspace: {} } };
+    const deps = makeDeps(state);
+    const api = initAbilitiesFeaturesPanel(deps);
+    const list = document.getElementById("charAbilitiesFeaturesList");
+    const card = list.querySelector('[data-manual-feature-id="feat_col"]');
+    const header = card.querySelector("[data-feature-collapse-header]");
+    const titleEl = card.querySelector(".featureActionTitle");
+
+    // Initially expanded
+    expect(card.dataset.featureCollapsed).toBe("false");
+    expect(header.getAttribute("aria-expanded")).toBe("true");
+
+    // Click the non-interactive title area → collapse
+    dispatchTargetedEvent(list, "click", titleEl);
+    expect(card.dataset.featureCollapsed).toBe("true");
+    expect(header.getAttribute("aria-expanded")).toBe("false");
+
+    // Click again → expand
+    dispatchTargetedEvent(list, "click", titleEl);
+    expect(card.dataset.featureCollapsed).toBe("false");
+    expect(header.getAttribute("aria-expanded")).toBe("true");
+
+    api.destroy();
+  });
+
+  it("clicking gear or move buttons in card header does not trigger collapse", () => {
+    const freeform = makeCharacter("char_free", "Free", {
+      build: null,
+      manualFeatureCards: [{ id: "feat_nc", name: "No Collapse", sourceType: "", activation: "", rangeArea: "", saveDc: "", damageEffect: "", description: "" }]
+    });
+    const state = { characters: { activeId: "char_free", entries: [freeform] }, combat: { workspace: {} } };
+    const deps = makeDeps(state);
+    const api = initAbilitiesFeaturesPanel(deps);
+    const list = document.getElementById("charAbilitiesFeaturesList");
+    const card = list.querySelector('[data-manual-feature-id="feat_nc"]');
+
+    expect(card.dataset.featureCollapsed).toBe("false");
+
+    // Click gear button — must NOT collapse card
+    const gearBtn = card.querySelector("[data-feature-action='gear']");
+    dispatchTargetedEvent(list, "click", gearBtn);
+    expect(card.dataset.featureCollapsed).toBe("false");
+
+    // Click move-down button — must NOT collapse card
+    const moveDown = card.querySelector("[data-feature-action='move-down']");
+    dispatchTargetedEvent(list, "click", moveDown);
+    expect(card.dataset.featureCollapsed).toBe("false");
+
+    api.destroy();
+  });
+
+  it("notes toggle collapses and expands notes area independently of card collapse", () => {
+    const freeform = makeCharacter("char_free", "Free", {
+      build: null,
+      manualFeatureCards: [{ id: "feat_notes", name: "Noted", sourceType: "", activation: "", rangeArea: "", saveDc: "", damageEffect: "", description: "Long description text here." }]
+    });
+    const state = { characters: { activeId: "char_free", entries: [freeform] }, combat: { workspace: {} } };
+    const deps = makeDeps(state);
+    const api = initAbilitiesFeaturesPanel(deps);
+    const list = document.getElementById("charAbilitiesFeaturesList");
+    const card = list.querySelector('[data-manual-feature-id="feat_notes"]');
+    const notesToggle = card.querySelector("[data-feature-action='notes-toggle']");
+    const notesArea = card.querySelector("[data-feature-notes-area]");
+
+    // Notes area exists and starts expanded
+    expect(notesArea).not.toBeNull();
+    expect(notesArea.textContent).toContain("Long description text");
+    expect(card.dataset.notesCollapsed).toBe("false");
+    expect(notesToggle.getAttribute("aria-expanded")).toBe("true");
+    expect(notesToggle.textContent).toContain("▾");
+
+    // Toggle notes collapse
+    dispatchTargetedEvent(list, "click", notesToggle);
+    expect(card.dataset.notesCollapsed).toBe("true");
+    expect(notesToggle.getAttribute("aria-expanded")).toBe("false");
+    expect(notesToggle.textContent).toContain("▸");
+
+    // Toggle notes expand
+    dispatchTargetedEvent(list, "click", notesToggle);
+    expect(card.dataset.notesCollapsed).toBe("false");
+    expect(notesToggle.textContent).toContain("▾");
+
+    api.destroy();
+  });
+
+  it("existing cards with only damageEffect render that field without data loss", () => {
+    const freeform = makeCharacter("char_free", "Free", {
+      build: null,
+      manualFeatureCards: [{ id: "feat_legacy", name: "Sneak Attack", sourceType: "Class", activation: "Once per turn", rangeArea: "", saveDc: "", damageEffect: "3d6 extra", description: "" }]
+    });
+    const state = { characters: { activeId: "char_free", entries: [freeform] }, combat: { workspace: {} } };
+    const deps = makeDeps(state);
+    const api = initAbilitiesFeaturesPanel(deps);
+    const card = document.querySelector('[data-manual-feature-id="feat_legacy"]');
+
+    expect(card.textContent).toContain("Damage / Effect");
+    expect(card.textContent).toContain("3d6 extra");
+    // State not mutated
+    expect(freeform.manualFeatureCards[0].damageEffect).toBe("3d6 extra");
+    expect(deps.SaveManager.markDirty).not.toHaveBeenCalled();
+
+    api.destroy();
+  });
+
+  it("new optional attack/damage/effect fields render only when populated", () => {
+    const freeform = makeCharacter("char_free", "Free", {
+      build: null,
+      manualFeatureCards: [{ id: "feat_new", name: "Vampiric Bite", sourceType: "Feat", activation: "Action", rangeArea: "5 ft.", saveDc: "Con DC 14", attackRoll: "+5 to hit", damageRoll: "1d6+3 necrotic", effectText: "", damageEffect: "", description: "" }]
+    });
+    const state = { characters: { activeId: "char_free", entries: [freeform] }, combat: { workspace: {} } };
+    const deps = makeDeps(state);
+    const api = initAbilitiesFeaturesPanel(deps);
+    const card = document.querySelector('[data-manual-feature-id="feat_new"]');
+
+    // Populated fields render
+    expect(card.textContent).toContain("Attack Roll");
+    expect(card.textContent).toContain("+5 to hit");
+    expect(card.textContent).toContain("Damage Roll");
+    expect(card.textContent).toContain("1d6+3 necrotic");
+    // Unpopulated optional fields do not render
+    expect(card.textContent).not.toContain("Damage / Effect");
+    expect(card.textContent).not.toContain("Effect\n");
+
+    api.destroy();
+  });
+
+  it("manual card move-down changes manual card order in state", () => {
+    const freeform = makeCharacter("char_free", "Free", {
+      build: null,
+      manualFeatureCards: [
+        { id: "feat_1", name: "Alpha", sourceType: "", activation: "", rangeArea: "", saveDc: "", damageEffect: "", description: "" },
+        { id: "feat_2", name: "Beta", sourceType: "", activation: "", rangeArea: "", saveDc: "", damageEffect: "", description: "" },
+        { id: "feat_3", name: "Gamma", sourceType: "", activation: "", rangeArea: "", saveDc: "", damageEffect: "", description: "" }
+      ]
+    });
+    const state = { characters: { activeId: "char_free", entries: [freeform] }, combat: { workspace: {} } };
+    const deps = makeDeps(state);
+    const api = initAbilitiesFeaturesPanel(deps);
+    const list = document.getElementById("charAbilitiesFeaturesList");
+
+    // Move Alpha (index 0) down — should become index 1
+    const alphaCard = list.querySelector('[data-manual-feature-id="feat_1"]');
+    const moveDown = alphaCard.querySelector("[data-feature-action='move-down']");
+    dispatchTargetedEvent(list, "click", moveDown);
+
+    expect(freeform.manualFeatureCards[0].id).toBe("feat_2");
+    expect(freeform.manualFeatureCards[1].id).toBe("feat_1");
+    expect(freeform.manualFeatureCards[2].id).toBe("feat_3");
+    expect(deps.SaveManager.markDirty).toHaveBeenCalledTimes(1);
+
+    // Move Alpha (now index 1) up — should return to index 0
+    const alphaCard2 = list.querySelector('[data-manual-feature-id="feat_1"]');
+    const moveUp = alphaCard2.querySelector("[data-feature-action='move-up']");
+    dispatchTargetedEvent(list, "click", moveUp);
+
+    expect(freeform.manualFeatureCards[0].id).toBe("feat_1");
+    expect(freeform.manualFeatureCards[1].id).toBe("feat_2");
+    expect(deps.SaveManager.markDirty).toHaveBeenCalledTimes(2);
+
+    api.destroy();
+  });
+
+  it("manual card reorder does not affect or persist derived card data", () => {
+    const builder = makeBuilder("char_builder", { str: 10, dex: 10, con: 14, int: 10, wis: 10, cha: 10 });
+    builder.build.raceId = "dragonborn";
+    builder.build.level = 5;
+    builder.build.choicesByLevel = { "1": { "dragonborn-ancestry": "blue" } };
+    builder.manualFeatureCards = [
+      { id: "manual_a", name: "Alpha", sourceType: "", activation: "", rangeArea: "", saveDc: "", damageEffect: "", description: "" },
+      { id: "manual_b", name: "Beta", sourceType: "", activation: "", rangeArea: "", saveDc: "", damageEffect: "", description: "" }
+    ];
+    const state = { characters: { activeId: "char_builder", entries: [builder] }, combat: { workspace: {} } };
+    const deps = makeDeps(state);
+    const api = initAbilitiesFeaturesPanel(deps);
+    const list = document.getElementById("charAbilitiesFeaturesList");
+
+    // Verify derived card is rendered
+    expect(list.querySelector('[data-feature-id="dragonborn-breath-weapon"]')).not.toBeNull();
+
+    // Move manual card Beta up (index 1 → 0)
+    const betaCard = list.querySelector('[data-manual-feature-id="manual_b"]');
+    const moveUp = betaCard.querySelector("[data-feature-action='move-up']");
+    dispatchTargetedEvent(list, "click", moveUp);
+
+    // Manual card order changed
+    expect(builder.manualFeatureCards[0].id).toBe("manual_b");
+    expect(builder.manualFeatureCards[1].id).toBe("manual_a");
+    // Derived card data untouched
+    expect(builder).not.toHaveProperty("derivedFeatureActions");
+    expect(builder.build).not.toHaveProperty("derivedFeatureActions");
+    // Derived card still renders after re-render
+    expect(list.querySelector('[data-feature-id="dragonborn-breath-weapon"]')).not.toBeNull();
+
+    api.destroy();
+  });
+
+  // ── End Phase 3F polish tests ──────────────────────────────────────────────
 
   it("keeps the Dragonborn Breath Weapon DC Vitals item read-only", () => {
     const builder = makeBuilder("char_builder", { str: 10, dex: 10, con: 14, int: 10, wis: 10, cha: 10 });

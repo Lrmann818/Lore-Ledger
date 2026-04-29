@@ -124,6 +124,9 @@ export const SCHEMA_MIGRATION_HISTORY = Object.freeze([
  *   rangeArea: string,
  *   saveDc: string,
  *   damageEffect: string,
+ *   attackRoll?: string,
+ *   damageRoll?: string,
+ *   effectText?: string,
  *   description: string
  * }} ManualFeatureCard
  */
@@ -1316,6 +1319,9 @@ export function migrateState(raw) {
         rangeArea: cleanFeatureText(source.rangeArea),
         saveDc: cleanFeatureText(source.saveDc),
         damageEffect: cleanFeatureText(source.damageEffect),
+        attackRoll: cleanFeatureText(source.attackRoll),
+        damageRoll: cleanFeatureText(source.damageRoll),
+        effectText: cleanFeatureText(source.effectText),
         description: cleanFeatureText(source.description)
       };
     };
