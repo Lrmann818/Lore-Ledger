@@ -5740,6 +5740,22 @@ select.npcField:focus {
   padding: 3px 8px;
 }
 
+.featureActionHeaderActions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.featureActionCardButtons {
+  display: flex;
+  gap: 4px;
+}
+
+.featureActionCardBtn {
+  white-space: nowrap;
+}
+
 .featureActionDetails {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -5767,12 +5783,37 @@ select.npcField:focus {
   overflow-wrap: anywhere;
 }
 
+.featureCardDialogPanel {
+  max-width: 520px;
+}
+
+.featureCardDialogBody {
+  display: grid;
+  gap: 10px;
+}
+
+.featureCardDialogField {
+  display: grid;
+  gap: 4px;
+}
+
+.featureCardDialogInput,
+.featureCardDialogTextarea {
+  width: 100%;
+}
+
+.featureCardDialogTextarea {
+  min-height: 96px;
+  resize: vertical;
+}
+
 @media (max-width: 600px) {
   .featureActionDetails {
     grid-template-columns: 1fr;
   }
 
-  .featureActionHeader {
+  .featureActionHeader,
+  .featureActionHeaderActions {
     flex-direction: column;
   }
 }

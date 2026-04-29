@@ -536,6 +536,7 @@ function buildCharacterPanelDom(document) {
   ["charArmorProf", "charWeaponProf", "charToolProf", "charLanguages"].forEach((id) => append(prof, "textarea", { id }));
 
   const features = append(root, "section", { id: "charAbilitiesFeaturesPanel" });
+  append(features, "button", { id: "addFeatureCardBtn" });
   append(features, "div", { id: "charAbilitiesFeaturesEmpty", className: "mutedSmall abilitiesFeaturesEmpty" });
   append(features, "div", { id: "charAbilitiesFeaturesList", className: "abilitiesFeaturesList" });
 
@@ -816,6 +817,14 @@ function openResourceSettingsWithKey(tile, key = "Enter") {
 function clickDialogButton(selector) {
   const button = document.querySelector(selector);
   dispatchTargetedEvent(document, "click", button);
+}
+
+function fillFeatureDialog(values) {
+  for (const [key, value] of Object.entries(values)) {
+    const field = document.querySelector(`[data-feature-field="${key}"]`);
+    expect(field).not.toBeNull();
+    field.value = value;
+  }
 }
 
 describe("character panels active character resolution", () => {
@@ -1697,6 +1706,130 @@ describe("character panels active character resolution", () => {
     expect(deriveCharacter(freeform).derivedFeatureActions).toEqual([]);
     expect(document.querySelector('[data-feature-id="dragonborn-breath-weapon"]')).toBeNull();
     expect(document.getElementById("charAbilitiesFeaturesEmpty").hidden).toBe(false);
+
+    api.destroy();
+  });
+
+  it("lets freeform characters create and render manual Abilities & Features cards", () => {
+    const freeform = makeCharacter("char_free", "Freeform", {
+      build: null,
+      resources: [{ id: "ki", name: "Ki", cur: 1, max: 3 }]
+    });
+    const state = { characters: { activeId: "char_free", entries: [freeform] }, combat: { workspace: {} } };
+    const deps = makeDeps(state);
+
+    const api = initAbilitiesFeaturesPanel(deps);
+    document.getElementById("addFeatureCardBtn").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    fillFeatureDialog({
+      name: "Sneak Attack",
+      sourceType: "Class Feature",
+      activation: "Once per turn",
+      rangeArea: "Weapon range",
+      saveDc: "None",
+      damageEffect: "1d6 extra damage",
+      description: "Deal extra damage when the attack qualifies."
+    });
+    clickDialogButton("[data-feature-dialog-save]");
+
+    expect(freeform.manualFeatureCards).toHaveLength(1);
+    expect(freeform.manualFeatureCards[0]).toMatchObject({
+      name: "Sneak Attack",
+      sourceType: "Class Feature",
+      activation: "Once per turn",
+      rangeArea: "Weapon range",
+      saveDc: "None",
+      damageEffect: "1d6 extra damage",
+      description: "Deal extra damage when the attack qualifies."
+    });
+    expect(freeform.resources).toEqual([{ id: "ki", name: "Ki", cur: 1, max: 3 }]);
+    expect(document.querySelector("[data-feature-kind='manual']").textContent).toContain("Sneak Attack");
+    expect(document.querySelector("[data-feature-kind='manual']").textContent).toContain("1d6 extra damage");
+    expect(document.getElementById("charAbilitiesFeaturesEmpty").hidden).toBe(true);
+    expect(deps.SaveManager.markDirty).toHaveBeenCalledTimes(1);
+
+    api.destroy();
+  });
+
+  it("renders builder manual cards with derived cards while keeping derived cards read-only and unpersisted", () => {
+    const builder = makeBuilder("char_builder", { str: 10, dex: 10, con: 14, int: 10, wis: 10, cha: 10 });
+    builder.build.raceId = "dragonborn";
+    builder.build.classId = "class_fighter";
+    builder.build.level = 5;
+    builder.build.choicesByLevel = { "1": { "dragonborn-ancestry": "blue" } };
+    builder.manualFeatureCards = [{
+      id: "manual_lucky",
+      name: "Lucky Break",
+      sourceType: "Custom",
+      activation: "Reaction",
+      rangeArea: "Self",
+      saveDc: "",
+      damageEffect: "Reroll a check",
+      description: "A table-specific custom feature."
+    }];
+    const state = { characters: { activeId: "char_builder", entries: [builder] }, combat: { workspace: {} } };
+    const deps = makeDeps(state);
+
+    const api = initAbilitiesFeaturesPanel(deps);
+    const derived = document.querySelector('[data-feature-id="dragonborn-breath-weapon"]');
+    const manual = document.querySelector('[data-manual-feature-id="manual_lucky"]');
+
+    expect(derived).not.toBeNull();
+    expect(manual).not.toBeNull();
+    expect(derived.querySelector("[data-feature-action='edit']")).toBeNull();
+    expect(derived.querySelector("[data-feature-action='delete']")).toBeNull();
+    expect(manual.querySelector("[data-feature-action='edit']")).not.toBeNull();
+    expect(manual.querySelector("[data-feature-action='delete']")).not.toBeNull();
+    expect(builder.manualFeatureCards).toHaveLength(1);
+    expect(builder).not.toHaveProperty("derivedFeatureActions");
+    expect(builder.build).not.toHaveProperty("derivedFeatureActions");
+    expect(deps.SaveManager.markDirty).not.toHaveBeenCalled();
+
+    api.destroy();
+  });
+
+  it("edits and deletes only manual persisted feature-card state", () => {
+    const builder = makeBuilder("char_builder", { str: 10, dex: 10, con: 14, int: 10, wis: 10, cha: 10 });
+    builder.build.raceId = "dragonborn";
+    builder.build.choicesByLevel = { "1": { "dragonborn-ancestry": "red" } };
+    builder.manualFeatureCards = [{
+      id: "manual_boon",
+      name: "Old Boon",
+      sourceType: "Boon",
+      activation: "Passive",
+      rangeArea: "",
+      saveDc: "",
+      damageEffect: "Old effect",
+      description: ""
+    }];
+    const state = { characters: { activeId: "char_builder", entries: [builder] }, combat: { workspace: {} } };
+    const deps = makeDeps(state);
+
+    const api = initAbilitiesFeaturesPanel(deps);
+    const list = document.getElementById("charAbilitiesFeaturesList");
+    const edit = document.querySelector('[data-manual-feature-id="manual_boon"] [data-feature-action="edit"]');
+    dispatchTargetedEvent(list, "click", edit);
+    fillFeatureDialog({
+      name: "Updated Boon",
+      damageEffect: "Updated effect"
+    });
+    clickDialogButton("[data-feature-dialog-save]");
+
+    expect(builder.manualFeatureCards).toHaveLength(1);
+    expect(builder.manualFeatureCards[0]).toMatchObject({
+      id: "manual_boon",
+      name: "Updated Boon",
+      damageEffect: "Updated effect"
+    });
+    expect(document.querySelector('[data-feature-id="dragonborn-breath-weapon"]')).not.toBeNull();
+    expect(builder).not.toHaveProperty("derivedFeatureActions");
+    expect(builder.build).not.toHaveProperty("derivedFeatureActions");
+
+    const del = document.querySelector('[data-manual-feature-id="manual_boon"] [data-feature-action="delete"]');
+    dispatchTargetedEvent(list, "click", del);
+
+    expect(builder.manualFeatureCards).toEqual([]);
+    expect(document.querySelector('[data-feature-id="dragonborn-breath-weapon"]')).not.toBeNull();
+    expect(deps.SaveManager.markDirty).toHaveBeenCalledTimes(2);
 
     api.destroy();
   });

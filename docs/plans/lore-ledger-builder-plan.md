@@ -260,7 +260,7 @@ Goal: add the normal character-page home for special rule-backed abilities and f
 
 Completed April 27, 2026.
 
-Phase 3C foundation complete: derived Dragonborn Breath Weapon now renders as the first display-only Abilities & Features card. Visual polish, manual/freeform feature cards, use tracking, partial regain behavior, spell slots, broader rest/resource automation, and broader feature coverage remain future work.
+Phase 3C foundation complete: derived Dragonborn Breath Weapon now renders as the first display-only Abilities & Features card. Phase 3F later added manual/freeform feature cards. Visual polish beyond the first manual/custom-card pathway, use tracking, partial regain behavior, spell slots, broader rest/resource automation, and broader feature coverage remain future work.
 
 Shipped foundation scope:
 
@@ -339,7 +339,7 @@ Resource and feature-use ownership:
 - Limited-use feature usage should be modeled as explicit character-owned resource/use entries with recovery metadata, referenced by feature cards through stable IDs.
 - A separate panel-owned feature-use map is not the preferred direction because it would make rest recovery, persistence, import/export, and combat embedded views coordinate across multiple state stores.
 - Builder-derived cards stay derived from rules/build choices and are not copied into manual feature state unless a later explicit copy, customize, or override behavior is designed.
-- Freeform/manual feature cards remain future work, but they should render through the same Abilities & Features panel UI once added.
+- Phase 3F later adds freeform/manual feature cards through the same Abilities & Features panel UI.
 
 Manual resource tracker policy:
 
@@ -436,11 +436,66 @@ Still out of scope after this foundation slice:
 - Spendable vs Static toggles unless the current resource code already has that concept.
 - Limited-use feature tracking.
 - Breath Weapon use tracking.
-- Manual Abilities & Features card editing.
+- Manual Abilities & Features card editing. Phase 3F later completes the foundation slice for that path.
 - Sorcery Points, Metamagic, or Flexible Casting automation.
 - Spell slot automation.
 - Combat/linked-character rest behavior validation or automation.
 - A broad class-feature system.
+
+### Phase 3F: Manual / Freeform Abilities & Features Cards — FOUNDATION COMPLETE
+
+Goal: prove the manual/custom feature-card pathway safely, especially for freeform characters, while preserving the existing derived/read-only feature-card model for builder characters.
+
+Completed April 29, 2026.
+
+Phase 3F foundation complete: freeform and builder characters can create, edit, delete, persist, and render manual/custom Abilities & Features cards in the same panel as derived cards. Builder-derived cards remain derived/read-only and are not copied into manual persisted state. This is a foundation slice for user-created feature cards, not a resource-spending, class-feature automation, or spell-slot automation slice.
+
+Shipped foundation scope:
+
+- Freeform characters may add manual/custom cards to Abilities & Features.
+- Builder characters may also add manual/custom cards.
+- Builder-derived cards remain derived/read-only and must not be copied into manual persisted state.
+- Manual/custom cards are persisted separately from derived cards in a character-owned `manualFeatureCards[]` collection.
+- Derived cards and manual cards render in the same Abilities & Features panel.
+- Manual cards are editable and deletable by the user.
+- Derived cards are read-only unless a later override/customization system explicitly defines otherwise.
+
+First slice manual card fields shipped:
+
+- Name.
+- Source/type.
+- Activation.
+- Range/area.
+- Save/DC text.
+- Damage/effect text.
+- Description/notes.
+
+Out of scope for Phase 3F:
+
+- Resource spending automation.
+- Vitals resource linking.
+- Breath Weapon use tracking.
+- Sorcery Points, Metamagic, or Flexible Casting specialization.
+- Spell slot automation.
+- Broad class-feature automation.
+- New SRD data coverage or class-feature imports.
+- A final override/customization system for derived cards.
+
+Resource ownership remains unchanged:
+
+- Vitals/resources own canonical resource counters.
+- Feature cards must not own canonical resource counters.
+- Feature cards may later reference, spend, restore, or explain resources, but they must not duplicate resource state.
+
+Completed foundation tests:
+
+- Freeform character can create and render a manual feature card.
+- Builder character can render both manual cards and derived cards together.
+- Derived Breath Weapon card remains read-only.
+- Manual card edit/delete only affects manual persisted state.
+- Derived cards are not persisted into manual card state.
+- Manual cards do not create duplicate resource counters.
+- Existing Resource Settings / rest recovery behavior remains unchanged.
 
 ### Derived Resources and Derived Combat Stats Pattern
 

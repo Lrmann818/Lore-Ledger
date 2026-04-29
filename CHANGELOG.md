@@ -22,10 +22,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Phase 3C foundation: a normal Character page Abilities & Features panel with derived, display-only Dragonborn Breath Weapon as the first feature card, without persisting it into Weapons, Spells, Equipment, or flat character fields.
 - Phase 3D foundation: Character page Short Rest / Long Rest toolbar controls route through a central active-character recovery helper for explicitly tagged `character.resources[]` counters, leaving untagged/manual resources unchanged.
 - Phase 3E foundation: Vitals resource tiles can open Resource Settings through press-and-hold or keyboard activation, without visible tile settings buttons; the dialog writes only `resource.recovery` and leaves untagged/manual resources untouched until assigned.
+- Phase 3F foundation: manual/freeform/custom Abilities & Features cards can be created, edited, deleted, persisted separately from derived cards, and rendered in the same panel while derived cards remain read-only.
 
 ### Not Shipped Yet
 
-- Class/background choice pickers, equipment, level-up flow, field locking/override UI, Abilities & Features card polish, manual/freeform feature cards, custom feature cards, feature-use tracking, partial regain behavior, spell slot recovery, combat/linked-character rest behavior, specialized resource-linked feature cards, and broader HP/AC/saves/skills/spells or linked-card automation are still future Step 3 work. Derived builder values are not persisted back into flat character fields by default.
+- Class/background choice pickers, equipment, level-up flow, field locking/override UI, Abilities & Features card polish beyond the first manual/custom-card pathway, feature-use tracking, partial regain behavior, spell slot recovery, combat/linked-character rest behavior, specialized resource-linked feature cards, and broader HP/AC/saves/skills/spells or linked-card automation are still future Step 3 work. Derived builder values are not persisted back into flat character fields by default.
 
 ## [v0.5.0] - 2026-04-16
 

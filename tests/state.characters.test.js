@@ -162,7 +162,7 @@ describe("schema version", () => {
   it("always sets schemaVersion to the current version after migration", () => {
     const fromLegacy = migrateState({ character: { name: "Arlen" } });
     expect(fromLegacy.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
-    expect(CURRENT_SCHEMA_VERSION).toBe(6);
+    expect(CURRENT_SCHEMA_VERSION).toBe(7);
 
     const fromEmpty = migrateState({});
     expect(fromEmpty.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);

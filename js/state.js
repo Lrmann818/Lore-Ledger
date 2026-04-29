@@ -8,7 +8,7 @@ export const STORAGE_KEY = "localCampaignTracker_v1";
 export const ACTIVE_TAB_KEY = "localCampaignTracker_activeTab";
 
 // Save schema versioning
-export const CURRENT_SCHEMA_VERSION = 6;
+export const CURRENT_SCHEMA_VERSION = 7;
 
 /** @typedef {import("./domain/factories.js").NpcCard & PortraitRef} NpcCard */
 /** @typedef {import("./domain/factories.js").PartyMemberCard & PortraitRef} PartyMemberCard */
@@ -56,6 +56,11 @@ export const SCHEMA_MIGRATION_HISTORY = Object.freeze([
     version: 6,
     date: "2026-04-16",
     changes: "Added Step 3 rules-engine foundation fields on character entries: build and overrides."
+  },
+  {
+    version: 7,
+    date: "2026-04-29",
+    changes: "Added manual Abilities & Features card storage on character entries."
   }
 ]);
 
@@ -108,6 +113,19 @@ export const SCHEMA_MIGRATION_HISTORY = Object.freeze([
  *   max: NullableNumber,
  *   [key: string]: unknown
  * }} CharacterResource
+ */
+
+/**
+ * @typedef {{
+ *   id: string,
+ *   name: string,
+ *   sourceType: string,
+ *   activation: string,
+ *   rangeArea: string,
+ *   saveDc: string,
+ *   damageEffect: string,
+ *   description: string
+ * }} ManualFeatureCard
  */
 
 /**
@@ -357,6 +375,7 @@ export const SCHEMA_MIGRATION_HISTORY = Object.freeze([
  *   spellAttack: NullableNumber,
  *   spellDC: NullableNumber,
  *   resources: CharacterResource[],
+ *   manualFeatureCards: ManualFeatureCard[],
  *   abilities: CharacterAbilities,
  *   skills: Record<string, unknown>,
  *   skillsNotes: string,
@@ -1282,13 +1301,45 @@ export function migrateState(raw) {
     }
   }
 
+  function migrateToV7() {
+    const cleanFeatureText = (value) => typeof value === "string" ? value.trim() : "";
+    const normalizeManualFeatureCard = (value) => {
+      if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+      const source = /** @type {Record<string, unknown>} */ (value);
+      const id = cleanFeatureText(source.id);
+      if (!id) return null;
+      return {
+        id,
+        name: cleanFeatureText(source.name),
+        sourceType: cleanFeatureText(source.sourceType),
+        activation: cleanFeatureText(source.activation),
+        rangeArea: cleanFeatureText(source.rangeArea),
+        saveDc: cleanFeatureText(source.saveDc),
+        damageEffect: cleanFeatureText(source.damageEffect),
+        description: cleanFeatureText(source.description)
+      };
+    };
+    const characters = data.characters && typeof data.characters === "object" && !Array.isArray(data.characters)
+      ? /** @type {CharactersCollection & Record<string, unknown>} */ (data.characters)
+      : null;
+    const entries = Array.isArray(characters?.entries) ? characters.entries : [];
+    for (const entry of entries) {
+      if (!entry || typeof entry !== "object" || Array.isArray(entry)) continue;
+      const character = /** @type {Record<string, unknown>} */ (entry);
+      character.manualFeatureCards = Array.isArray(character.manualFeatureCards)
+        ? character.manualFeatureCards.map(normalizeManualFeatureCard).filter(Boolean)
+        : [];
+    }
+  }
+
   const SCHEMA_MIGRATIONS = Object.freeze({
     0: migrateToV1,
     1: migrateToV2,
     2: migrateToV3,
     3: migrateToV4,
     4: migrateToV5,
-    5: migrateToV6
+    5: migrateToV6,
+    6: migrateToV7
   });
 
   function applyMigrationStep(version) {
@@ -1318,6 +1369,7 @@ export function migrateState(raw) {
   migrateToV4();
   migrateToV5();
   migrateToV6();
+  migrateToV7();
 
   data.schemaVersion = CURRENT_SCHEMA_VERSION;
   return normalizeState(/** @type {State} */ (data));

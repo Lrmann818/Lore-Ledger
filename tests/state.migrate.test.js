@@ -204,7 +204,7 @@ describe("migrateState", () => {
       });
 
       expect(migrated.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
-      expect(CURRENT_SCHEMA_VERSION).toBe(6);
+      expect(CURRENT_SCHEMA_VERSION).toBe(7);
       expect(migrated.combat).toEqual(DEFAULT_COMBAT_STATE);
       expect(migrated.tracker.campaignTitle).toBe("Moonfall");
       expect(migrated.tracker.misc).toBe("Preserve this");
@@ -304,6 +304,40 @@ describe("migrateState", () => {
         skills: { athletics: 3 },
         initiative: 1
       });
+    });
+
+    it("upgrades schema v6 saves into v7 manual feature-card storage", () => {
+      const migrated = migrateState({
+        schemaVersion: 6,
+        characters: {
+          activeId: "char_a",
+          entries: [
+            { id: "char_a", name: "Arlen" },
+            {
+              id: "char_b",
+              name: "Bad Cards",
+              manualFeatureCards: [
+                null,
+                { id: "", name: "Missing Id" },
+                { id: "feature_a", name: "  Custom Boon  ", sourceType: " Custom ", activation: 9 }
+              ]
+            }
+          ]
+        }
+      });
+
+      expect(migrated.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
+      expect(activeEntry(migrated).manualFeatureCards).toEqual([]);
+      expect(migrated.characters.entries[1].manualFeatureCards).toEqual([{
+        id: "feature_a",
+        name: "Custom Boon",
+        sourceType: "Custom",
+        activation: "",
+        rangeArea: "",
+        saveDc: "",
+        damageEffect: "",
+        description: ""
+      }]);
     });
 
     it("repairs malformed combat state while keeping workspace limited to composition data", () => {
