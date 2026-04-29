@@ -27,7 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Not Shipped Yet
 
-- Class/background choice pickers, equipment, level-up flow, field locking/override UI, fuller Abilities & Features menu keyboard accessibility, possible `damageEffect` / `effectText` cleanup, feature-use tracking, partial regain behavior, resource automation, attack/damage calculation, spell slot recovery, combat/linked-character rest behavior, specialized resource-linked feature cards, AC derivation or equipment-based AC automation, and broader HP/AC/saves/skills/spells or linked-card automation are still future Step 3 work. Derived builder values are not persisted back into flat character fields by default.
+- Class/background choice pickers, equipment, level-up flow, field locking/override UI, fuller Abilities & Features menu keyboard accessibility, possible `damageEffect` / `effectText` cleanup, Abilities & Features Phase 3G feature-specific limited-use tracking, partial regain behavior, shared resource pool automation such as Sorcery Points/Ki/Metamagic/Flexible Casting, attack/damage calculation, spell slot recovery, combat/linked-character rest behavior, specialized shared-resource-linked feature cards, AC derivation or equipment-based AC automation, and broader HP/AC/saves/skills/spells or linked-card automation are still future Step 3 work. Derived builder values are not persisted back into flat character fields by default.
 
 ## [v0.5.0] - 2026-04-16
 

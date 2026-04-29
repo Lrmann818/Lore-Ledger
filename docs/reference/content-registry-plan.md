@@ -658,13 +658,16 @@ Vitals or the relevant normal sheet panel, not a temporary builder-only surface.
 
 Current example: Dragonborn Breath Weapon DC is derived from the stored ancestry
 choice, Constitution modifier, and proficiency bonus, so Vitals is the
-appropriate normal-sheet home when the value is derivable. Future class-derived
-resources, such as Sorcery Points, should follow the same read-only derivation
-pattern before any intentional tracking or editing slice is added.
+appropriate normal-sheet home when the value is derivable. Future
+feature-specific limited-use counters, such as Breath Weapon uses, should be
+character-owned feature-use entries or equivalent that can be surfaced on
+Abilities & Features cards. Broad shared pools, such as Sorcery Points or Ki,
+should follow the single canonical Vitals/resource-counter path before any
+intentional tracking or editing slice is added.
 
 Normal sheet ownership should stay explicit:
 
-- Vitals owns compact derived stats and canonical resource counters.
+- Vitals owns compact derived stats and broad shared canonical resource counters.
 - Weapons owns normal weapon/equipment attacks.
 - Spells owns actual spells.
 - Abilities & Features owns special feature/action mechanics such as Dragonborn
@@ -683,11 +686,14 @@ Phase 3F later completed the manual/freeform card foundation and first polish
 pass. Use tracking, partial regain behavior, spell slots, broader rest/resource
 automation, and broader feature coverage remain future work.
 
-Resource state must have one canonical counter. Feature cards may reference,
-spend, restore, or explain that resource, but they must not duplicate the
-counter. Rest actions are character-level actions, not panel-local buttons, so
-Short Rest and Long Rest can eventually apply recovery rules across all relevant
-systems.
+Resource state must have one canonical counter. Feature-specific limited-use
+counters may be surfaced on Abilities & Features cards when they belong only to
+one feature or sub-feature, but they should still be character-owned feature-use
+entries or equivalent rather than duplicate panel-local counters. Feature cards
+may later reference, spend, restore, or explain broad shared resources, but they
+must not duplicate those shared counters. Rest actions are character-level
+actions, not panel-local buttons, so Short Rest and Long Rest can eventually
+apply recovery rules across all relevant systems.
 
 Rest/recovery metadata should use the shared vocabulary `shortRest`,
 `longRest`, `shortOrLongRest`, `manual`, and `none`. Phase 3D foundation
@@ -713,9 +719,9 @@ understanding, but saving is explicit and scoped to the selected resource only.
 Save preserves `cur`, `max`, `name`, and unrelated fields; Cancel and Escape
 close without mutation. Existing untagged/manual resources remain intentionally
 untouched until the user assigns recovery metadata.
-Limited-use feature usage should be modeled as character-owned resource/use
-entries referenced by feature cards, not as duplicate counters owned by the
-Abilities & Features panel.
+Limited-use feature usage should be modeled as character-owned feature-use or
+resource/use entries referenced by feature cards, not as duplicate counters
+owned by the Abilities & Features panel.
 
 Long term, builder characters can receive derived feature cards from rules/build
 choices, and freeform characters can create manual feature cards after Phase 3F.
@@ -733,9 +739,17 @@ store optional plain-text attack, damage, and effect fields; the older
 `damageEffect` field remains backward-compatible. These text fields are not
 registry mechanics and do not imply attack/damage calculation, resource
 automation, or AC derivation.
-Specialized resource-linked feature cards, such as Sorcery Points, Metamagic,
-and Flexible Casting, may need dedicated renderers later, but they must still
-use the single canonical resource counter.
+Phase 3G is planned only: it should prove optional feature-specific limited-use
+tracking for manual/custom feature cards with enabled/disabled tracking, a use
+label, current uses, max uses, and one recovery setting from the existing
+`manual`, `shortRest`, `longRest`, `shortOrLongRest`, and `none` vocabulary. It
+does not choose a final persisted field name or final schema contract. It should
+not implement Sorcery Points, Ki, Metamagic, Flexible Casting, spell slots, Pact
+Magic slots, prepared/known spell automation, attack/damage calculation, AC
+derivation, equipment automation, or broader SRD/class-feature coverage.
+Specialized shared-resource-linked feature cards, such as Sorcery Points,
+Metamagic, and Flexible Casting, may need dedicated renderers later, but they
+must still use the single canonical resource counter.
 
 These derived values are not registry records and are not flat stored character
 fields by default. Race bonuses, derived combat stats, damage resistance, breath

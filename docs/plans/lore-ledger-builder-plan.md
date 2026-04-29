@@ -245,7 +245,7 @@ Completed April 27, 2026.
 - Breath Weapon save DC is derived as `8 + Constitution modifier + proficiency bonus`.
 - Breath Weapon damage dice scale by builder level: `2d6` before level 6, `3d6` from level 6, `4d6` from level 11, and `5d6` from level 16.
 - Builder Summary displays the selected ancestry mechanics as the current temporary builder-specific surface for this vertical slice.
-- Derived table-use values should also surface in the practical panel where players need them, not only in Builder Summary. Dragonborn Breath Weapon DC appears in Vitals when derivable; future class-derived resources, such as Sorcery Points, should follow the same derived/read-only pattern until editable tracking is intentionally implemented.
+- Derived table-use values should also surface in the practical panel where players need them, not only in Builder Summary. Dragonborn Breath Weapon DC appears in Vitals when derivable. Feature-specific limited-use counters, such as future Breath Weapon uses, should be tracked as character-owned feature-use entries or equivalent, not by copying the derived Breath Weapon card into manual state. Broad shared pools, such as Sorcery Points or Ki, should follow the canonical Vitals/resource-counter path and remain out of the narrow Phase 3G limited-use slice.
 - The persisted builder record still stores only the normalized ancestry choice ID. Derived ancestry mechanics are not copied into flat character fields or persisted as duplicate builder fields.
 - Freeform characters remain unchanged.
 - Derivation and Summary rendering tests cover the Dragonborn vertical slice before expanding the same pattern to other races or traits.
@@ -281,7 +281,7 @@ Long-term model:
 
 Surface ownership:
 
-- Vitals owns compact derived stats and canonical resource counters. Breath Weapon DC can appear in Vitals as a derived combat stat. Sorcery Points, Luck/Inspiration points, Ki, and similar pools should be tracked once in Vitals/resource trackers when tracking exists.
+- Vitals owns compact derived stats and broad shared canonical resource counters. Breath Weapon DC can appear in Vitals as a derived combat stat. Sorcery Points, Luck/Inspiration points, Ki, Bardic Inspiration, Rage uses, Channel Divinity, and similar reusable pools should be tracked once in Vitals/resource trackers when tracking exists.
 - Weapons owns normal weapon/equipment attacks. Do not put Breath Weapon or similar feature actions into Weapons unless they are actually normal weapon/equipment attacks.
 - Spells owns actual spells. Do not put Breath Weapon or similar feature actions into Spells just because they have DCs, damage, descriptions, or limited uses.
 - Abilities & Features owns the structured "how this ability works" display: activation, source, save type, DC, area/range, damage, damage type, recovery, cost, and rules description.
@@ -290,8 +290,9 @@ Surface ownership:
 Resource ownership:
 
 - Resources must not be tracked in multiple places.
-- A resource has one canonical counter.
-- Feature cards may reference, spend, restore, or explain that resource, but they must not duplicate resource state.
+- Broad shared resource pools have one canonical counter in character resources/Vitals.
+- Feature-specific limited-use counters may be surfaced on Abilities & Features cards when they belong only to one feature or sub-feature, but they should still be character-owned feature-use entries or equivalent rather than duplicated panel-local counters.
+- Feature cards may later reference, spend, restore, or explain broad shared resources, but they must not duplicate those shared resource counters.
 - Short Rest and Long Rest should eventually apply recovery rules across all relevant systems from the character-level action path.
 - Complex features/resources may later need specialized cards or renderers. For example, Sorcery Points plus Metamagic plus Flexible Casting may need a specialized UI. Even specialized UIs must read/write the same canonical resource counter.
 
@@ -299,13 +300,13 @@ Future Abilities & Features work:
 
 - Fuller accessibility pass for menu keyboard navigation.
 - Possible cleanup of overlapping legacy `damageEffect` and newer `effectText` fields.
-- Use tracking for limited-use features.
+- Phase 3G planned foundation for feature-specific limited-use tracking.
 - Partial regain behavior, if a later rules slice needs it.
 - Rest/recovery rules across feature uses and broader character systems.
-- Breath Weapon use tracking through canonical resource/use entries.
+- Breath Weapon use tracking through canonical feature-use/resource entries.
 - Spell slot recovery later.
 - Combat/linked-character rest behavior later, if desired.
-- Specialized resource-linked feature cards later, such as Sorcery Points, Metamagic, and Flexible Casting.
+- Specialized shared-resource-linked feature cards later, such as Sorcery Points, Ki, Metamagic, and Flexible Casting.
 
 ### Phase 3D: Rest & Resource Recovery Foundation — FOUNDATION COMPLETE
 
@@ -332,10 +333,11 @@ Character-level action ownership:
 
 Resource and feature-use ownership:
 
-- Vitals/resource trackers own canonical resource counters.
+- Vitals/resource trackers own broad shared canonical resource counters.
 - Resources must not be tracked in multiple places.
-- Feature cards may reference, spend, restore, or explain a canonical resource, but they must not duplicate its counter.
-- Limited-use feature usage should be modeled as explicit character-owned resource/use entries with recovery metadata, referenced by feature cards through stable IDs.
+- Feature cards may reference, spend, restore, or explain a broad shared canonical resource, but they must not duplicate its counter.
+- Feature-specific limited-use counters, such as Breath Weapon uses, Second Wind uses, Relentless Endurance uses, or Vampiric Bite's empowered-use counter, should be modeled as explicit character-owned feature-use/resource entries with recovery metadata, referenced by feature cards through stable IDs or an equivalent character-owned link.
+- A feature action itself is not always spent. For example, Vampiric Bite can remain an always-available feature while only its empowered effect has limited uses.
 - A separate panel-owned feature-use map is not the preferred direction because it would make rest recovery, persistence, import/export, and combat embedded views coordinate across multiple state stores.
 - Builder-derived cards stay derived from rules/build choices and are not copied into manual feature state unless a later explicit copy, customize, or override behavior is designed.
 - Phase 3F later adds freeform/manual feature cards through the same Abilities & Features panel UI.
@@ -362,14 +364,15 @@ Shipped foundation scope:
 Still out of scope after this foundation slice:
 
 - Spell slot automation.
-- Sorcery Points, Metamagic, or Flexible Casting automation.
+- Sorcery Points, Ki, Metamagic, or Flexible Casting automation.
 - A full class-feature system.
 - Broad SRD resource import.
 - Automatic assumptions for existing manual resource trackers without recovery metadata.
 - Combat-wide rest actions or all-character rest actions.
 - Linked combat character rest behavior.
 - Breath Weapon use tracking.
-- Abilities & Features use tracking and resource-linked behavior.
+- Abilities & Features feature-specific limited-use tracking, planned separately as Phase 3G.
+- Shared-resource-linked behavior for pools such as Sorcery Points, Ki, Rage uses, Bardic Inspiration, or Channel Divinity.
 - Manual/freeform feature-card editing is handled by Phase 3F, but it does not add resource automation.
 
 ### Phase 3E: Resource Recovery Settings Dialog — FOUNDATION COMPLETE
@@ -433,10 +436,10 @@ Still out of scope after this foundation slice:
 - Partial regain amount fields.
 - "Regain short" or "regain long" numeric fields.
 - Spendable vs Static toggles unless the current resource code already has that concept.
-- Limited-use feature tracking.
+- Limited-use feature tracking. Phase 3G plans the narrow feature-specific foundation separately.
 - Breath Weapon use tracking.
 - Manual Abilities & Features card editing. Phase 3F later completes the foundation slice for that path.
-- Sorcery Points, Metamagic, or Flexible Casting automation.
+- Sorcery Points, Ki, Metamagic, or Flexible Casting automation.
 - Spell slot automation.
 - Combat/linked-character rest behavior validation or automation.
 - A broad class-feature system.
@@ -447,7 +450,7 @@ Goal: prove the manual/custom feature-card pathway safely, especially for freefo
 
 Completed April 29, 2026.
 
-Phase 3F foundation and first polish pass complete: freeform and builder characters can create, edit, delete, reorder, collapse, persist, and render character-owned manual/custom Abilities & Features cards in the same panel as derived cards. Builder-derived cards remain derived/read-only and are not copied into manual persisted state. This is a foundation slice for user-created feature cards, not a resource-spending, attack/damage calculation, class-feature automation, or spell-slot automation slice.
+Phase 3F foundation and first polish pass complete: freeform and builder characters can create, edit, delete, reorder, collapse, persist, and render character-owned manual/custom Abilities & Features cards in the same panel as derived cards. Builder-derived cards remain derived/read-only and are not copied into manual persisted state. This is a foundation slice for user-created feature cards, not a resource-spending, limited-use tracking, attack/damage calculation, class-feature automation, or spell-slot automation slice.
 
 Shipped foundation scope:
 
@@ -479,9 +482,10 @@ First slice manual card fields shipped:
 Out of scope for Phase 3F:
 
 - Resource spending automation.
+- Feature-specific limited-use tracking, planned separately as Phase 3G.
 - Vitals resource linking.
 - Breath Weapon use tracking.
-- Sorcery Points, Metamagic, or Flexible Casting specialization.
+- Sorcery Points, Ki, Metamagic, or Flexible Casting specialization.
 - Spell slot automation.
 - Broad class-feature automation.
 - New SRD data coverage or class-feature imports.
@@ -491,9 +495,10 @@ Out of scope for Phase 3F:
 
 Resource ownership remains unchanged:
 
-- Vitals/resources own canonical resource counters.
-- Feature cards must not own canonical resource counters.
-- Feature cards may later reference, spend, restore, or explain resources, but they must not duplicate resource state.
+- Vitals/resources own broad shared canonical resource counters.
+- Feature-specific limited-use counters may be surfaced on feature cards only when they belong to that one feature or sub-feature, and should still be modeled as character-owned feature-use entries or equivalent.
+- Feature cards must not own duplicate copies of broad shared resource counters.
+- Feature cards may later reference, spend, restore, or explain broad shared resources, but they must not duplicate shared resource state.
 
 Completed foundation tests:
 
@@ -502,8 +507,42 @@ Completed foundation tests:
 - Derived Breath Weapon card remains read-only.
 - Manual card edit/delete only affects manual persisted state.
 - Derived cards are not persisted into manual card state.
-- Manual cards do not create duplicate resource counters.
+- Manual cards do not create duplicate broad shared resource counters.
 - Existing Resource Settings / rest recovery behavior remains unchanged.
+
+### Phase 3G: Limited-Use Feature Tracking Foundation — PLANNED
+
+Goal: prove the narrow foundation for feature-specific limited-use tracking on Abilities & Features cards without broadening into shared resource pools, spellcasting resources, attack/damage automation, or equipment/AC automation.
+
+Status: planned only. No runtime implementation has shipped for this slice yet.
+
+Planning scope:
+
+- Manual/custom Abilities & Features cards may later opt into a limited-use section.
+- The first limited-use section should be optional and narrow: enabled/disabled tracking, a use label such as "Empowered Bite", current uses, max uses, and one recovery setting.
+- Recovery must reuse the existing vocabulary: `manual`, `shortRest`, `longRest`, `shortOrLongRest`, and `none`.
+- Short Rest and Long Rest should eventually recover feature-specific uses through the existing character-level rest action path, not through panel-local rest buttons.
+- Feature-specific limited-use counters belong to one feature or sub-feature. Examples include Breath Weapon uses, Second Wind uses, Relentless Endurance uses, and Vampiric Bite's empowered-use counter.
+- Vampiric Bite itself is not spent; only its empowered effect has limited uses.
+- Breath Weapon can later receive a limited-use counter without copying the derived/read-only Breath Weapon card into manual feature-card state.
+- The conceptual storage direction is character-owned feature-use entries or equivalent, referenced by cards through stable IDs or another character-owned link. Phase 3G planning does not choose a final persisted field name or final schema contract.
+
+Resource boundaries:
+
+- Broad shared resource pools remain canonical character resources/Vitals counters. Examples include Sorcery Points, Ki, Bardic Inspiration, Rage uses, and Channel Divinity.
+- Feature cards may later reference broad shared pools, but they must not create duplicate copies of those pools.
+- Sorcery Points are intentionally out of scope for Phase 3G because they quickly pull in Flexible Casting, spell slots, Metamagic, and specialized shared-resource behavior.
+- Spell slots, Pact Magic slots, prepared/known spell automation, and automatically managed spellbook behavior remain future spell-system work.
+
+Explicitly out of scope for Phase 3G:
+
+- Runtime implementation, tests, migrations, schema finalization, or generated SRD data changes.
+- Sorcery Points, Ki, Metamagic, Flexible Casting, spell slots, Pact Magic slots, or prepared/known spell automation.
+- Attack roll or damage calculation.
+- AC derivation, armor/equipment automation, or builder AC automation.
+- Broad class-feature automation or expanded SRD data coverage.
+- Partial regain behavior unless a later rules slice explicitly designs it.
+- Shared-resource-linked specialized cards.
 
 ### Combat Card Vitals Polish — POLISH COMPLETE
 
@@ -533,7 +572,7 @@ Current example:
 - Dragonborn Breath Weapon DC is derivable from ancestry, Constitution modifier, and proficiency bonus, so Vitals is the appropriate normal-sheet home for that combat DC.
 - Dragonborn Breath Weapon's full action-style mechanics now render as the first derived, display-only Abilities & Features card, not in Spells or Weapons.
 
-Future examples may include class-derived resources such as Sorcery Points or similar level/class features. These values should be derived and read-only first. Do not persist them into flat/freeform fields unless a later explicit tracking or editing slice intentionally adds that behavior.
+Future examples split into two categories. Feature-specific limited-use counters, such as Breath Weapon uses or an empowered Vampiric Bite counter, may surface on Abilities & Features cards once Phase 3G implements character-owned feature-use tracking. Broad shared pools, such as Sorcery Points or Ki, should be derived/read-only first and then tracked through the canonical Vitals/resource-counter path only when a later explicit shared-resource slice intentionally adds that behavior.
 
 ### Temporary Builder-Only Panel Retirement Direction
 
