@@ -3,6 +3,7 @@
 
 import { DEV_MODE } from "./utils/dev.js";
 import { isBuilderCharacter, normalizeCharacterOverrides } from "./domain/characterHelpers.js";
+import { normalizeManualFeatureCard } from "./domain/manualFeatureCards.js";
 
 export const STORAGE_KEY = "localCampaignTracker_v1";
 export const ACTIVE_TAB_KEY = "localCampaignTracker_activeTab";
@@ -117,6 +118,16 @@ export const SCHEMA_MIGRATION_HISTORY = Object.freeze([
 
 /**
  * @typedef {{
+ *   enabled: true,
+ *   label: string,
+ *   current: number,
+ *   max: number,
+ *   recovery: "manual" | "shortRest" | "longRest" | "shortOrLongRest" | "none"
+ * }} LimitedUseConfig
+ */
+
+/**
+ * @typedef {{
  *   id: string,
  *   name: string,
  *   sourceType: string,
@@ -127,6 +138,7 @@ export const SCHEMA_MIGRATION_HISTORY = Object.freeze([
  *   attackRoll?: string,
  *   damageRoll?: string,
  *   effectText?: string,
+ *   limitedUse?: LimitedUseConfig,
  *   description: string
  * }} ManualFeatureCard
  */
@@ -1305,26 +1317,6 @@ export function migrateState(raw) {
   }
 
   function migrateToV7() {
-    const cleanFeatureText = (value) => typeof value === "string" ? value.trim() : "";
-    const normalizeManualFeatureCard = (value) => {
-      if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-      const source = /** @type {Record<string, unknown>} */ (value);
-      const id = cleanFeatureText(source.id);
-      if (!id) return null;
-      return {
-        id,
-        name: cleanFeatureText(source.name),
-        sourceType: cleanFeatureText(source.sourceType),
-        activation: cleanFeatureText(source.activation),
-        rangeArea: cleanFeatureText(source.rangeArea),
-        saveDc: cleanFeatureText(source.saveDc),
-        damageEffect: cleanFeatureText(source.damageEffect),
-        attackRoll: cleanFeatureText(source.attackRoll),
-        damageRoll: cleanFeatureText(source.damageRoll),
-        effectText: cleanFeatureText(source.effectText),
-        description: cleanFeatureText(source.description)
-      };
-    };
     const characters = data.characters && typeof data.characters === "object" && !Array.isArray(data.characters)
       ? /** @type {CharactersCollection & Record<string, unknown>} */ (data.characters)
       : null;

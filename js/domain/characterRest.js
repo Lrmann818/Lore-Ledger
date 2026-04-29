@@ -1,6 +1,11 @@
 // @ts-check
 // Character rest recovery helpers.
 
+import {
+  limitedUseRecoveryMatchesRest,
+  normalizeManualFeatureCards
+} from "./manualFeatureCards.js";
+
 /** @typedef {import("../state.js").CharacterEntry} CharacterEntry */
 /** @typedef {"shortRest" | "longRest"} CharacterRestType */
 /** @typedef {"shortRest" | "longRest" | "shortOrLongRest" | "manual" | "none"} CharacterRecoveryMode */
@@ -27,7 +32,8 @@ function recoveryMatchesRest(recovery, restType) {
 }
 
 /**
- * Recovers explicitly tagged current/max resource counters on one character.
+ * Recovers explicitly tagged current/max resource counters and manual feature-use
+ * counters on one character.
  * Untagged, manual, none, and unknown recovery metadata is intentionally ignored.
  *
  * @param {CharacterEntry} character
@@ -50,11 +56,21 @@ export function recoverCharacterForRest(character, restType) {
     return { ...resource, cur: resource.max };
   });
 
+  const manualFeatureCards = normalizeManualFeatureCards(character.manualFeatureCards);
+  const nextManualFeatureCards = manualFeatureCards.map((card) => {
+    const limitedUse = card.limitedUse;
+    if (!limitedUse || !limitedUseRecoveryMatchesRest(limitedUse.recovery, restType)) return card;
+    if (limitedUse.current >= limitedUse.max) return card;
+    changed = true;
+    return { ...card, limitedUse: { ...limitedUse, current: limitedUse.max } };
+  });
+
   if (!changed) return { character, changed: false };
   return {
     character: {
       ...character,
-      resources: nextResources
+      resources: nextResources,
+      manualFeatureCards: nextManualFeatureCards
     },
     changed: true
   };

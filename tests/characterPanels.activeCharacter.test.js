@@ -2149,6 +2149,144 @@ describe("character panels active character resolution", () => {
     api.destroy();
   });
 
+  it("lets manual feature cards opt into limited-use tracking from the dialog", () => {
+    const freeform = makeCharacter("char_free", "Free", { build: null });
+    const state = { characters: { activeId: "char_free", entries: [freeform] }, combat: { workspace: {} } };
+    const deps = makeDeps(state);
+    const api = initAbilitiesFeaturesPanel(deps);
+
+    document.getElementById("addFeatureCardBtn").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    fillFeatureDialog({ name: "Vampiric Bite", sourceType: "Custom", activation: "Action" });
+    document.querySelector("[data-feature-use-enabled]").checked = true;
+    document.querySelector('[data-feature-use-field="label"]').value = "Empowered Bite";
+    document.querySelector('[data-feature-use-field="current"]').value = "2";
+    document.querySelector('[data-feature-use-field="max"]').value = "2";
+    document.querySelector('[data-feature-use-field="recovery"]').value = "longRest";
+    clickDialogButton("[data-feature-dialog-save]");
+
+    expect(freeform.manualFeatureCards[0].limitedUse).toEqual({
+      enabled: true,
+      label: "Empowered Bite",
+      current: 2,
+      max: 2,
+      recovery: "longRest"
+    });
+    const card = document.querySelector('[data-manual-feature-id]');
+    expect(card.querySelector(".featureUseTrackerLabel").textContent).toBe("Empowered Bite");
+    expect(card.querySelector(".featureUseTrackerCount").textContent).toBe("2/2");
+    expect(card.querySelector('[data-feature-action="use-decrement"]')).not.toBeNull();
+    expect(card.querySelector('[data-feature-action="use-increment"]')).not.toBeNull();
+    expect(card.querySelector('[data-feature-action="use-reset"]')).not.toBeNull();
+    expect(deps.SaveManager.markDirty).toHaveBeenCalledTimes(1);
+
+    api.destroy();
+  });
+
+  it("omits limited-use tracking when disabled and leaves existing manual cards visually unchanged", () => {
+    const freeform = makeCharacter("char_free", "Free", {
+      build: null,
+      manualFeatureCards: [{ id: "feat_plain", name: "Plain Feature", sourceType: "", activation: "", rangeArea: "", saveDc: "", damageEffect: "", description: "" }]
+    });
+    const state = { characters: { activeId: "char_free", entries: [freeform] }, combat: { workspace: {} } };
+    const deps = makeDeps(state);
+    const api = initAbilitiesFeaturesPanel(deps);
+
+    const card = document.querySelector('[data-manual-feature-id="feat_plain"]');
+
+    expect(card.querySelector(".featureUseTracker")).toBeNull();
+    expect(freeform.manualFeatureCards[0]).not.toHaveProperty("limitedUse");
+    expect(deps.SaveManager.markDirty).not.toHaveBeenCalled();
+
+    api.destroy();
+  });
+
+  it("manual limited-use controls clamp decrement, increment, and reset updates", () => {
+    const freeform = makeCharacter("char_free", "Free", {
+      build: null,
+      manualFeatureCards: [{
+        id: "feat_second_wind",
+        name: "Second Wind",
+        sourceType: "Class Feature",
+        activation: "Bonus Action",
+        rangeArea: "",
+        saveDc: "",
+        damageEffect: "",
+        description: "",
+        limitedUse: { enabled: true, label: "Second Wind", current: 1, max: 2, recovery: "shortRest" }
+      }]
+    });
+    const state = { characters: { activeId: "char_free", entries: [freeform] }, combat: { workspace: {} } };
+    const deps = makeDeps(state);
+    const api = initAbilitiesFeaturesPanel(deps);
+    const list = document.getElementById("charAbilitiesFeaturesList");
+
+    let card = list.querySelector('[data-manual-feature-id="feat_second_wind"]');
+    dispatchTargetedEvent(list, "click", card.querySelector('[data-feature-action="use-decrement"]'));
+    expect(freeform.manualFeatureCards[0].limitedUse.current).toBe(0);
+    expect(list.querySelector(".featureUseTrackerCount").textContent).toBe("0/2");
+
+    card = list.querySelector('[data-manual-feature-id="feat_second_wind"]');
+    dispatchTargetedEvent(list, "click", card.querySelector('[data-feature-action="use-decrement"]'));
+    expect(freeform.manualFeatureCards[0].limitedUse.current).toBe(0);
+
+    card = list.querySelector('[data-manual-feature-id="feat_second_wind"]');
+    dispatchTargetedEvent(list, "click", card.querySelector('[data-feature-action="use-increment"]'));
+    expect(freeform.manualFeatureCards[0].limitedUse.current).toBe(1);
+
+    card = list.querySelector('[data-manual-feature-id="feat_second_wind"]');
+    dispatchTargetedEvent(list, "click", card.querySelector('[data-feature-action="use-reset"]'));
+    expect(freeform.manualFeatureCards[0].limitedUse.current).toBe(2);
+    expect(list.querySelector(".featureUseTrackerCount").textContent).toBe("2/2");
+    expect(deps.SaveManager.markDirty).toHaveBeenCalledTimes(3);
+
+    api.destroy();
+  });
+
+  it("clamps invalid limited-use dialog values defensively", () => {
+    const freeform = makeCharacter("char_free", "Free", { build: null });
+    const state = { characters: { activeId: "char_free", entries: [freeform] }, combat: { workspace: {} } };
+    const deps = makeDeps(state);
+    const api = initAbilitiesFeaturesPanel(deps);
+
+    document.getElementById("addFeatureCardBtn").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    fillFeatureDialog({ name: "Relentless Endurance" });
+    document.querySelector("[data-feature-use-enabled]").checked = true;
+    document.querySelector('[data-feature-use-field="current"]').value = "9";
+    document.querySelector('[data-feature-use-field="max"]').value = "-2";
+    document.querySelector('[data-feature-use-field="recovery"]').value = "daily";
+    clickDialogButton("[data-feature-dialog-save]");
+
+    expect(freeform.manualFeatureCards[0].limitedUse).toMatchObject({
+      current: 0,
+      max: 0,
+      recovery: "manual"
+    });
+    expect(document.querySelector(".featureUseTrackerLabel").textContent).toBe("Uses");
+    expect(document.querySelector(".featureUseTrackerCount").textContent).toBe("0/0");
+
+    api.destroy();
+  });
+
+  it("keeps derived feature cards read-only without limited-use controls", () => {
+    const builder = makeBuilder("char_builder", { str: 10, dex: 10, con: 14, int: 10, wis: 10, cha: 10 });
+    builder.build.raceId = "dragonborn";
+    builder.build.classId = "class_fighter";
+    builder.build.level = 5;
+    builder.build.choicesByLevel = { "1": { "dragonborn-ancestry": "blue" } };
+    const state = { characters: { activeId: "char_builder", entries: [builder] }, combat: { workspace: {} } };
+    const deps = makeDeps(state);
+    const api = initAbilitiesFeaturesPanel(deps);
+
+    const derived = document.querySelector('[data-feature-id="dragonborn-breath-weapon"]');
+
+    expect(derived.querySelector(".featureUseTracker")).toBeNull();
+    expect(derived.querySelector("[data-feature-action='use-decrement']")).toBeNull();
+    expect(builder.manualFeatureCards).toEqual([]);
+    expect(deps.SaveManager.markDirty).not.toHaveBeenCalled();
+
+    api.destroy();
+  });
+
   it("manual card move-down changes manual card order in state", () => {
     const freeform = makeCharacter("char_free", "Free", {
       build: null,

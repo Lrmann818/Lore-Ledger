@@ -1224,6 +1224,45 @@ describe("character page selector", () => {
     controller.destroy();
   });
 
+  it("applies rest recovery to active manual feature limited-use counters through the character toolbar", async () => {
+    installCharacterSelectorDom();
+    const Popovers = createFakePopovers();
+    const deps = createCharacterPageDeps(Popovers);
+    deps.state.characters.entries[0].manualFeatureCards = [{
+      id: "feature_second_wind",
+      name: "Second Wind",
+      sourceType: "Class Feature",
+      activation: "Bonus Action",
+      rangeArea: "",
+      saveDc: "",
+      damageEffect: "",
+      description: "",
+      limitedUse: { enabled: true, label: "Second Wind", current: 0, max: 1, recovery: "shortRest" }
+    }];
+    deps.state.characters.entries[1].manualFeatureCards = [{
+      id: "feature_inactive",
+      name: "Inactive Feature",
+      sourceType: "",
+      activation: "",
+      rangeArea: "",
+      saveDc: "",
+      damageEffect: "",
+      description: "",
+      limitedUse: { enabled: true, label: "", current: 0, max: 1, recovery: "shortRest" }
+    }];
+
+    const controller = initCharacterPageUI(deps);
+    document.getElementById("charShortRestBtn").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    await flushPromises();
+
+    expect(deps.state.characters.entries[0].manualFeatureCards[0].limitedUse.current).toBe(1);
+    expect(deps.state.characters.entries[1].manualFeatureCards[0].limitedUse.current).toBe(0);
+    expect(deps.SaveManager.markDirty).toHaveBeenCalledTimes(1);
+    expect(deps.setStatus).toHaveBeenCalledWith("Short rest applied.", { stickyMs: 2000 });
+
+    controller.destroy();
+  });
+
   it("does not mark dirty or re-render when rest recovery changes nothing", async () => {
     installCharacterSelectorDom();
     const Popovers = createFakePopovers();

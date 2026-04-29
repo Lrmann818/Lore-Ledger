@@ -5847,6 +5847,55 @@ select.npcField:focus {
   overflow-wrap: anywhere;
 }
 
+.featureUseTracker {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-2);
+  padding: 6px 8px;
+  margin-bottom: 8px;
+}
+
+.featureUseTrackerLabelWrap {
+  min-width: 0;
+}
+
+.featureUseTrackerLabel {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.featureUseTrackerCount {
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.featureUseTrackerControls {
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 4px;
+}
+
+.featureUseTrackerBtn {
+  min-height: 28px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-3);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 8px;
+}
+
+.featureUseTrackerBtn:hover {
+  background: var(--surface-3-hover, var(--surface-3));
+}
+
 .featureCardDialogPanel {
   max-width: 520px;
   max-height: calc(100dvh - 36px);
@@ -5878,14 +5927,48 @@ select.npcField:focus {
   resize: vertical;
 }
 
+.featureCardUseSection {
+  display: grid;
+  gap: 8px;
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+}
+
+.featureCardUseSectionTitle {
+  font-weight: 700;
+}
+
+.featureCardUseEnabledField {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.featureCardUseGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
 @media (max-width: 600px) {
-  .featureActionDetails {
+  .featureActionDetails,
+  .featureCardUseGrid {
     grid-template-columns: 1fr;
   }
 
   .featureActionHeader,
   .featureActionHeaderActions {
     flex-direction: column;
+  }
+
+  .featureUseTracker {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .featureUseTrackerControls {
+    flex-wrap: wrap;
   }
 }
 

@@ -319,7 +319,19 @@ describe("migrateState", () => {
               manualFeatureCards: [
                 null,
                 { id: "", name: "Missing Id" },
-                { id: "feature_a", name: "  Custom Boon  ", sourceType: " Custom ", activation: 9 }
+                {
+                  id: "feature_a",
+                  name: "  Custom Boon  ",
+                  sourceType: " Custom ",
+                  activation: 9,
+                  limitedUse: {
+                    enabled: true,
+                    label: "  Second Wind  ",
+                    current: 9,
+                    max: 2,
+                    recovery: "shortRest"
+                  }
+                }
               ]
             }
           ]
@@ -339,6 +351,13 @@ describe("migrateState", () => {
         attackRoll: "",
         damageRoll: "",
         effectText: "",
+        limitedUse: {
+          enabled: true,
+          label: "Second Wind",
+          current: 2,
+          max: 2,
+          recovery: "shortRest"
+        },
         description: ""
       }]);
     });

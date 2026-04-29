@@ -5,6 +5,12 @@ import { getActiveCharacter } from "../../../domain/characterHelpers.js";
 import { deriveCharacter } from "../../../domain/rules/deriveCharacter.js";
 import { createStateActions } from "../../../domain/stateActions.js";
 import { ACTIVE_CHARACTER_CHANGED_EVENT } from "../../../domain/characterEvents.js";
+import {
+  cleanManualFeatureText,
+  normalizeLimitedUseConfig,
+  normalizeManualFeatureCards,
+  updateLimitedUseCount
+} from "../../../domain/manualFeatureCards.js";
 import { requireMany, getNoopDestroyApi } from "../../../utils/domGuards.js";
 import { subscribePanelDataChanged } from "../../../ui/panelInvalidation.js";
 
@@ -31,54 +37,10 @@ const MANUAL_FEATURE_FIELDS = Object.freeze([
 ]);
 
 /**
- * @param {unknown} value
- * @returns {string}
- */
-function cleanString(value) {
-  return typeof value === "string" ? value.trim() : "";
-}
-
-/**
  * @returns {string}
  */
 function newManualFeatureId() {
   return `feature_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
-}
-
-/**
- * @param {unknown} value
- * @returns {import("../../../state.js").ManualFeatureCard | null}
- */
-function normalizeManualFeatureCard(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-  const source = /** @type {Record<string, unknown>} */ (value);
-  const id = cleanString(source.id);
-  if (!id) return null;
-  return {
-    id,
-    name: cleanString(source.name),
-    sourceType: cleanString(source.sourceType),
-    activation: cleanString(source.activation),
-    rangeArea: cleanString(source.rangeArea),
-    saveDc: cleanString(source.saveDc),
-    damageEffect: cleanString(source.damageEffect),
-    attackRoll: cleanString(source.attackRoll),
-    damageRoll: cleanString(source.damageRoll),
-    effectText: cleanString(source.effectText),
-    description: cleanString(source.description)
-  };
-}
-
-/**
- * @param {unknown} value
- * @returns {import("../../../state.js").ManualFeatureCard[]}
- */
-function normalizeManualFeatureCards(value) {
-  if (!Array.isArray(value)) return [];
-  return value.map(normalizeManualFeatureCard).filter(
-    /** @param {import("../../../state.js").ManualFeatureCard | null} x @returns {x is import("../../../state.js").ManualFeatureCard} */
-    (x) => x !== null
-  );
 }
 
 /**
@@ -97,7 +59,8 @@ function makeManualFeatureDraft(card = null) {
     attackRoll: card?.attackRoll || "",
     damageRoll: card?.damageRoll || "",
     effectText: card?.effectText || "",
-    description: card?.description || ""
+    description: card?.description || "",
+    ...(card?.limitedUse ? { limitedUse: normalizeLimitedUseConfig(card.limitedUse) } : {})
   };
 }
 
@@ -172,6 +135,40 @@ function appendFeatureNotes(parent, featureId, description, isNotesCollapsed) {
 }
 
 /**
+ * @param {HTMLElement} parent
+ * @param {import("../../../state.js").ManualFeatureCard} feature
+ */
+function appendLimitedUseTracker(parent, feature) {
+  const limitedUse = normalizeLimitedUseConfig(feature.limitedUse);
+  if (!limitedUse) return;
+
+  const tracker = appendDiv(parent, "featureUseTracker");
+  tracker.dataset.featureUseTracker = feature.id;
+
+  const labelWrap = appendDiv(tracker, "featureUseTrackerLabelWrap");
+  appendDiv(labelWrap, "featureUseTrackerLabel", limitedUse.label || "Uses");
+  appendDiv(labelWrap, "featureUseTrackerCount", `${limitedUse.current}/${limitedUse.max}`);
+
+  const controls = appendDiv(tracker, "featureUseTrackerControls");
+  const featureName = feature.name || "feature";
+  const buttons = [
+    ["use-decrement", "Use", "Use one"],
+    ["use-increment", "+", "Restore one"],
+    ["use-reset", "Reset", "Reset uses"]
+  ];
+  for (const [action, text, label] of buttons) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "featureUseTrackerBtn";
+    button.dataset.featureAction = action;
+    button.dataset.featureId = feature.id;
+    button.textContent = text;
+    button.setAttribute("aria-label", `${label}: ${featureName}`);
+    controls.appendChild(button);
+  }
+}
+
+/**
  * @param {HTMLElement} list
  * @param {import("../../../domain/rules/deriveCharacter.js").DerivedFeatureAction} feature
  * @param {Set<string>} collapsedCards
@@ -203,7 +200,7 @@ function renderDerivedFeatureCard(list, feature, collapsedCards, collapsedNotes)
   const body = appendDiv(card, "featureCardBody");
 
   const details = appendDiv(body, "featureActionDetails");
-  const saveLabel = ABILITY_SAVE_LABELS[/** @type {keyof typeof ABILITY_SAVE_LABELS} */ (feature.saveAbility)] || cleanString(feature.saveAbility);
+  const saveLabel = ABILITY_SAVE_LABELS[/** @type {keyof typeof ABILITY_SAVE_LABELS} */ (feature.saveAbility)] || cleanManualFeatureText(feature.saveAbility);
   const saveText = saveLabel
     ? `${saveLabel}${feature.saveDc == null ? "" : ` DC ${feature.saveDc}`}`
     : (feature.saveDc == null ? "" : `DC ${feature.saveDc}`);
@@ -301,6 +298,8 @@ function renderManualFeatureCard(list, feature, index, total, collapsedCards, co
 
   // Card body — hidden when card is collapsed
   const body = appendDiv(card, "featureCardBody");
+
+  appendLimitedUseTracker(body, feature);
 
   // Detail rows: show only populated fields
   const detailRows = /** @type {[string, string][]} */ ([
@@ -444,6 +443,86 @@ export function initAbilitiesFeaturesPanel(deps = {}) {
       body.appendChild(label);
     }
 
+    const useSection = document.createElement("div");
+    useSection.className = "featureCardUseSection";
+
+    const useHeading = document.createElement("div");
+    useHeading.className = "featureCardUseSectionTitle";
+    useHeading.textContent = "Limited Uses";
+    useSection.appendChild(useHeading);
+
+    const enabledLabel = document.createElement("label");
+    enabledLabel.className = "featureCardUseEnabledField";
+    const enabledInput = document.createElement("input");
+    enabledInput.type = "checkbox";
+    enabledInput.dataset.featureUseEnabled = "true";
+    enabledLabel.appendChild(enabledInput);
+    enabledLabel.appendChild(document.createTextNode("Track limited uses"));
+    useSection.appendChild(enabledLabel);
+
+    const useGrid = document.createElement("div");
+    useGrid.className = "featureCardUseGrid";
+    const useFields = [
+      ["label", "Use Label", "Uses"],
+      ["current", "Current Uses", "0"],
+      ["max", "Max Uses", "1"]
+    ];
+    for (const [key, labelText, placeholder] of useFields) {
+      const label = document.createElement("label");
+      label.className = "featureCardDialogField";
+      label.setAttribute("for", `featureCard_limitedUse_${key}`);
+
+      const labelSpan = document.createElement("span");
+      labelSpan.className = "modalLabel";
+      labelSpan.textContent = labelText;
+
+      const input = document.createElement("input");
+      input.id = `featureCard_limitedUse_${key}`;
+      input.dataset.featureUseField = key;
+      input.className = "featureCardDialogInput";
+      input.placeholder = placeholder;
+      if (key === "current" || key === "max") {
+        input.type = "number";
+        input.min = "0";
+        input.step = "1";
+        input.inputMode = "numeric";
+      }
+
+      label.appendChild(labelSpan);
+      label.appendChild(input);
+      useGrid.appendChild(label);
+    }
+
+    const recoveryLabel = document.createElement("label");
+    recoveryLabel.className = "featureCardDialogField";
+    recoveryLabel.setAttribute("for", "featureCard_limitedUse_recovery");
+    const recoveryLabelText = document.createElement("span");
+    recoveryLabelText.className = "modalLabel";
+    recoveryLabelText.textContent = "Recovery";
+    const recoverySelect = document.createElement("select");
+    recoverySelect.id = "featureCard_limitedUse_recovery";
+    recoverySelect.dataset.featureUseField = "recovery";
+    recoverySelect.className = "featureCardDialogInput";
+    const recoveryOptions = [
+      ["manual", "Manual"],
+      ["shortRest", "Short Rest"],
+      ["longRest", "Long Rest"],
+      ["shortOrLongRest", "Short or Long Rest"],
+      ["none", "None"]
+    ];
+    for (const [value, label] of recoveryOptions) {
+      const option = document.createElement("option");
+      option.value = value;
+      option.textContent = label;
+      recoverySelect.appendChild(option);
+    }
+    recoveryLabel.appendChild(recoveryLabelText);
+    recoveryLabel.appendChild(recoverySelect);
+    useGrid.appendChild(recoveryLabel);
+
+    useSection.appendChild(useGrid);
+    body.appendChild(useSection);
+
     const footer = document.createElement("div");
     footer.className = "uiDialogFooter";
 
@@ -505,6 +584,19 @@ export function initAbilitiesFeaturesPanel(deps = {}) {
         input.value = String((/** @type {Record<string, unknown>} */ (draft))[key] || "");
       }
     }
+    const limitedUse = normalizeLimitedUseConfig(draft.limitedUse);
+    const enabled = overlay.querySelector("[data-feature-use-enabled]");
+    if (enabled instanceof HTMLInputElement) enabled.checked = !!limitedUse;
+    const useValues = {
+      label: limitedUse?.label || "",
+      current: limitedUse ? String(limitedUse.current) : "",
+      max: limitedUse ? String(limitedUse.max) : "",
+      recovery: limitedUse?.recovery || "manual"
+    };
+    for (const [key, value] of Object.entries(useValues)) {
+      const input = overlay.querySelector(`[data-feature-use-field="${key}"]`);
+      if (input instanceof HTMLInputElement || input instanceof HTMLSelectElement) input.value = value;
+    }
     const titleEl = overlay.querySelector("#featureCardDialogTitle");
     if (titleEl) titleEl.textContent = card ? "Edit Feature" : "Add Feature";
     overlay.hidden = false;
@@ -523,11 +615,20 @@ export function initAbilitiesFeaturesPanel(deps = {}) {
     for (const [key] of MANUAL_FEATURE_FIELDS) {
       const input = overlay.querySelector(`[data-feature-field="${key}"]`);
       values[key] = input instanceof HTMLInputElement || input instanceof HTMLTextAreaElement
-        ? cleanString(input.value)
+        ? cleanManualFeatureText(input.value)
         : "";
     }
-    const existingId = cleanString(overlay.dataset.featureId);
-    return {
+    const useEnabled = overlay.querySelector("[data-feature-use-enabled]");
+    /** @type {Record<string, string>} */
+    const useValues = {};
+    overlay.querySelectorAll("[data-feature-use-field]").forEach((field) => {
+      if (field instanceof HTMLInputElement || field instanceof HTMLSelectElement) {
+        useValues[String(field.dataset.featureUseField)] = field.value;
+      }
+    });
+    const existingId = cleanManualFeatureText(overlay.dataset.featureId);
+    /** @type {import("../../../state.js").ManualFeatureCard} */
+    const draft = {
       id: existingId || newManualFeatureId(),
       name: values.name || "Untitled Feature",
       sourceType: values.sourceType || "",
@@ -540,12 +641,23 @@ export function initAbilitiesFeaturesPanel(deps = {}) {
       effectText: values.effectText || "",
       description: values.description || ""
     };
+    if (useEnabled instanceof HTMLInputElement && useEnabled.checked) {
+      const limitedUse = normalizeLimitedUseConfig({
+        enabled: true,
+        label: useValues.label,
+        current: useValues.current,
+        max: useValues.max,
+        recovery: useValues.recovery
+      });
+      if (limitedUse) draft.limitedUse = limitedUse;
+    }
+    return draft;
   }
 
   function saveFeatureDialog() {
     const draft = readFeatureDialogDraft();
     if (!draft) return;
-    const existingId = cleanString(featureDialogOverlay?.dataset.featureId);
+    const existingId = cleanManualFeatureText(featureDialogOverlay?.dataset.featureId);
     const updated = mutateCharacter((character) => {
       const cards = normalizeManualFeatureCards(character.manualFeatureCards);
       const index = existingId ? cards.findIndex((card) => card.id === existingId) : -1;
@@ -589,6 +701,24 @@ export function initAbilitiesFeaturesPanel(deps = {}) {
     if (updated) markChanged();
   }
 
+  /**
+   * @param {string} featureId
+   * @param {"decrement" | "increment" | "reset"} operation
+   */
+  function updateManualFeatureUses(featureId, operation) {
+    const updated = mutateCharacter((character) => {
+      const cards = normalizeManualFeatureCards(character.manualFeatureCards);
+      const index = cards.findIndex((card) => card.id === featureId);
+      if (index === -1) return false;
+      const result = updateLimitedUseCount(cards[index].limitedUse, operation);
+      if (!result.changed || !result.limitedUse) return false;
+      cards[index] = { ...cards[index], limitedUse: result.limitedUse };
+      character.manualFeatureCards = cards;
+      return true;
+    }, { queueSave: false });
+    if (updated) markChanged();
+  }
+
   function render() {
     if (destroyed) return;
     list.replaceChildren();
@@ -612,7 +742,7 @@ export function initAbilitiesFeaturesPanel(deps = {}) {
     // Card header collapse — click anywhere non-interactive on the header
     const collapseHeader = target.closest("[data-feature-collapse-header]");
     if (collapseHeader instanceof HTMLElement && !isInteractive(target)) {
-      const featureId = cleanString(collapseHeader.dataset.featureCollapseHeader);
+      const featureId = cleanManualFeatureText(collapseHeader.dataset.featureCollapseHeader);
       if (featureId) {
         if (collapsedCards.has(featureId)) collapsedCards.delete(featureId);
         else collapsedCards.add(featureId);
@@ -630,7 +760,7 @@ export function initAbilitiesFeaturesPanel(deps = {}) {
     if (!(button instanceof HTMLElement)) return;
 
     const action = button.dataset.featureAction;
-    const featureId = cleanString(button.dataset.featureId);
+    const featureId = cleanManualFeatureText(button.dataset.featureId);
 
     // Notes toggle — in the card body, independent of card collapse
     if (action === "notes-toggle") {
@@ -682,6 +812,21 @@ export function initAbilitiesFeaturesPanel(deps = {}) {
 
     if (action === "move-down") {
       moveManualFeature(featureId, +1);
+      return;
+    }
+
+    if (action === "use-decrement") {
+      updateManualFeatureUses(featureId, "decrement");
+      return;
+    }
+
+    if (action === "use-increment") {
+      updateManualFeatureUses(featureId, "increment");
+      return;
+    }
+
+    if (action === "use-reset") {
+      updateManualFeatureUses(featureId, "reset");
       return;
     }
 

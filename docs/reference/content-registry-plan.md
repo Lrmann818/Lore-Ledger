@@ -739,14 +739,19 @@ store optional plain-text attack, damage, and effect fields; the older
 `damageEffect` field remains backward-compatible. These text fields are not
 registry mechanics and do not imply attack/damage calculation, resource
 automation, or AC derivation.
-Phase 3G is planned only: it should prove optional feature-specific limited-use
-tracking for manual/custom feature cards with enabled/disabled tracking, a use
-label, current uses, max uses, and one recovery setting from the existing
-`manual`, `shortRest`, `longRest`, `shortOrLongRest`, and `none` vocabulary. It
-does not choose a final persisted field name or final schema contract. It should
-not implement Sorcery Points, Ki, Metamagic, Flexible Casting, spell slots, Pact
-Magic slots, prepared/known spell automation, attack/damage calculation, AC
-derivation, equipment automation, or broader SRD/class-feature coverage.
+Phase 3G foundation complete: manual/custom feature cards can optionally persist
+a nested `limitedUse` object with enabled tracking, a use label, current uses,
+max uses, and one recovery setting from the existing `manual`, `shortRest`,
+`longRest`, `shortOrLongRest`, and `none` vocabulary. The Abilities & Features
+panel displays compact use/restore-one/reset controls for enabled manual cards
+only, clamps current uses between 0 and max, and normalizes invalid values
+defensively. Short Rest and Long Rest recover eligible manual/custom feature
+counters through the existing character-level `recoverCharacterForRest(...)`
+path. This foundation does not add limited-use controls to derived/read-only
+cards, does not implement Sorcery Points, Ki, Metamagic, Flexible Casting, spell
+slots, Pact Magic slots, prepared/known spell automation, attack/damage
+calculation, AC derivation, equipment automation, or broader SRD/class-feature
+coverage.
 Specialized shared-resource-linked feature cards, such as Sorcery Points,
 Metamagic, and Flexible Casting, may need dedicated renderers later, but they
 must still use the single canonical resource counter.

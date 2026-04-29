@@ -300,9 +300,8 @@ Future Abilities & Features work:
 
 - Fuller accessibility pass for menu keyboard navigation.
 - Possible cleanup of overlapping legacy `damageEffect` and newer `effectText` fields.
-- Phase 3G planned foundation for feature-specific limited-use tracking.
 - Partial regain behavior, if a later rules slice needs it.
-- Rest/recovery rules across feature uses and broader character systems.
+- Broader rest/recovery rules beyond Phase 3G manual/custom feature-specific counters.
 - Breath Weapon use tracking through canonical feature-use/resource entries.
 - Spell slot recovery later.
 - Combat/linked-character rest behavior later, if desired.
@@ -314,7 +313,7 @@ Goal: add the first character-level Short Rest / Long Rest action path while pre
 
 Completed April 29, 2026.
 
-Phase 3D foundation complete: Character page Short Rest / Long Rest toolbar controls now route through a central active-character recovery helper for explicitly tagged `character.resources[]` counters. Phase 3E adds the first resource recovery settings UI for assigning that metadata; feature-use tracking, spell slot recovery, partial regain behavior, and broader class-feature automation remain future work.
+Phase 3D foundation complete: Character page Short Rest / Long Rest toolbar controls now route through a central active-character recovery helper for explicitly tagged `character.resources[]` counters. Phase 3E adds the first resource recovery settings UI for assigning that metadata, and Phase 3G extends the same helper to manual/custom feature-specific counters; derived Breath Weapon use tracking, spell slot recovery, partial regain behavior, and broader class-feature automation remain future work.
 
 Recovery vocabulary:
 
@@ -371,7 +370,7 @@ Still out of scope after this foundation slice:
 - Combat-wide rest actions or all-character rest actions.
 - Linked combat character rest behavior.
 - Breath Weapon use tracking.
-- Abilities & Features feature-specific limited-use tracking, planned separately as Phase 3G.
+- Derived/read-only feature-use tracking and broad shared-resource-linked feature cards.
 - Shared-resource-linked behavior for pools such as Sorcery Points, Ki, Rage uses, Bardic Inspiration, or Channel Divinity.
 - Manual/freeform feature-card editing is handled by Phase 3F, but it does not add resource automation.
 
@@ -381,7 +380,7 @@ Goal: let users assign rest-recovery metadata to existing Vitals resource tracke
 
 Completed April 29, 2026.
 
-Phase 3E foundation complete: Vitals resource recovery metadata can now be configured from resource tiles through press-and-hold or keyboard activation, without adding visible tile settings buttons. The dialog writes only `resource.recovery`; partial regain, feature-use tracking, Breath Weapon use tracking, spell slots, combat/linked-character rest behavior, and broader automation remain future work.
+Phase 3E foundation complete: Vitals resource recovery metadata can now be configured from resource tiles through press-and-hold or keyboard activation, without adding visible tile settings buttons. The dialog writes only `resource.recovery`; partial regain, derived Breath Weapon use tracking, spell slots, combat/linked-character rest behavior, and broader automation remain future work.
 
 Interaction contract:
 
@@ -436,7 +435,7 @@ Still out of scope after this foundation slice:
 - Partial regain amount fields.
 - "Regain short" or "regain long" numeric fields.
 - Spendable vs Static toggles unless the current resource code already has that concept.
-- Limited-use feature tracking. Phase 3G plans the narrow feature-specific foundation separately.
+- Derived/read-only Breath Weapon use tracking and broad shared-resource-linked feature cards. Phase 3G ships only manual/custom feature-specific limited-use tracking.
 - Breath Weapon use tracking.
 - Manual Abilities & Features card editing. Phase 3F later completes the foundation slice for that path.
 - Sorcery Points, Ki, Metamagic, or Flexible Casting automation.
@@ -510,22 +509,25 @@ Completed foundation tests:
 - Manual cards do not create duplicate broad shared resource counters.
 - Existing Resource Settings / rest recovery behavior remains unchanged.
 
-### Phase 3G: Limited-Use Feature Tracking Foundation — PLANNED
+### Phase 3G: Limited-Use Feature Tracking Foundation — FOUNDATION COMPLETE
 
 Goal: prove the narrow foundation for feature-specific limited-use tracking on Abilities & Features cards without broadening into shared resource pools, spellcasting resources, attack/damage automation, or equipment/AC automation.
 
-Status: planned only. No runtime implementation has shipped for this slice yet.
+Completed April 29, 2026.
 
-Planning scope:
+Shipped foundation scope:
 
-- Manual/custom Abilities & Features cards may later opt into a limited-use section.
-- The first limited-use section should be optional and narrow: enabled/disabled tracking, a use label such as "Empowered Bite", current uses, max uses, and one recovery setting.
-- Recovery must reuse the existing vocabulary: `manual`, `shortRest`, `longRest`, `shortOrLongRest`, and `none`.
-- Short Rest and Long Rest should eventually recover feature-specific uses through the existing character-level rest action path, not through panel-local rest buttons.
-- Feature-specific limited-use counters belong to one feature or sub-feature. Examples include Breath Weapon uses, Second Wind uses, Relentless Endurance uses, and Vampiric Bite's empowered-use counter.
+- Manual/custom Abilities & Features cards can opt into a limited-use section.
+- The persisted field is an optional nested `limitedUse` object on each manual card, normalized from `manualFeatureCards[]`.
+- The section stores enabled tracking, a use label such as "Empowered Bite", current uses, max uses, and one recovery setting.
+- Recovery reuses the existing vocabulary: `manual`, `shortRest`, `longRest`, `shortOrLongRest`, and `none`.
+- Short Rest and Long Rest recover eligible manual/custom feature counters through the existing character-level `recoverCharacterForRest(character, restType)` path, not through panel-local rest buttons.
+- Feature cards display compact controls to use one, restore one, or reset current uses to max.
+- Current uses are clamped between 0 and max, and invalid, missing, blank, negative, or unknown values normalize defensively.
+- Feature-specific limited-use counters belong to one manual/custom feature or sub-feature. Examples include Second Wind uses, Relentless Endurance uses, and Vampiric Bite's empowered-use counter.
 - Vampiric Bite itself is not spent; only its empowered effect has limited uses.
+- Derived/read-only cards do not receive limited-use controls in this slice.
 - Breath Weapon can later receive a limited-use counter without copying the derived/read-only Breath Weapon card into manual feature-card state.
-- The conceptual storage direction is character-owned feature-use entries or equivalent, referenced by cards through stable IDs or another character-owned link. Phase 3G planning does not choose a final persisted field name or final schema contract.
 
 Resource boundaries:
 
@@ -534,15 +536,25 @@ Resource boundaries:
 - Sorcery Points are intentionally out of scope for Phase 3G because they quickly pull in Flexible Casting, spell slots, Metamagic, and specialized shared-resource behavior.
 - Spell slots, Pact Magic slots, prepared/known spell automation, and automatically managed spellbook behavior remain future spell-system work.
 
-Explicitly out of scope for Phase 3G:
+Still out of scope after this foundation slice:
 
-- Runtime implementation, tests, migrations, schema finalization, or generated SRD data changes.
+- Derived Dragonborn Breath Weapon use tracking.
+- Generated SRD data changes or SRD adapter changes.
 - Sorcery Points, Ki, Metamagic, Flexible Casting, spell slots, Pact Magic slots, or prepared/known spell automation.
 - Attack roll or damage calculation.
 - AC derivation, armor/equipment automation, or builder AC automation.
 - Broad class-feature automation or expanded SRD data coverage.
 - Partial regain behavior unless a later rules slice explicitly designs it.
 - Shared-resource-linked specialized cards.
+
+Completed foundation tests:
+
+- Manual/custom cards can opt into limited-use tracking from the card dialog.
+- Existing manual cards without tracking render unchanged.
+- Use, restore-one, and reset controls clamp current uses correctly.
+- Invalid dialog values normalize defensively.
+- Derived/read-only cards do not receive limited-use controls or persist manual state.
+- Short Rest and Long Rest recover eligible manual/custom feature counters through the existing rest helper and active-character toolbar path.
 
 ### Combat Card Vitals Polish — POLISH COMPLETE
 
@@ -572,7 +584,7 @@ Current example:
 - Dragonborn Breath Weapon DC is derivable from ancestry, Constitution modifier, and proficiency bonus, so Vitals is the appropriate normal-sheet home for that combat DC.
 - Dragonborn Breath Weapon's full action-style mechanics now render as the first derived, display-only Abilities & Features card, not in Spells or Weapons.
 
-Future examples split into two categories. Feature-specific limited-use counters, such as Breath Weapon uses or an empowered Vampiric Bite counter, may surface on Abilities & Features cards once Phase 3G implements character-owned feature-use tracking. Broad shared pools, such as Sorcery Points or Ki, should be derived/read-only first and then tracked through the canonical Vitals/resource-counter path only when a later explicit shared-resource slice intentionally adds that behavior.
+Future examples split into two categories. Manual/custom feature-specific limited-use counters, such as an empowered Vampiric Bite counter, can surface on Abilities & Features cards through the Phase 3G `limitedUse` foundation; derived Breath Weapon use tracking remains future work and should not copy the derived card into manual state. Broad shared pools, such as Sorcery Points or Ki, should be derived/read-only first and then tracked through the canonical Vitals/resource-counter path only when a later explicit shared-resource slice intentionally adds that behavior.
 
 ### Temporary Builder-Only Panel Retirement Direction
 

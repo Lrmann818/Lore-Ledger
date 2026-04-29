@@ -103,4 +103,77 @@ describe("recoverCharacterForRest", () => {
     expect(result.character.resources.map((resource) => resource.cur)).toEqual([2, 1, 0]);
     expect(character.resources.map((resource) => resource.cur)).toEqual([2, 0, 0]);
   });
+
+  it("shortRest recovers eligible manual feature limited-use counters", () => {
+    const character = {
+      ...makeCharacter([]),
+      manualFeatureCards: [
+        {
+          id: "feature_second_wind",
+          name: "Second Wind",
+          sourceType: "Class Feature",
+          activation: "Bonus Action",
+          rangeArea: "Self",
+          saveDc: "",
+          damageEffect: "",
+          description: "",
+          limitedUse: { enabled: true, label: "Second Wind", current: 0, max: 1, recovery: "shortRest" }
+        },
+        {
+          id: "feature_long",
+          name: "Long Rest Feature",
+          sourceType: "",
+          activation: "",
+          rangeArea: "",
+          saveDc: "",
+          damageEffect: "",
+          description: "",
+          limitedUse: { enabled: true, label: "", current: 0, max: 1, recovery: "longRest" }
+        }
+      ]
+    };
+
+    const result = recoverCharacterForRest(character, "shortRest");
+
+    expect(result.changed).toBe(true);
+    expect(result.character.manualFeatureCards.map((card) => card.limitedUse?.current)).toEqual([1, 0]);
+    expect(character.manualFeatureCards.map((card) => card.limitedUse?.current)).toEqual([0, 0]);
+  });
+
+  it("longRest recovers shortOrLongRest manual feature limited-use counters", () => {
+    const character = {
+      ...makeCharacter([]),
+      manualFeatureCards: [{
+        id: "feature_bite",
+        name: "Vampiric Bite",
+        sourceType: "Lineage",
+        activation: "Action",
+        rangeArea: "5 ft.",
+        saveDc: "",
+        damageEffect: "",
+        description: "",
+        limitedUse: { enabled: true, label: "Empowered Bite", current: 1, max: 2, recovery: "shortOrLongRest" }
+      }]
+    };
+
+    const result = recoverCharacterForRest(character, "longRest");
+
+    expect(result.changed).toBe(true);
+    expect(result.character.manualFeatureCards[0].limitedUse.current).toBe(2);
+  });
+
+  it("does not recover manual, none, missing, or disabled manual feature limited-use counters", () => {
+    const cards = [
+      { id: "manual", name: "Manual", sourceType: "", activation: "", rangeArea: "", saveDc: "", damageEffect: "", description: "", limitedUse: { enabled: true, label: "", current: 0, max: 1, recovery: "manual" } },
+      { id: "none", name: "None", sourceType: "", activation: "", rangeArea: "", saveDc: "", damageEffect: "", description: "", limitedUse: { enabled: true, label: "", current: 0, max: 1, recovery: "none" } },
+      { id: "missing", name: "Missing", sourceType: "", activation: "", rangeArea: "", saveDc: "", damageEffect: "", description: "" },
+      { id: "disabled", name: "Disabled", sourceType: "", activation: "", rangeArea: "", saveDc: "", damageEffect: "", description: "", limitedUse: { enabled: false, label: "", current: 0, max: 1, recovery: "shortRest" } }
+    ];
+    const character = { ...makeCharacter([]), manualFeatureCards: cards };
+
+    const result = recoverCharacterForRest(character, "shortRest");
+
+    expect(result.changed).toBe(false);
+    expect(result.character).toBe(character);
+  });
 });
