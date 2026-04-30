@@ -787,14 +787,14 @@ Phase 3G foundation complete: manual/custom feature cards can optionally persist
 a nested `limitedUse` object with enabled tracking, a use label, current uses,
 max uses, and one recovery setting from the existing `manual`, `shortRest`,
 `longRest`, `shortOrLongRest`, and `none` vocabulary. The Abilities & Features
-panel displays compact use/restore-one/reset controls for enabled manual cards,
+panel displays compact Use, Regain, and Reset controls for enabled manual cards,
 clamps current uses between 0 and max, and normalizes invalid values
 defensively. Short Rest and Long Rest recover eligible manual/custom feature
 counters through the existing character-level `recoverCharacterForRest(...)`
 path.
 
 Phase 3H foundation complete: derived Dragonborn Breath Weapon receives compact
-use/restore-one/reset controls on the derived card. The mutable state is stored
+Use, Regain, and Reset controls on the derived card. The mutable state is stored
 only as `character.featureUses["dragonborn-breath-weapon"].current`, with
 missing state treated as full uses. Max uses `1`, recovery `shortOrLongRest`,
 label, DC, area, damage, damage type, ancestry, and feature text remain derived

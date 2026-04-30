@@ -72,7 +72,7 @@ Contents (compact single row for mobile):
 - Import Character
 - Delete Character
 
-Step 2 tracker-card linking actions and Step 4 import/export actions have since shipped. Step 3 character builder/rules-engine work is now in progress: the minimal builder-character creation action has shipped, but the full builder wizard and automation have not.
+Step 2 tracker-card linking actions and Step 4 import/export actions have since shipped. Step 3 character builder/rules-engine work is now in progress: the current builder creation path supports the shipped Identity, Dragonborn Race Choices, Ability Scores, Summary, Finish seeding, and derived Dragonborn surfaces. Broader content-complete class/background/equipment/spell choice flows, generalized seeding, level-up additions, shared-resource automation, and full builder-card customization remain future work.
 
 ### Character selector behavior
 
@@ -209,7 +209,7 @@ If a `characterId` points to a character that no longer exists (data corruption,
 
 ## Step 3 — Rules engine and character builder
 
-**Status:** In progress. The original design below still describes the larger target. Current shipped scope is schema v6 builder metadata, pure first-slice derivation, minimal builder-character creation, an informational Builder Mode badge, a minimal Builder Identity editor for builtin race/class/background/level IDs, and a display-only Builder Summary panel. No full builder wizard, ability editing, subclass choices, field locking, derived-field materialization, level-up flow, custom content, or HP/AC/spell/combat automation has shipped yet.
+**Status:** In progress. The original design below still describes the larger target. Current shipped scope includes schema v6 builder metadata, pure first-slice derivation, the current builder creation path through Identity, supported Dragonborn Race Choices, Ability Scores, Summary, and Finish, an informational Builder Mode badge, Builder Identity and Builder Abilities editors, Builder Summary as temporary live review/comparison scaffolding, normal-panel display for supported builder-derived values, manual/custom Abilities & Features cards, manual/custom limited-use counters, derived Dragonborn Breath Weapon use tracking through `featureUses`, and narrow Dragonborn Finish-time seeding into existing editable Features / Traits and Languages fields. Broader content-complete class/background/equipment/spell choice flows, generalized seeding, level-up additions, field locking/override UI, full builder-card customization, custom content, and broad HP/AC/spell/combat/shared-resource automation remain future work.
 
 ### Goal
 
@@ -272,7 +272,7 @@ If `build` is null, the character operates in freeform mode — exactly like tod
 
 If `build` is present, the rules engine computes derived fields. The flat fields are written by the engine and should not be directly edited by the user (the UI disables direct input on computed fields and provides the override modal instead, like the Fifth Edition Character Sheet app).
 
-Current implementation note: builder characters do not yet lock fields or materialize derived values. Phase 3B adds a small Builder Identity panel before the Builder Summary that can edit only `build.raceId`, `build.classId`, `build.backgroundId`, and `build.level` using the shipped builtin SRD-safe content IDs. The Builder Summary remains display-only and reads `deriveCharacter(...)` without persisting derived labels, proficiency bonuses, or ability totals back into flat fields such as `classLevel`, `race`, `background`, `proficiency`, abilities, HP, or AC. Existing freeform sheet fields remain editable. The full builder wizard, ability editing, subclass choices, field locking, HP/AC/spell automation, and custom content remain future work.
+Current implementation note: builder-created characters are editable characters, not locked rules objects. Builder Identity can edit the current identity inputs, Builder Abilities edits only `build.abilities.base`, and Builder Summary reads `deriveCharacter(...)` as temporary review scaffolding without persisting derived labels, proficiency bonuses, ability totals, Dragonborn DCs, or Breath Weapon mechanics back into unrelated flat fields. Supported live-derived values appear in normal panel homes where players use them: Basics for identity labels, Abilities/Skills for derived ability totals and builder proficiency scalar, Vitals for compact derived stats such as Breath Weapon DC, and Abilities & Features for action-style mechanics such as Breath Weapon. Phase 3I seeds only Dragonborn Draconic Ancestry/Damage Resistance text into `features` and fixed Dragonborn languages into `languages` at wizard Finish; that text becomes user-owned and is not silently synchronized afterward. The broader content-complete builder wizard, subclass/class/background/equipment/spell choices, generalized seeding, level-up additions, field locking/override UI, HP/AC/spell automation, shared-resource automation, custom content, and full builder-card customization remain future work.
 
 ### Content model
 

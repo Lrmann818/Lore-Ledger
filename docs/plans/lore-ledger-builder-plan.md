@@ -1,7 +1,7 @@
 # Lore Ledger — Character Builder Implementation Plan
 
 Drafted: April 20, 2026  
-Last updated: April 27, 2026
+Last updated: April 30, 2026
 
 ---
 
@@ -462,7 +462,7 @@ Still out of scope after this foundation slice:
 - Partial regain amount fields.
 - "Regain short" or "regain long" numeric fields.
 - Spendable vs Static toggles unless the current resource code already has that concept.
-- Broad derived/read-only feature-use tracking beyond Dragonborn Breath Weapon and broad shared-resource-linked feature cards. Phase 3G ships only manual/custom feature-specific limited-use tracking, and Phase 3H later adds only Dragonborn Breath Weapon.
+- Broad derived/read-only feature-use tracking beyond Dragonborn Breath Weapon and broad shared-resource-linked feature cards. Phase 3G shipped only manual/custom feature-specific limited-use tracking, and Phase 3H shipped only Dragonborn Breath Weapon.
 - Manual Abilities & Features card editing. Phase 3F later completes the foundation slice for that path.
 - Sorcery Points, Ki, Metamagic, or Flexible Casting automation.
 - Spell slot automation.
@@ -509,7 +509,7 @@ Out of scope for Phase 3F:
 - Resource spending automation.
 - Feature-specific limited-use tracking, planned separately as Phase 3G.
 - Vitals resource linking.
-- Derived Dragonborn Breath Weapon use tracking, handled later by Phase 3H.
+- Derived Dragonborn Breath Weapon use tracking, handled by completed Phase 3H.
 - Sorcery Points, Ki, Metamagic, or Flexible Casting specialization.
 - Spell slot automation.
 - Broad class-feature automation.
@@ -548,12 +548,12 @@ Shipped foundation scope:
 - The section stores enabled tracking, a use label such as "Empowered Bite", current uses, max uses, and one recovery setting.
 - Recovery reuses the existing vocabulary: `manual`, `shortRest`, `longRest`, `shortOrLongRest`, and `none`.
 - Short Rest and Long Rest recover eligible manual/custom feature counters through the existing character-level `recoverCharacterForRest(character, restType)` path, not through panel-local rest buttons.
-- Feature cards display compact controls to use one, restore one, or reset current uses to max.
+- Feature cards display compact controls to use one, Regain one, or reset current uses to max.
 - Current uses are clamped between 0 and max, and invalid, missing, blank, negative, or unknown values normalize defensively.
 - Feature-specific limited-use counters belong to one manual/custom feature or sub-feature. Examples include Second Wind uses, Relentless Endurance uses, and Vampiric Bite's empowered-use counter.
 - Vampiric Bite itself is not spent; only its empowered effect has limited uses.
 - Derived/read-only cards do not receive limited-use controls in this slice.
-- Phase 3H later adds Breath Weapon use tracking without copying the derived/read-only Breath Weapon card into manual feature-card state.
+- Completed Phase 3H adds Breath Weapon use tracking without copying the derived/read-only Breath Weapon card into manual feature-card state.
 
 Resource boundaries:
 
@@ -581,7 +581,7 @@ Shipped foundation scope:
 - Mutable use state is character-owned in `featureUses["dragonborn-breath-weapon"].current`.
 - Missing Breath Weapon use state defaults to full uses, so existing Dragonborn builder characters display `1/1` until the player spends the use.
 - The persisted `featureUses` entry stores only the mutable current count. Max uses, recovery, label, feature text, DC, area, damage, damage type, ancestry, and generated SRD data remain derived from rules/build data.
-- The derived card displays compact use, restore-one, and reset controls. Use clamps at 0; restore-one and reset clamp at the derived max of 1.
+- The derived card displays compact Use, Regain, and Reset controls. Use clamps at 0; Regain and Reset clamp at the derived max of 1.
 - Short Rest and Long Rest recover Breath Weapon through the existing character-level `recoverCharacterForRest(character, restType)` path because the derived recovery metadata is `shortOrLongRest`.
 - Derived Breath Weapon state is not stored in `manualFeatureCards[]`, is not stored as a `character.resources[]` Vitals resource, and does not create a duplicate copy of the derived card.
 - Derived card edit, delete, and reorder controls are omitted.
@@ -601,7 +601,7 @@ Completed foundation tests:
 
 - Manual/custom cards can opt into limited-use tracking from the card dialog.
 - Existing manual cards without tracking render unchanged.
-- Use, restore-one, and reset controls clamp current uses correctly.
+- Use, Regain, and Reset controls clamp current uses correctly.
 - Invalid dialog values normalize defensively.
 - Derived/read-only cards do not receive limited-use controls or persist manual state.
 - Short Rest and Long Rest recover eligible manual/custom feature counters through the existing rest helper and active-character toolbar path.
