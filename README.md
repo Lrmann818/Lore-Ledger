@@ -218,56 +218,6 @@ Preview the built app locally:
 npm run preview
 ```
 
-### Optional packaging scripts
-
-The repo also keeps packaging scripts for backup/share workflows outside the normal Vite `dist/` deployment path.
-
-Source snapshot zip:
-
-Windows (PowerShell):
-
-```powershell
-.\scripts\make-zip.ps1
-```
-
-Linux/macOS/Chromebook (Bash):
-
-```bash
-bash scripts/make-zip.sh
-```
-
-Notes:
-
-- Output format: `refactor-export-YYYYMMDD-HHMM.zip`
-- Verification output includes: `Release zip is clean`
-- Optional output folder:
-
-```powershell
-.\scripts\make-zip.ps1 -OutputDir .\exports
-```
-
-```bash
-bash scripts/make-zip.sh ./exports
-```
-
-Runtime-only pages zip:
-
-```bash
-bash scripts/make-pages-zip.sh
-```
-
-Notes:
-
-- Output format: `LoreLedger-web-YYYYMMDD-HHMM.zip`
-- Verification output includes: `Pages zip is clean`
-- Optional output folder:
-
-```bash
-bash scripts/make-pages-zip.sh ./artifacts
-```
-
-The runtime-only zip is for alternate/manual packaging workflows. Standard GitHub Pages deployment in this repo uses the built `dist/` output instead.
-
 ## 9. Versioning
 
 Version metadata is resolved at build time in [`vite.config.js`](vite.config.js).

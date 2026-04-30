@@ -143,69 +143,11 @@ Intentional difference from CI:
 - CI browser coverage is intentionally limited to the current Chromium smoke suite; it does not run preview-based service-worker checks, PWA install/offline validation, or broader cross-browser/device coverage.
 - Local release validation must continue with `npm run preview` and the manual checklist because CI does not validate PWA/offline, installed-app, full restore, map/touch, or cross-browser behavior.
 
-## 7. Packaging steps
+## 7. Deployment artifact
 
-### Standard production artifact
-
-The real deployable production artifact for this project is the built `dist/` directory from `npm run build`.
+The deployable production artifact for this project is the built `dist/` directory from `npm run build`.
 
 That is the artifact uploaded and deployed by the Pages workflow.
-
-### Optional source snapshot zip
-
-Use this when you want a clean repository snapshot outside of the normal Pages deployment path.
-
-Windows PowerShell:
-
-```powershell
-.\scripts\make-zip.ps1
-```
-
-Bash:
-
-```bash
-bash scripts/make-zip.sh
-```
-
-Behavior:
-
-- output file name: `refactor-export-YYYYMMDD-HHMM.zip`
-- default output directory: `release/`
-- verification message: `Release zip is clean`
-
-### Optional runtime-only zip
-
-Use this only for alternate/manual runtime packaging workflows, not as the standard GitHub Pages release artifact.
-
-```bash
-bash scripts/make-pages-zip.sh
-```
-
-Behavior:
-
-- output file name: `LoreLedger-web-YYYYMMDD-HHMM.zip`
-- default output directory: `release/`
-- verification message: `Pages zip is clean`
-- packages the current runtime-oriented repo files rooted around `index.html`, `styles.css`, `app.js`, `boot.js`, `js/`, and `icons/`
-
-Important note:
-
-- This runtime zip is not the normal Pages deployment path for this repo.
-- Standard production shipping should still go through `npm run build` and deployment of `dist/`.
-
-### Verification helpers
-
-You can re-verify an existing zip manually:
-
-```bash
-bash scripts/verify-zip.sh ./release/<zip-name>.zip
-```
-
-Or for the runtime/pages zip mode:
-
-```bash
-bash scripts/verify-zip.sh --mode pages ./release/<zip-name>.zip
-```
 
 ## 8. GitHub Pages deployment notes
 
@@ -272,12 +214,6 @@ Capture and keep the following evidence for each production release:
 - confirmation that the in-app `About` dialog shows the expected version, build, and schema
 - link to the successful GitHub Pages workflow run
 - deployed Pages URL
-
-If optional zip packaging was used, also record:
-
-- zip file name
-- which script produced it
-- successful `Release zip is clean` or `Pages zip is clean` verification output
 
 For failures, follow the evidence guidance in [`docs/testing-guide.md`](./testing-guide.md).
 

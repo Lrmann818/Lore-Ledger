@@ -62,8 +62,9 @@ If a future refresh or regenerate behavior is needed, it must be explicit, user-
 
 ## Completed Phase 0: Branch Cleanup
 
-Phase 0 cleanup is complete on the Refactoring branch. It established the current builder
-direction and removed the stale SRD 5.2.1/species terminology path.
+Phase 0 cleanup is complete on the `builder-wizard` branch (formerly named `Refactoring`).
+It established the current builder direction and removed the stale SRD 5.2.1/species
+terminology path.
 
 Completed outcomes:
 

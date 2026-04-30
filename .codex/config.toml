@@ -24,7 +24,7 @@ typecheck = "npm run typecheck"
 
 [workflow]
 default_branch = "main"
-working_branch = "Refactoring"
+working_branch = "builder-wizard"
 prefer_small_scoped_changes = true
 require_docs_alignment_for_builder_changes = true
 require_tests_for_persisted_shape_changes = true

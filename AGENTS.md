@@ -83,6 +83,19 @@ If a task seems to require breaking one of these, stop and explain. Do not proce
 
 ---
 
+## Branching Model
+
+Lore Ledger uses a Gitflow-lite layout. Branches flow downward from production:
+
+- `main` — production. Deploys to GitHub Pages.
+- `develop` — integration/staging. Fixes accumulate and get tested here before promotion to `main`.
+- Feature branches (currently `builder-wizard`) — branch off `develop`, merge back into `develop` when ready.
+- Hotfix branches — branch off `main`, merge back into `main`, then `main` is merged into `develop` to keep develop current.
+
+Day-to-day, builder work happens on `builder-wizard`.
+
+---
+
 ## Scope Discipline (Circuit Breaker)
 
 If a change is discovered mid-task to require touching more than ~3 files (or significantly more files than the original plan anticipated), **stop and explain what was found before continuing**.
