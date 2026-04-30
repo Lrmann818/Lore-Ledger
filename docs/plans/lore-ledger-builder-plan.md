@@ -35,21 +35,28 @@ This is intentionally not a "populate every SRD category at once" project.
 
 The rationale for this strategy is recorded in `docs/design/vertical-slice-schema.md`.
 
-Before adding a new panel, card, field, or persisted storage location for builder-derived information, first check the existing character sheet surfaces for an appropriate home. If an existing field or panel appears intended for that kind of information, pause and confirm whether the value should use that existing surface instead of creating a new one. Examples include passive features/traits in the Character panel's Features / Traits area, languages and proficiencies in Proficiencies & Languages, action-style abilities in Abilities & Features, compact combat stats in Vitals, and broad reusable resource counters in Vitals/resources. New surfaces should be added only when the existing sheet does not already have a suitable home or when a deliberate design decision says the existing home is insufficient.
+Before adding a new panel, card, field, or persisted storage location for builder-backed information, first check the existing character sheet surfaces for an appropriate home. If an existing field or panel appears intended for that kind of information, pause and confirm whether the value should use that existing surface instead of creating a new one. Examples include passive features/traits in the Character panel's Features / Traits area, languages and proficiencies in Proficiencies & Languages, starting equipment in Equipment, spell entries or spell information in Spells, weapon entries in Weapons, action-style abilities in Abilities & Features, compact combat stats in Vitals, and broad reusable resource counters in Vitals/resources. New surfaces should be added only when the existing sheet does not already have a suitable home or when a deliberate design decision says the existing home is insufficient.
 
 ## Builder Editability and Homebrew Ownership Pattern
 
 Builder-created characters are editable characters, not permanently locked rules objects. The builder may seed or derive initial values from registry/rules data, but post-creation editability is a core product requirement so users can support homebrew, house rules, campaign-specific rulings, and manual corrections.
 
-Builder ownership has three categories:
+### Wizard Seeding, Freeform Blank State, and Level-Up Additions
 
-- Live-derived calculations and mechanics stay synchronized where practical. Examples include proficiency bonus, derived DCs, level-based dice, and feature-use maximums. These compact values and counters should usually remain derived rather than becoming editable long-form text.
-- User-owned editable text/content may be seeded from rules data during character creation and may later receive duplicate-aware additions when newly relevant information becomes available, such as after a level-up. Examples include Features / Traits text, Proficiencies & Languages notes, personality notes, and similar long-form character notes. After text is placed into an editable sheet field, the user owns that text.
-- User-customized builder cards may start from rules-derived content, but cards that mix live-derived mechanics with editable user text need an explicit persisted customization, copy, or override model before they become editable. User-customized card text/content must not be silently overwritten by later rules derivation.
+Builder ownership has four categories:
 
-Seeded editable text is not a "seed once and never touch again" rule. The app may later append or offer to add newly relevant builder/rules information, but later additions must preserve existing text and user edits, should be duplicate-aware, and should be user-confirmed through an explicit add/update flow when practical. The app must not silently rewrite, replace, delete, normalize, or overwrite user-owned text to keep it synchronized with builder/rules data.
+- Derived values are live synchronized calculations and counters. Examples include proficiency bonus, derived DCs, level-based dice, and feature-use maximums. These compact values and counters should usually remain derived rather than becoming editable long-form text.
+- Seeded editable content is rules-backed content written into normal editable sheet fields or entries during character creation. Examples include Features / Traits text, Proficiencies & Languages entries, Equipment entries, spell entries or spell information, weapon entries, Vitals resources, and structured Abilities & Features entries when that panel is the correct home.
+- Additive or suggested content is newly relevant rules-backed content that may be offered or appended later, especially during level-up. Additions must be duplicate-aware, preserve existing user edits, and should be explicit/user-confirmed through an add/update flow when practical.
+- Customized content is user-edited content. Once seeded editable content is written into an editable sheet field or entry, the user owns it. The app must not silently rewrite, replace, delete, normalize, or overwrite it to keep it synchronized with builder/rules data.
 
-If a future refresh or regenerate behavior is needed, it must be explicit, user-triggered, previewable where practical, and designed to avoid destroying homebrew edits. This tradeoff is intentional: if a user edits generated text incorrectly, the user is responsible for correcting it manually. Lore Ledger should preserve user agency instead of silently enforcing rules text over edited sheet content.
+The full character creation wizard may seed a useful starting sheet into existing normal character sheet homes from registry/rules data. This seeding model is not limited to live-derived display. Choosing not to use the wizard leaves the character freeform/manual; a freeform or no-wizard character may start blank or minimally populated and remain manually editable.
+
+Level-up should follow the same ownership model. When a builder-created character levels up, the app may add or offer newly unlocked rules-backed content to the appropriate existing sheet field, entry, or panel. Existing live-derived calculations can update automatically where appropriate, but existing user-owned content or entries should not be silently rewritten just because level or builder choices changed.
+
+Cards or entries that mix live-derived mechanics with editable user content need an explicit persisted customization, copy, or override model before they become editable. User-customized card content must not be silently overwritten by later rules derivation.
+
+If a future refresh or regenerate behavior is needed, it must be explicit, user-triggered, previewable where practical, and designed to avoid destroying homebrew edits. This tradeoff is intentional: if a user edits generated content incorrectly, the user is responsible for correcting it manually. Lore Ledger should preserve user agency instead of silently enforcing rules data over edited sheet content.
 
 ---
 
@@ -294,10 +301,10 @@ Long-term model:
 - Builder characters can receive derived feature cards from rules/build choices.
 - Freeform characters can create manual feature cards after Phase 3F.
 - Builder-derived and freeform/manual cards render through the same Abilities & Features panel UI.
-- The current foundation renders builder-derived cards as read-only for mechanics/text, but this is not a permanent product lock.
+- The current foundation renders builder-derived cards as read-only for mechanics/content, but this is not a permanent product lock.
 - Builder-created characters need a post-creation path to edit, reorder, and customize builder-created Abilities & Features cards for homebrew, house rules, campaign-specific rulings, and manual correction.
 - Builder-derived cards should not be duplicated into manual/freeform card state unless a later explicit copy, customize, or override behavior is designed.
-- Builder card customization must preserve the ownership split: live-derived mechanics can remain derived, while user-customized text/content must be persisted through an explicit customization model and must not be silently overwritten.
+- Builder card customization must preserve the ownership split: live-derived mechanics can remain derived, while user-customized content must be persisted through an explicit customization model and must not be silently overwritten.
 
 Surface ownership:
 
@@ -318,7 +325,7 @@ Resource ownership:
 
 Future Abilities & Features work:
 
-- Required builder-card edit, reorder, and customization support for builder-created characters, using an explicit ownership model for cards that mix derived mechanics with user-owned text/content.
+- Required builder-card edit, reorder, and customization support for builder-created characters, using an explicit ownership model for cards that mix derived mechanics with user-owned content.
 - Fuller accessibility pass for menu keyboard navigation.
 - Possible cleanup of overlapping legacy `damageEffect` and newer `effectText` fields.
 - Partial regain behavior, if a later rules slice needs it.
@@ -468,20 +475,20 @@ Goal: prove the manual/custom feature-card pathway safely, especially for freefo
 
 Completed April 29, 2026.
 
-Phase 3F foundation and first polish pass complete: freeform and builder characters can create, edit, delete, reorder, collapse, persist, and render character-owned manual/custom Abilities & Features cards in the same panel as derived cards. Builder-derived cards remain derived/read-only and are not copied into manual persisted state. This is a foundation slice for user-created feature cards, not a resource-spending, limited-use tracking, attack/damage calculation, class-feature automation, or spell-slot automation slice.
+Phase 3F foundation and first polish pass complete: freeform and builder characters can create, edit, delete, reorder, collapse, persist, and render character-owned manual/custom Abilities & Features cards in the same panel as derived cards. In the current Phase 3F foundation, builder-derived cards remain derived/read-only and are not copied into manual persisted state; this describes shipped foundation behavior only, not the permanent product direction. This is a foundation slice for user-created feature cards, not a resource-spending, limited-use tracking, attack/damage calculation, class-feature automation, or spell-slot automation slice.
 
 Shipped foundation scope:
 
 - Freeform characters may add manual/custom cards to Abilities & Features.
 - Builder characters may also add manual/custom cards.
-- Builder-derived cards remain derived/read-only and must not be copied into manual persisted state.
+- Builder-derived cards currently remain derived/read-only and must not be copied into manual persisted state unless a later explicit copy, customize, or override behavior is designed.
 - Manual/custom cards are character-owned user content persisted separately from derived cards in `manualFeatureCards[]`.
 - Derived cards and manual cards render in the same Abilities & Features panel.
 - The `+ Feature` action lives in the Abilities & Features panel header action area.
 - Manual card management actions live behind a gear/settings menu.
 - Manual cards are editable, deletable, reorderable with move up/down controls, and collapsible by header click.
 - Manual card notes/description content can be collapsed independently for readability.
-- Derived cards are read-only unless a later override/customization system explicitly defines otherwise.
+- Derived cards are currently read-only until a later explicit customization, copy, or override model defines how user edits are persisted without being silently overwritten.
 
 First slice manual card fields shipped:
 
@@ -507,7 +514,7 @@ Out of scope for Phase 3F:
 - Spell slot automation.
 - Broad class-feature automation.
 - New SRD data coverage or class-feature imports.
-- A final override/customization system for derived cards.
+- The required final override/customization system for derived cards.
 - A fuller accessibility pass for menu keyboard navigation.
 - Cleanup or migration for overlapping `damageEffect` / `effectText`.
 
@@ -522,7 +529,7 @@ Completed foundation tests:
 
 - Freeform character can create and render a manual feature card.
 - Builder character can render both manual cards and derived cards together.
-- Derived Breath Weapon card remains read-only.
+- Derived Breath Weapon card remains read-only in this foundation.
 - Manual card edit/delete only affects manual persisted state.
 - Derived cards are not persisted into manual card state.
 - Manual cards do not create duplicate broad shared resource counters.
@@ -634,11 +641,11 @@ Examples now split into three categories. Manual/custom feature-specific limited
 
 Builder-only panels are temporary scaffolding, not the long-term sheet model. Over time, builder and freeform characters should use the same visible character sheet panels:
 
-- Builder characters populate normal panels through live derivation, seeded editable text where appropriate, and intentional overrides/customizations.
+- Builder characters populate normal panels through live derivation, seeded editable content where appropriate, and intentional overrides/customizations.
 - Freeform characters continue using manual fields.
 - Before any builder-only panel is removed, every useful piece of information it shows must already have a clear home in the normal panel structure and a clear ownership model.
 
-When reconciling builder-only scaffolding with the normal character sheet, do not assume every derived value needs a new Abilities & Features card, a new UI surface, or editable text storage. First map the value to the normal panel that already appears to own that kind of information, and ask for product-owner confirmation when more than one existing surface could plausibly apply. Passive one-time descriptive traits may seed the existing Features / Traits area, languages and proficiencies may seed or add to Proficiencies & Languages, action-style features should prefer Abilities & Features, compact combat stats should prefer live-derived Vitals display, and broad reusable counters should prefer Vitals/resources.
+When reconciling builder-only scaffolding with the normal character sheet, do not assume every derived value needs a new Abilities & Features card, a new UI surface, or editable storage. First map the value to the normal panel that already appears to own that kind of information, and ask for product-owner confirmation when more than one existing surface could plausibly apply. Passive one-time descriptive traits may seed the existing Features / Traits area, languages and proficiencies may seed or add to Proficiencies & Languages, equipment should prefer Equipment, spells should prefer Spells, weapon entries should prefer Weapons, action-style features should prefer Abilities & Features, compact combat stats should prefer live-derived Vitals display, and broad reusable counters should prefer Vitals/resources.
 
 ### Remaining Phase 3 Work Items
 
@@ -647,7 +654,7 @@ Applicable to future choice expansion beyond Dragonborn:
 - Add picker UI for supported build-time choices as races and classes gain choice data.
 - Keep choice kinds aligned with the closed set in the registry plan.
 - Derive sheet-facing values from build choices and registry data.
-- Seed or add long-form descriptive sheet text only where the normal editable sheet field owns that content, then preserve user edits.
+- Seed or add editable sheet content only where the normal editable field or entry owns that content, then preserve user edits.
 - Avoid materializing compact derived calculations, counters, or mechanics into persisted character fields unless a later phase explicitly requires it.
 - Add tests for derivation behavior before widening the content set.
 - Expand race ability bonus previews as additional race/subrace choice data becomes supported.
@@ -680,7 +687,7 @@ Goal: make builder-owned values clear while preserving the settled requirement t
 
 Work items:
 
-- Define which fields are live-derived calculations/mechanics, which long-form fields can receive seeded editable text, and which card content needs explicit customization storage.
+- Define which fields are live-derived calculations/mechanics, which normal fields or entries can receive seeded editable content, and which card content needs explicit customization storage.
 - Add override/customization UI only where the derived/manual boundary is clear.
 - Add the required post-creation edit, reorder, and customize path for builder-created Abilities & Features cards using an explicit ownership model.
 - Design any refresh/regenerate behavior as explicit, user-triggered, and previewable where practical.

@@ -649,24 +649,28 @@ the stored choice ID and registry/rules data for preview and builder display;
 they are not duplicated into flat persisted character fields by default. Choices
 without meaningful displayable data are not required to invent preview content.
 
-### Seeded Editable Text Ownership
+### Seeded Editable Content Ownership
 
-Registry and rules data may seed or suggest descriptive sheet content for normal
-editable fields when that field is the appropriate long-form home, such as
-Features / Traits, Proficiencies & Languages, personality notes, or similar
-character notes. Once that content is written into an editable sheet field, the
-persisted sheet text is user-owned content, not synchronized registry output.
+Registry and rules data may seed or suggest sheet content for normal editable
+fields or entries when that sheet surface is the appropriate home. Examples
+include Features / Traits text, Proficiencies & Languages entries, Equipment
+entries, spell entries or spell information, weapon entries, Vitals resources,
+and structured Abilities & Features entries. Once content is written into an
+editable sheet field or entry, the persisted sheet content is user-owned
+content, not synchronized registry output.
 
 Later builder/rules updates may append or offer duplicate-aware additions when
 new information becomes relevant, such as after a level-up. They must preserve
-existing text and user edits, and they should use an explicit add/update flow
+existing content and user edits, and they should use an explicit add/update flow
 when practical. Registry records are not authority to silently rewrite, replace,
-delete, normalize, or overwrite user-owned sheet text.
+delete, normalize, or overwrite user-owned sheet content.
 
-This seeded-text rule is separate from live-derived calculations and counters.
+This seeded editable content rule is separate from live-derived calculations and
+counters. Read-only builder previews and live-derived displays do not prevent
+the wizard Finish flow from seeding appropriate existing normal sheet homes.
 Compact values such as proficiency bonus, derived DCs, level-scaled dice, and
 feature-use maximums should usually stay derived from choices and rules data
-rather than being materialized as editable long-form sheet text.
+rather than being materialized as editable sheet content.
 
 ### Derived Table-Use Values
 
@@ -759,9 +763,9 @@ and builder-derived cards must not be duplicated into manual/freeform card state
 unless a later explicit copy, customize, or override behavior is designed.
 Post-creation edit, reorder, and customization support for builder-created
 feature cards is a required future builder direction, not optional polish, but
-cards that mix live-derived mechanics with editable text need an explicit
+cards that mix live-derived mechanics with editable user content need an explicit
 persisted customization model before becoming editable. Live-derived mechanics
-can remain derived; user-customized card text/content must not be silently
+can remain derived; user-customized card content must not be silently
 overwritten by registry/rules derivation. Manual-card management actions live
 behind a gear/settings menu, card headers can collapse cards, and manual-card
 notes/descriptions can collapse independently for readability. Manual cards may
