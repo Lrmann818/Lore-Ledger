@@ -170,7 +170,7 @@ function renderSummary(contentEl, vm) {
   const note = appendDiv(
     contentEl,
     "builderSummaryNote",
-    "Derived from builder data. These values are read-only and are not saved into freeform fields."
+    "Live builder values shown here are for review. Normal character panels are the play surface: live-derived values stay synchronized, while seeded Features / Traits and Languages text is user-owned after creation and is not silently synchronized."
   );
   note.id = "charBuilderSummaryDescription";
 

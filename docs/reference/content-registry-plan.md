@@ -672,6 +672,13 @@ Compact values such as proficiency bonus, derived DCs, level-scaled dice, and
 feature-use maximums should usually stay derived from choices and rules data
 rather than being materialized as editable sheet content.
 
+Phase 3I proves this rule narrowly for the current Dragonborn slice: wizard
+Finish seeds Dragonborn Draconic Ancestry and Damage Resistance text into
+`character.features`, and fixed Dragonborn languages into `character.languages`.
+That seeded text is duplicate-aware on creation only and becomes user-owned
+editable sheet content immediately. Breath Weapon mechanics remain live-derived
+in Abilities & Features and Vitals rather than copied into seeded text.
+
 ### Derived Table-Use Values
 
 Builder Summary may collect and explain derived mechanics, but table-use values
@@ -708,9 +715,12 @@ appear in Vitals as a compact combat stat. This is the foundation slice only;
 Phase 3F later completed the manual/freeform card foundation and first polish
 pass. Phase 3H adds Dragonborn Breath Weapon use tracking only, using
 character-owned `featureUses` for the mutable current count while deriving max
-uses, recovery, label, and mechanics from rules/build data. Partial regain
+uses, recovery, label, and mechanics from rules/build data. Phase 3I seeds only
+Dragonborn passive/descriptive text and fixed languages into their existing
+editable homes; it does not copy Breath Weapon into seeded text. Partial regain
 behavior, spell slots, broader rest/resource automation, broad derived
-feature-use automation, and broader feature coverage remain future work.
+feature-use automation, generalized seeding, level-up additions, and broader
+feature coverage remain future work.
 
 Resource state must have one canonical counter. Feature-specific limited-use
 counters may be surfaced on Abilities & Features cards when they belong only to
@@ -799,11 +809,12 @@ Specialized shared-resource-linked feature cards, such as Sorcery Points,
 Metamagic, and Flexible Casting, may need dedicated renderers later, but they
 must still use the single canonical resource counter.
 
-These derived values are not registry records and are not flat stored character
-fields by default. Race bonuses, derived combat stats, damage resistance, breath
-weapon area, save DC, damage dice, and future derived resources should be
-computed from persisted choices and rules data unless a later explicit slice
-adds tracked or editable storage.
+These derived mechanics are not registry records and are not flat stored
+character fields by default. Race bonuses, derived combat stats, Breath Weapon
+area, save DC, damage dice, and future derived resources should be computed from
+persisted choices and rules data unless a later explicit slice adds tracked or
+editable storage. Seeded Damage Resistance text in `character.features` is an
+editable user-owned note, not the canonical mechanics source.
 
 ### Choice `from` Types
 

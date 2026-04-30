@@ -155,7 +155,7 @@ function appendUseTracker(parent, trackerConfig) {
   const featureName = trackerConfig.name || "feature";
   const buttons = [
     ["use-decrement", "Use", "Use one"],
-    ["use-increment", "+", "Restore one"],
+    ["use-increment", "Regain", "Regain one use"],
     ["use-reset", "Reset", "Reset uses"]
   ];
   for (const [action, text, label] of buttons) {

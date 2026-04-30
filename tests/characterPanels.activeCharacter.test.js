@@ -2175,7 +2175,10 @@ describe("character panels active character resolution", () => {
     expect(card.querySelector(".featureUseTrackerLabel").textContent).toBe("Empowered Bite");
     expect(card.querySelector(".featureUseTrackerCount").textContent).toBe("2/2");
     expect(card.querySelector('[data-feature-action="use-decrement"]')).not.toBeNull();
-    expect(card.querySelector('[data-feature-action="use-increment"]')).not.toBeNull();
+    const regainButton = card.querySelector('[data-feature-action="use-increment"]');
+    expect(regainButton).not.toBeNull();
+    expect(regainButton.textContent).toBe("Regain");
+    expect(regainButton.getAttribute("aria-label")).toBe("Regain one use: Vampiric Bite");
     expect(card.querySelector('[data-feature-action="use-reset"]')).not.toBeNull();
     expect(deps.SaveManager.markDirty).toHaveBeenCalledTimes(1);
 
@@ -2283,7 +2286,9 @@ describe("character panels active character resolution", () => {
     expect(derived.querySelector(".featureUseTrackerLabel").textContent).toBe("Uses");
     expect(derived.querySelector(".featureUseTrackerCount").textContent).toBe("1/1");
     expect(derived.querySelector("[data-feature-action='use-decrement']")).not.toBeNull();
-    expect(derived.querySelector("[data-feature-action='use-increment']")).not.toBeNull();
+    const regainButton = derived.querySelector("[data-feature-action='use-increment']");
+    expect(regainButton).not.toBeNull();
+    expect(regainButton.textContent).toBe("Regain");
     expect(derived.querySelector("[data-feature-action='use-reset']")).not.toBeNull();
     expect(derived.querySelector("[data-feature-action='edit']")).toBeNull();
     expect(derived.querySelector("[data-feature-action='delete']")).toBeNull();

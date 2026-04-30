@@ -24,6 +24,7 @@ import {
   makeDefaultBuilderCharacterEntry,
   makeDefaultCharacterEntry
 } from "../../domain/characterHelpers.js";
+import { getBuilderFinishSheetSeedPatch } from "../../domain/builderSheetSeeding.js";
 import { recoverCharacterForRest } from "../../domain/characterRest.js";
 import { notifyActiveCharacterChanged } from "../../domain/characterEvents.js";
 import { createStateActions } from "../../domain/stateActions.js";
@@ -291,6 +292,7 @@ export function initCharacterPageUI(deps) {
       onFinish: ({ name, build }) => {
         const entry = makeDefaultBuilderCharacterEntry(name);
         entry.build = build;
+        Object.assign(entry, getBuilderFinishSheetSeedPatch(entry));
         mutateCharactersAndNotify((s) => {
           s.characters.entries.push(entry);
           s.characters.activeId = entry.id;

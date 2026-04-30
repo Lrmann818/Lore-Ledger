@@ -523,7 +523,7 @@ function installBuilderAbilitiesDom(document) {
   appendWithId(document, panel, "h2", "charBuilderAbilitiesTitle").textContent = "Builder Abilities";
   const content = appendWithId(document, panel, "div", "charBuilderAbilitiesContent", "builderAbilitiesContent");
   appendWithId(document, content, "p", "charBuilderAbilitiesNote", "builderAbilitiesNote")
-    .textContent = "Edit the builder base ability scores used by Builder Summary. These do not overwrite the freeform ability fields below.";
+    .textContent = "Edit builder base scores. Base scores drive builder-derived values across the character sheet, including Abilities/Skills totals, Vitals DCs, and derived feature cards. These do not overwrite the freeform ability fields below.";
   const unavailable = appendWithId(document, content, "p", "charBuilderAbilitiesUnavailable", "builderAbilitiesNote");
   unavailable.hidden = true;
   unavailable.textContent = "Builder Mode is active, but this character's ability data is not editable by the current abilities editor.";
@@ -993,7 +993,7 @@ describe("character page selector", () => {
     expect(html).toContain("Builder Mode is active, but this character's builder data is not editable by the current identity editor.");
     expect(html).toContain('class="panel builderAbilitiesPanel" id="charBuilderAbilitiesPanel" hidden aria-hidden="true"');
     expect(html).toContain("Builder Abilities");
-    expect(html).toContain("Edit the builder base ability scores used by Builder Summary. These do not overwrite the freeform ability fields below.");
+    expect(html).toContain("Edit builder base scores. Base scores drive builder-derived values across the character sheet, including Abilities/Skills totals, Vitals DCs, and derived feature cards. These do not overwrite the freeform ability fields below.");
     [
       ["Str", "Strength"],
       ["Dex", "Dexterity"],
@@ -1546,6 +1546,8 @@ describe("character page selector", () => {
     expect(entries).toHaveLength(3);
     expect(entries[2].name).toBe("New Character");
     expect(entries[2].build).toBeNull();
+    expect(entries[2].features).toBe("");
+    expect(entries[2].languages).toBe("");
     expect(isBuilderCharacter(entries[2])).toBe(false);
     expect(deps.state.characters.activeId).toBe(entries[2].id);
     expect(deps.SaveManager.markDirty).toHaveBeenCalledTimes(1);
@@ -2042,7 +2044,7 @@ describe("character page selector", () => {
     controller.destroy();
   });
 
-  it("persists selected Dragonborn ancestry without derived mechanics on Finish", async () => {
+  it("seeds Dragonborn passive sheet text without persisting derived mechanics on Finish", async () => {
     const { document, actionMenuButton } = installCharacterSelectorDom();
     installBuilderWizardDom(document);
     const Popovers = createFakePopovers();
@@ -2055,6 +2057,16 @@ describe("character page selector", () => {
 
     const created = deps.state.characters.entries[2];
     expect(created.build.choicesByLevel["1"]["dragonborn-ancestry"]).toBe("red");
+    expect(created.features).toBe([
+      "Dragonborn Traits",
+      "Draconic Ancestry: Red",
+      "Damage Resistance: You have resistance to fire damage."
+    ].join("\n"));
+    expect(created.languages).toBe("Common\nDraconic");
+    expect(created.features).not.toContain("Breath Weapon");
+    expect(created.manualFeatureCards).toEqual([]);
+    expect(deriveCharacter(created).derivedFeatureActions.map((feature) => feature.id))
+      .toContain("dragonborn-breath-weapon");
     expect(created).not.toHaveProperty("breathWeapon");
     expect(created).not.toHaveProperty("damageResistance");
     expect(created).not.toHaveProperty("raceAbilityBonuses");
@@ -2081,6 +2093,8 @@ describe("character page selector", () => {
     const created = deps.state.characters.entries[2];
     expect(created.build.raceId).toBe("race_human");
     expect(created.build.choicesByLevel["1"]?.["dragonborn-ancestry"]).toBeUndefined();
+    expect(created.features).toBe("");
+    expect(created.languages).toBe("");
     expect(document.getElementById("builderWizardStepRaceChoices").hidden).toBe(true);
 
     controller.destroy();
@@ -3343,7 +3357,9 @@ describe("character page selector", () => {
         hpCur: 11,
         hpMax: 31,
         ac: 15,
-        proficiency: 99
+        proficiency: 99,
+        features: "Custom Dragonborn note",
+        languages: "Common\nDraconic\nThieves' Cant"
       }
     });
     deps.state.characters.entries[0] = builder;
@@ -3355,6 +3371,8 @@ describe("character page selector", () => {
       hpCur: builder.hpCur,
       hpMax: builder.hpMax,
       ac: builder.ac,
+      features: builder.features,
+      languages: builder.languages,
       abilities: structuredClone(builder.abilities)
     };
 
@@ -3399,6 +3417,8 @@ describe("character page selector", () => {
     expect(builder.hpCur).toBe(beforeFlat.hpCur);
     expect(builder.hpMax).toBe(beforeFlat.hpMax);
     expect(builder.ac).toBe(beforeFlat.ac);
+    expect(builder.features).toBe(beforeFlat.features);
+    expect(builder.languages).toBe(beforeFlat.languages);
     expect(builder.abilities).toEqual(beforeFlat.abilities);
     expect(deps.SaveManager.markDirty).toHaveBeenCalledTimes(4);
 
@@ -3915,7 +3935,10 @@ describe("character page selector", () => {
     expect(panel.hidden).toBe(false);
     expect(panel.getAttribute("aria-hidden")).toBe("false");
     expect(panel.getAttribute("aria-describedby")).toBe("charBuilderSummaryDescription");
-    expect(content.textContent).toContain("Derived from builder data");
+    expect(content.textContent).toContain("Live builder values shown here are for review");
+    expect(content.textContent).toContain("Normal character panels are the play surface");
+    expect(content.textContent).toContain("seeded Features / Traits and Languages text is user-owned after creation");
+    expect(content.textContent).not.toContain("not saved into freeform fields");
     expect(content.textContent).toContain("Class / LevelFighter 5");
     expect(content.textContent).toContain("RaceElf");
     expect(content.textContent).toContain("BackgroundSoldier");

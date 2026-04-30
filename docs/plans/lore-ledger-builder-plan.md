@@ -606,6 +606,40 @@ Completed foundation tests:
 - Derived/read-only cards do not receive limited-use controls or persist manual state.
 - Short Rest and Long Rest recover eligible manual/custom feature counters through the existing rest helper and active-character toolbar path.
 
+### Phase 3I: Dragonborn Finish-Time Sheet Seeding — FOUNDATION COMPLETE
+
+Goal: prove the corrected builder ownership model by seeding only current-slice Dragonborn passive/descriptive content into existing normal editable sheet fields during wizard Finish.
+
+Completed April 30, 2026.
+
+Shipped foundation scope:
+
+- Dragonborn builder characters with a valid selected Draconic Ancestry seed a compact editable Features / Traits block containing the ancestry label and damage resistance.
+- Dragonborn fixed race languages seed into the existing Languages field.
+- Seeding writes only existing character fields: `features` and `languages`.
+- Existing user text is preserved exactly and duplicate-aware matching prevents repeated ancestry, resistance, or language lines.
+- Breath Weapon remains live-derived/action-style in Abilities & Features and Vitals; it is not copied into Features / Traits, `manualFeatureCards[]`, `character.resources[]`, or new top-level fields.
+- No schema migration, generated SRD data change, adapter change, new panel, new card, or new storage field is part of this slice.
+
+Still out of scope after this foundation slice:
+
+- Generalized seeding for additional races, classes, backgrounds, equipment, spells, weapons, or level-up additions.
+- Language choice handling for Human, Half-Elf, or any other race.
+- Builder-created card editing, reordering, or customization.
+- Any automatic refresh that rewrites seeded user-owned text after creation.
+
+### Phase 3J: Builder Summary Copy Cleanup — COMPLETE
+
+Completed April 30, 2026.
+
+This was a narrow stale-copy/status cleanup only:
+
+- Builder Summary remains visible as temporary live builder review/comparison scaffolding while Builder Identity and Builder Abilities remain active post-creation editors.
+- Builder Summary copy now distinguishes live-derived values from seeded editable sheet text.
+- Seeded Features / Traits and Languages text is described as user-owned after creation and not silently synchronized.
+- Builder Abilities copy now says base scores drive builder-derived values across normal panels, including Abilities/Skills, Vitals DCs, and derived feature cards.
+- No schema, generated data, migration, builder state shape, Phase 3I seeding behavior, level-up flow, card customization, or new content changed in this slice.
+
 ### Combat Card Vitals Polish — POLISH COMPLETE
 
 Completed April 29, 2026.
@@ -633,16 +667,17 @@ Current example:
 
 - Dragonborn Breath Weapon DC is derivable from ancestry, Constitution modifier, and proficiency bonus, so Vitals is the appropriate normal-sheet home for that combat DC.
 - Dragonborn Breath Weapon's full action-style mechanics now render as the first derived, display-only Abilities & Features card, not in Spells or Weapons.
+- Dragonborn Draconic Ancestry and Damage Resistance seed as editable text in Features / Traits at wizard Finish, and Common/Draconic seed into Languages. That seeded text becomes user-owned immediately after creation.
 
 Examples now split into three categories. Manual/custom feature-specific limited-use counters, such as an empowered Vampiric Bite counter, can surface on Abilities & Features cards through the Phase 3G `limitedUse` foundation. Derived Dragonborn Breath Weapon use tracking surfaces through Phase 3H `featureUses` without copying the derived card into manual state. Broad shared pools, such as Sorcery Points or Ki, should be derived/read-only first and then tracked through the canonical Vitals/resource-counter path only when a later explicit shared-resource slice intentionally adds that behavior.
 
 ### Temporary Builder-Only Panel Retirement Direction
 
-
 Builder-only panels are temporary scaffolding, not the long-term sheet model. Over time, builder and freeform characters should use the same visible character sheet panels:
 
 - Builder characters populate normal panels through live derivation, seeded editable content where appropriate, and intentional overrides/customizations.
 - Freeform characters continue using manual fields.
+- Builder Summary may remain visible temporarily as a review/comparison/debug surface while live builder editors and seeded user-owned fields can intentionally diverge.
 - Before any builder-only panel is removed, every useful piece of information it shows must already have a clear home in the normal panel structure and a clear ownership model.
 
 When reconciling builder-only scaffolding with the normal character sheet, do not assume every derived value needs a new Abilities & Features card, a new UI surface, or editable storage. First map the value to the normal panel that already appears to own that kind of information, and ask for product-owner confirmation when more than one existing surface could plausibly apply. Passive one-time descriptive traits may seed the existing Features / Traits area, languages and proficiencies may seed or add to Proficiencies & Languages, equipment should prefer Equipment, spells should prefer Spells, weapon entries should prefer Weapons, action-style features should prefer Abilities & Features, compact combat stats should prefer live-derived Vitals display, and broad reusable counters should prefer Vitals/resources.
