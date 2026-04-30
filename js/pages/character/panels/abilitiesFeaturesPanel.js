@@ -11,6 +11,11 @@ import {
   normalizeManualFeatureCards,
   updateLimitedUseCount
 } from "../../../domain/manualFeatureCards.js";
+import {
+  getFeatureUseCurrent,
+  normalizeFeatureUses,
+  updateFeatureUseCount
+} from "../../../domain/featureUses.js";
 import { requireMany, getNoopDestroyApi } from "../../../utils/domGuards.js";
 import { subscribePanelDataChanged } from "../../../ui/panelInvalidation.js";
 
@@ -136,21 +141,18 @@ function appendFeatureNotes(parent, featureId, description, isNotesCollapsed) {
 
 /**
  * @param {HTMLElement} parent
- * @param {import("../../../state.js").ManualFeatureCard} feature
+ * @param {{ id: string, name: string, label: string, current: number, max: number }} trackerConfig
  */
-function appendLimitedUseTracker(parent, feature) {
-  const limitedUse = normalizeLimitedUseConfig(feature.limitedUse);
-  if (!limitedUse) return;
-
+function appendUseTracker(parent, trackerConfig) {
   const tracker = appendDiv(parent, "featureUseTracker");
-  tracker.dataset.featureUseTracker = feature.id;
+  tracker.dataset.featureUseTracker = trackerConfig.id;
 
   const labelWrap = appendDiv(tracker, "featureUseTrackerLabelWrap");
-  appendDiv(labelWrap, "featureUseTrackerLabel", limitedUse.label || "Uses");
-  appendDiv(labelWrap, "featureUseTrackerCount", `${limitedUse.current}/${limitedUse.max}`);
+  appendDiv(labelWrap, "featureUseTrackerLabel", trackerConfig.label || "Uses");
+  appendDiv(labelWrap, "featureUseTrackerCount", `${trackerConfig.current}/${trackerConfig.max}`);
 
   const controls = appendDiv(tracker, "featureUseTrackerControls");
-  const featureName = feature.name || "feature";
+  const featureName = trackerConfig.name || "feature";
   const buttons = [
     ["use-decrement", "Use", "Use one"],
     ["use-increment", "+", "Restore one"],
@@ -161,7 +163,7 @@ function appendLimitedUseTracker(parent, feature) {
     button.type = "button";
     button.className = "featureUseTrackerBtn";
     button.dataset.featureAction = action;
-    button.dataset.featureId = feature.id;
+    button.dataset.featureId = trackerConfig.id;
     button.textContent = text;
     button.setAttribute("aria-label", `${label}: ${featureName}`);
     controls.appendChild(button);
@@ -169,12 +171,29 @@ function appendLimitedUseTracker(parent, feature) {
 }
 
 /**
+ * @param {HTMLElement} parent
+ * @param {import("../../../state.js").ManualFeatureCard} feature
+ */
+function appendLimitedUseTracker(parent, feature) {
+  const limitedUse = normalizeLimitedUseConfig(feature.limitedUse);
+  if (!limitedUse) return;
+  appendUseTracker(parent, {
+    id: feature.id,
+    name: feature.name,
+    label: limitedUse.label,
+    current: limitedUse.current,
+    max: limitedUse.max
+  });
+}
+
+/**
  * @param {HTMLElement} list
  * @param {import("../../../domain/rules/deriveCharacter.js").DerivedFeatureAction} feature
  * @param {Set<string>} collapsedCards
  * @param {Set<string>} collapsedNotes
+ * @param {number | null} featureUseCurrent
  */
-function renderDerivedFeatureCard(list, feature, collapsedCards, collapsedNotes) {
+function renderDerivedFeatureCard(list, feature, collapsedCards, collapsedNotes, featureUseCurrent = null) {
   const isCollapsed = collapsedCards.has(feature.id);
   const isNotesCollapsed = collapsedNotes.has(feature.id);
 
@@ -194,10 +213,18 @@ function renderDerivedFeatureCard(list, feature, collapsedCards, collapsedNotes)
 
   const headerActions = appendDiv(header, "featureActionHeaderActions");
   if (feature.activation) appendDiv(headerActions, "featureActionActivation", feature.activation);
-  appendMoveButton(headerActions, -1, true, feature.id);
-  appendMoveButton(headerActions, +1, true, feature.id);
 
   const body = appendDiv(card, "featureCardBody");
+
+  if (feature.useTracking && featureUseCurrent != null) {
+    appendUseTracker(body, {
+      id: feature.id,
+      name: feature.name,
+      label: feature.useTracking.label,
+      current: featureUseCurrent,
+      max: feature.useTracking.max
+    });
+  }
 
   const details = appendDiv(body, "featureActionDetails");
   const saveLabel = ABILITY_SAVE_LABELS[/** @type {keyof typeof ABILITY_SAVE_LABELS} */ (feature.saveAbility)] || cleanManualFeatureText(feature.saveAbility);
@@ -719,15 +746,42 @@ export function initAbilitiesFeaturesPanel(deps = {}) {
     if (updated) markChanged();
   }
 
+  /**
+   * @param {string} featureId
+   * @param {"decrement" | "increment" | "reset"} operation
+   */
+  function updateDerivedFeatureUses(featureId, operation) {
+    const updated = mutateCharacter((character) => {
+      const feature = deriveCharacter(character).derivedFeatureActions.find(
+        (entry) => entry.id === featureId && !!entry.useTracking
+      );
+      if (!feature) return false;
+      const result = updateFeatureUseCount(character.featureUses, feature, operation);
+      if (!result.changed) return false;
+      character.featureUses = result.featureUses;
+      return true;
+    }, { queueSave: false });
+    if (updated) markChanged();
+  }
+
   function render() {
     if (destroyed) return;
     list.replaceChildren();
     const character = getActiveCharacter(state);
     const derivedFeatures = character ? deriveCharacter(character).derivedFeatureActions : [];
     const manualFeatures = character ? normalizeManualFeatureCards(character.manualFeatureCards) : [];
+    const featureUses = character ? normalizeFeatureUses(character.featureUses) : {};
     addButton.disabled = !character;
     empty.hidden = derivedFeatures.length + manualFeatures.length > 0;
-    for (const feature of derivedFeatures) renderDerivedFeatureCard(list, feature, collapsedCards, collapsedNotes);
+    for (const feature of derivedFeatures) {
+      renderDerivedFeatureCard(
+        list,
+        feature,
+        collapsedCards,
+        collapsedNotes,
+        getFeatureUseCurrent(featureUses, feature)
+      );
+    }
     for (let i = 0; i < manualFeatures.length; i++) {
       renderManualFeatureCard(list, manualFeatures[i], i, manualFeatures.length, collapsedCards, collapsedNotes);
     }
@@ -788,8 +842,8 @@ export function initAbilitiesFeaturesPanel(deps = {}) {
       return;
     }
 
-    // Edit, Delete, Move — get the card for validation
-    const cardEl = button.closest("[data-manual-feature-id]");
+    const cardEl = button.closest("[data-feature-kind]");
+    const isDerivedCard = cardEl instanceof HTMLElement && cardEl.dataset.featureKind === "derived";
 
     if (action === "edit") {
       closeAllSettingsMenus();
@@ -816,17 +870,20 @@ export function initAbilitiesFeaturesPanel(deps = {}) {
     }
 
     if (action === "use-decrement") {
-      updateManualFeatureUses(featureId, "decrement");
+      if (isDerivedCard) updateDerivedFeatureUses(featureId, "decrement");
+      else updateManualFeatureUses(featureId, "decrement");
       return;
     }
 
     if (action === "use-increment") {
-      updateManualFeatureUses(featureId, "increment");
+      if (isDerivedCard) updateDerivedFeatureUses(featureId, "increment");
+      else updateManualFeatureUses(featureId, "increment");
       return;
     }
 
     if (action === "use-reset") {
-      updateManualFeatureUses(featureId, "reset");
+      if (isDerivedCard) updateDerivedFeatureUses(featureId, "reset");
+      else updateManualFeatureUses(featureId, "reset");
       return;
     }
 

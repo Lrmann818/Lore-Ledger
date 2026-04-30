@@ -649,6 +649,25 @@ the stored choice ID and registry/rules data for preview and builder display;
 they are not duplicated into flat persisted character fields by default. Choices
 without meaningful displayable data are not required to invent preview content.
 
+### Seeded Editable Text Ownership
+
+Registry and rules data may seed or suggest descriptive sheet content for normal
+editable fields when that field is the appropriate long-form home, such as
+Features / Traits, Proficiencies & Languages, personality notes, or similar
+character notes. Once that content is written into an editable sheet field, the
+persisted sheet text is user-owned content, not synchronized registry output.
+
+Later builder/rules updates may append or offer duplicate-aware additions when
+new information becomes relevant, such as after a level-up. They must preserve
+existing text and user edits, and they should use an explicit add/update flow
+when practical. Registry records are not authority to silently rewrite, replace,
+delete, normalize, or overwrite user-owned sheet text.
+
+This seeded-text rule is separate from live-derived calculations and counters.
+Compact values such as proficiency bonus, derived DCs, level-scaled dice, and
+feature-use maximums should usually stay derived from choices and rules data
+rather than being materialized as editable long-form sheet text.
+
 ### Derived Table-Use Values
 
 Builder Summary may collect and explain derived mechanics, but table-use values
@@ -658,12 +677,12 @@ Vitals or the relevant normal sheet panel, not a temporary builder-only surface.
 
 Current example: Dragonborn Breath Weapon DC is derived from the stored ancestry
 choice, Constitution modifier, and proficiency bonus, so Vitals is the
-appropriate normal-sheet home when the value is derivable. Future
-feature-specific limited-use counters, such as Breath Weapon uses, should be
-character-owned feature-use entries or equivalent that can be surfaced on
-Abilities & Features cards. Broad shared pools, such as Sorcery Points or Ki,
-should follow the single canonical Vitals/resource-counter path before any
-intentional tracking or editing slice is added.
+appropriate normal-sheet home when the value is derivable. Phase 3H adds the
+first derived feature-use counter for Dragonborn Breath Weapon as
+character-owned `featureUses["dragonborn-breath-weapon"].current`, surfaced on
+the derived Abilities & Features card. Broad shared pools, such as Sorcery
+Points or Ki, should follow the single canonical Vitals/resource-counter path
+before any intentional tracking or editing slice is added.
 
 Normal sheet ownership should stay explicit:
 
@@ -683,8 +702,11 @@ foundation complete: Dragonborn Breath Weapon now renders as the first derived,
 display-only Abilities & Features card, while its derived save DC may also
 appear in Vitals as a compact combat stat. This is the foundation slice only;
 Phase 3F later completed the manual/freeform card foundation and first polish
-pass. Use tracking, partial regain behavior, spell slots, broader rest/resource
-automation, and broader feature coverage remain future work.
+pass. Phase 3H adds Dragonborn Breath Weapon use tracking only, using
+character-owned `featureUses` for the mutable current count while deriving max
+uses, recovery, label, and mechanics from rules/build data. Partial regain
+behavior, spell slots, broader rest/resource automation, broad derived
+feature-use automation, and broader feature coverage remain future work.
 
 Resource state must have one canonical counter. Feature-specific limited-use
 counters may be surfaced on Abilities & Features cards when they belong only to
@@ -699,13 +721,15 @@ Rest/recovery metadata should use the shared vocabulary `shortRest`,
 `longRest`, `shortOrLongRest`, `manual`, and `none`. Phase 3D foundation
 complete: Character page Short Rest / Long Rest toolbar controls now route
 through `recoverCharacterForRest(character, "shortRest" | "longRest")` for
-active-character recovery. The current helper supports only explicit
-`character.resources[]` counters with the existing current/max shape and
-matching recovery metadata: `shortRest` recovers `shortRest` and
+active-character recovery. The helper now covers explicit `character.resources[]`
+counters, Phase 3G manual/custom `manualFeatureCards[].limitedUse` counters, and
+the Phase 3H Dragonborn Breath Weapon `featureUses` counter when their recovery
+metadata matches the rest type: `shortRest` recovers `shortRest` and
 `shortOrLongRest`; `longRest` recovers `longRest` and `shortOrLongRest`.
 Missing, `manual`, `none`, unknown recovery metadata, already-full counters,
-malformed counters, unrelated fields, and existing manual resource trackers
-without recovery metadata are intentionally left unchanged.
+malformed counters, unrelated fields, existing manual resource trackers without
+recovery metadata, and stale feature-use entries not backed by a currently
+derived feature are intentionally left unchanged.
 
 Phase 3E foundation complete: Vitals resource recovery metadata can now be
 configured from resource tiles through press-and-hold on the tile body or
@@ -723,16 +747,22 @@ Limited-use feature usage should be modeled as character-owned feature-use or
 resource/use entries referenced by feature cards, not as duplicate counters
 owned by the Abilities & Features panel.
 
-Long term, builder characters can receive derived feature cards from rules/build
-choices, and freeform characters can create manual feature cards after Phase 3F.
-Phase 3F foundation complete: freeform characters and builder characters can
-create, edit, delete, reorder, collapse, and persist user-owned manual cards
-while builder-derived/rules-backed cards remain derived and read-only. Both
-sources render through the same Abilities & Features panel UI, but they remain
-separate data sources: manual/custom cards are character-owned user content in
-`manualFeatureCards[]`, not SRD registry records, and builder-derived cards must
-not be duplicated into manual/freeform card state unless a later explicit copy,
-customize, or override behavior is designed. Manual-card management actions live
+Long term, builder characters can receive cards from rules/build choices, and
+freeform characters can create manual feature cards after Phase 3F. Phase 3F
+foundation complete: freeform characters and builder characters can create,
+edit, delete, reorder, collapse, and persist user-owned manual cards while
+builder-derived/rules-backed cards remain derived and read-only in the current
+foundation state. Both sources render through the same Abilities & Features
+panel UI, but they remain separate data sources: manual/custom cards are
+character-owned user content in `manualFeatureCards[]`, not SRD registry records,
+and builder-derived cards must not be duplicated into manual/freeform card state
+unless a later explicit copy, customize, or override behavior is designed.
+Post-creation edit, reorder, and customization support for builder-created
+feature cards is a required future builder direction, not optional polish, but
+cards that mix live-derived mechanics with editable text need an explicit
+persisted customization model before becoming editable. Live-derived mechanics
+can remain derived; user-customized card text/content must not be silently
+overwritten by registry/rules derivation. Manual-card management actions live
 behind a gear/settings menu, card headers can collapse cards, and manual-card
 notes/descriptions can collapse independently for readability. Manual cards may
 store optional plain-text attack, damage, and effect fields; the older
@@ -743,15 +773,24 @@ Phase 3G foundation complete: manual/custom feature cards can optionally persist
 a nested `limitedUse` object with enabled tracking, a use label, current uses,
 max uses, and one recovery setting from the existing `manual`, `shortRest`,
 `longRest`, `shortOrLongRest`, and `none` vocabulary. The Abilities & Features
-panel displays compact use/restore-one/reset controls for enabled manual cards
-only, clamps current uses between 0 and max, and normalizes invalid values
+panel displays compact use/restore-one/reset controls for enabled manual cards,
+clamps current uses between 0 and max, and normalizes invalid values
 defensively. Short Rest and Long Rest recover eligible manual/custom feature
 counters through the existing character-level `recoverCharacterForRest(...)`
-path. This foundation does not add limited-use controls to derived/read-only
-cards, does not implement Sorcery Points, Ki, Metamagic, Flexible Casting, spell
-slots, Pact Magic slots, prepared/known spell automation, attack/damage
-calculation, AC derivation, equipment automation, or broader SRD/class-feature
-coverage.
+path.
+
+Phase 3H foundation complete: derived Dragonborn Breath Weapon receives compact
+use/restore-one/reset controls on the derived card. The mutable state is stored
+only as `character.featureUses["dragonborn-breath-weapon"].current`, with
+missing state treated as full uses. Max uses `1`, recovery `shortOrLongRest`,
+label, DC, area, damage, damage type, ancestry, and feature text remain derived
+from rules/build data. Short Rest and Long Rest recover the derived counter
+through the same `recoverCharacterForRest(...)` path. This does not copy Breath
+Weapon into `manualFeatureCards[]`, does not store it as `character.resources[]`,
+and does not implement broad derived feature-use automation, Sorcery Points, Ki,
+Metamagic, Flexible Casting, spell slots, Pact Magic slots, prepared/known spell
+automation, attack/damage calculation, AC derivation, equipment automation, or
+broader SRD/class-feature coverage.
 Specialized shared-resource-linked feature cards, such as Sorcery Points,
 Metamagic, and Flexible Casting, may need dedicated renderers later, but they
 must still use the single canonical resource counter.

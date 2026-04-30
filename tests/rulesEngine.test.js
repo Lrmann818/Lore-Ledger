@@ -484,6 +484,11 @@ describe("dragonborn ancestry derivation", () => {
         damage: "2d6",
         damageType: "Lightning",
         recovery: "Short or Long Rest",
+        useTracking: {
+          label: "Uses",
+          max: 1,
+          recovery: "shortOrLongRest"
+        },
         description: "Each creature in the area makes the listed save. Failed save takes full damage; successful save takes half."
       }
     ]);

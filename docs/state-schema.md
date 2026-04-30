@@ -35,6 +35,8 @@ Current history:
 - `4`: migrated the legacy singleton character object to the multi-character collection `{ activeId, entries[] }`
 - `5`: added character-linked NPC/Party card references and the character `status` field
 - `6`: added Step 3 rules-engine / character-builder foundation fields on character entries: `build` and `overrides`
+- `7`: added manual Abilities & Features card storage on character entries
+- `8`: added character-owned derived feature-use storage on character entries
 
 Important implementation detail:
 
@@ -337,7 +339,10 @@ Notes:
 - Step 3 Phase 3E also does not change the schema. For builder characters with a valid `build.abilities.base` shape, ability adjustments made through the existing Abilities & Skills controls write deltas to `overrides.abilities.*`, which `deriveCharacter(...)` adds to the builder base scores. Reset adjustments are neutralized as `0` through the existing override normalization shape. The flat/freeform `abilities.*.score`, `abilities.*.mod`, and `abilities.*.save` fields remain separate and are not used as storage for builder-derived totals.
 - Step 3 Phase 3F also does not change the schema. Builder characters display `deriveCharacter(character).labels.classLevel`, `.race`, and `.background` in the normal Basics panel for `charClassLevel`, `charRace`, and `charBackground`; those three Basics fields are display-only for builder characters and still do not write derived labels back into `classLevel`, `race`, or `background`. Builder Identity remains temporary scaffolding for editing the underlying `build.*` identity inputs. HP, AC, proficiency, broader saves/skills, spells, attacks, custom content, schema migration, and materialization remain future work.
 - Step 3 Phase 3G also does not change the schema. Builder characters display `deriveCharacter(character).proficiencyBonus` in the normal Vitals proficiency field as builder-owned/read-only UI, and Abilities/Skills uses that same derived proficiency scalar for builder characters only in its existing save/skill formulas. Freeform characters still edit and persist flat `proficiency` exactly as before. Save/skill automation, HP/AC automation, spell/combat automation, schema migration, and derived-field materialization remain future work.
-- Step 3 Phase 3H also does not change the schema. Builder characters display `deriveCharacter(character).vitals.speed`, `.hitDieAmt`, and `.hitDieSize` in the normal and embedded Vitals speed and hit-dice fields as builder-owned/read-only UI. These values come from selected builtin race `data.speed`, selected builtin class `data.hitDie`, and normalized builder level. Freeform characters still edit and persist flat `speed`, `hitDieAmt`, and `hitDieSize` exactly as before. Malformed or incomplete builder content displays blank read-only values with derivation warnings instead of falling back to stale flat fields. HP/AC automation, combat/card linking changes, new overrides, schema migration, and derived-field materialization remain future work.
+- Step 3 Phase 3H in the older builder-integration checklist did not change the schema. Builder characters display `deriveCharacter(character).vitals.speed`, `.hitDieAmt`, and `.hitDieSize` in the normal and embedded Vitals speed and hit-dice fields as builder-owned/read-only UI. These values come from selected builtin race `data.speed`, selected builtin class `data.hitDie`, and normalized builder level. Freeform characters still edit and persist flat `speed`, `hitDieAmt`, and `hitDieSize` exactly as before. Malformed or incomplete builder content displays blank read-only values with derivation warnings instead of falling back to stale flat fields. HP/AC automation, combat/card linking changes, new overrides, and derived-field materialization remain future work.
+- Abilities & Features Phase 3F added schema v7 `manualFeatureCards[]` for character-owned manual/custom cards.
+- Abilities & Features Phase 3G extends manual/custom cards with an optional nested `limitedUse` object for feature-specific counters only; broad shared resource pools remain `resources[]` / Vitals work.
+- Abilities & Features Phase 3H added schema v8 `featureUses` for character-owned mutable use state on derived feature-specific counters. The first shipped entry is `featureUses["dragonborn-breath-weapon"].current`; max uses, recovery, label, DC, area, damage, damage type, ancestry, feature text, and generated SRD data remain derived from build/rules data.
 - Builtin SRD content is code-shipped under `js/domain/rules/`; custom content persistence is intentionally not part of schema v6.
 - Step 3 Phase 2A and Phase 2B do not persist `abilityMethod`. Ability-score entry method (manual, standard array, point buy, roll) is wizard-local draft state — only `build.abilities.base` scores are written to the persisted build on Finish, because derivation and sheet-editing paths consume the scores rather than the entry method.
 
@@ -359,6 +364,31 @@ Notes:
 - `migrateState(...)` upgrades legacy single-resource fields (`resourceName`, `resourceCur`, `resourceMax`) into the first array entry, then deletes those legacy fields.
 - The default state allows `resources: []`.
 - The Vitals panel lazily creates one default resource entry when it initializes and finds the array empty.
+
+### Derived feature uses
+
+`featureUses` is a character-owned map for mutable use state on derived
+feature-specific counters:
+
+```js
+{
+  "dragonborn-breath-weapon": {
+    current: number
+  }
+}
+```
+
+Notes:
+
+- `featureUses` stores only mutable use counts. It does not store derived card
+  text, mechanics, max uses, recovery, DCs, damage, ancestry, or generated SRD
+  records.
+- Missing `featureUses["dragonborn-breath-weapon"]` state is interpreted by the
+  UI/rules path as full uses for the currently derived Dragonborn Breath Weapon.
+- Stale or unrelated entries are normalized defensively and remain inert unless
+  a currently derived feature references them.
+- Broad shared resource pools remain `resources[]` / Vitals work, not
+  `featureUses`.
 
 ### Abilities
 

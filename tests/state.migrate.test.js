@@ -204,7 +204,7 @@ describe("migrateState", () => {
       });
 
       expect(migrated.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
-      expect(CURRENT_SCHEMA_VERSION).toBe(7);
+      expect(CURRENT_SCHEMA_VERSION).toBe(8);
       expect(migrated.combat).toEqual(DEFAULT_COMBAT_STATE);
       expect(migrated.tracker.campaignTitle).toBe("Moonfall");
       expect(migrated.tracker.misc).toBe("Preserve this");
@@ -360,6 +360,35 @@ describe("migrateState", () => {
         },
         description: ""
       }]);
+    });
+
+    it("upgrades schema v7 saves into v8 derived feature-use storage", () => {
+      const migrated = migrateState({
+        schemaVersion: 7,
+        characters: {
+          activeId: "char_a",
+          entries: [
+            { id: "char_a", name: "Arlen" },
+            {
+              id: "char_b",
+              name: "Dragonborn",
+              featureUses: {
+                "dragonborn-breath-weapon": { current: "1", max: 9, recovery: "shortRest" },
+                "bad id": { current: 1 },
+                "future-feature": { current: -3 },
+                malformed: null
+              }
+            }
+          ]
+        }
+      });
+
+      expect(migrated.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
+      expect(activeEntry(migrated).featureUses).toEqual({});
+      expect(migrated.characters.entries[1].featureUses).toEqual({
+        "dragonborn-breath-weapon": { current: 1 },
+        "future-feature": { current: 0 }
+      });
     });
 
     it("repairs malformed combat state while keeping workspace limited to composition data", () => {

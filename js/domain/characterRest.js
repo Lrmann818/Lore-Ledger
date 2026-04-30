@@ -5,6 +5,8 @@ import {
   limitedUseRecoveryMatchesRest,
   normalizeManualFeatureCards
 } from "./manualFeatureCards.js";
+import { recoverDerivedFeatureUses } from "./featureUses.js";
+import { deriveCharacter } from "./rules/deriveCharacter.js";
 
 /** @typedef {import("../state.js").CharacterEntry} CharacterEntry */
 /** @typedef {"shortRest" | "longRest"} CharacterRestType */
@@ -32,8 +34,8 @@ function recoveryMatchesRest(recovery, restType) {
 }
 
 /**
- * Recovers explicitly tagged current/max resource counters and manual feature-use
- * counters on one character.
+ * Recovers explicitly tagged current/max resource counters, manual feature-use
+ * counters, and currently-derived feature-specific use counters on one character.
  * Untagged, manual, none, and unknown recovery metadata is intentionally ignored.
  *
  * @param {CharacterEntry} character
@@ -65,13 +67,16 @@ export function recoverCharacterForRest(character, restType) {
     return { ...card, limitedUse: { ...limitedUse, current: limitedUse.max } };
   });
 
+  const derivedFeatures = deriveCharacter(character).derivedFeatureActions;
+  const featureUseResult = recoverDerivedFeatureUses(character.featureUses, derivedFeatures, restType);
+  if (featureUseResult.changed) changed = true;
+
   if (!changed) return { character, changed: false };
-  return {
-    character: {
-      ...character,
-      resources: nextResources,
-      manualFeatureCards: nextManualFeatureCards
-    },
-    changed: true
+  const nextCharacter = {
+    ...character,
+    resources: nextResources,
+    manualFeatureCards: nextManualFeatureCards
   };
+  if (featureUseResult.changed) nextCharacter.featureUses = featureUseResult.featureUses;
+  return { character: nextCharacter, changed: true };
 }

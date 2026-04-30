@@ -1826,8 +1826,8 @@ describe("character panels active character resolution", () => {
     expect(derived.querySelector("[data-feature-action='gear']")).toBeNull();
     expect(derived.querySelector("[data-feature-action='edit']")).toBeNull();
     expect(derived.querySelector("[data-feature-action='delete']")).toBeNull();
-    expect(derived.querySelector("[data-feature-action='move-up']")).not.toBeNull();
-    expect(derived.querySelector("[data-feature-action='move-down']")).not.toBeNull();
+    expect(derived.querySelector("[data-feature-action='move-up']")).toBeNull();
+    expect(derived.querySelector("[data-feature-action='move-down']")).toBeNull();
     // Manual cards have gear button + edit/delete inside the settings menu
     expect(manual.querySelector("[data-feature-action='gear']")).not.toBeNull();
     expect(manual.querySelector("[data-feature-action='edit']")).not.toBeNull();
@@ -2267,7 +2267,7 @@ describe("character panels active character resolution", () => {
     api.destroy();
   });
 
-  it("keeps derived feature cards read-only without limited-use controls", () => {
+  it("renders derived Dragonborn Breath Weapon use tracking from character featureUses", () => {
     const builder = makeBuilder("char_builder", { str: 10, dex: 10, con: 14, int: 10, wis: 10, cha: 10 });
     builder.build.raceId = "dragonborn";
     builder.build.classId = "class_fighter";
@@ -2279,10 +2279,63 @@ describe("character panels active character resolution", () => {
 
     const derived = document.querySelector('[data-feature-id="dragonborn-breath-weapon"]');
 
-    expect(derived.querySelector(".featureUseTracker")).toBeNull();
-    expect(derived.querySelector("[data-feature-action='use-decrement']")).toBeNull();
+    expect(derived.querySelector(".featureUseTracker")).not.toBeNull();
+    expect(derived.querySelector(".featureUseTrackerLabel").textContent).toBe("Uses");
+    expect(derived.querySelector(".featureUseTrackerCount").textContent).toBe("1/1");
+    expect(derived.querySelector("[data-feature-action='use-decrement']")).not.toBeNull();
+    expect(derived.querySelector("[data-feature-action='use-increment']")).not.toBeNull();
+    expect(derived.querySelector("[data-feature-action='use-reset']")).not.toBeNull();
+    expect(derived.querySelector("[data-feature-action='edit']")).toBeNull();
+    expect(derived.querySelector("[data-feature-action='delete']")).toBeNull();
+    expect(derived.querySelector("[data-feature-action='move-up']")).toBeNull();
+    expect(derived.querySelector("[data-feature-action='move-down']")).toBeNull();
+    expect(derived.textContent).toContain("Dex DC 13");
+    expect(derived.textContent).toContain("2d6 Lightning");
     expect(builder.manualFeatureCards).toEqual([]);
+    expect(builder.featureUses).toEqual({});
     expect(deps.SaveManager.markDirty).not.toHaveBeenCalled();
+
+    api.destroy();
+  });
+
+  it("derived Dragonborn Breath Weapon use controls clamp and persist only featureUses", () => {
+    const builder = makeBuilder("char_builder", { str: 10, dex: 10, con: 14, int: 10, wis: 10, cha: 10 });
+    builder.build.raceId = "dragonborn";
+    builder.build.classId = "class_fighter";
+    builder.build.level = 5;
+    builder.build.choicesByLevel = { "1": { "dragonborn-ancestry": "blue" } };
+    const state = { characters: { activeId: "char_builder", entries: [builder] }, combat: { workspace: {} } };
+    const deps = makeDeps(state);
+    const api = initAbilitiesFeaturesPanel(deps);
+    const list = document.getElementById("charAbilitiesFeaturesList");
+
+    let card = list.querySelector('[data-feature-id="dragonborn-breath-weapon"]');
+    dispatchTargetedEvent(list, "click", card.querySelector('[data-feature-action="use-decrement"]'));
+    expect(builder.featureUses["dragonborn-breath-weapon"].current).toBe(0);
+    expect(builder.manualFeatureCards).toEqual([]);
+    expect(list.querySelector(".featureUseTrackerCount").textContent).toBe("0/1");
+
+    card = list.querySelector('[data-feature-id="dragonborn-breath-weapon"]');
+    dispatchTargetedEvent(list, "click", card.querySelector('[data-feature-action="use-decrement"]'));
+    expect(builder.featureUses["dragonborn-breath-weapon"].current).toBe(0);
+
+    card = list.querySelector('[data-feature-id="dragonborn-breath-weapon"]');
+    dispatchTargetedEvent(list, "click", card.querySelector('[data-feature-action="use-increment"]'));
+    expect(builder.featureUses["dragonborn-breath-weapon"].current).toBe(1);
+    expect(list.querySelector(".featureUseTrackerCount").textContent).toBe("1/1");
+
+    card = list.querySelector('[data-feature-id="dragonborn-breath-weapon"]');
+    dispatchTargetedEvent(list, "click", card.querySelector('[data-feature-action="use-increment"]'));
+    expect(builder.featureUses["dragonborn-breath-weapon"].current).toBe(1);
+
+    builder.featureUses["dragonborn-breath-weapon"].current = 0;
+    notifyPanelDataChanged("character-fields");
+    card = list.querySelector('[data-feature-id="dragonborn-breath-weapon"]');
+    dispatchTargetedEvent(list, "click", card.querySelector('[data-feature-action="use-reset"]'));
+    expect(builder.featureUses["dragonborn-breath-weapon"].current).toBe(1);
+    expect(list.querySelector(".featureUseTrackerCount").textContent).toBe("1/1");
+    expect(builder.manualFeatureCards).toEqual([]);
+    expect(deps.SaveManager.markDirty).toHaveBeenCalledTimes(3);
 
     api.destroy();
   });
@@ -2357,7 +2410,7 @@ describe("character panels active character resolution", () => {
     api.destroy();
   });
 
-  it("derived card move buttons are disabled and do not mutate manual or derived state", () => {
+  it("derived card reorder controls are omitted and do not mutate manual or derived state", () => {
     const builder = makeBuilder("char_builder", { str: 10, dex: 10, con: 14, int: 10, wis: 10, cha: 10 });
     builder.build.raceId = "dragonborn";
     builder.build.level = 5;
@@ -2375,11 +2428,8 @@ describe("character panels active character resolution", () => {
     const beforeManual = JSON.stringify(builder.manualFeatureCards);
     const beforeDerived = JSON.stringify(deriveCharacter(builder).derivedFeatureActions);
 
-    expect(moveUp.disabled).toBe(true);
-    expect(moveDown.disabled).toBe(true);
-
-    dispatchTargetedEvent(list, "click", moveUp);
-    dispatchTargetedEvent(list, "click", moveDown);
+    expect(moveUp).toBeNull();
+    expect(moveDown).toBeNull();
 
     expect(JSON.stringify(builder.manualFeatureCards)).toBe(beforeManual);
     expect(JSON.stringify(deriveCharacter(builder).derivedFeatureActions)).toBe(beforeDerived);

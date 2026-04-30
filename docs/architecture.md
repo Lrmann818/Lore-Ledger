@@ -585,6 +585,10 @@ Panel ownership:
 - `panels/spellsPanel.js`
   - `state.characters.entries[].spells.levels`
   - per-spell notes in IndexedDB `texts`
+- `panels/abilitiesFeaturesPanel.js`
+  - `deriveCharacter(...).derivedFeatureActions` for builder-derived/read-only feature cards
+  - `state.characters.entries[].manualFeatureCards` for manual/custom feature cards
+  - `state.characters.entries[].featureUses` for mutable use counts on derived feature-specific counters such as Dragonborn Breath Weapon
 - `panels/equipmentPanel.js`
   - `state.characters.entries[].inventoryItems`
   - `state.characters.entries[].activeInventoryIndex`

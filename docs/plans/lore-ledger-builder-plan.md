@@ -32,7 +32,24 @@ The implementation strategy is vertical-slice-first:
 4. Expand category coverage only after the first slice is working and test-backed.
 
 This is intentionally not a "populate every SRD category at once" project.
+
 The rationale for this strategy is recorded in `docs/design/vertical-slice-schema.md`.
+
+Before adding a new panel, card, field, or persisted storage location for builder-derived information, first check the existing character sheet surfaces for an appropriate home. If an existing field or panel appears intended for that kind of information, pause and confirm whether the value should use that existing surface instead of creating a new one. Examples include passive features/traits in the Character panel's Features / Traits area, languages and proficiencies in Proficiencies & Languages, action-style abilities in Abilities & Features, compact combat stats in Vitals, and broad reusable resource counters in Vitals/resources. New surfaces should be added only when the existing sheet does not already have a suitable home or when a deliberate design decision says the existing home is insufficient.
+
+## Builder Editability and Homebrew Ownership Pattern
+
+Builder-created characters are editable characters, not permanently locked rules objects. The builder may seed or derive initial values from registry/rules data, but post-creation editability is a core product requirement so users can support homebrew, house rules, campaign-specific rulings, and manual corrections.
+
+Builder ownership has three categories:
+
+- Live-derived calculations and mechanics stay synchronized where practical. Examples include proficiency bonus, derived DCs, level-based dice, and feature-use maximums. These compact values and counters should usually remain derived rather than becoming editable long-form text.
+- User-owned editable text/content may be seeded from rules data during character creation and may later receive duplicate-aware additions when newly relevant information becomes available, such as after a level-up. Examples include Features / Traits text, Proficiencies & Languages notes, personality notes, and similar long-form character notes. After text is placed into an editable sheet field, the user owns that text.
+- User-customized builder cards may start from rules-derived content, but cards that mix live-derived mechanics with editable user text need an explicit persisted customization, copy, or override model before they become editable. User-customized card text/content must not be silently overwritten by later rules derivation.
+
+Seeded editable text is not a "seed once and never touch again" rule. The app may later append or offer to add newly relevant builder/rules information, but later additions must preserve existing text and user edits, should be duplicate-aware, and should be user-confirmed through an explicit add/update flow when practical. The app must not silently rewrite, replace, delete, normalize, or overwrite user-owned text to keep it synchronized with builder/rules data.
+
+If a future refresh or regenerate behavior is needed, it must be explicit, user-triggered, previewable where practical, and designed to avoid destroying homebrew edits. This tradeoff is intentional: if a user edits generated text incorrectly, the user is responsible for correcting it manually. Lore Ledger should preserve user agency instead of silently enforcing rules text over edited sheet content.
 
 ---
 
@@ -245,14 +262,14 @@ Completed April 27, 2026.
 - Breath Weapon save DC is derived as `8 + Constitution modifier + proficiency bonus`.
 - Breath Weapon damage dice scale by builder level: `2d6` before level 6, `3d6` from level 6, `4d6` from level 11, and `5d6` from level 16.
 - Builder Summary displays the selected ancestry mechanics as the current temporary builder-specific surface for this vertical slice.
-- Derived table-use values should also surface in the practical panel where players need them, not only in Builder Summary. Dragonborn Breath Weapon DC appears in Vitals when derivable. Feature-specific limited-use counters, such as future Breath Weapon uses, should be tracked as character-owned feature-use entries or equivalent, not by copying the derived Breath Weapon card into manual state. Broad shared pools, such as Sorcery Points or Ki, should follow the canonical Vitals/resource-counter path and remain out of the narrow Phase 3G limited-use slice.
+- Derived table-use values should also surface in the practical panel where players need them, not only in Builder Summary. Dragonborn Breath Weapon DC appears in Vitals when derivable. Feature-specific limited-use counters should be tracked as character-owned feature-use entries or equivalent, not by copying derived cards into manual state; Phase 3H applies that rule to Breath Weapon uses. Broad shared pools, such as Sorcery Points or Ki, should follow the canonical Vitals/resource-counter path and remain out of the narrow Phase 3G limited-use slice.
 - The persisted builder record still stores only the normalized ancestry choice ID. Derived ancestry mechanics are not copied into flat character fields or persisted as duplicate builder fields.
 - Freeform characters remain unchanged.
 - Derivation and Summary rendering tests cover the Dragonborn vertical slice before expanding the same pattern to other races or traits.
 
 Still deferred beyond Phase 3B:
 
-- Action tracking, uses/rest tracking, rest recharge, and combat automation for Breath Weapon.
+- Breath Weapon combat automation and broader action/rest automation beyond the Phase 3H derived use counter.
 
 ### Phase 3C: Abilities & Features Panel Foundation — FOUNDATION COMPLETE
 
@@ -260,7 +277,7 @@ Goal: add the normal character-page home for special rule-backed abilities and f
 
 Completed April 27, 2026.
 
-Phase 3C foundation complete: derived Dragonborn Breath Weapon now renders as the first display-only Abilities & Features card. Phase 3F later added the manual/freeform feature-card foundation and first polish pass. Use tracking, partial regain behavior, spell slots, broader rest/resource automation, and broader feature coverage remain future work.
+Phase 3C foundation complete: derived Dragonborn Breath Weapon now renders as the first display-only Abilities & Features card. Phase 3F later added the manual/freeform feature-card foundation and first polish pass, and Phase 3H later added Breath Weapon use tracking. Partial regain behavior, spell slots, broader rest/resource automation, broad derived feature-use automation beyond Breath Weapon, and broader feature coverage remain future work.
 
 Shipped foundation scope:
 
@@ -277,7 +294,10 @@ Long-term model:
 - Builder characters can receive derived feature cards from rules/build choices.
 - Freeform characters can create manual feature cards after Phase 3F.
 - Builder-derived and freeform/manual cards render through the same Abilities & Features panel UI.
+- The current foundation renders builder-derived cards as read-only for mechanics/text, but this is not a permanent product lock.
+- Builder-created characters need a post-creation path to edit, reorder, and customize builder-created Abilities & Features cards for homebrew, house rules, campaign-specific rulings, and manual correction.
 - Builder-derived cards should not be duplicated into manual/freeform card state unless a later explicit copy, customize, or override behavior is designed.
+- Builder card customization must preserve the ownership split: live-derived mechanics can remain derived, while user-customized text/content must be persisted through an explicit customization model and must not be silently overwritten.
 
 Surface ownership:
 
@@ -298,11 +318,12 @@ Resource ownership:
 
 Future Abilities & Features work:
 
+- Required builder-card edit, reorder, and customization support for builder-created characters, using an explicit ownership model for cards that mix derived mechanics with user-owned text/content.
 - Fuller accessibility pass for menu keyboard navigation.
 - Possible cleanup of overlapping legacy `damageEffect` and newer `effectText` fields.
 - Partial regain behavior, if a later rules slice needs it.
 - Broader rest/recovery rules beyond Phase 3G manual/custom feature-specific counters.
-- Breath Weapon use tracking through canonical feature-use/resource entries.
+- Broad derived feature-use automation beyond the Phase 3H Dragonborn Breath Weapon slice.
 - Spell slot recovery later.
 - Combat/linked-character rest behavior later, if desired.
 - Specialized shared-resource-linked feature cards later, such as Sorcery Points, Ki, Metamagic, and Flexible Casting.
@@ -313,7 +334,7 @@ Goal: add the first character-level Short Rest / Long Rest action path while pre
 
 Completed April 29, 2026.
 
-Phase 3D foundation complete: Character page Short Rest / Long Rest toolbar controls now route through a central active-character recovery helper for explicitly tagged `character.resources[]` counters. Phase 3E adds the first resource recovery settings UI for assigning that metadata, and Phase 3G extends the same helper to manual/custom feature-specific counters; derived Breath Weapon use tracking, spell slot recovery, partial regain behavior, and broader class-feature automation remain future work.
+Phase 3D foundation complete: Character page Short Rest / Long Rest toolbar controls now route through a central active-character recovery helper for explicitly tagged `character.resources[]` counters. Phase 3E adds the first resource recovery settings UI for assigning that metadata, Phase 3G extends the same helper to manual/custom feature-specific counters, and Phase 3H extends it to derived Dragonborn Breath Weapon `featureUses`; spell slot recovery, partial regain behavior, broad derived feature-use automation, and broader class-feature automation remain future work.
 
 Recovery vocabulary:
 
@@ -351,7 +372,7 @@ Shipped foundation scope:
 
 - Added Character page Short Rest and Long Rest toolbar controls near the page menu.
 - Added `recoverCharacterForRest(character, "shortRest" | "longRest")` in `js/domain/characterRest.js`.
-- Recovery currently supports only explicit `character.resources[]` counters with the existing `cur` / `max` shape.
+- At Phase 3D launch, recovery supported only explicit `character.resources[]` counters with the existing `cur` / `max` shape; Phase 3G and Phase 3H later extended the same helper to feature-specific counters.
 - `shortRest` recovers entries tagged `shortRest` or `shortOrLongRest`.
 - `longRest` recovers entries tagged `longRest` or `shortOrLongRest`.
 - Missing, `manual`, `none`, unknown recovery metadata, already-full counters, malformed counters, and unrelated fields are left unchanged.
@@ -369,8 +390,7 @@ Still out of scope after this foundation slice:
 - Automatic assumptions for existing manual resource trackers without recovery metadata.
 - Combat-wide rest actions or all-character rest actions.
 - Linked combat character rest behavior.
-- Breath Weapon use tracking.
-- Derived/read-only feature-use tracking and broad shared-resource-linked feature cards.
+- Broad derived/read-only feature-use tracking beyond Dragonborn Breath Weapon and broad shared-resource-linked feature cards.
 - Shared-resource-linked behavior for pools such as Sorcery Points, Ki, Rage uses, Bardic Inspiration, or Channel Divinity.
 - Manual/freeform feature-card editing is handled by Phase 3F, but it does not add resource automation.
 
@@ -380,7 +400,7 @@ Goal: let users assign rest-recovery metadata to existing Vitals resource tracke
 
 Completed April 29, 2026.
 
-Phase 3E foundation complete: Vitals resource recovery metadata can now be configured from resource tiles through press-and-hold or keyboard activation, without adding visible tile settings buttons. The dialog writes only `resource.recovery`; partial regain, derived Breath Weapon use tracking, spell slots, combat/linked-character rest behavior, and broader automation remain future work.
+Phase 3E foundation complete: Vitals resource recovery metadata can now be configured from resource tiles through press-and-hold or keyboard activation, without adding visible tile settings buttons. The dialog writes only `resource.recovery`; partial regain, spell slots, combat/linked-character rest behavior, broad derived feature-use automation beyond Dragonborn Breath Weapon, and broader automation remain future work.
 
 Interaction contract:
 
@@ -435,8 +455,7 @@ Still out of scope after this foundation slice:
 - Partial regain amount fields.
 - "Regain short" or "regain long" numeric fields.
 - Spendable vs Static toggles unless the current resource code already has that concept.
-- Derived/read-only Breath Weapon use tracking and broad shared-resource-linked feature cards. Phase 3G ships only manual/custom feature-specific limited-use tracking.
-- Breath Weapon use tracking.
+- Broad derived/read-only feature-use tracking beyond Dragonborn Breath Weapon and broad shared-resource-linked feature cards. Phase 3G ships only manual/custom feature-specific limited-use tracking, and Phase 3H later adds only Dragonborn Breath Weapon.
 - Manual Abilities & Features card editing. Phase 3F later completes the foundation slice for that path.
 - Sorcery Points, Ki, Metamagic, or Flexible Casting automation.
 - Spell slot automation.
@@ -483,7 +502,7 @@ Out of scope for Phase 3F:
 - Resource spending automation.
 - Feature-specific limited-use tracking, planned separately as Phase 3G.
 - Vitals resource linking.
-- Breath Weapon use tracking.
+- Derived Dragonborn Breath Weapon use tracking, handled later by Phase 3H.
 - Sorcery Points, Ki, Metamagic, or Flexible Casting specialization.
 - Spell slot automation.
 - Broad class-feature automation.
@@ -527,7 +546,7 @@ Shipped foundation scope:
 - Feature-specific limited-use counters belong to one manual/custom feature or sub-feature. Examples include Second Wind uses, Relentless Endurance uses, and Vampiric Bite's empowered-use counter.
 - Vampiric Bite itself is not spent; only its empowered effect has limited uses.
 - Derived/read-only cards do not receive limited-use controls in this slice.
-- Breath Weapon can later receive a limited-use counter without copying the derived/read-only Breath Weapon card into manual feature-card state.
+- Phase 3H later adds Breath Weapon use tracking without copying the derived/read-only Breath Weapon card into manual feature-card state.
 
 Resource boundaries:
 
@@ -538,9 +557,33 @@ Resource boundaries:
 
 Still out of scope after this foundation slice:
 
-- Derived Dragonborn Breath Weapon use tracking.
 - Generated SRD data changes or SRD adapter changes.
 - Sorcery Points, Ki, Metamagic, Flexible Casting, spell slots, Pact Magic slots, or prepared/known spell automation.
+- Attack roll or damage calculation.
+- AC derivation, armor/equipment automation, or builder AC automation.
+
+### Phase 3H: Derived Dragonborn Breath Weapon Use Tracking — FOUNDATION COMPLETE
+
+Goal: add use tracking to the existing derived Dragonborn Breath Weapon card without copying the derived card into manual/custom feature state or broadening into shared resources.
+
+Completed April 30, 2026.
+
+Shipped foundation scope:
+
+- Dragonborn Breath Weapon remains a builder-derived/read-only Abilities & Features card for mechanics, text, DC, area, damage, damage type, source, and recovery display.
+- Mutable use state is character-owned in `featureUses["dragonborn-breath-weapon"].current`.
+- Missing Breath Weapon use state defaults to full uses, so existing Dragonborn builder characters display `1/1` until the player spends the use.
+- The persisted `featureUses` entry stores only the mutable current count. Max uses, recovery, label, feature text, DC, area, damage, damage type, ancestry, and generated SRD data remain derived from rules/build data.
+- The derived card displays compact use, restore-one, and reset controls. Use clamps at 0; restore-one and reset clamp at the derived max of 1.
+- Short Rest and Long Rest recover Breath Weapon through the existing character-level `recoverCharacterForRest(character, restType)` path because the derived recovery metadata is `shortOrLongRest`.
+- Derived Breath Weapon state is not stored in `manualFeatureCards[]`, is not stored as a `character.resources[]` Vitals resource, and does not create a duplicate copy of the derived card.
+- Derived card edit, delete, and reorder controls are omitted.
+
+Still out of scope after this foundation slice:
+
+- Broad derived feature-use automation beyond Dragonborn Breath Weapon.
+- Sorcery Points, Ki, Bardic Inspiration, Rage uses, Channel Divinity, Metamagic, Flexible Casting, spell slots, Pact Magic slots, or prepared/known spell automation.
+- Generated SRD expansion or SRD adapter changes.
 - Attack roll or damage calculation.
 - AC derivation, armor/equipment automation, or builder AC automation.
 - Broad class-feature automation or expanded SRD data coverage.
@@ -584,15 +627,18 @@ Current example:
 - Dragonborn Breath Weapon DC is derivable from ancestry, Constitution modifier, and proficiency bonus, so Vitals is the appropriate normal-sheet home for that combat DC.
 - Dragonborn Breath Weapon's full action-style mechanics now render as the first derived, display-only Abilities & Features card, not in Spells or Weapons.
 
-Future examples split into two categories. Manual/custom feature-specific limited-use counters, such as an empowered Vampiric Bite counter, can surface on Abilities & Features cards through the Phase 3G `limitedUse` foundation; derived Breath Weapon use tracking remains future work and should not copy the derived card into manual state. Broad shared pools, such as Sorcery Points or Ki, should be derived/read-only first and then tracked through the canonical Vitals/resource-counter path only when a later explicit shared-resource slice intentionally adds that behavior.
+Examples now split into three categories. Manual/custom feature-specific limited-use counters, such as an empowered Vampiric Bite counter, can surface on Abilities & Features cards through the Phase 3G `limitedUse` foundation. Derived Dragonborn Breath Weapon use tracking surfaces through Phase 3H `featureUses` without copying the derived card into manual state. Broad shared pools, such as Sorcery Points or Ki, should be derived/read-only first and then tracked through the canonical Vitals/resource-counter path only when a later explicit shared-resource slice intentionally adds that behavior.
 
 ### Temporary Builder-Only Panel Retirement Direction
 
+
 Builder-only panels are temporary scaffolding, not the long-term sheet model. Over time, builder and freeform characters should use the same visible character sheet panels:
 
-- Builder characters populate normal panels through derivation and intentional overrides.
+- Builder characters populate normal panels through live derivation, seeded editable text where appropriate, and intentional overrides/customizations.
 - Freeform characters continue using manual fields.
-- Before any builder-only panel is removed, every useful piece of information it shows must already have a clear home in the normal panel structure.
+- Before any builder-only panel is removed, every useful piece of information it shows must already have a clear home in the normal panel structure and a clear ownership model.
+
+When reconciling builder-only scaffolding with the normal character sheet, do not assume every derived value needs a new Abilities & Features card, a new UI surface, or editable text storage. First map the value to the normal panel that already appears to own that kind of information, and ask for product-owner confirmation when more than one existing surface could plausibly apply. Passive one-time descriptive traits may seed the existing Features / Traits area, languages and proficiencies may seed or add to Proficiencies & Languages, action-style features should prefer Abilities & Features, compact combat stats should prefer live-derived Vitals display, and broad reusable counters should prefer Vitals/resources.
 
 ### Remaining Phase 3 Work Items
 
@@ -601,8 +647,8 @@ Applicable to future choice expansion beyond Dragonborn:
 - Add picker UI for supported build-time choices as races and classes gain choice data.
 - Keep choice kinds aligned with the closed set in the registry plan.
 - Derive sheet-facing values from build choices and registry data.
-- Avoid materializing derived fields into persisted character fields unless a later phase
-  explicitly requires it.
+- Seed or add long-form descriptive sheet text only where the normal editable sheet field owns that content, then preserve user edits.
+- Avoid materializing compact derived calculations, counters, or mechanics into persisted character fields unless a later phase explicitly requires it.
 - Add tests for derivation behavior before widening the content set.
 - Expand race ability bonus previews as additional race/subrace choice data becomes supported.
 
@@ -628,14 +674,16 @@ Work items:
 
 ---
 
-## Phase 5: Locking, Overrides, and Polish
+## Phase 5: Builder Editability, Ownership, and Overrides
 
-Goal: make builder-owned values clear and editable through intentional override paths.
+Goal: make builder-owned values clear while preserving the settled requirement that builder-created characters remain editable after creation.
 
 Work items:
 
-- Define which fields are builder-owned and which remain free-editable.
-- Add override UI only where the derived/manual boundary is clear.
+- Define which fields are live-derived calculations/mechanics, which long-form fields can receive seeded editable text, and which card content needs explicit customization storage.
+- Add override/customization UI only where the derived/manual boundary is clear.
+- Add the required post-creation edit, reorder, and customize path for builder-created Abilities & Features cards using an explicit ownership model.
+- Design any refresh/regenerate behavior as explicit, user-triggered, and previewable where practical.
 - Keep freeform characters working exactly as they do today.
 - Preserve combat embedded panel behavior by reading canonical active character data.
 - Add accessibility and mobile checks for wizard and picker flows.

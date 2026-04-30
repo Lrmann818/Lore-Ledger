@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { makeDefaultBuilderCharacterEntry } from "../js/domain/characterHelpers.js";
 import { recoverCharacterForRest } from "../js/domain/characterRest.js";
 
 function makeCharacter(resources) {
@@ -9,6 +10,20 @@ function makeCharacter(resources) {
     build: null,
     resources
   };
+}
+
+function makeDragonbornCharacter(current = 0) {
+  const character = makeDefaultBuilderCharacterEntry("Dragonborn Rest Tester");
+  character.id = "char_dragonborn_rest";
+  character.build.raceId = "dragonborn";
+  character.build.classId = "class_fighter";
+  character.build.level = 5;
+  character.build.abilities.base = { str: 10, dex: 10, con: 14, int: 10, wis: 10, cha: 10 };
+  character.build.choicesByLevel = { "1": { "dragonborn-ancestry": "blue" } };
+  character.featureUses = {
+    "dragonborn-breath-weapon": { current }
+  };
+  return character;
 }
 
 describe("recoverCharacterForRest", () => {
@@ -170,6 +185,42 @@ describe("recoverCharacterForRest", () => {
       { id: "disabled", name: "Disabled", sourceType: "", activation: "", rangeArea: "", saveDc: "", damageEffect: "", description: "", limitedUse: { enabled: false, label: "", current: 0, max: 1, recovery: "shortRest" } }
     ];
     const character = { ...makeCharacter([]), manualFeatureCards: cards };
+
+    const result = recoverCharacterForRest(character, "shortRest");
+
+    expect(result.changed).toBe(false);
+    expect(result.character).toBe(character);
+  });
+
+  it("shortRest recovers derived Dragonborn Breath Weapon feature uses", () => {
+    const character = makeDragonbornCharacter(0);
+
+    const result = recoverCharacterForRest(character, "shortRest");
+
+    expect(result.changed).toBe(true);
+    expect(result.character.featureUses["dragonborn-breath-weapon"].current).toBe(1);
+    expect(result.character.manualFeatureCards).toEqual([]);
+    expect(result.character.resources).toEqual([]);
+    expect(character.featureUses["dragonborn-breath-weapon"].current).toBe(0);
+  });
+
+  it("longRest recovers derived Dragonborn Breath Weapon feature uses", () => {
+    const character = makeDragonbornCharacter(0);
+
+    const result = recoverCharacterForRest(character, "longRest");
+
+    expect(result.changed).toBe(true);
+    expect(result.character.featureUses["dragonborn-breath-weapon"].current).toBe(1);
+  });
+
+  it("leaves stale or unavailable feature use entries inert during rest", () => {
+    const character = {
+      ...makeCharacter([]),
+      featureUses: {
+        "dragonborn-breath-weapon": { current: 0 },
+        "future-feature": { current: 0 }
+      }
+    };
 
     const result = recoverCharacterForRest(character, "shortRest");
 

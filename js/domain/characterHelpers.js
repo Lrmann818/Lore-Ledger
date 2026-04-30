@@ -228,6 +228,7 @@ export function makeDefaultCharacterEntry(name = "New Character") {
 
     resources: [],
     manualFeatureCards: [],
+    featureUses: {},
 
     abilities: {
       str: { score: null, mod: null, save: null },

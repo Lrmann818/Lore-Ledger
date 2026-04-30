@@ -4,12 +4,13 @@
 import { DEV_MODE } from "./utils/dev.js";
 import { isBuilderCharacter, normalizeCharacterOverrides } from "./domain/characterHelpers.js";
 import { normalizeManualFeatureCard } from "./domain/manualFeatureCards.js";
+import { normalizeFeatureUses } from "./domain/featureUses.js";
 
 export const STORAGE_KEY = "localCampaignTracker_v1";
 export const ACTIVE_TAB_KEY = "localCampaignTracker_activeTab";
 
 // Save schema versioning
-export const CURRENT_SCHEMA_VERSION = 7;
+export const CURRENT_SCHEMA_VERSION = 8;
 
 /** @typedef {import("./domain/factories.js").NpcCard & PortraitRef} NpcCard */
 /** @typedef {import("./domain/factories.js").PartyMemberCard & PortraitRef} PartyMemberCard */
@@ -62,6 +63,11 @@ export const SCHEMA_MIGRATION_HISTORY = Object.freeze([
     version: 7,
     date: "2026-04-29",
     changes: "Added manual Abilities & Features card storage on character entries."
+  },
+  {
+    version: 8,
+    date: "2026-04-30",
+    changes: "Added character-owned derived feature-use storage on character entries."
   }
 ]);
 
@@ -125,6 +131,14 @@ export const SCHEMA_MIGRATION_HISTORY = Object.freeze([
  *   recovery: "manual" | "shortRest" | "longRest" | "shortOrLongRest" | "none"
  * }} LimitedUseConfig
  */
+
+/**
+ * @typedef {{
+ *   current: number
+ * }} FeatureUseState
+ */
+
+/** @typedef {Record<string, FeatureUseState>} FeatureUsesState */
 
 /**
  * @typedef {{
@@ -391,6 +405,7 @@ export const SCHEMA_MIGRATION_HISTORY = Object.freeze([
  *   spellDC: NullableNumber,
  *   resources: CharacterResource[],
  *   manualFeatureCards: ManualFeatureCard[],
+ *   featureUses: FeatureUsesState,
  *   abilities: CharacterAbilities,
  *   skills: Record<string, unknown>,
  *   skillsNotes: string,
@@ -1330,6 +1345,18 @@ export function migrateState(raw) {
     }
   }
 
+  function migrateToV8() {
+    const characters = data.characters && typeof data.characters === "object" && !Array.isArray(data.characters)
+      ? /** @type {CharactersCollection & Record<string, unknown>} */ (data.characters)
+      : null;
+    const entries = Array.isArray(characters?.entries) ? characters.entries : [];
+    for (const entry of entries) {
+      if (!entry || typeof entry !== "object" || Array.isArray(entry)) continue;
+      const character = /** @type {Record<string, unknown>} */ (entry);
+      character.featureUses = normalizeFeatureUses(character.featureUses);
+    }
+  }
+
   const SCHEMA_MIGRATIONS = Object.freeze({
     0: migrateToV1,
     1: migrateToV2,
@@ -1337,7 +1364,8 @@ export function migrateState(raw) {
     3: migrateToV4,
     4: migrateToV5,
     5: migrateToV6,
-    6: migrateToV7
+    6: migrateToV7,
+    7: migrateToV8
   });
 
   function applyMigrationStep(version) {
@@ -1368,6 +1396,7 @@ export function migrateState(raw) {
   migrateToV5();
   migrateToV6();
   migrateToV7();
+  migrateToV8();
 
   data.schemaVersion = CURRENT_SCHEMA_VERSION;
   return normalizeState(/** @type {State} */ (data));

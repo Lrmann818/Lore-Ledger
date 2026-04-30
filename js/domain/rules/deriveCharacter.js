@@ -37,6 +37,11 @@ import { BUILTIN_CONTENT_REGISTRY, getContentById } from "./registry.js";
  *   damage: string,
  *   damageType: string,
  *   recovery: string,
+ *   useTracking?: {
+ *     label: string,
+ *     max: number,
+ *     recovery: "shortOrLongRest"
+ *   },
  *   description: string
  * }} DerivedFeatureAction
  */
@@ -448,6 +453,11 @@ export function deriveCharacter(character, registry = BUILTIN_CONTENT_REGISTRY) 
       damage: breathWeapon.damageDice,
       damageType: titleCaseLabel(dragonbornAncestry.damageType),
       recovery: "Short or Long Rest",
+      useTracking: {
+        label: "Uses",
+        max: 1,
+        recovery: "shortOrLongRest"
+      },
       description: "Each creature in the area makes the listed save. Failed save takes full damage; successful save takes half."
     });
   }
