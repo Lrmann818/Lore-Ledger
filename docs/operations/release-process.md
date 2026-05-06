@@ -64,15 +64,15 @@ Use Node `20` for release builds when possible so local behavior matches the Pag
 2. Make sure the intended semver tag exists locally and is attached to that commit.
 3. Install dependencies with the lockfile:
 
-```bash
-npm ci
-```
+    ```bash
+    npm ci
+    ```
 
 4. Run the canonical automated release gate:
 
-```bash
-npm run verify
-```
+    ```bash
+    npm run verify
+    ```
 
 For the closest local match to CI, run `npm ci` first, then `npm run verify`.
 

@@ -139,7 +139,7 @@ A character can be added to the party cards or NPC cards from the character page
 
 Tracker cards (NPC and Party) gain an optional field:
 
-```
+```json
 characterId: string | null   // references a characters.entries[].id
 ```
 
@@ -193,7 +193,7 @@ When the user deletes a linked tracker card:
 
 Card rendering logic needs a branch:
 
-```
+```psudocode
 if (card.characterId) {
   const char = getCharacterById(state, card.characterId);
   // read name, hp, portrait, class from char
@@ -219,7 +219,7 @@ Add a character creation wizard and level-up flow backed by SRD 5.1 content, wit
 
 Each character entry gains a `build` object and an `overrides` object alongside the existing flat fields. The shape below reflects the schema-v6 implementation; see `docs/state-schema.md` for the canonical schema-of-record.
 
-```
+```json
 {
 id: "char_abc123",
 // Build choices (source of truth for the rules engine when build !== null)
@@ -278,7 +278,7 @@ Current implementation note: builder-created characters are editable characters,
 
 Every piece of game content follows one schema:
 
-```
+```json
 {
   id: string,
   kind: "race" | "class" | "subclass" | "background" | "feat" | "spell" | "armor" | "weapon",
@@ -296,7 +296,7 @@ Content registry lives at app level, not per-campaign. All campaigns share the s
 
 #### Armor data shape
 
-```
+```json
 {
   id: "armor_studded_leather",
   kind: "armor",
@@ -317,7 +317,7 @@ Content registry lives at app level, not per-campaign. All campaigns share the s
 
 #### Weapon data shape
 
-```
+```json
 {
   id: "weapon_spear",
   kind: "weapon",
@@ -460,7 +460,7 @@ A single JSON file containing:
 - Spell notes keyed by spell entry ID
 - A format version tag for future-proofing
 
-```
+```json
 {
   formatVersion: 1,
   type: "lore-ledger-character",

@@ -72,7 +72,7 @@ The planned builtin registry files are:
 - `game-data/srd/skills.json`
 - `game-data/srd/equipment.armor.json`
 - `game-data/srd/equipment.weapons.json`
-- `game-data/srd/spells.json` *(optional/later, only if needed for granted builtin spell support or future expansion)*
+- `game-data/srd/spells.json` _(optional/later, only if needed for granted builtin spell support or future expansion)_
 
 These files hold **shipped builtin content only**.
 
@@ -1090,7 +1090,7 @@ Current planned builtin registry files:
 - `draconic-ancestries.json`
 - `languages.json`
 - `skills.json`
-- `spells.json` *(optional/later if needed for granted builtin spell support or broader spell workflows)*
+- `spells.json` _(optional/later if needed for granted builtin spell support or broader spell workflows)_
 - `equipment.armor.json`
 - `equipment.weapons.json`
 

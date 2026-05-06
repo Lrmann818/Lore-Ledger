@@ -606,7 +606,7 @@ Any persisted shape change must be handled through the existing versioned migrat
 
 The pipeline is:
 
-```
+```psudocode
 scripts/fetch-srd-data.js.       — orchestrator
 scripts/adapters/racesAdapter.js — produces races.json, including the inline choices array on parent race entries (e.g. Dragonborn's draconic ancestry choice; Human's bonus language choice)
 classesAdapter.js                — produces classes.json

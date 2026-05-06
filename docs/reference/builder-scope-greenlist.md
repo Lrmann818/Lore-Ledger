@@ -1,3 +1,5 @@
+# Greenlist
+
 ## Spell Scope Distinction
 
 Lore Ledger makes an explicit distinction between **spellcasting progression support** and a **full builtin spell registry**.
@@ -33,6 +35,7 @@ The following are still not part of the current shipped builtin scope unless exp
 The existing spells panel remains the main manual-entry UI for user-managed spells.
 
 The builder may derive spellcasting progression data and surface automatically granted builtin spells, but Lore Ledger is not yet committing to a full builtin spell compendium or fully builder-managed spell selection workflow.
+
 # Builder Scope Greenlist
 
 _Last updated: 2026-04-17_

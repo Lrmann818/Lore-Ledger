@@ -852,11 +852,12 @@ Placement rule:
 8. Own listeners explicitly and return `destroy()` when a module has real lifecycle.
 9. Preserve CSP-safe patterns: use shared dialogs, DOM APIs, and explicit event listeners.
 10. Update this document when changing:
-   - startup order
-   - state shape
-   - persistence contract
-   - page/module ownership
-   - dependency direction rules
+
+- startup order
+- state shape
+- persistence contract
+- page/module ownership
+- dependency direction rules
 
 ## Adding a new page or panel
 

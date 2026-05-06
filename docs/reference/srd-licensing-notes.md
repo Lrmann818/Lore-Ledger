@@ -62,7 +62,7 @@ SRD 5.1 is the **primary source** for all builtin builder content.
 
 When Lore Ledger distributes builtin material derived from SRD 5.1, include this attribution statement:
 
-> This work includes material taken from the System Reference Document 5.1 ("SRD 5.1") by Wizards of the Coast LLC and available at https://dnd.wizards.com/resources/systems-reference-document. The SRD 5.1 is licensed under the Creative Commons Attribution 4.0 International License available at https://creativecommons.org/licenses/by/4.0/legalcode.
+> This work includes material taken from the System Reference Document 5.1 ("SRD 5.1") by Wizards of the Coast LLC and available at <https://dnd.wizards.com/resources/systems-reference-document>. The SRD 5.1 is licensed under the Creative Commons Attribution 4.0 International License available at <https://creativecommons.org/licenses/by/4.0/legalcode>.
 
 This statement is also in `LEGAL.md` at the repo root. Keep both in sync.
 
