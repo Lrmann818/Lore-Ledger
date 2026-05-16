@@ -462,41 +462,43 @@ error: (fatal) could not build module 'Capacitor'
 
 **Root cause:** The Capacitor and CapacitorCordova targets have `ENABLE_MODULE_VERIFIER = YES` in their target build settings. The `modules-verifier` tool runs as a separate binary when building for `iphoneos` (arm64 physical device) and enforces strict framework header hygiene — double-quoted includes and `@import` statements are treated as hard errors, not warnings. `CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = NO` in the target xcconfigs does not suppress these because the `modules-verifier` tool doesn't read that flag. The simulator build escaped this because the incremental build cache had pre-verified results from a prior successful run.
 
-**Fix:** Added a `post_install` block to `ios/App/Podfile` that sets:
-- `ENABLE_MODULE_VERIFIER = NO` for `Capacitor` and `CapacitorCordova` targets
-- `CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = NO` for the same targets (belt-and-suspenders, overrides project-level `YES` in `Pods.xcodeproj/project.pbxproj`)
+**Fix — two-part (2026-05-16):**
 
-The `post_install` hook survives `pod install` re-runs (including those triggered by `cap sync ios`), so this fix is durable.
+*Part 1 — Podfile `post_install`:* Broadened the hook to apply to **all** pod targets (not just Capacitor and CapacitorCordova by name — the original name filter had a silent mismatch). Sets both:
+- `ENABLE_MODULE_VERIFIER = NO`
+- `CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = NO`
 
-**Result:** `xcodebuild -destination 'generic/platform=iOS'` → **BUILD SUCCEEDED**, no errors. Simulator build also still succeeds.
+*Part 2 — Post-install patch script:* CocoaPods re-enforces `ENABLE_MODULE_VERIFIER = YES` for `DEFINES_MODULE` targets during its own project write, which runs **after** the `post_install` hook. The Podfile hook alone could not reliably persist the setting. A Ruby patch script (`scripts/patch-pods.rb`) performs a gsub on the pbxproj after pod install is completely finished. It is invoked automatically by `npm run cap:sync:ios` and is available standalone as `npm run ios:fix-pods`.
 
-**Command sequence after Podfile changes** (required any time `Podfile` is edited):
+**Result:** All 6 `ENABLE_MODULE_VERIFIER` entries in `Pods.xcodeproj/project.pbxproj` are confirmed `NO` after `cap sync ios`. `xcodebuild -destination 'generic/platform=iOS'` → **BUILD SUCCEEDED**. Simulator build also still succeeds.
+
+**Standard workflow — use these npm scripts, not raw pod install:**
 ```bash
-cd ios/App && pod install
-cd ../..
-npm run build
-npx cap sync ios
-# Then open ios/App/App.xcworkspace in Xcode
+npm run cap:sync:ios   # build → cap sync → pod install → patch Pods project
+# OR if you need to run pod install separately:
+cd ios/App && pod install && cd ../.. && npm run ios:fix-pods
 ```
+
+If you run `pod install` directly without following it with `npm run ios:fix-pods`, the Pods project will have `ENABLE_MODULE_VERIFIER = YES` and the physical-device build will fail again.
 
 ### Simulator vs. physical-device build status
 
-| Target | Build result |
+| Target | Verified |
 |---|---|
-| iOS Simulator (iPhone 17 Pro, arm64) | ✅ BUILD SUCCEEDED |
-| Generic iOS / physical device (iphoneos SDK, arm64) | ✅ BUILD SUCCEEDED |
-| Physical iPhone 14 Pro Max (device connected) | **Needs manual Xcode run** |
+| iOS Simulator (iPhone 17 Pro, arm64) | ✅ BUILD SUCCEEDED (xcodebuild) |
+| Generic iOS / iphoneos SDK (arm64) | ✅ BUILD SUCCEEDED (xcodebuild) |
+| Physical iPhone 14 Pro Max (device connected) | ⏳ Needs manual Xcode run — Willow must confirm |
 
-The generic iOS build success (`-destination 'generic/platform=iOS'`) uses the same iphoneos SDK and arm64 architecture as a connected physical device. Full physical-device validation (install, launch, interactive use) still requires the device connected in Xcode.
+The generic iOS build uses the same iphoneos SDK and arm64 architecture as a connected physical device. The earlier "BUILD SUCCEEDED on physical device" claim was incorrect — that was generic iOS only, not a device-connected run. Full validation requires the iPhone 14 Pro Max connected in Xcode.
 
 ### Next steps before TestFlight
 
 1. ✅ ~~Configure signing team~~ — `DEVELOPMENT_TEAM = 7BLL25Q48N` already set in project
 2. ✅ ~~Fix app icon~~ — `lore-ledger-icon-1024.png` (1024×1024) in place, correctly declared
-3. ✅ ~~Fix physical-device build~~ — Podfile `post_install` disables module verifier for Capacitor/Cordova pods
+3. ✅ ~~Fix physical-device build errors~~ — Module verifier disabled via Podfile hook + `scripts/patch-pods.rb`
 4. Replace placeholder splash screen (`ios/App/App/Assets.xcassets/Splash.imageset/`) with branded Lore Ledger splash
-5. Manually verify navigation, Data & Settings modal, and bottom safe area in Xcode Simulator
-6. Connect iPhone 14 Pro Max → Xcode → run on device → confirm launch and basic campaign flow
+5. **Connect iPhone 14 Pro Max → Xcode → run on device** — this is the first unverified step
+6. Manually verify navigation, Data & Settings modal, and bottom safe area on device
 7. Verify provisioning profile and certificate in Xcode → Signing & Capabilities
 8. Archive and upload to TestFlight once assets and device validation are done
 

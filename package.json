@@ -12,8 +12,9 @@
     "typecheck": "tsc -p tsconfig.checkjs.json --pretty false",
     "test:smoke": "playwright test",
     "verify": "npm run test:run && npm run typecheck && npm run build",
-    "cap:sync:ios": "npm run build && npx cap sync ios",
-    "cap:open:ios": "npx cap open ios"
+    "cap:sync:ios": "npm run build && npx cap sync ios && ruby scripts/patch-pods.rb",
+    "cap:open:ios": "npx cap open ios",
+    "ios:fix-pods": "ruby scripts/patch-pods.rb"
   },
   "devDependencies": {
     "@playwright/test": "^1.59.1",

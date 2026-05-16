@@ -23,15 +23,14 @@ post_install do |installer|
   assertDeploymentTarget(installer)
   installer.pods_project.targets.each do |target|
     target.build_configurations.each do |config|
-      # Disable module verifier for Capacitor/Cordova pod targets.
-      # Their framework headers use double-quoted includes and @import, which
-      # the modules-verifier tool treats as errors on iphoneos (physical device)
-      # builds even when CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = NO is
-      # set in xcconfig. Disabling the verifier is the standard upstream fix.
-      if ['Capacitor', 'CapacitorCordova'].include?(target.name)
-        config.build_settings['ENABLE_MODULE_VERIFIER'] = 'NO'
-        config.build_settings['CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER'] = 'NO'
-      end
+      # Suppress quoted-include framework header warnings across all pod targets.
+      # CocoaPods does not re-enforce this setting, so it survives the project write.
+      config.build_settings['CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER'] = 'NO'
+      # ENABLE_MODULE_VERIFIER is also set here, but CocoaPods re-enforces YES for
+      # DEFINES_MODULE targets during its own project write (which runs after this
+      # hook). The npm cap:sync:ios and ios:fix-pods scripts patch the pbxproj after
+      # pod install completes to reliably set it to NO. See scripts/patch-pods.rb.
+      config.build_settings['ENABLE_MODULE_VERIFIER'] = 'NO'
     end
   end
 end
