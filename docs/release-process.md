@@ -527,10 +527,10 @@ If you run `pod install` directly without following it with `npm run ios:fix-pod
 4. ✅ ~~Physical-device build, install, and launch~~ — confirmed on iPhone 14 Pro Max
 5. ✅ ~~Manual interactive smoke pass~~ — all 14 checks pass on iPhone 14 Pro Max
 6. ✅ ~~Replace placeholder splash screen~~ — branded artwork was already in place (`Splash.imageset/`, 941×1672); confirmed correct (2026-05-16)
-7. Prepare App Store metadata: app description, screenshots, privacy policy URL, content rating, keywords
+7. ✅ ~~Privacy policy URL~~ — `public/privacy.html` added; ships to `https://lore-ledger.com/privacy.html`; linked from the app's Support section in Data / Settings
 8. ✅ ~~Legal/content audit~~ — SRD attribution not required for this version (see audit below)
-9. Verify provisioning profile and distribution certificate in Xcode → Signing & Capabilities (switch to App Store distribution profile)
-10. Prepare App Store metadata: app description, screenshots, privacy policy URL, content rating, keywords
+9. Prepare remaining App Store metadata: app description, screenshots, content rating questionnaire, keywords
+10. Verify provisioning profile and distribution certificate in Xcode → Signing & Capabilities (switch to App Store distribution profile)
 11. Archive and upload to TestFlight
 
 ### Legal/content audit (2026-05-16)
