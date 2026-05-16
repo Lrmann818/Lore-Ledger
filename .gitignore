@@ -31,3 +31,7 @@ temp/
 
 # Private design notes
 docs/\#personal/
+
+# Capacitor native iOS project is tracked (ios/.gitignore handles inner exclusions)
+# Android project is not yet added
+android/

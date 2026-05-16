@@ -282,7 +282,168 @@ If optional zip packaging was used, also record:
 
 For failures, follow the evidence guidance in [`docs/testing-guide.md`](./testing-guide.md).
 
-## 10. Changelog update expectations
+## 10. App Store / iOS packaging (Capacitor)
+
+Lore Ledger uses [Capacitor](https://capacitorjs.com/) as the native packaging layer for the App Store / TestFlight path.
+
+### Architecture
+
+- Vite still builds the web app to `dist/` as before.
+- Capacitor wraps that build in a native iOS Xcode project.
+- `capacitor.config.ts` in the project root is the single Capacitor configuration file:
+  - `appId: "com.laurenmann.loreledger"`
+  - `appName: "Lore Ledger"`
+  - `webDir: "dist"`
+- Capacitor packages: `@capacitor/core`, `@capacitor/cli`, `@capacitor/ios` — all pinned to `7.6.5`.
+- CocoaPods 1.16.2 (installed via Homebrew) manages native iOS dependencies.
+
+### Native project status
+
+The `ios/` Xcode project has been scaffolded and is **tracked in the repo**.
+
+Tracked files include:
+- `ios/.gitignore` (inner exclusions managed by Capacitor)
+- `ios/App/App.xcodeproj/project.pbxproj`
+- `ios/App/App.xcworkspace/contents.xcworkspacedata`
+- `ios/App/App/AppDelegate.swift`, `Info.plist`, `Assets.xcassets/`, `Base.lproj/`
+- `ios/App/Podfile`, `ios/App/Podfile.lock`
+
+Not tracked (excluded by `ios/.gitignore`):
+- `ios/App/Pods/` — CocoaPods dependencies, restored by `pod install`
+- `ios/App/App/public/` — web assets, restored by `cap sync ios`
+- `ios/App/App/capacitor.config.json` — generated from `capacitor.config.ts`
+- `ios/capacitor-cordova-ios-plugins/` — generated
+- `DerivedData/`, `xcuserdata/` — Xcode build/user artifacts
+
+### Xcode prerequisite
+
+The system must use full Xcode (not just Command Line Tools) for `pod install` to succeed. If you see an error about `xcodebuild` requiring Xcode, run:
+
+```bash
+sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer
+```
+
+This is a one-time machine setup step.
+
+### Standard iOS workflow
+
+After a code or dependency change:
+
+```bash
+# 1. Build web app and sync into native iOS project
+npm run cap:sync:ios
+
+# 2. Open in Xcode to build / archive / run on simulator or device
+npm run cap:open:ios
+```
+
+`npm run cap:sync:ios` is equivalent to:
+
+```bash
+npm run build          # Vite → dist/
+npx cap sync ios       # copies dist/ into ios/App/App/public, reruns pod install
+```
+
+### Initial setup on a fresh clone
+
+```bash
+npm ci
+npm run build
+npx cap sync ios       # restores Pods and web assets; requires CocoaPods and Xcode
+```
+
+### Useful scripts
+
+| Script | Purpose |
+|---|---|
+| `npm run cap:sync:ios` | Builds web app then syncs into native iOS project |
+| `npm run cap:open:ios` | Opens `ios/App/App.xcworkspace` in Xcode |
+
+### Node version note
+
+`@capacitor/cli@8.x` requires Node 22. This project's CI uses Node 20, so all Capacitor packages are pinned to `7.6.5`. Upgrade when CI Node is upgraded to 22.
+
+### Simulator smoke pass (2026-05-16)
+
+**Tested on:** iPhone 17 Pro, iOS 26.5 simulator — Xcode 26.5
+
+#### What was tested via CLI (`xcodebuild` + `xcrun simctl`)
+
+**Build and install:**
+- ✅ `xcodebuild` — BUILD SUCCEEDED, no errors
+- ✅ App installs: `CFBundleIdentifier = com.laurenmann.loreledger`, `CFBundleDisplayName = Lore Ledger`
+
+**Launch scenarios — all PASS:**
+- ✅ Cold launch (fresh install): Campaign Hub renders, `⚡️ WebView loaded`
+- ✅ Terminate + relaunch: Campaign Hub renders identically in empty state
+- ✅ Uninstall + reinstall (erase): Campaign Hub renders correctly on completely fresh data
+- ✅ No native crash on any scenario
+- ✅ No WKWebView load failure in console output across all three scenarios
+
+**Storage:**
+- ✅ Capacitor kvstore writes on first launch (`lastBinaryVersionName: "1.0"`, `lastBinaryVersionCode: "1"`)
+- ✅ IndexedDB directory created and ready; empty at first launch as expected (no user data yet)
+- ✅ App data container correctly isolated under `Library/WebKit/com.laurenmann.loreledger/`
+
+**Safe-area analysis (source code + screenshot):**
+- ✅ `viewport-fit=cover` in `<meta name="viewport">` — full-screen layout enabled
+- ✅ `apple-mobile-web-app-status-bar-style: black-translucent` — status bar correctly overlays content
+- ✅ Body has `padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px))` at `max-width: 600px` for non-hub pages
+- ✅ Hub page (`#page-hub`) uses `padding-bottom: calc(gutter + var(--hub-safe-area-bottom))` where `--hub-safe-area-bottom: env(safe-area-inset-bottom, 0px)` fires at `max-width: 600px` (iPhone 17 Pro is 402pt wide — matches)
+- ✅ Body padding zeroed for hub mode to avoid double-counting; hub handles its own safe insets
+- ✅ Top safe area: status bar is visible above content, no overlap with Dynamic Island area (confirmed from screenshots)
+- ⚠️ Bottom safe area: CSS structure is correct and should prevent home indicator overlap, but visual scroll-to-bottom verification still requires manual Xcode/device testing
+
+**Known native-context behavior (expected, not bugs):**
+- Service worker does not register on `capacitor://localhost` — WKWebView does not support SWs on custom protocols. `updates.js` guards on `"serviceWorker" in navigator` and returns no-ops cleanly. App functions fully; offline capability is the native bundle.
+- `100dvh` dynamic viewport height used on hub page; resolves correctly in WKWebView.
+
+#### Limitation: interactive UI testing blocked this session
+
+`simctl` has no touch simulation. AppleScript accessibility and screen recording permissions were not available to this shell process. As a result, the following workflows could NOT be automated and **require manual validation in Xcode or on device**:
+
+| Workflow | Status |
+|---|---|
+| Create a new campaign | **Needs manual test** |
+| Open a campaign | **Needs manual test** |
+| Navigate to Tracker | **Needs manual test** |
+| Navigate to Character | **Needs manual test** |
+| Navigate to Combat | **Needs manual test** |
+| Navigate to Map | **Needs manual test** |
+| Open Data & Settings | **Needs manual test** |
+| Campaign persists after close/reopen | **Needs manual test** |
+| Campaign persists after force quit | **Needs manual test** |
+| Scroll to bottom of hub (bottom safe area) | **Needs manual test** |
+| Keyboard / text input (Campaign Name field) | **Needs manual test** |
+| Import / export (native file picker availability) | **Needs manual test** |
+
+To enable automated UI testing in future passes: grant Terminal (or the shell running Claude Code) accessibility access under System Settings → Privacy & Security → Accessibility.
+
+#### Xcode build warnings (not blocking)
+
+| Warning | Source | Action |
+|---|---|---|
+| `WKProcessPool` deprecated (iOS 15+) | Capacitor/Cordova internals | Upstream Capacitor fix; not our code |
+| `[CP] Embed Pods Frameworks` no outputs | CocoaPods/Capacitor build phase | Causes unconditional pod embedding — minor build overhead, not correctness issue |
+
+#### App icon / splash (pre-TestFlight required fix)
+
+The placeholder Capacitor icon and splash screen are installed on the simulator home screen. Replace before any TestFlight or App Store submission:
+- `ios/App/App/Assets.xcassets/AppIcon.appiconset/` — replace with Lore Ledger icon set
+- `ios/App/App/Assets.xcassets/Splash.imageset/` — replace with Lore Ledger splash
+
+### Next steps before TestFlight
+
+1. Run on a physical iPhone (required for TestFlight, required for real storage/input/audio testing)
+2. Configure signing team in Xcode (Signing & Capabilities → App target)
+3. Replace placeholder app icon (`ios/App/App/Assets.xcassets/AppIcon.appiconset/`) with Lore Ledger icons
+4. Replace placeholder splash screen (`ios/App/App/Assets.xcassets/Splash.imageset/`) with branded splash
+5. Manually verify navigation, Data & Settings modal, and bottom safe area on device
+6. Archive and upload to TestFlight once signing and assets are ready
+
+---
+
+## 11. Changelog update expectations
 
 This repository maintains a committed [`CHANGELOG.md`](../CHANGELOG.md).
 

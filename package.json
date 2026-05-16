@@ -11,7 +11,9 @@
     "test:run": "vitest run",
     "typecheck": "tsc -p tsconfig.checkjs.json --pretty false",
     "test:smoke": "playwright test",
-    "verify": "npm run test:run && npm run typecheck && npm run build"
+    "verify": "npm run test:run && npm run typecheck && npm run build",
+    "cap:sync:ios": "npm run build && npx cap sync ios",
+    "cap:open:ios": "npx cap open ios"
   },
   "devDependencies": {
     "@playwright/test": "^1.59.1",
@@ -19,5 +21,10 @@
     "vite": "^5.4.0",
     "vite-plugin-pwa": "^0.20.5",
     "vitest": "^1.6.0"
+  },
+  "dependencies": {
+    "@capacitor/cli": "7.6.5",
+    "@capacitor/core": "7.6.5",
+    "@capacitor/ios": "7.6.5"
   }
 }
