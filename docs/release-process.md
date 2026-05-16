@@ -450,15 +450,55 @@ To enable automated UI testing in future passes: grant Terminal (or the shell ru
 
 **Workspace requirement:** Always open and build from `ios/App/App.xcworkspace`, never from `ios/App/App.xcodeproj`. The `.xcworkspace` includes the CocoaPods `Pods.xcodeproj` that provides the Capacitor and Cordova frameworks. The `npm run cap:open:ios` script opens the workspace correctly.
 
+### Physical-device build fix (2026-05-16)
+
+**Problem:** Simulator build succeeded; physical-device (iPhone 14 Pro Max) build failed with 21 `CapacitorCordova` issues. The actual CLI errors were:
+```
+error: double-quoted include "CAPPluginMethod.h" in framework header, expected angle-bracketed instead
+error: use of '@import' in framework header is discouraged, including this header requires -fmodules
+error: (fatal) module 'Cordova' not found
+error: (fatal) could not build module 'Capacitor'
+```
+
+**Root cause:** The Capacitor and CapacitorCordova targets have `ENABLE_MODULE_VERIFIER = YES` in their target build settings. The `modules-verifier` tool runs as a separate binary when building for `iphoneos` (arm64 physical device) and enforces strict framework header hygiene — double-quoted includes and `@import` statements are treated as hard errors, not warnings. `CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = NO` in the target xcconfigs does not suppress these because the `modules-verifier` tool doesn't read that flag. The simulator build escaped this because the incremental build cache had pre-verified results from a prior successful run.
+
+**Fix:** Added a `post_install` block to `ios/App/Podfile` that sets:
+- `ENABLE_MODULE_VERIFIER = NO` for `Capacitor` and `CapacitorCordova` targets
+- `CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = NO` for the same targets (belt-and-suspenders, overrides project-level `YES` in `Pods.xcodeproj/project.pbxproj`)
+
+The `post_install` hook survives `pod install` re-runs (including those triggered by `cap sync ios`), so this fix is durable.
+
+**Result:** `xcodebuild -destination 'generic/platform=iOS'` → **BUILD SUCCEEDED**, no errors. Simulator build also still succeeds.
+
+**Command sequence after Podfile changes** (required any time `Podfile` is edited):
+```bash
+cd ios/App && pod install
+cd ../..
+npm run build
+npx cap sync ios
+# Then open ios/App/App.xcworkspace in Xcode
+```
+
+### Simulator vs. physical-device build status
+
+| Target | Build result |
+|---|---|
+| iOS Simulator (iPhone 17 Pro, arm64) | ✅ BUILD SUCCEEDED |
+| Generic iOS / physical device (iphoneos SDK, arm64) | ✅ BUILD SUCCEEDED |
+| Physical iPhone 14 Pro Max (device connected) | **Needs manual Xcode run** |
+
+The generic iOS build success (`-destination 'generic/platform=iOS'`) uses the same iphoneos SDK and arm64 architecture as a connected physical device. Full physical-device validation (install, launch, interactive use) still requires the device connected in Xcode.
+
 ### Next steps before TestFlight
 
 1. ✅ ~~Configure signing team~~ — `DEVELOPMENT_TEAM = 7BLL25Q48N` already set in project
 2. ✅ ~~Fix app icon~~ — `lore-ledger-icon-1024.png` (1024×1024) in place, correctly declared
-3. Replace placeholder splash screen (`ios/App/App/Assets.xcassets/Splash.imageset/`) with branded Lore Ledger splash
-4. Manually verify navigation, Data & Settings modal, and bottom safe area in Xcode Simulator
-5. Run on a physical iPhone (required for TestFlight, required for real storage/input/audio testing)
-6. Verify provisioning profile and certificate in Xcode → Signing & Capabilities
-7. Archive and upload to TestFlight once assets and device validation are done
+3. ✅ ~~Fix physical-device build~~ — Podfile `post_install` disables module verifier for Capacitor/Cordova pods
+4. Replace placeholder splash screen (`ios/App/App/Assets.xcassets/Splash.imageset/`) with branded Lore Ledger splash
+5. Manually verify navigation, Data & Settings modal, and bottom safe area in Xcode Simulator
+6. Connect iPhone 14 Pro Max → Xcode → run on device → confirm launch and basic campaign flow
+7. Verify provisioning profile and certificate in Xcode → Signing & Capabilities
+8. Archive and upload to TestFlight once assets and device validation are done
 
 ---
 

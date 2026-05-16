@@ -21,4 +21,17 @@ end
 
 post_install do |installer|
   assertDeploymentTarget(installer)
+  installer.pods_project.targets.each do |target|
+    target.build_configurations.each do |config|
+      # Disable module verifier for Capacitor/Cordova pod targets.
+      # Their framework headers use double-quoted includes and @import, which
+      # the modules-verifier tool treats as errors on iphoneos (physical device)
+      # builds even when CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = NO is
+      # set in xcconfig. Disabling the verifier is the standard upstream fix.
+      if ['Capacitor', 'CapacitorCordova'].include?(target.name)
+        config.build_settings['ENABLE_MODULE_VERIFIER'] = 'NO'
+        config.build_settings['CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER'] = 'NO'
+      end
+    end
+  end
 end
