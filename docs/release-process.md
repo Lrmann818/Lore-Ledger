@@ -429,7 +429,7 @@ To enable automated UI testing in future passes: grant Terminal (or the shell ru
 #### App icon / splash status
 
 - ✅ **App icon is correct** — `AppIcon.appiconset/lore-ledger-icon-1024.png` is 1024×1024; `Contents.json` declares it as the universal iOS icon. Xcode generates the required size variants (e.g. 120×120 @2x) automatically from this source.
-- ⚠️ **Splash screen is still Capacitor placeholder** — `Splash.imageset/` contains three identical 941×1672 images (same file at @1x/@2x/@3x). Replace with branded artwork before TestFlight.
+- ✅ **Splash screen is branded Lore Ledger artwork** — `Splash.imageset/` contains the 941×1672 branded splash (`public/splash.png`: dark candlelit scholar aesthetic, "Lore Ledger / Keep Your World Within Reach" with d20 and feather quill). Declared at @1x/@2x/@3x in `Contents.json`; `LaunchScreen.storyboard` displays it with `scaleAspectFill`. Confirmed correct — this is not the Capacitor placeholder.
 
 ### Xcode native build fix (2026-05-16)
 
@@ -481,26 +481,88 @@ cd ios/App && pod install && cd ../.. && npm run ios:fix-pods
 
 If you run `pod install` directly without following it with `npm run ios:fix-pods`, the Pods project will have `ENABLE_MODULE_VERIFIER = YES` and the physical-device build will fail again.
 
-### Simulator vs. physical-device build status
+### Build and device status
 
 | Target | Verified |
 |---|---|
 | iOS Simulator (iPhone 17 Pro, arm64) | ✅ BUILD SUCCEEDED (xcodebuild) |
 | Generic iOS / iphoneos SDK (arm64) | ✅ BUILD SUCCEEDED (xcodebuild) |
-| Physical iPhone 14 Pro Max (device connected) | ⏳ Needs manual Xcode run — Willow must confirm |
+| Physical iPhone 14 Pro Max — build + install + launch | ✅ CONFIRMED (2026-05-16) |
+| Physical iPhone 14 Pro Max — full interactive smoke pass | ✅ ALL PASS (2026-05-16) |
 
-The generic iOS build uses the same iphoneos SDK and arm64 architecture as a connected physical device. The earlier "BUILD SUCCEEDED on physical device" claim was incorrect — that was generic iOS only, not a device-connected run. Full validation requires the iPhone 14 Pro Max connected in Xcode.
+### Physical-device smoke pass (2026-05-16)
+
+**Device:** iPhone 14 Pro Max  
+**All 14 checks PASS.**
+
+| Check | Result |
+|---|---|
+| App launches | ✅ PASS |
+| Campaign Hub appears | ✅ PASS |
+| Create campaign "Native Device Test" | ✅ PASS |
+| Campaign appears in archive/list | ✅ PASS |
+| Open the campaign | ✅ PASS |
+| Navigate to Tracker | ✅ PASS |
+| Navigate to Character | ✅ PASS |
+| Navigate to Combat | ✅ PASS |
+| Navigate to Map | ✅ PASS |
+| Open Data & Settings | ✅ PASS |
+| Tap text field — keyboard behavior usable | ✅ PASS |
+| Scroll to bottom — nothing hidden behind home indicator | ✅ PASS |
+| Close/reopen — "Native Device Test" persists | ✅ PASS |
+| Force quit/reopen — "Native Device Test" persists | ✅ PASS |
+
+**Remaining Xcode warnings (non-blocking — no action required):**
+
+| Warning | Source | Status |
+|---|---|---|
+| `WKProcessPool` deprecated (iOS 15+) | CapacitorCordova dependency code | Non-blocking; upstream Capacitor fix |
+| `[CP] Embed Pods Frameworks` has no declared outputs | CocoaPods build phase | Non-blocking; CocoaPods cosmetic warning |
 
 ### Next steps before TestFlight
 
 1. ✅ ~~Configure signing team~~ — `DEVELOPMENT_TEAM = 7BLL25Q48N` already set in project
 2. ✅ ~~Fix app icon~~ — `lore-ledger-icon-1024.png` (1024×1024) in place, correctly declared
 3. ✅ ~~Fix physical-device build errors~~ — Module verifier disabled via Podfile hook + `scripts/patch-pods.rb`
-4. Replace placeholder splash screen (`ios/App/App/Assets.xcassets/Splash.imageset/`) with branded Lore Ledger splash
-5. **Connect iPhone 14 Pro Max → Xcode → run on device** — this is the first unverified step
-6. Manually verify navigation, Data & Settings modal, and bottom safe area on device
-7. Verify provisioning profile and certificate in Xcode → Signing & Capabilities
-8. Archive and upload to TestFlight once assets and device validation are done
+4. ✅ ~~Physical-device build, install, and launch~~ — confirmed on iPhone 14 Pro Max
+5. ✅ ~~Manual interactive smoke pass~~ — all 14 checks pass on iPhone 14 Pro Max
+6. ✅ ~~Replace placeholder splash screen~~ — branded artwork was already in place (`Splash.imageset/`, 941×1672); confirmed correct (2026-05-16)
+7. Prepare App Store metadata: app description, screenshots, privacy policy URL, content rating, keywords
+8. ✅ ~~Legal/content audit~~ — SRD attribution not required for this version (see audit below)
+9. Verify provisioning profile and distribution certificate in Xcode → Signing & Capabilities (switch to App Store distribution profile)
+10. Prepare App Store metadata: app description, screenshots, privacy policy URL, content rating, keywords
+11. Archive and upload to TestFlight
+
+### Legal/content audit (2026-05-16)
+
+**Determination: SRD attribution is NOT required for this version.**
+
+**Scope audited:**
+- All JS/JSON/HTML source files imported by the production entry point
+- `dist/` output (JS bundle, CSS, static assets) after `npm run build`
+- Synced iOS web assets under `ios/App/App/public/` after `npm run cap:sync:ios`
+- `public/` static assets (images, icons, audio, manifest)
+- User-visible surfaces: About dialog, Support section, Data/Settings modal
+
+**Search terms checked:** SRD, System Reference Document, Wizards, Wizards of the Coast, Creative Commons, CC-BY, D&D, Dungeons, Dragonborn, Draconic Ancestry, Breath Weapon, race, class, background, spell, spellcasting, proficiency bonus, ability score, saving throw, monster, equipment, rules, compendium, registry, rulesEngine, rules-engine, ancestry, species, classFeatures, racialTraits, spellList, SRD 5.1, SRD 5.2.1
+
+**Findings:**
+
+| Category | Finding |
+|---|---|
+| SRD data files (races, spells, classes, equipment) | None — no JSON/data files ship; no lookup tables exist in source or bundle |
+| SRD rules text (descriptions, tables, mechanics) | None — no SRD rules content in any source or shipped file |
+| Specific SRD species names (Dragonborn, Dwarf, Elf, etc.) | None — zero hits in source or bundle |
+| Character sheet fields (`race`, `class`, `background`, `spell`) | Freeform text inputs — blank by default; user types anything; not SRD-derived |
+| Dice icons (d4–d100 SVGs) | Standard geometric dice shapes — common game tool, not D&D IP |
+| Audio (`the-lore-ledger.mp3`) | Original composition by filename and naming convention; no third-party attribution noted in source |
+| Hub background images (`.webp`) | Original artwork by naming convention; no third-party attribution noted in source |
+| About dialog | Shows app name, version, schema version, storage keys — no SRD/legal text |
+| SRD references in repo | Only in non-shipping dev docs: `CLAUDE.md`, `NEW-FEATURES-ROADMAP.md`, `MULTI-CHARACTER_DESIGN.md` |
+
+**Why the character sheet fields do not trigger SRD attribution:** Fields like `Race`, `Class/Level`, `Background`, `Spells`, `Equipment` are generic freeform text inputs. The shipped state schema stores `race: string`, `background: string` etc. as user-typed values with no default or lookup data. The SRD builder described in `MULTI-CHARACTER_DESIGN.md` (green list of species/classes/spells) is a planned future feature, not present in this build.
+
+**Future reminder:** SRD attribution (e.g., CC BY 4.0 per the Creative Commons SRD license) will be required before shipping the character builder/rules-engine feature if it ships SRD-derived species, class features, spell lists, or equipment tables. Add in-app attribution in the About or Legal screen at that time.
 
 ---
 
