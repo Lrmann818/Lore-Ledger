@@ -426,20 +426,39 @@ To enable automated UI testing in future passes: grant Terminal (or the shell ru
 | `WKProcessPool` deprecated (iOS 15+) | Capacitor/Cordova internals | Upstream Capacitor fix; not our code |
 | `[CP] Embed Pods Frameworks` no outputs | CocoaPods/Capacitor build phase | Causes unconditional pod embedding — minor build overhead, not correctness issue |
 
-#### App icon / splash (pre-TestFlight required fix)
+#### App icon / splash status
 
-The placeholder Capacitor icon and splash screen are installed on the simulator home screen. Replace before any TestFlight or App Store submission:
-- `ios/App/App/Assets.xcassets/AppIcon.appiconset/` — replace with Lore Ledger icon set
-- `ios/App/App/Assets.xcassets/Splash.imageset/` — replace with Lore Ledger splash
+- ✅ **App icon is correct** — `AppIcon.appiconset/lore-ledger-icon-1024.png` is 1024×1024; `Contents.json` declares it as the universal iOS icon. Xcode generates the required size variants (e.g. 120×120 @2x) automatically from this source.
+- ⚠️ **Splash screen is still Capacitor placeholder** — `Splash.imageset/` contains three identical 941×1672 images (same file at @1x/@2x/@3x). Replace with branded artwork before TestFlight.
+
+### Xcode native build fix (2026-05-16)
+
+**Problem:** Opening `App.xcworkspace` in Xcode and building produced these errors:
+- `error: Sandbox: bash deny(1) file-read-data … Pods-App-frameworks.sh`
+- `module 'Cordova' not found` / `could not build module 'Capacitor'`
+
+**Root cause:** Xcode 15+ introduced `ENABLE_USER_SCRIPT_SANDBOXING = YES` as the default project setting. This sandboxes script phases so they can only access explicitly declared input/output files. The CocoaPods `[CP] Embed Pods Frameworks` phase doesn't declare its inputs, so the sandbox blocked access to `Pods-App-frameworks.sh`. The module errors were downstream of this failure.
+
+**Fix:** Set `ENABLE_USER_SCRIPT_SANDBOXING = NO` in both Debug and Release build configurations in `ios/App/App.xcodeproj/project.pbxproj` (lines 278 and 342).
+
+**Result:** `xcodebuild -workspace App.xcworkspace` → **BUILD SUCCEEDED**, no errors. One remaining non-blocking warning:
+- `[CP] Embed Pods Frameworks` has no declared outputs — CocoaPods cosmetic warning, causes unconditional pod embedding on every build but doesn't break correctness.
+
+**Note:** `pod install` (run by `cap sync ios`) may not preserve this setting if it regenerates `project.pbxproj`. If the sandbox error reappears after a sync, re-apply the change or add `ENABLE_USER_SCRIPT_SANDBOXING = NO` to the App target's build settings manually in Xcode.
+
+**Signing:** `DEVELOPMENT_TEAM = 7BLL25Q48N` is already set in both Debug and Release build configurations. Automatic signing is enabled. No manual team configuration is needed for local builds; for TestFlight distribution, verify the provisioning profile and certificate are valid in Xcode → Signing & Capabilities.
+
+**Workspace requirement:** Always open and build from `ios/App/App.xcworkspace`, never from `ios/App/App.xcodeproj`. The `.xcworkspace` includes the CocoaPods `Pods.xcodeproj` that provides the Capacitor and Cordova frameworks. The `npm run cap:open:ios` script opens the workspace correctly.
 
 ### Next steps before TestFlight
 
-1. Run on a physical iPhone (required for TestFlight, required for real storage/input/audio testing)
-2. Configure signing team in Xcode (Signing & Capabilities → App target)
-3. Replace placeholder app icon (`ios/App/App/Assets.xcassets/AppIcon.appiconset/`) with Lore Ledger icons
-4. Replace placeholder splash screen (`ios/App/App/Assets.xcassets/Splash.imageset/`) with branded splash
-5. Manually verify navigation, Data & Settings modal, and bottom safe area on device
-6. Archive and upload to TestFlight once signing and assets are ready
+1. ✅ ~~Configure signing team~~ — `DEVELOPMENT_TEAM = 7BLL25Q48N` already set in project
+2. ✅ ~~Fix app icon~~ — `lore-ledger-icon-1024.png` (1024×1024) in place, correctly declared
+3. Replace placeholder splash screen (`ios/App/App/Assets.xcassets/Splash.imageset/`) with branded Lore Ledger splash
+4. Manually verify navigation, Data & Settings modal, and bottom safe area in Xcode Simulator
+5. Run on a physical iPhone (required for TestFlight, required for real storage/input/audio testing)
+6. Verify provisioning profile and certificate in Xcode → Signing & Capabilities
+7. Archive and upload to TestFlight once assets and device validation are done
 
 ---
 
