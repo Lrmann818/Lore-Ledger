@@ -481,6 +481,33 @@ cd ios/App && pod install && cd ../.. && npm run ios:fix-pods
 
 If you run `pod install` directly without following it with `npm run ios:fix-pods`, the Pods project will have `ENABLE_MODULE_VERIFIER = YES` and the physical-device build will fail again.
 
+### Required pre-Archive workflow
+
+**Always run this before Product → Archive in Xcode:**
+
+```bash
+npm run ios:prep-archive
+# Equivalent: npm run cap:sync:ios
+# Both run: build → cap sync ios → pod install → patch-pods.rb
+```
+
+**Why this is required:** CocoaPods re-enforces `ENABLE_MODULE_VERIFIER = YES` for `DEFINES_MODULE` targets every time `pod install` runs (including inside `cap sync ios`). The patch script (`scripts/patch-pods.rb`) runs after pod install completes and sets all instances back to `NO`. If pod install has run since the last patch, Archive will fail with "double-quoted include in framework header" errors from the modules-verifier.
+
+**Why a Xcode Run Script build phase cannot fix this automatically:** The modules-verifier runs during the Pods targets' own build phases (Capacitor, CapacitorCordova). These compile before the App target's build phases start, so any patch script in an App target build phase is too late to affect the already-running Pods target builds.
+
+**Symptom of a missed patch:** Archive fails immediately with errors like:
+```
+error: double-quoted include "CAPPluginMethod.h" in framework header, expected angle-bracketed instead
+error: (fatal) module 'Cordova' not found
+error: (fatal) could not build module 'Capacitor'
+```
+
+**Recovery:**
+```bash
+npm run ios:fix-pods   # patch only, no sync
+# Then in Xcode: allow the Pods project to reload if prompted, then re-Archive
+```
+
 ### Build and device status
 
 | Target | Verified |

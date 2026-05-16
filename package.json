@@ -14,7 +14,8 @@
     "verify": "npm run test:run && npm run typecheck && npm run build",
     "cap:sync:ios": "npm run build && npx cap sync ios && ruby scripts/patch-pods.rb",
     "cap:open:ios": "npx cap open ios",
-    "ios:fix-pods": "ruby scripts/patch-pods.rb"
+    "ios:fix-pods": "ruby scripts/patch-pods.rb",
+    "ios:prep-archive": "npm run cap:sync:ios"
   },
   "devDependencies": {
     "@playwright/test": "^1.59.1",
