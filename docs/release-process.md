@@ -358,6 +358,9 @@ npx cap sync ios       # restores Pods and web assets; requires CocoaPods and Xc
 |---|---|
 | `npm run cap:sync:ios` | Builds web app then syncs into native iOS project |
 | `npm run cap:open:ios` | Opens `ios/App/App.xcworkspace` in Xcode |
+| `npm run ios:fix-pods` | Re-patches the generated Pods project after any direct `pod install` |
+| `npm run ios:verify-pods` | Confirms no Pods build configuration still has either setting at `YES` |
+| `npm run ios:prep-archive` | Canonical pre-Archive path: build, sync, pod install, then patch Pods |
 
 ### Node version note
 
@@ -468,9 +471,9 @@ error: (fatal) could not build module 'Capacitor'
 - `ENABLE_MODULE_VERIFIER = NO`
 - `CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = NO`
 
-*Part 2 — Post-install patch script:* CocoaPods re-enforces `ENABLE_MODULE_VERIFIER = YES` for `DEFINES_MODULE` targets during its own project write, which runs **after** the `post_install` hook. The Podfile hook alone could not reliably persist the setting. A Ruby patch script (`scripts/patch-pods.rb`) performs a gsub on the pbxproj after pod install is completely finished. It is invoked automatically by `npm run cap:sync:ios` and is available standalone as `npm run ios:fix-pods`.
+*Part 2 — Post-install patch script:* CocoaPods re-enforces `ENABLE_MODULE_VERIFIER = YES` for `DEFINES_MODULE` targets during its own project write, which runs **after** the `post_install` hook. The Podfile hook alone could not reliably persist the setting. A Ruby patch script (`scripts/patch-pods.rb`) performs a gsub on the pbxproj after pod install is completely finished. It patches both `ENABLE_MODULE_VERIFIER` and `CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER` (the latter also appears YES in project-level configs that the Podfile hook does not reach). The script verifies zero YES instances remain after patching and exits non-zero if any do. It is invoked automatically by `npm run cap:sync:ios` / `npm run ios:prep-archive` and is available standalone as `npm run ios:fix-pods`.
 
-**Result:** All 6 `ENABLE_MODULE_VERIFIER` entries in `Pods.xcodeproj/project.pbxproj` are confirmed `NO` after `cap sync ios`. `xcodebuild -destination 'generic/platform=iOS'` → **BUILD SUCCEEDED**. Simulator build also still succeeds.
+**Result:** All 6 `ENABLE_MODULE_VERIFIER` + 2 project-level `CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER` entries in `Pods.xcodeproj/project.pbxproj` are confirmed `NO` after patching. `xcodebuild archive -destination 'generic/platform=iOS'` → **ARCHIVE SUCCEEDED** (2026-05-16, confirmed via `/tmp/LoreLedger.xcarchive`). Simulator and physical-device builds also still succeed.
 
 **Standard workflow — use these npm scripts, not raw pod install:**
 ```bash
@@ -489,6 +492,8 @@ If you run `pod install` directly without following it with `npm run ios:fix-pod
 npm run ios:prep-archive
 # Equivalent: npm run cap:sync:ios
 # Both run: build → cap sync ios → pod install → patch-pods.rb
+npm run ios:verify-pods
+# Confirms ENABLE_MODULE_VERIFIER and CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER are not YES anywhere in Pods.xcodeproj
 ```
 
 **Why this is required:** CocoaPods re-enforces `ENABLE_MODULE_VERIFIER = YES` for `DEFINES_MODULE` targets every time `pod install` runs (including inside `cap sync ios`). The patch script (`scripts/patch-pods.rb`) runs after pod install completes and sets all instances back to `NO`. If pod install has run since the last patch, Archive will fail with "double-quoted include in framework header" errors from the modules-verifier.
@@ -505,8 +510,21 @@ error: (fatal) could not build module 'Capacitor'
 **Recovery:**
 ```bash
 npm run ios:fix-pods   # patch only, no sync
+npm run ios:verify-pods
 # Then in Xcode: allow the Pods project to reload if prompted, then re-Archive
 ```
+
+**If CLI archive succeeds but Xcode GUI still fails with the old quoted-include errors:** the most likely cause is stale Xcode state, not a different source tree. Xcode can keep the pre-patch `Pods.xcodeproj` loaded in memory if it was already open when `pod install` / `patch-pods.rb` ran.
+
+Retry in this exact order:
+
+1. Quit Xcode completely.
+2. Run `npm run ios:prep-archive`.
+3. Run `npm run ios:verify-pods` and confirm both settings report `remaining_yes=0`.
+4. Delete this project's DerivedData entry.
+5. Reopen `ios/App/App.xcworkspace` only.
+6. Confirm the active scheme is `App` and the configuration is `Release`.
+7. Use `Product → Archive`.
 
 ### Build and device status
 

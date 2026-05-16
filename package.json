@@ -15,6 +15,7 @@
     "cap:sync:ios": "npm run build && npx cap sync ios && ruby scripts/patch-pods.rb",
     "cap:open:ios": "npx cap open ios",
     "ios:fix-pods": "ruby scripts/patch-pods.rb",
+    "ios:verify-pods": "ruby scripts/patch-pods.rb --verify-only",
     "ios:prep-archive": "npm run cap:sync:ios"
   },
   "devDependencies": {
