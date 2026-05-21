@@ -432,13 +432,13 @@ To enable automated UI testing in future passes: grant Terminal (or the shell ru
 #### App icon / splash status
 
 - ✅ **App icon is correct** — `AppIcon.appiconset/lore-ledger-icon-1024.png` is 1024×1024; `Contents.json` declares it as the universal iOS icon. Xcode generates the required size variants (e.g. 120×120 @2x) automatically from this source.
-- ✅ **Splash screen is branded Lore Ledger artwork** — `Splash.imageset/` contains the 941×1672 branded splash (`public/splash.png`: dark candlelit scholar aesthetic, "Lore Ledger / Keep Your World Within Reach" with d20 and feather quill). Declared at @1x/@2x/@3x in `Contents.json`; `LaunchScreen.storyboard` displays it with `scaleAspectFill`. Confirmed correct — this is not the Capacitor placeholder.
+- ✅ **Managed splash is the only branded splash** — the full Lore Ledger splash artwork still lives in `public/splash.png` and `#appSplash` for the app-owned web splash. The native iOS `LaunchScreen.storyboard` is now only a plain warm/dark bridge background, so launch no longer shows the full branded art twice.
 
 #### Intro audio / splash behavior
 
-- The iOS launch screen is native storyboard artwork (`LaunchScreen.storyboard` + `Splash.imageset`), so JavaScript cannot run until WKWebView starts loading the web app.
+- The iOS launch screen is a native storyboard bridge (`LaunchScreen.storyboard`), so JavaScript cannot run until WKWebView starts loading the web app.
 - Native iOS/TestFlight-style launches now hand off immediately into an app-owned web splash (`#appSplash`) that reuses `public/splash.png`.
-- The native handoff path now keeps the same warm dark background on all three earliest surfaces: `LaunchScreen.storyboard`, the Capacitor bridge/root view in `Main.storyboard`, and a tiny critical inline style in source `index.html` before `styles.css` loads.
+- The native handoff path now keeps the same warm dark background on all three earliest surfaces: `LaunchScreen.storyboard`, the Capacitor bridge/root view in `Main.storyboard`, and the critical source-HTML background before `styles.css` loads.
 - That web splash is the timing source for installed native launches: it stays visible until both app startup/restore is ready and the native-only managed minimum (`1800 ms`) has elapsed.
 - The managed minimum is intentionally gated to native-style runtimes (`Capacitor.isNativePlatform()` / `capacitor:`) so ordinary browser and desktop loads are not forced through the same delay.
 - The source `index.html` now starts with `data-app-boot="loading"` and `data-shell-mode="hub"` on `html`/`body` so the first WKWebView paint defaults to the splash-era background instead of a platform default.
@@ -450,14 +450,15 @@ To enable automated UI testing in future passes: grant Terminal (or the shell ru
 
 Manual TestFlight QA for intro audio:
 
-1. Launch from Xcode on device: confirm the branded splash stays up through the managed handoff and the intro jingle still plays once when enabled.
-2. Disconnect the phone and launch the already-installed app from the iPhone home screen: confirm the splash timing matches the Xcode-launched behavior instead of flashing away early.
-3. Force-close and relaunch from the home screen: confirm the managed splash still holds and the native-to-web handoff does not show a black flash (or that any remaining flash is materially reduced).
-4. Launch with intro music enabled: confirm one jingle plays and there is no duplicate or overlapping playback.
-5. Launch with intro music disabled: confirm no intro jingle plays.
-6. Launch when the app restores to Campaign Hub: confirm there is no rapid flash during handoff.
-7. Launch when the app restores directly into an open campaign: confirm there is no temporary Campaign Hub flash before the restored campaign appears.
-8. Confirm Export Backup still works after the splash timing change.
+1. Delete the app from the iPhone before reinstalling so cached native launch snapshots do not mask the current `LaunchScreen.storyboard`.
+2. Reinstall from Xcode, then disconnect the phone from the Mac.
+3. Force-close and relaunch from the iPhone home screen: confirm the native launch is only a plain warm/dark bridge and does not show the full Lore Ledger splash artwork.
+4. Confirm the branded Lore Ledger splash image appears only once, in the managed web splash, and still holds for `1800 ms`.
+5. Confirm the native-to-web handoff no longer feels like full splash -> black seam -> full splash again.
+6. Launch with intro music enabled: confirm one jingle plays and there is no duplicate or overlapping playback.
+7. Launch with intro music disabled: confirm no intro jingle plays.
+8. Launch when the app restores directly into an open campaign: confirm there is no temporary Campaign Hub flash before the restored campaign appears.
+9. Confirm Export Backup still works after the splash timing change.
 
 ### Xcode native build fix (2026-05-16)
 
@@ -596,7 +597,7 @@ Retry in this exact order:
 3. ✅ ~~Fix physical-device build errors~~ — Module verifier disabled via Podfile hook + `scripts/patch-pods.rb`
 4. ✅ ~~Physical-device build, install, and launch~~ — confirmed on iPhone 14 Pro Max
 5. ✅ ~~Manual interactive smoke pass~~ — all 14 checks pass on iPhone 14 Pro Max
-6. ✅ ~~Replace placeholder splash screen~~ — branded artwork was already in place (`Splash.imageset/`, 941×1672); confirmed correct (2026-05-16)
+6. ✅ ~~Replace placeholder splash screen~~ — native launch now uses a plain warm/dark bridge while the branded Lore Ledger artwork is owned by the managed web splash (updated 2026-05-21)
 7. ✅ ~~Privacy policy URL~~ — `public/privacy.html` added; ships to `https://lore-ledger.com/privacy.html`; linked from the app's Support section in Data / Settings
 8. ✅ ~~Legal/content audit~~ — SRD attribution not required for this version (see audit below)
 9. Prepare remaining App Store metadata: app description, screenshots, content rating questionnaire, keywords

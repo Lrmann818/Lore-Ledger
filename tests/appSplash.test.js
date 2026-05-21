@@ -89,7 +89,7 @@ describe("appSplash", () => {
 
     expect(html).toContain('<html lang="en" data-app-boot="loading" data-shell-mode="hub">');
     expect(html).toContain('<body data-app-boot="loading" data-shell-mode="hub">');
-    expect(html).toContain("background: #090705;");
+    expect(html).toContain("background: #090807;");
     expect(html).toContain("background: #090807;");
     expect(html).toContain('id="appSplash"');
   });

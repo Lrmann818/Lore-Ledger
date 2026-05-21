@@ -796,12 +796,12 @@ body[data-shell-mode="hub"] {
   --hub-atmosphere-filter: saturate(1.16) brightness(1.14) contrast(1.02);
   --hub-atmosphere-wash-opacity: 0.24;
   color-scheme: dark;
-  background: #090705;
+  background: #090807;
 }
 
 html[data-shell-mode="hub"],
 body[data-shell-mode="hub"] {
-  background-color: #090705;
+  background-color: #090807;
 }
 
 [hidden] {
