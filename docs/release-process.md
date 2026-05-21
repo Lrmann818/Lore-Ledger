@@ -187,7 +187,7 @@ Behavior:
 - output file name: `LoreLedger-web-YYYYMMDD-HHMM.zip`
 - default output directory: `release/`
 - verification message: `Pages zip is clean`
-- packages the current runtime-oriented repo files rooted around `index.html`, `styles.css`, `app.js`, `boot.js`, `splash-audio.js`, `js/`, and `icons/`
+- packages the current runtime-oriented repo files rooted around `index.html`, `styles.css`, `app.js`, `boot.js`, `js/`, and `icons/`
 
 Important note:
 
@@ -438,18 +438,17 @@ To enable automated UI testing in future passes: grant Terminal (or the shell ru
 
 - The iOS launch screen is native storyboard artwork (`LaunchScreen.storyboard` + `Splash.imageset`), so JavaScript cannot run until WKWebView starts loading the web app.
 - Capacitor 7.6.5 already configures WKWebView with `allowsInlineMediaPlayback = true` and `mediaTypesRequiringUserActionForPlayback = []` in `CAPBridgeViewController`. No repo-owned native iOS override is currently needed.
-- `splash-audio.js` runs before the main app module, checks the existing app preference (`app.preferences.playHubOpenSound`), and attempts the same intro jingle as early as the web layer allows.
-- If WKWebView/iOS rejects that early `audio.play()` call, the rejection is swallowed and the existing launch/Hub-entry audio controller remains the fallback. This is expected on some cold-start or user-action-constrained environments.
-- If the splash-start attempt succeeds, the main app audio controller adopts that result and does not replay the jingle during Hub entry.
+- Intro music currently stays on the established app-controlled launch/Hub-open path. There is no repo-owned pre-app splash-audio hook because that path changed the splash handoff timing.
+- The intro-music preference still controls whether the launch/Hub-open jingle can play.
+- Audio playback failures must stay non-fatal to startup and must not change splash duration, route timing, or campaign restore timing.
 
 Manual TestFlight QA for intro audio:
 
-1. Cold launch with intro music enabled: note whether the jingle starts while the branded splash is still visible or immediately as WKWebView appears.
-2. Cold launch with intro music disabled: confirm no splash or Hub-entry jingle plays.
-3. Splash-to-Campaign Hub transition: confirm no duplicate or overlapping jingle.
-4. Splash-to-open-campaign transition, if the app restores directly into a campaign: confirm no duplicate jingle and no startup error.
+1. Cold launch with intro music enabled: confirm the branded splash timing matches the stable pre-experiment behavior and the existing intro jingle still plays once.
+2. Cold launch with intro music disabled: confirm no intro jingle plays.
+3. Splash-to-Campaign Hub transition: confirm there is no rapid flash and no duplicate or overlapping jingle.
+4. Splash-to-open-campaign transition, if the app restores directly into a campaign: confirm the restore timing feels unchanged and no startup error appears.
 5. Force-close and reopen: confirm the enabled/disabled preference is still respected.
-6. If splash autoplay is blocked, confirm the later launch/Hub fallback still plays as it did before this change.
 
 ### Xcode native build fix (2026-05-16)
 

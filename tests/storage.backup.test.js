@@ -246,7 +246,8 @@ describe("exportBackup", () => {
 
     /** @type {Blob|undefined} */
     let exportedBlob;
-    const anchor = { click: vi.fn(), href: "", download: "" };
+    const anchor = { click: vi.fn(), href: "", download: "", rel: "", remove: vi.fn() };
+    const appendChild = vi.fn();
 
     vi.stubGlobal("URL", {
       createObjectURL: vi.fn((blob) => {
@@ -256,6 +257,7 @@ describe("exportBackup", () => {
       revokeObjectURL: vi.fn()
     });
     vi.stubGlobal("document", {
+      body: { appendChild },
       createElement: vi.fn(() => anchor)
     });
 
@@ -281,6 +283,8 @@ describe("exportBackup", () => {
     expect(anchor.click).toHaveBeenCalledTimes(1);
     expect(anchor.href).toBe("blob:backup-export");
     expect(anchor.download).toBe("campaign-backup-2026-04-02.json");
+    expect(anchor.rel).toBe("noopener");
+    expect(appendChild).toHaveBeenCalledWith(anchor);
     expect(exportedBlob).toBeInstanceOf(Blob);
 
     const parsed = JSON.parse(await exportedBlob.text());
@@ -301,6 +305,92 @@ describe("exportBackup", () => {
     expect(parsed.state.map.redo).toBeUndefined();
     expect(parsed.state.ui.dice).toBeUndefined();
     expect(parsed.state.ui.calc).toEqual({ mode: "scientific" });
+
+    vi.runAllTimers();
+    expect(anchor.remove).toHaveBeenCalledTimes(1);
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:backup-export");
+  });
+
+  it("prefers the system share sheet in Capacitor/iOS-style contexts when file sharing is available", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-04-02T15:30:00.000Z"));
+
+    const state = makeState();
+    const share = vi.fn(async () => {});
+    const canShare = vi.fn(() => true);
+
+    vi.stubGlobal("navigator", {
+      share,
+      canShare,
+      userAgent: "LoreLedgerTest/1.0"
+    });
+    vi.stubGlobal("location", { protocol: "capacitor:" });
+    vi.stubGlobal("URL", {
+      createObjectURL: vi.fn(() => "blob:unused"),
+      revokeObjectURL: vi.fn()
+    });
+    vi.stubGlobal("document", {
+      body: { appendChild: vi.fn() },
+      createElement: vi.fn(() => ({ click: vi.fn() }))
+    });
+
+    await exportBackup({
+      state,
+      ensureMapManager: vi.fn(),
+      getBlob: vi.fn(async () => null),
+      blobToDataUrl: vi.fn(async () => ""),
+      getTextRecord: vi.fn(async () => null),
+      sanitizeForSave
+    });
+
+    expect(canShare).toHaveBeenCalledTimes(1);
+    expect(share).toHaveBeenCalledTimes(1);
+    const sharePayload = share.mock.calls[0][0];
+    expect(sharePayload.title).toBe("campaign-backup-2026-04-02.json");
+    expect(sharePayload.text).toBe("Lore Ledger backup");
+    expect(sharePayload.files).toHaveLength(1);
+    expect(sharePayload.files[0].name).toBe("campaign-backup-2026-04-02.json");
+    expect(document.createElement).not.toHaveBeenCalled();
+    expect(URL.createObjectURL).not.toHaveBeenCalled();
+  });
+
+  it("shows a clear alert when the browser download path throws", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-04-02T15:30:00.000Z"));
+
+    const state = makeState();
+    const anchor = {
+      click: vi.fn(() => {
+        throw new Error("blocked");
+      }),
+      href: "",
+      download: "",
+      rel: "",
+      remove: vi.fn()
+    };
+
+    vi.stubGlobal("URL", {
+      createObjectURL: vi.fn(() => "blob:backup-export"),
+      revokeObjectURL: vi.fn()
+    });
+    vi.stubGlobal("document", {
+      body: { appendChild: vi.fn() },
+      createElement: vi.fn(() => anchor)
+    });
+
+    await exportBackup({
+      state,
+      ensureMapManager: vi.fn(),
+      getBlob: vi.fn(async () => null),
+      blobToDataUrl: vi.fn(async () => ""),
+      getTextRecord: vi.fn(async () => null),
+      sanitizeForSave
+    });
+
+    expect(uiAlert).toHaveBeenCalledWith(
+      "Export failed. Try again, or use a different browser.",
+      { title: "Export failed" }
+    );
   });
 
 });

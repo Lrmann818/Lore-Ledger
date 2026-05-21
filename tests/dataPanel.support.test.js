@@ -118,6 +118,7 @@ function installFakeDom() {
     new FakeElement("dataPanelOverlay"),
     new FakeElement("dataPanelPanel"),
     new FakeElement("dataPanelClose"),
+    new FakeElement("dataExportBtn"),
     new FakeElement("dataResetUiBtn"),
     new FakeElement("dataPlayHubOpenSoundToggleItem"),
     new FakeElement("dataPlayHubOpenSoundToggle"),
@@ -201,6 +202,7 @@ function installFakeDom() {
     campaignDivider: document.getElementById("dataCampaignDivider"),
     playHubOpenSoundToggleItem: document.getElementById("dataPlayHubOpenSoundToggleItem"),
     playHubOpenSoundToggle: document.getElementById("dataPlayHubOpenSoundToggle"),
+    exportBtn: document.getElementById("dataExportBtn"),
     openHubBtn: document.getElementById("dataOpenHubBtn"),
     reportBugBtn: document.getElementById("dataReportBugBtn"),
     copyDebugInfoBtn: document.getElementById("dataCopyDebugInfoBtn"),
@@ -300,6 +302,17 @@ describe("initDataPanel support actions", () => {
     expect(dom.navigator.clipboard.writeText.mock.calls[0][0]).toContain("Current page: #hub");
     expect(dom.navigator.clipboard.writeText.mock.calls[0][0]).toContain("Campaign state: no active campaign");
     expect(dom.navigator.clipboard.writeText.mock.calls[0][0]).toContain("User agent: LoreLedgerTest/1.0");
+  });
+
+  it("wires the Export Backup action to the injected export flow", async () => {
+    const deps = createDeps();
+    const { initDataPanel } = await import("../js/ui/dataPanel.js");
+
+    initDataPanel(deps);
+
+    dom.exportBtn.dispatchEvent(new Event("click"));
+
+    expect(deps.exportBackup).toHaveBeenCalledTimes(1);
   });
 
   it("falls back to an alert when clipboard copy fails", async () => {

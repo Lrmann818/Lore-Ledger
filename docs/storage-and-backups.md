@@ -255,7 +255,9 @@ Current flow:
    - `state: sanitizeForSave(...)`
    - `blobs`
    - `texts`
-7. Serialize to JSON and trigger a download named `campaign-backup-YYYY-MM-DD.json`.
+7. Serialize to JSON and deliver `campaign-backup-YYYY-MM-DD.json` through:
+   - a normal browser download in desktop/web contexts
+   - the system share sheet in iOS/Capacitor contexts when file sharing is available
 
 Combat Workspace Slice 1 has no blob or text references. Its `workspace` and `encounter` buckets are preserved through the structured `sanitizeForSave(...)` payload.
 
@@ -264,6 +266,8 @@ Export safety behavior:
 - unreadable blobs are skipped with `console.warn(...)`
 - export does not abort when one blob read fails
 - unreadable text records are skipped with `console.warn(...)`
+- iOS/native export prefers file sharing over detached blob downloads because WKWebView may ignore `download` links without throwing
+- export failures surface an in-app `Export failed` dialog instead of failing silently
 - if the download click fails, the user gets an alert
 
 Compatibility note:

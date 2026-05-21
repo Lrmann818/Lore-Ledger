@@ -9,6 +9,8 @@ import { deleteText, getTextRecord, textKey_spellNotes } from "./texts-idb.js";
 
 const MAX_BACKUP_BYTES = 15 * 1024 * 1024; // 15 MB
 const MAX_BLOBS = 200;
+const BACKUP_MIME_TYPE = "application/json";
+const BACKUP_SHARE_TEXT = "Lore Ledger backup";
 
 /** @typedef {typeof import("../state.js").state} AppState */
 /** @typedef {ReturnType<typeof import("../state.js").sanitizeForSave>} SanitizedState */
@@ -108,6 +110,115 @@ function isSafeImageDataUrl(s) {
  */
 function cleanString(value) {
   return typeof value === "string" ? value.trim() : "";
+}
+
+/**
+ * @param {Date} [date]
+ * @returns {string}
+ */
+function buildBackupFilename(date = new Date()) {
+  return `campaign-backup-${date.toISOString().slice(0, 10)}.json`;
+}
+
+/**
+ * @returns {Navigator | null}
+ */
+function getNavigatorTarget() {
+  return typeof navigator === "undefined" ? null : navigator;
+}
+
+/**
+ * @returns {boolean}
+ */
+function shouldPreferShareExport() {
+  const currentLocation = typeof location === "undefined" ? null : location;
+  if (currentLocation?.protocol === "capacitor:") return true;
+
+  const nav = getNavigatorTarget();
+  if (!nav) return false;
+
+  const userAgent = String(nav.userAgent || "");
+  if (/\b(iPad|iPhone|iPod)\b/i.test(userAgent)) return true;
+
+  const platform = String(nav.platform || "");
+  const maxTouchPoints = typeof nav.maxTouchPoints === "number" ? nav.maxTouchPoints : 0;
+  return platform === "MacIntel" && maxTouchPoints > 1;
+}
+
+/**
+ * @param {File} file
+ * @returns {boolean}
+ */
+function canShareBackupFile(file) {
+  const nav = getNavigatorTarget();
+  if (!nav || typeof nav.share !== "function") return false;
+  if (typeof nav.canShare !== "function") return false;
+  try {
+    return nav.canShare({ files: [file] });
+  } catch (_) {
+    return false;
+  }
+}
+
+/**
+ * @param {File} file
+ * @returns {Promise<"shared" | "cancelled" | "failed">}
+ */
+async function shareBackupFile(file) {
+  const nav = getNavigatorTarget();
+  if (!nav || typeof nav.share !== "function") return "failed";
+
+  try {
+    await nav.share({
+      files: [file],
+      title: file.name,
+      text: BACKUP_SHARE_TEXT
+    });
+    return "shared";
+  } catch (err) {
+    const errorName = err && typeof err === "object" && "name" in err ? String(err.name) : "";
+    if (errorName === "AbortError") return "cancelled";
+
+    console.error("Export share failed:", err);
+    await uiAlert("Export failed. This device couldn't open the backup share sheet.", { title: "Export failed" });
+    return "failed";
+  }
+}
+
+/**
+ * @param {Blob} fileBlob
+ * @param {string} filename
+ * @returns {Promise<void>}
+ */
+async function downloadBackupFile(fileBlob, filename) {
+  const url = URL.createObjectURL(fileBlob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.rel = "noopener";
+
+  let appended = false;
+  try {
+    if (document.body && typeof document.body.appendChild === "function") {
+      document.body.appendChild(anchor);
+      appended = true;
+    }
+    anchor.click();
+  } catch (err) {
+    console.error("Export download failed:", err);
+    await uiAlert("Export failed. Try again, or use a different browser.", { title: "Export failed" });
+  } finally {
+    if (appended && typeof anchor.remove === "function") {
+      anchor.remove();
+    }
+    setTimeout(() => {
+      try {
+        URL.revokeObjectURL(url);
+      } catch (_) {
+        // Best-effort cleanup only.
+      }
+    }, 1000);
+  }
 }
 
 /**
@@ -561,19 +672,23 @@ export async function exportBackup(deps) {
     texts
   });
 
-  const fileBlob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
-  const url = URL.createObjectURL(fileBlob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `campaign-backup-${new Date().toISOString().slice(0, 10)}.json`;
-  try {
-    a.click();
-  } catch (err) {
-    console.error("Export download failed:", err);
-    await uiAlert("Export failed. Try again, or use a different browser.", { title: "Export failed" });
-  } finally {
-    URL.revokeObjectURL(url);
+  const filename = buildBackupFilename(new Date(backup.exportedAt));
+  const serializedBackup = JSON.stringify(backup, null, 2);
+  const fileBlob = typeof File === "function"
+    ? new File([serializedBackup], filename, { type: BACKUP_MIME_TYPE })
+    : new Blob([serializedBackup], { type: BACKUP_MIME_TYPE });
+
+  if (
+    typeof File === "function" &&
+    fileBlob instanceof File &&
+    shouldPreferShareExport() &&
+    canShareBackupFile(fileBlob)
+  ) {
+    await shareBackupFile(fileBlob);
+    return;
   }
+
+  await downloadBackupFile(fileBlob, filename);
 }
 
 /**

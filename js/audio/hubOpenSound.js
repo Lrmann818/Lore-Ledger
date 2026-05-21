@@ -2,22 +2,9 @@
 // js/audio/hubOpenSound.js — Campaign Hub intro music helper/controller
 
 export const HUB_OPEN_SOUND_URL = "/assets/sounds/the-lore-ledger.mp3";
-export const SPLASH_INTRO_SOUND_GLOBAL_KEY = "__LORE_LEDGER_SPLASH_INTRO_SOUND__";
 
 /** @type {(HTMLAudioElement & { load?: () => void }) | null} */
 let hubOpenAudio = null;
-
-/**
- * @typedef {{
- *   allowedByPreference?: boolean,
- *   attempted?: boolean,
- *   settled?: boolean,
- *   played?: boolean,
- *   audio?: (HTMLAudioElement & { load?: () => void }) | null,
- *   promise?: Promise<boolean> | null,
- *   errorName?: string
- * }} SplashIntroSoundRecord
- */
 
 /**
  * @typedef {{
@@ -39,64 +26,9 @@ let hubOpenAudio = null;
  */
 
 /**
- * @returns {SplashIntroSoundRecord | null}
- */
-function getSplashIntroSoundRecord() {
-  if (typeof globalThis === "undefined") return null;
-  const globals = /** @type {Record<string, unknown>} */ (globalThis);
-  const record = globals[SPLASH_INTRO_SOUND_GLOBAL_KEY];
-  if (!record || typeof record !== "object") return null;
-  return /** @type {SplashIntroSoundRecord} */ (record);
-}
-
-/**
- * @returns {boolean}
- */
-function adoptSplashAudioIfAvailable() {
-  const record = getSplashIntroSoundRecord();
-  if (!record?.audio) return false;
-  hubOpenAudio = record.audio;
-  return true;
-}
-
-/**
- * @returns {boolean}
- */
-function hasHubOpenSoundSatisfiedThisBoot() {
-  const record = getSplashIntroSoundRecord();
-  return record?.played === true;
-}
-
-/**
- * @returns {Promise<boolean>}
- */
-async function waitForSplashIntroSound() {
-  const record = getSplashIntroSoundRecord();
-  if (!record?.attempted) return false;
-  adoptSplashAudioIfAvailable();
-  if (record.played === true) {
-    return true;
-  }
-  if (record.promise && typeof record.promise.then === "function") {
-    try {
-      const played = await record.promise;
-      if (played) {
-        record.played = true;
-        return true;
-      }
-    } catch (_) {
-      // The splash path must never surface autoplay rejections to app startup.
-    }
-  }
-  return false;
-}
-
-/**
  * @returns {(HTMLAudioElement & { load?: () => void }) | null}
  */
 function getHubOpenAudio() {
-  if (hubOpenAudio) return hubOpenAudio;
-  adoptSplashAudioIfAvailable();
   if (hubOpenAudio) return hubOpenAudio;
   if (typeof Audio !== "function") return null;
 
@@ -176,7 +108,6 @@ export function createHubOpenSoundController(deps) {
   let launchRequested = false;
   let pendingLaunchRequest = false;
   let pendingHubEntryRequest = false;
-  let controllerSoundSatisfied = false;
   /** @type {Promise<boolean> | null} */
   let retryInFlight = null;
 
@@ -274,13 +205,6 @@ export function createHubOpenSoundController(deps) {
     if (launchRequested) return false;
     launchRequested = true;
     if (!canAttemptLaunchPlayback()) return false;
-    if (await waitForSplashIntroSound()) {
-      controllerSoundSatisfied = true;
-      clearPendingLaunchRequest();
-      clearPendingHubEntryRequest();
-      return true;
-    }
-    if (controllerSoundSatisfied || hasHubOpenSoundSatisfiedThisBoot()) return false;
     if (retryInFlight) {
       markPendingLaunchRequest();
       return false;
@@ -288,9 +212,7 @@ export function createHubOpenSoundController(deps) {
 
     const played = await playHubOpenSound();
     if (played) {
-      controllerSoundSatisfied = true;
       clearPendingLaunchRequest();
-      clearPendingHubEntryRequest();
       return true;
     }
 
@@ -303,13 +225,6 @@ export function createHubOpenSoundController(deps) {
    */
   async function requestHubEntrySound() {
     if (!canAttemptHubEntryPlayback()) return false;
-    if (await waitForSplashIntroSound()) {
-      controllerSoundSatisfied = true;
-      clearPendingLaunchRequest();
-      clearPendingHubEntryRequest();
-      return false;
-    }
-    if (controllerSoundSatisfied || hasHubOpenSoundSatisfiedThisBoot()) return false;
     if (retryInFlight) {
       markPendingHubEntryRequest();
       return false;
@@ -317,8 +232,6 @@ export function createHubOpenSoundController(deps) {
 
     const played = await playHubOpenSound();
     if (played) {
-      controllerSoundSatisfied = true;
-      clearPendingLaunchRequest();
       clearPendingHubEntryRequest();
       return true;
     }
@@ -347,9 +260,8 @@ export function createHubOpenSoundController(deps) {
     try {
       const played = await retryInFlight;
       if (played) {
-        controllerSoundSatisfied = true;
-        clearPendingLaunchRequest();
-        clearPendingHubEntryRequest();
+        if (requestType === "launch") clearPendingLaunchRequest();
+        else clearPendingHubEntryRequest();
       }
       return played;
     } finally {
@@ -367,7 +279,6 @@ export function createHubOpenSoundController(deps) {
     destroy: () => {
       clearPendingRequests();
       retryInFlight = null;
-      controllerSoundSatisfied = false;
     }
   };
 }
@@ -377,8 +288,4 @@ export function createHubOpenSoundController(deps) {
  */
 export function resetHubOpenSoundForTests() {
   hubOpenAudio = null;
-  if (typeof globalThis !== "undefined") {
-    const globals = /** @type {Record<string, unknown>} */ (globalThis);
-    delete globals[SPLASH_INTRO_SOUND_GLOBAL_KEY];
-  }
 }

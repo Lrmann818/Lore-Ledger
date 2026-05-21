@@ -1,41 +1,17 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { readFileSync } from "node:fs";
-import { runInNewContext } from "node:vm";
 
 import {
   createHubOpenSoundController,
   HUB_OPEN_SOUND_URL,
   playHubOpenSound,
   playHubOpenSoundForState,
-  resetHubOpenSoundForTests,
-  SPLASH_INTRO_SOUND_GLOBAL_KEY
+  resetHubOpenSoundForTests
 } from "../js/audio/hubOpenSound.js";
 
 async function flushMicrotasks() {
   await Promise.resolve();
   await Promise.resolve();
   await Promise.resolve();
-}
-
-function runSplashAudioScript({ rawStorage, AudioImpl }) {
-  const script = readFileSync(new URL("../splash-audio.js", import.meta.url), "utf8");
-  const windowTarget = {};
-  const localStorage = {
-    getItem: vi.fn(() => rawStorage)
-  };
-  runInNewContext(script, {
-    window: windowTarget,
-    localStorage,
-    Audio: AudioImpl,
-    Promise,
-    JSON,
-    String
-  });
-
-  return {
-    localStorage,
-    record: windowTarget[SPLASH_INTRO_SOUND_GLOBAL_KEY]
-  };
 }
 
 describe("hubOpenSound", () => {
@@ -93,64 +69,6 @@ describe("hubOpenSound", () => {
     expect(play).toHaveBeenCalledTimes(1);
   });
 
-  it("does not attempt splash playback when the stored preference is off", async () => {
-    const AudioImpl = vi.fn(function FakeAudio() {});
-
-    const { record, localStorage } = runSplashAudioScript({
-      rawStorage: JSON.stringify({ app: { preferences: { playHubOpenSound: false } } }),
-      AudioImpl
-    });
-
-    expect(localStorage.getItem).toHaveBeenCalledWith("localCampaignTracker_v1");
-    expect(record.allowedByPreference).toBe(false);
-    expect(record.attempted).toBe(false);
-    expect(AudioImpl).not.toHaveBeenCalled();
-  });
-
-  it("attempts splash playback when the stored preference is on", async () => {
-    const play = vi.fn(async () => {});
-    const load = vi.fn();
-    const AudioImpl = vi.fn(function FakeAudio(src) {
-      this.src = src;
-      this.preload = "";
-      this.load = load;
-      this.play = play;
-    });
-
-    const { record } = runSplashAudioScript({
-      rawStorage: JSON.stringify({ app: { preferences: { playHubOpenSound: true } } }),
-      AudioImpl
-    });
-
-    expect(record.allowedByPreference).toBe(true);
-    expect(record.attempted).toBe(true);
-    expect(record.audio.src).toBe(HUB_OPEN_SOUND_URL);
-    expect(record.audio.preload).toBe("auto");
-    expect(load).toHaveBeenCalledTimes(1);
-    expect(play).toHaveBeenCalledTimes(1);
-    await expect(record.promise).resolves.toBe(true);
-    expect(record.played).toBe(true);
-    expect(record.settled).toBe(true);
-  });
-
-  it("absorbs rejected splash playback without throwing", async () => {
-    const play = vi.fn(() => Promise.reject(new DOMException("blocked", "NotAllowedError")));
-    const AudioImpl = vi.fn(function FakeAudio() {
-      this.preload = "";
-      this.play = play;
-    });
-
-    const { record } = runSplashAudioScript({
-      rawStorage: JSON.stringify({ app: { preferences: { playHubOpenSound: true } } }),
-      AudioImpl
-    });
-
-    await expect(record.promise).resolves.toBe(false);
-    expect(record.played).toBe(false);
-    expect(record.settled).toBe(true);
-    expect(record.errorName).toBe("NotAllowedError");
-  });
-
   it("returns false for playback failures such as autoplay blocking", async () => {
     class FakeAudio {
       constructor() {
@@ -186,72 +104,6 @@ describe("hubOpenSound", () => {
     await expect(controller.requestLaunchSound()).resolves.toBe(false);
 
     expect(play).toHaveBeenCalledTimes(1);
-    expect(controller.hasPendingRequest()).toBe(false);
-    controller.destroy();
-  });
-
-  it("treats successful splash playback as satisfying the launch sound", async () => {
-    const play = vi.fn(async () => {});
-    const audio = {
-      preload: "auto",
-      currentTime: 0,
-      play,
-      pause: vi.fn()
-    };
-    globalThis[SPLASH_INTRO_SOUND_GLOBAL_KEY] = {
-      allowedByPreference: true,
-      attempted: true,
-      settled: true,
-      played: true,
-      audio,
-      promise: Promise.resolve(true)
-    };
-
-    const controller = createHubOpenSoundController({
-      getState: () => ({ app: { preferences: { playHubOpenSound: true } } }),
-      isHubVisible: () => true,
-      documentTarget: new EventTarget(),
-      windowTarget: new EventTarget()
-    });
-
-    await expect(controller.requestLaunchSound()).resolves.toBe(true);
-    await expect(controller.requestHubEntrySound()).resolves.toBe(false);
-
-    expect(play).not.toHaveBeenCalled();
-    expect(controller.hasPendingRequest()).toBe(false);
-    controller.destroy();
-  });
-
-  it("keeps the launch fallback available after rejected splash playback", async () => {
-    const play = vi.fn(async () => {});
-    const audio = {
-      preload: "auto",
-      currentTime: 8,
-      play,
-      pause: vi.fn()
-    };
-    globalThis[SPLASH_INTRO_SOUND_GLOBAL_KEY] = {
-      allowedByPreference: true,
-      attempted: true,
-      settled: true,
-      played: false,
-      audio,
-      promise: Promise.resolve(false),
-      errorName: "NotAllowedError"
-    };
-
-    const controller = createHubOpenSoundController({
-      getState: () => ({ app: { preferences: { playHubOpenSound: true } } }),
-      isHubVisible: () => false,
-      documentTarget: new EventTarget(),
-      windowTarget: new EventTarget()
-    });
-
-    await expect(controller.requestLaunchSound()).resolves.toBe(true);
-
-    expect(play).toHaveBeenCalledTimes(1);
-    expect(audio.pause).toHaveBeenCalledTimes(1);
-    expect(audio.currentTime).toBe(0);
     expect(controller.hasPendingRequest()).toBe(false);
     controller.destroy();
   });
@@ -478,7 +330,7 @@ describe("hubOpenSound", () => {
     controller.destroy();
   });
 
-  it("clears a Hub-entry request when a launch retry satisfies intro playback", async () => {
+  it("keeps a Hub-entry request distinct while a launch retry is in flight", async () => {
     /** @type {() => void} */
     let resolveLaunchRetry = () => {};
     const launchRetry = new Promise((resolve) => {
@@ -521,12 +373,12 @@ describe("hubOpenSound", () => {
     await flushMicrotasks();
 
     expect(controller.hasPendingLaunchRequest()).toBe(false);
-    expect(controller.hasPendingHubEntryRequest()).toBe(false);
+    expect(controller.hasPendingHubEntryRequest()).toBe(true);
 
     documentTarget.dispatchEvent(new Event("keydown"));
     await flushMicrotasks();
 
-    expect(play).toHaveBeenCalledTimes(2);
+    expect(play).toHaveBeenCalledTimes(3);
     expect(controller.hasPendingRequest()).toBe(false);
     controller.destroy();
   });
