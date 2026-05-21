@@ -140,7 +140,7 @@ for entry in "${entries[@]}"; do
 done
 
 if [[ "$mode" == "pages" ]]; then
-  required_files=(index.html styles.css app.js boot.js)
+  required_files=(index.html styles.css app.js boot.js splash-audio.js)
   missing_required=()
 
   for required in "${required_files[@]}"; do

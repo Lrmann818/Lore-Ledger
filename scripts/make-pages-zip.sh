@@ -41,7 +41,7 @@ if [[ ! -f "$project_root/index.html" ]]; then
   exit 1
 fi
 
-required_entries=(index.html styles.css app.js boot.js js icons)
+required_entries=(index.html styles.css app.js boot.js splash-audio.js js icons)
 missing_entries=()
 for entry in "${required_entries[@]}"; do
   if [[ ! -e "$project_root/$entry" ]]; then
@@ -67,7 +67,7 @@ timestamp="$(date '+%Y%m%d-%H%M')"
 zip_name="$project_name-$target-$timestamp.zip"
 zip_path="$output_dir/$zip_name"
 
-include_roots=(index.html styles.css app.js boot.js js icons)
+include_roots=(index.html styles.css app.js boot.js splash-audio.js js icons)
 if [[ -f "$project_root/manifest.json" ]]; then
   include_roots+=(manifest.json)
 fi

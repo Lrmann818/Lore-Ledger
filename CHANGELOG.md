@@ -7,7 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-No changes yet.
+### Changed
+
+- Intro music now makes an earliest-web splash-screen playback attempt when the existing user preference is enabled, while preserving the current launch/Hub fallback if iOS or WKWebView blocks autoplay.
 
 ## [v0.5.0] - 2026-04-16
 
