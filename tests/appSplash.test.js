@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -80,6 +82,16 @@ describe("appSplash", () => {
       locationObj: { protocol: "https:" },
       capacitorObj: { isNativePlatform: () => false }
     })).toBe(false);
+  });
+
+  it("keeps the earliest source markup on the warm splash background before app CSS finishes loading", () => {
+    const html = readFileSync(resolve(process.cwd(), "index.html"), "utf8");
+
+    expect(html).toContain('<html lang="en" data-app-boot="loading" data-shell-mode="hub">');
+    expect(html).toContain('<body data-app-boot="loading" data-shell-mode="hub">');
+    expect(html).toContain("background: #090705;");
+    expect(html).toContain("background: #090807;");
+    expect(html).toContain('id="appSplash"');
   });
 
   it("stays visible until the minimum duration elapses even when the app is ready early", async () => {

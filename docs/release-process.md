@@ -438,8 +438,10 @@ To enable automated UI testing in future passes: grant Terminal (or the shell ru
 
 - The iOS launch screen is native storyboard artwork (`LaunchScreen.storyboard` + `Splash.imageset`), so JavaScript cannot run until WKWebView starts loading the web app.
 - Native iOS/TestFlight-style launches now hand off immediately into an app-owned web splash (`#appSplash`) that reuses `public/splash.png`.
+- The native handoff path now keeps the same warm dark background on all three earliest surfaces: `LaunchScreen.storyboard`, the Capacitor bridge/root view in `Main.storyboard`, and a tiny critical inline style in source `index.html` before `styles.css` loads.
 - That web splash is the timing source for installed native launches: it stays visible until both app startup/restore is ready and the native-only managed minimum (`1800 ms`) has elapsed.
 - The managed minimum is intentionally gated to native-style runtimes (`Capacitor.isNativePlatform()` / `capacitor:`) so ordinary browser and desktop loads are not forced through the same delay.
+- The source `index.html` now starts with `data-app-boot="loading"` and `data-shell-mode="hub"` on `html`/`body` so the first WKWebView paint defaults to the splash-era background instead of a platform default.
 - Capacitor 7.6.5 already configures WKWebView with `allowsInlineMediaPlayback = true` and `mediaTypesRequiringUserActionForPlayback = []` in `CAPBridgeViewController`. No repo-owned native iOS override is currently needed.
 - Intro music currently stays on the established app-controlled launch/Hub-open path. There is no repo-owned pre-app splash-audio hook because that path changed the splash handoff timing.
 - The intro-music preference still controls whether the launch/Hub-open jingle can play.
@@ -450,7 +452,7 @@ Manual TestFlight QA for intro audio:
 
 1. Launch from Xcode on device: confirm the branded splash stays up through the managed handoff and the intro jingle still plays once when enabled.
 2. Disconnect the phone and launch the already-installed app from the iPhone home screen: confirm the splash timing matches the Xcode-launched behavior instead of flashing away early.
-3. Force-close and relaunch from the home screen: confirm the managed splash still holds and no rapid flash appears.
+3. Force-close and relaunch from the home screen: confirm the managed splash still holds and the native-to-web handoff does not show a black flash (or that any remaining flash is materially reduced).
 4. Launch with intro music enabled: confirm one jingle plays and there is no duplicate or overlapping playback.
 5. Launch with intro music disabled: confirm no intro jingle plays.
 6. Launch when the app restores to Campaign Hub: confirm there is no rapid flash during handoff.
