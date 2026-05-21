@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Restored the previous stable splash-to-app timing by removing the pre-app intro-audio attempt and keeping intro music on the established Hub-open flow.
+- Added an app-layer splash handoff for native launches so the installed iOS app holds the branded splash until both app restore and a controlled minimum duration are complete, instead of depending on Xcode/debugger startup slowness.
 - Hardened backup export for iOS/native contexts by preferring the system share sheet when direct blob downloads are unreliable.
 
 ## [v0.5.0] - 2026-04-16

@@ -1,5 +1,12 @@
 // boot.js - module loaded before app.js so theme is set as early as possible.
 try {
+  const bootStartedAt =
+    typeof performance !== "undefined" && typeof performance.now === "function"
+      ? performance.now()
+      : Date.now();
+  window.__APP_BOOT_STARTED_AT__ = bootStartedAt;
+  document.documentElement.dataset.appBoot = "loading";
+
   // Expose app version/build metadata early so UI can display it (e.g., Settings -> About).
   const viteVersion =
     (typeof __APP_VERSION__ !== "undefined" && __APP_VERSION__)

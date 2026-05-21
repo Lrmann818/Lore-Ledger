@@ -47,7 +47,7 @@ Canonical local verification commands:
 - `npm run preview`
   Expected: serves the production build for browser-only validation that CI does not cover.
 - `npm run test:smoke`
-  Expected: starts a controlled Vite server in production mode on the repo's GitHub Pages base path and runs the current 33-test local Chromium smoke suite covering app boot, Campaign Hub flows/layouts, map-shell rendering, reload persistence, backup export/import in a fresh browser context, invalid import feedback, tracker-page re-init safety, character-page re-init safety, targeted tracker card-panel behavior, Combat Workspace card/round/status/embedded-panel behavior, and recent dropdown/popover regression coverage.
+  Expected: starts a controlled Vite server in production mode on the repo's GitHub Pages base path and runs the current local Chromium smoke suite covering app boot, Campaign Hub flows/layouts, managed splash handoff, map-shell rendering, reload persistence, backup export/import in a fresh browser context, invalid import feedback, tracker-page re-init safety, character-page re-init safety, targeted tracker card-panel behavior, Combat Workspace card/round/status/embedded-panel behavior, and recent dropdown/popover regression coverage.
 
 Focused dev commands:
 

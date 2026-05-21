@@ -24,6 +24,14 @@ export function watchForFatalSignals(page) {
 }
 
 /**
+ * @param {import("@playwright/test").Page} page
+ */
+export async function waitForAppShell(page) {
+  await expect(page.locator("main")).toBeVisible();
+  await expect(page.locator("#appSplash")).toBeHidden();
+}
+
+/**
  * Opens the app and waits for the top-level shell to finish rendering.
  *
  * @param {import("@playwright/test").Page} page
@@ -37,7 +45,7 @@ export async function openSmokeApp(page, opts = {}) {
   } = opts;
   const fatalSignals = watchForFatalSignals(page);
   await page.goto("/");
-  await expect(page.locator("main")).toBeVisible();
+  await waitForAppShell(page);
   if (ensureCampaign && await page.locator("#page-hub").isVisible()) {
     await createCampaignFromHub(page, campaignName);
   }

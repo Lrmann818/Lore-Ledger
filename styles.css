@@ -115,6 +115,31 @@
   }
 }
 
+.appSplash {
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 180ms ease, visibility 0s linear 180ms;
+}
+
+.appSplash[data-state="closing"] {
+  opacity: 0;
+  visibility: hidden;
+}
+
+.appSplash[hidden] {
+  display: none !important;
+}
+
+.appSplashImage {
+  display: block;
+  flex: 1 1 auto;
+}
+
+html[data-app-boot="loading"],
+body[data-app-boot="loading"] {
+  overflow: hidden;
+}
+
 /*=======================
     Light Themes Below
   =======================*/

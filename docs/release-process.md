@@ -107,7 +107,7 @@ Use preview or a deployed production build for PWA and offline checks. `npm run 
 
 ## 6. Required smoke/testing steps
 
-The repository now defines targeted automated checks in [`package.json`](../package.json). The Pages workflow currently runs `npm run verify` before deploy, which covers `npm run test:run`, `npm run typecheck`, and the production build. It then installs Playwright Chromium and runs the focused 33-test browser smoke suite in `tests/smoke/*.smoke.js` before uploading the Pages artifact. Release validation still requires the manual checklist in addition to those automated checks because PWA/offline, installed-app, and broader cross-browser behavior remain outside the CI gate.
+The repository now defines targeted automated checks in [`package.json`](../package.json). The Pages workflow currently runs `npm run verify` before deploy, which covers `npm run test:run`, `npm run typecheck`, and the production build. It then installs Playwright Chromium and runs the focused browser smoke suite in `tests/smoke/*.smoke.js` before uploading the Pages artifact. Release validation still requires the manual checklist in addition to those automated checks because PWA/offline, installed-app, and broader cross-browser behavior remain outside the CI gate.
 
 Primary sources:
 
@@ -437,18 +437,25 @@ To enable automated UI testing in future passes: grant Terminal (or the shell ru
 #### Intro audio / splash behavior
 
 - The iOS launch screen is native storyboard artwork (`LaunchScreen.storyboard` + `Splash.imageset`), so JavaScript cannot run until WKWebView starts loading the web app.
+- Native iOS/TestFlight-style launches now hand off immediately into an app-owned web splash (`#appSplash`) that reuses `public/splash.png`.
+- That web splash is the timing source for installed native launches: it stays visible until both app startup/restore is ready and the native-only managed minimum (`1800 ms`) has elapsed.
+- The managed minimum is intentionally gated to native-style runtimes (`Capacitor.isNativePlatform()` / `capacitor:`) so ordinary browser and desktop loads are not forced through the same delay.
 - Capacitor 7.6.5 already configures WKWebView with `allowsInlineMediaPlayback = true` and `mediaTypesRequiringUserActionForPlayback = []` in `CAPBridgeViewController`. No repo-owned native iOS override is currently needed.
 - Intro music currently stays on the established app-controlled launch/Hub-open path. There is no repo-owned pre-app splash-audio hook because that path changed the splash handoff timing.
 - The intro-music preference still controls whether the launch/Hub-open jingle can play.
 - Audio playback failures must stay non-fatal to startup and must not change splash duration, route timing, or campaign restore timing.
+- The app splash closes only after `refreshShellUi()` has resolved the restored route, so an already-open campaign should not briefly expose Campaign Hub during the native handoff.
 
 Manual TestFlight QA for intro audio:
 
-1. Cold launch with intro music enabled: confirm the branded splash timing matches the stable pre-experiment behavior and the existing intro jingle still plays once.
-2. Cold launch with intro music disabled: confirm no intro jingle plays.
-3. Splash-to-Campaign Hub transition: confirm there is no rapid flash and no duplicate or overlapping jingle.
-4. Splash-to-open-campaign transition, if the app restores directly into a campaign: confirm the restore timing feels unchanged and no startup error appears.
-5. Force-close and reopen: confirm the enabled/disabled preference is still respected.
+1. Launch from Xcode on device: confirm the branded splash stays up through the managed handoff and the intro jingle still plays once when enabled.
+2. Disconnect the phone and launch the already-installed app from the iPhone home screen: confirm the splash timing matches the Xcode-launched behavior instead of flashing away early.
+3. Force-close and relaunch from the home screen: confirm the managed splash still holds and no rapid flash appears.
+4. Launch with intro music enabled: confirm one jingle plays and there is no duplicate or overlapping playback.
+5. Launch with intro music disabled: confirm no intro jingle plays.
+6. Launch when the app restores to Campaign Hub: confirm there is no rapid flash during handoff.
+7. Launch when the app restores directly into an open campaign: confirm there is no temporary Campaign Hub flash before the restored campaign appears.
+8. Confirm Export Backup still works after the splash timing change.
 
 ### Xcode native build fix (2026-05-16)
 
