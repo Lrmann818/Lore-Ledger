@@ -1,201 +1,98 @@
 // @vitest-environment jsdom
 
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
-import {
-  createImagePicker,
-  isNativeIosRuntime,
-  promptForNativeImageSource
-} from "../js/features/imagePicker.js";
-
-function makeNativeCameraApi(overrides = {}) {
-  const { Camera: cameraOverrides = {}, ...restOverrides } = overrides;
-  const camera = {
-    checkPermissions: vi.fn(async () => ({ camera: "granted", photos: "granted" })),
-    requestPermissions: vi.fn(async () => ({ camera: "granted", photos: "granted" })),
-    getPhoto: vi.fn(async () => ({
-      webPath: "https://example.test/photo.jpg",
-      format: "jpeg"
-    })),
-    ...cameraOverrides
-  };
-
-  return {
-    Camera: camera,
-    CameraResultType: { Uri: "uri" },
-    CameraSource: { Camera: "CAMERA", Photos: "PHOTOS" },
-    ...restOverrides
-  };
-}
-
-function makeNativeRuntime() {
-  return {
-    locationObj: { protocol: "capacitor:" },
-    navigatorObj: {
-      userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)",
-      platform: "iPhone",
-      maxTouchPoints: 5
-    }
-  };
-}
-
-async function waitForCalls(spy, expected) {
-  for (let i = 0; i < 20; i += 1) {
-    if (spy.mock.calls.length === expected) return;
-    await Promise.resolve();
-  }
-  expect(spy).toHaveBeenCalledTimes(expected);
-}
+import { createImagePicker } from "../js/features/imagePicker.js";
 
 afterEach(() => {
-  vi.restoreAllMocks();
   document.body.innerHTML = "";
 });
 
+/** Yield enough microtask turns for _pickOnce to run and attach listeners. */
+async function waitTicks(n = 12) {
+  for (let i = 0; i < n; i++) await Promise.resolve();
+}
+
+function getFileInput() {
+  return /** @type {HTMLInputElement | null} */ (document.querySelector('input[type="file"]'));
+}
+
 describe("image picker", () => {
-  it("detects native iOS runtime only when Capacitor/native iOS signals are present", () => {
-    expect(isNativeIosRuntime(makeNativeRuntime())).toBe(true);
+  it("returns the selected File when the user picks one", async () => {
+    const picker = createImagePicker({ accept: "image/*" });
+    const pickPromise = picker.pickOne({ accept: "image/*" });
 
-    expect(
-      isNativeIosRuntime({
-        locationObj: { protocol: "https:" },
-        navigatorObj: {
-          userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)",
-          platform: "MacIntel",
-          maxTouchPoints: 0
-        },
-        capacitorObj: { isNativePlatform: () => false }
-      })
-    ).toBe(false);
+    await waitTicks();
+
+    const input = getFileInput();
+    const file = new File(["img"], "portrait.jpg", { type: "image/jpeg" });
+    Object.defineProperty(input, "files", { value: { 0: file, length: 1 }, configurable: true });
+    input.dispatchEvent(new Event("change"));
+
+    expect(await pickPromise).toBe(file);
   });
 
-  it("cleans up the native source prompt after a selection", async () => {
-    const choicePromise = promptForNativeImageSource();
-    const filesBtn = Array.from(document.querySelectorAll("button")).find((btn) => btn.textContent === "Files");
-    expect(filesBtn).toBeTruthy();
+  it("returns null when the user cancels via the cancel event", async () => {
+    const picker = createImagePicker({ accept: "image/*" });
+    const pickPromise = picker.pickOne();
 
-    filesBtn.click();
+    await waitTicks();
 
-    await expect(choicePromise).resolves.toBe("files");
+    getFileInput().dispatchEvent(new Event("cancel"));
+
+    expect(await pickPromise).toBeNull();
+  });
+
+  it("uses image/* accept so the native iOS action sheet offers Photo Library, Take Photo, and Files", async () => {
+    const picker = createImagePicker();
+    const pickPromise = picker.pick();
+
+    await waitTicks();
+
+    const input = getFileInput();
+    expect(input?.accept).toBe("image/*");
+
+    // Clean up: cancel the pending pick
+    input.dispatchEvent(new Event("cancel"));
+    await pickPromise;
+  });
+
+  it("does not show any in-app source chooser overlay", async () => {
+    const picker = createImagePicker({ accept: "image/*" });
+    const pickPromise = picker.pick();
+
+    await waitTicks();
+
     expect(document.querySelector(".modalOverlay")).toBeNull();
+
+    getFileInput().dispatchEvent(new Event("cancel"));
+    await pickPromise;
   });
 
-  it("uses the native camera branch on iOS and returns a File", async () => {
-    const cameraApi = makeNativeCameraApi();
-    const fetchImpl = vi.fn(async () => new Response(
-      new Blob(["jpeg-data"], { type: "image/jpeg" }),
-      { headers: { "Content-Type": "image/jpeg" } }
-    ));
-    const picker = createImagePicker({
-      accept: "image/*",
-      chooseNativeSource: vi.fn(async () => "camera"),
-      cameraApi,
-      fetchImpl,
-      ...makeNativeRuntime()
-    });
+  it("serializes concurrent pick requests so a second call does not race the first", async () => {
+    const picker = createImagePicker({ accept: "image/*" });
 
-    const file = await picker.pickOne({ accept: "image/*" });
+    const firstPick = picker.pick();
+    await waitTicks();
 
-    expect(file).toBeInstanceOf(File);
-    expect(file.type).toBe("image/jpeg");
-    expect(file.name).toBe("lore-ledger-camera.jpg");
-    expect(cameraApi.Camera.checkPermissions).toHaveBeenCalledTimes(1);
-    expect(cameraApi.Camera.getPhoto).toHaveBeenCalledTimes(1);
-    expect(fetchImpl).toHaveBeenCalledWith("https://example.test/photo.jpg");
-  });
+    const input = getFileInput();
 
-  it("shows a user-facing message and skips launch when camera permission is denied", async () => {
-    const cameraApi = makeNativeCameraApi({
-      Camera: {
-        checkPermissions: vi.fn(async () => ({ camera: "prompt", photos: "granted" })),
-        requestPermissions: vi.fn(async () => ({ camera: "denied", photos: "granted" })),
-        getPhoto: vi.fn(async () => ({
-          webPath: "https://example.test/photo.jpg",
-          format: "jpeg"
-        }))
-      }
-    });
-    const uiAlert = vi.fn(async () => {});
-    const setStatus = vi.fn();
-    const picker = createImagePicker({
-      accept: "image/*",
-      chooseNativeSource: vi.fn(async () => "camera"),
-      cameraApi,
-      uiAlert,
-      setStatus,
-      ...makeNativeRuntime()
-    });
+    // Second pick is queued, not a concurrent race
+    const secondPick = picker.pick();
 
-    const file = await picker.pickOne({ accept: "image/*" });
+    // Resolve the first pick
+    const file = new File(["img"], "portrait.jpg", { type: "image/jpeg" });
+    Object.defineProperty(input, "files", { value: { 0: file, length: 1 }, configurable: true });
+    input.dispatchEvent(new Event("change"));
 
-    expect(file).toBeNull();
-    expect(cameraApi.Camera.getPhoto).not.toHaveBeenCalled();
-    expect(uiAlert).toHaveBeenCalledWith(
-      "Camera access is turned off. Enable Camera for Lore Ledger in Settings to take character or campaign photos.",
-      { title: "Camera Access Needed" }
-    );
-    expect(setStatus).toHaveBeenCalledWith(
-      "Camera access is turned off. Enable Camera for Lore Ledger in Settings to take character or campaign photos."
-    );
-  });
+    const firstResult = await firstPick;
+    expect(firstResult[0]).toBe(file);
 
-  it("prevents duplicate native launches while the camera flow is already in progress", async () => {
-    let resolvePhoto;
-    const cameraApi = makeNativeCameraApi({
-      Camera: {
-        getPhoto: vi.fn(
-          () =>
-            new Promise((resolve) => {
-              resolvePhoto = resolve;
-            })
-        )
-      }
-    });
-    const fetchImpl = vi.fn(async () => new Response(
-      new Blob(["jpeg-data"], { type: "image/jpeg" }),
-      { headers: { "Content-Type": "image/jpeg" } }
-    ));
-    const picker = createImagePicker({
-      accept: "image/*",
-      chooseNativeSource: vi.fn(async () => "camera"),
-      cameraApi,
-      fetchImpl,
-      ...makeNativeRuntime()
-    });
+    // Second pick now runs; cancel it
+    await waitTicks();
+    input.dispatchEvent(new Event("cancel"));
 
-    const firstPick = picker.pickOne({ accept: "image/*" });
-    const secondPick = await picker.pickOne({ accept: "image/*" });
-
-    expect(secondPick).toBeNull();
-    await waitForCalls(cameraApi.Camera.getPhoto, 1);
-
-    resolvePhoto({
-      webPath: "https://example.test/photo.jpg",
-      format: "jpeg"
-    });
-
-    await expect(firstPick).resolves.toBeInstanceOf(File);
-    expect(cameraApi.Camera.getPhoto).toHaveBeenCalledTimes(1);
-  });
-
-  it("treats native camera cancellation as a clean null result", async () => {
-    const cameraApi = makeNativeCameraApi({
-      Camera: {
-        getPhoto: vi.fn(async () => {
-          throw new Error("User cancelled photos app");
-        })
-      }
-    });
-    const uiAlert = vi.fn(async () => {});
-    const picker = createImagePicker({
-      accept: "image/*",
-      chooseNativeSource: vi.fn(async () => "camera"),
-      cameraApi,
-      uiAlert,
-      ...makeNativeRuntime()
-    });
-
-    await expect(picker.pickOne({ accept: "image/*" })).resolves.toBeNull();
-    expect(uiAlert).not.toHaveBeenCalled();
+    const secondResult = await secondPick;
+    expect(secondResult).toEqual([]);
   });
 });

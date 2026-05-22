@@ -295,7 +295,8 @@ Lore Ledger uses [Capacitor](https://capacitorjs.com/) as the native packaging l
   - `appName: "Lore Ledger"`
   - `webDir: "dist"`
 - Capacitor packages: `@capacitor/core`, `@capacitor/cli`, `@capacitor/ios` — all pinned to `7.6.5`.
-- Native image capture uses `@capacitor/camera@7.0.5` on iOS so `Take Photo` no longer depends on the WKWebView file-input camera path.
+- Image picking uses the standard WKWebView `<input type="file" accept="image/*">`. On iOS this triggers the native action sheet (Photo Library / Take Photo / Files) without any in-app chooser.
+- ⚠️ **Known issue**: `Take Photo` via the WKWebView file-input path may freeze the app on real devices. A dedicated Capacitor native-camera bridge is the correct fix; do not reintroduce an in-app source modal.
 - CocoaPods 1.16.2 (installed via Homebrew) manages native iOS dependencies.
 
 ### Native project status
@@ -464,12 +465,12 @@ Manual TestFlight QA for intro audio:
 Manual TestFlight QA for native image capture:
 
 1. Confirm `ios/App/App/Info.plist` contains non-placeholder camera/photo usage strings before archiving.
-2. Open a portrait picker on a real iPhone/TestFlight build and confirm the in-app source prompt shows `Take Photo`, `Photo Library`, `Files`, and `Cancel`.
-3. Choose `Take Photo`, capture an image, and confirm the app returns to the crop modal instead of freezing or crashing.
-4. Repeat `Take Photo`, cancel from the camera UI, and confirm the app returns cleanly with no stuck overlay or blocked taps.
-5. Deny Camera access for Lore Ledger in iOS Settings, choose `Take Photo`, and confirm the app shows a permission message instead of freezing.
-6. Confirm `Photo Library` still selects an image normally.
-7. Confirm `Files` still selects an image normally.
+2. Open a portrait picker on a real iPhone/TestFlight build and confirm the **native iOS action sheet** appears directly — no Lore Ledger source chooser modal is shown.
+3. The native action sheet must offer `Photo Library`, `Take Photo`, and `Files`.
+4. Choose `Photo Library`, select an image, and confirm the app opens it in the crop modal.
+5. Choose `Files`, select an image, and confirm the app opens it in the crop modal.
+6. Cancel the picker and confirm the app returns cleanly with no stuck overlay or blocked taps.
+7. ⚠️ Test `Take Photo` and note whether the app freezes after photo capture. This is a known WKWebView bug. If it freezes, document it and do not ship a workaround that reintroduces an in-app source chooser — file it as a native bridge requirement instead.
 
 ### Xcode native build fix (2026-05-16)
 

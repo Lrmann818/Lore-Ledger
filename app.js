@@ -163,12 +163,7 @@ const VaultRuntime = { current: null };
 
 /************************ Shared file picker ************************/
 // One hidden <input type="file"> for the whole app.
-const ImagePicker = createImagePicker({
-  accept: "image/*",
-  uiAlert,
-  setStatus: (message) => StatusApi.setStatus(message),
-  loadCameraApi: () => import("@capacitor/camera")
-});
+const ImagePicker = createImagePicker({ accept: "image/*" });
 
 // Local persistence (kept as a tiny wrapper for SaveManager + autosize integration)
 function saveAll() {

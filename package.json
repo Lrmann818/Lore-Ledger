@@ -27,7 +27,6 @@
     "vitest": "^1.6.0"
   },
   "dependencies": {
-    "@capacitor/camera": "^7.0.5",
     "@capacitor/cli": "7.6.5",
     "@capacitor/core": "7.6.5",
     "@capacitor/ios": "7.6.5"
