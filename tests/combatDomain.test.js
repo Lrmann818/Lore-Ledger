@@ -16,6 +16,7 @@ import {
   getCombatSourceListKey,
   inferCombatRoleFromSource,
   makeStatusEffect,
+  normalizeCombatDeathSaves,
   normalizeCombatEncounter,
   normalizeCombatRole,
   normalizeCombatSourceType,
@@ -39,6 +40,7 @@ function participant(overrides = {}) {
     hpCurrent: 12,
     hpMax: 20,
     tempHp: 0,
+    deathSaves: { successes: 0, failures: 0 },
     statusEffects: [],
     ...overrides
   };
@@ -46,6 +48,14 @@ function participant(overrides = {}) {
 
 describe("combat domain helpers", () => {
   describe("participant/source helpers", () => {
+    it("normalizes missing and malformed death save counts to the supported 0..3 range", () => {
+      expect(normalizeCombatDeathSaves(undefined)).toEqual({ successes: 0, failures: 0 });
+      expect(normalizeCombatDeathSaves({ successes: 7, failures: -2 })).toEqual({ successes: 3, failures: 0 });
+      expect(normalizeCombatEncounter({
+        participants: [{ id: "cmb_1", deathSaves: { successes: "2", failures: "bad" } }]
+      }).participants[0].deathSaves).toEqual({ successes: 2, failures: 0 });
+    });
+
     it("normalizes source type aliases and resolves backing tracker lists", () => {
       expect(normalizeCombatSourceType(" PARTY ")).toBe("party");
       expect(normalizeCombatSourceType("npcs")).toBe("npc");
@@ -109,7 +119,8 @@ describe("combat domain helpers", () => {
         },
         hpCurrent: 7,
         hpMax: 11,
-        tempHp: 2
+        tempHp: 2,
+        deathSaves: { successes: 0, failures: 0 }
       });
       expect(first.statusEffects.map((effect) => effect.label)).toEqual(["Poisoned", "Frightened"]);
       expect(duplicate.id).toBe("cmb_b");

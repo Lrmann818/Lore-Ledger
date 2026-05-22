@@ -544,7 +544,7 @@ Field names may evolve slightly to fit repo conventions, but the explicit `works
 
 ### Slice 8 — Styling, accessibility, and polish
 
-**Status:** Planned
+**Status:** Partially done
 
 #### Scope
 
@@ -554,6 +554,9 @@ Field names may evolve slightly to fit repo conventions, but the explicit `works
 - keyboard/accessibility checks
 - browser smoke coverage
 - docs follow-up
+- portrait-style combat cards
+- combat-card AC display through existing linked-card display data
+- manual death saves with long-press stabilization
 
 ---
 
@@ -606,3 +609,42 @@ Before the main Combat card UI implementation/styling pass:
 - ask Willow for the combat card sketch/reference
 
 This is intentionally deferred until the UI slices.
+
+---
+
+### TestFlight update — portrait cards, AC surfaces, and manual death saves
+
+**Status:** Done
+
+#### Scope
+
+- portrait-style Combat Card layout tuned for mobile portrait
+- AC visibility on linked NPC cards, linked Party cards, Combat Cards, and canonical Character vitals views
+- manual Death Saves tracker that replaces normal HP/AC/status controls only while combat HP is `0`
+- long-press stabilization shortcut with confirmation dialog
+
+#### Completed notes
+
+- extended the existing linked-card display/snapshot seam to include `ac` instead of adding a second AC sync model
+- kept Combat AC read-only and source-backed; Combat participants still do not persist their own AC field
+- added encounter-local `deathSaves: { successes, failures }` with defensive `0..3` normalization
+- kept death saves manual only: no automatic stable/dead labels, no auto-heal at 3 passes, and no auto-removal at 3 fails
+- long-pressing the Death Saves panel now confirms stabilization, clears death saves, sets HP to `1`, and restores the normal card controls
+- kept move, Active, Remove, round controls, undo, and embedded Character panels intact while Death Saves are visible
+
+#### Files changed in this update
+
+- `js/domain/cardLinking.js`
+- `js/domain/combat.js`
+- `js/domain/combatEncounterActions.js`
+- `js/domain/factories.js`
+- `js/pages/combat/combatPage.js`
+- `js/pages/tracker/panels/npcCards.js`
+- `js/pages/tracker/panels/partyCards.js`
+- `styles.css`
+- `tests/cardLinking.test.js`
+- `tests/characterPage.test.js`
+- `tests/combatDomain.test.js`
+- `tests/combatEncounterActions.test.js`
+- `tests/combatPage.test.js`
+- `docs/combat-workspace-plan.md`

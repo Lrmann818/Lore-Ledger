@@ -2853,12 +2853,13 @@ button.panelSelectBtn:hover {
   overflow: hidden;
   display: flex;
   flex-direction: row;
-  gap: 10px;
+  gap: 14px;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 16px;
   background: var(--surface-1);
-  padding: 10px;
+  padding: 14px;
   min-width: 0;
+  align-items: stretch;
 }
 
 .combatCard > * {
@@ -2899,31 +2900,34 @@ button.panelSelectBtn:hover {
 
 /* Portrait column (left side, always present) */
 .combatCardPortrait {
-  flex: 0 0 52px;
-  width: 52px;
-  align-self: flex-start;
-  border-radius: 6px;
+  flex: 0 0 132px;
+  width: 132px;
+  min-height: 196px;
+  align-self: stretch;
+  border-radius: 12px;
   overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--border) 85%, transparent);
+  background: var(--surface-2);
 }
 
 .combatCardPortraitImg {
   display: block;
-  width: 52px;
-  height: 52px;
+  width: 100%;
+  height: 100%;
   object-fit: cover;
-  border-radius: 6px;
+  border-radius: 12px;
 }
 
 .combatCardPortraitAvatar {
-  width: 52px;
-  height: 52px;
+  width: 100%;
+  height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
   background: var(--surface-3);
-  border-radius: 6px;
+  border-radius: 12px;
   font-weight: 800;
-  font-size: 1.2rem;
+  font-size: 2rem;
   color: var(--muted);
   user-select: none;
 }
@@ -2933,7 +2937,7 @@ button.panelSelectBtn:hover {
   flex: 1 1 0;
   min-width: 0;
   display: grid;
-  gap: 7px;
+  gap: 10px;
 }
 
 /* Card header: name + role select */
@@ -2960,6 +2964,7 @@ button.panelSelectBtn:hover {
 
 .combatCardName {
   font-weight: 700;
+  font-size: 1.05rem;
   min-width: 0;
   overflow-wrap: anywhere;
 }
@@ -2987,21 +2992,33 @@ button.panelSelectBtn:hover {
   flex: 0 0 auto;
 }
 
+.combatCardBody {
+  display: grid;
+  gap: 10px;
+}
+
+.combatCardVitals {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: stretch;
+}
+
 /* HP area — single clickable button */
 .combatHpBtn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
+  display: inline-grid;
+  grid-template-columns: auto;
+  gap: 4px;
   cursor: pointer;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 12px;
   background: var(--surface-2);
-  padding: 5px 8px;
+  padding: 10px 12px;
   font: inherit;
   color: inherit;
   text-align: left;
-  align-self: start;
   transition: border-color 0.12s, background 0.12s;
+  min-width: 88px;
 }
 
 .combatHpBtn:hover {
@@ -3016,6 +3033,7 @@ button.panelSelectBtn:hover {
 
 .combatHpValue {
   font-weight: 800;
+  font-size: 1.05rem;
 }
 
 .combatHpBtn.hasTempHp .combatHpValue {
@@ -3036,10 +3054,34 @@ button.panelSelectBtn:hover {
   line-height: 1.2;
 }
 
+.combatAcValue {
+  display: inline-grid;
+  gap: 4px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-2);
+  padding: 10px 12px;
+  min-width: 88px;
+}
+
+.combatAcLabel {
+  color: var(--muted);
+  font-size: var(--small-font-size);
+}
+
+.combatAcNumber {
+  font-weight: 800;
+  font-size: 1.05rem;
+}
+
+.combatAcValue.isPlaceholder .combatAcNumber {
+  color: var(--muted);
+}
+
 /* Status row */
 .combatStatusRow {
   display: grid;
-  gap: 5px;
+  gap: 8px;
   min-height: 24px;
 }
 
@@ -3105,6 +3147,116 @@ button.panelSelectBtn:hover {
 .combatCardMoves {
   display: flex;
   gap: 3px;
+}
+
+.combatDeathSaves {
+  display: grid;
+  gap: 12px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--surface-2) 92%, transparent);
+  padding: 12px 14px;
+  touch-action: manipulation;
+}
+
+.combatDeathSavesRow {
+  display: grid;
+  grid-template-columns: 44px 1fr;
+  gap: 10px;
+  align-items: center;
+}
+
+.combatDeathSavesLabel {
+  color: var(--text);
+  font-weight: 700;
+}
+
+.combatDeathSavesBoxes {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.combatDeathSaveBox {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 46px;
+  border: 2px solid color-mix(in srgb, var(--accent) 55%, var(--border));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface-2));
+  cursor: pointer;
+}
+
+.combatDeathSaveBox.isFailure {
+  border-color: color-mix(in srgb, var(--danger) 65%, var(--border));
+  background: color-mix(in srgb, var(--danger) 10%, var(--surface-2));
+}
+
+.combatDeathSaveInput {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 26px;
+  height: 26px;
+  margin: 0;
+  border-radius: 8px;
+  border: 2px solid currentColor;
+  background: transparent;
+  cursor: pointer;
+}
+
+.combatDeathSaveBox .combatDeathSaveInput {
+  color: color-mix(in srgb, var(--accent) 70%, var(--text));
+}
+
+.combatDeathSaveBox.isFailure .combatDeathSaveInput {
+  color: color-mix(in srgb, var(--danger) 72%, var(--text));
+}
+
+.combatDeathSaveInput:checked {
+  background: currentColor;
+}
+
+.combatDeathSaveInput:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--ring);
+}
+
+@media (max-width: 720px) {
+  .combatCard {
+    gap: 12px;
+    padding: 12px;
+  }
+
+  .combatCardPortrait {
+    flex-basis: 104px;
+    width: 104px;
+    min-height: 156px;
+  }
+}
+
+@media (max-width: 560px) {
+  .combatCard {
+    gap: 10px;
+  }
+
+  .combatCardPortrait {
+    flex-basis: 92px;
+    width: 92px;
+    min-height: 138px;
+  }
+
+  .combatDeathSavesRow {
+    grid-template-columns: 40px 1fr;
+  }
+
+  .combatDeathSavesBoxes {
+    gap: 8px;
+  }
+
+  .combatDeathSaveBox {
+    min-height: 42px;
+  }
 }
 
 /* Combat modals */
@@ -6738,6 +6890,29 @@ section.combatPanel[data-collapsed="true"]> :not([data-panel-header]) {
 .npcHpWrap>span.muted {
   flex: 0 0 auto;
   white-space: nowrap;
+}
+
+.npcAcValue {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text);
+  padding: 5px 8px;
+  min-height: 32px;
+  white-space: nowrap;
+}
+
+.npcAcLabel {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.npcAcNumber {
+  font-weight: 700;
 }
 
 /* Status Effects input: autosize until constrained, then clamp + truncate */

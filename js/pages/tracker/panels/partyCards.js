@@ -30,6 +30,22 @@ const USE_INCREMENTAL_REORDER = true;
 const MASONRY_OPTIONS = { panelName: "party", minCardWidth: 175, gapVar: "--cards-grid-gap" };
 const matchesSearch = makeFieldSearchMatcher(["name", "className", "status", "notes"]);
 
+function createTrackerAcValue(ac) {
+  if (ac == null) return null;
+  const acValue = document.createElement("div");
+  acValue.className = "npcAcValue";
+  acValue.dataset.linkedField = "ac";
+  acValue.setAttribute("aria-label", "Armor Class");
+  const label = document.createElement("span");
+  label.className = "npcAcLabel";
+  label.textContent = "AC";
+  const number = document.createElement("span");
+  number.className = "npcAcNumber";
+  number.textContent = String(ac);
+  acValue.append(label, number);
+  return acValue;
+}
+
 function createPartyCardsController(deps = {}) {
   const {
     state,
@@ -232,6 +248,7 @@ function createPartyCardsController(deps = {}) {
 
   function patchLinkedCardHpInputs() {
     if (!cardsEl) return;
+    let needsRerender = false;
     Array.from(cardsEl.querySelectorAll(".trackerCard")).forEach((cardEl) => {
       const cardId = cardEl.dataset.cardId;
       if (!cardId) return;
@@ -247,7 +264,18 @@ function createPartyCardsController(deps = {}) {
       if (hpMaxEl instanceof HTMLInputElement && document.activeElement !== hpMaxEl) {
         hpMaxEl.value = display.hpMax != null ? String(display.hpMax) : "";
       }
+      const acEl = cardEl.querySelector("[data-linked-field='ac']");
+      if (!(acEl instanceof HTMLElement) && display.ac != null) {
+        needsRerender = true;
+        return;
+      }
+      if (acEl instanceof HTMLElement) {
+        acEl.hidden = display.ac == null;
+        const acNumberEl = acEl.querySelector(".npcAcNumber");
+        if (acNumberEl instanceof HTMLElement) acNumberEl.textContent = display.ac == null ? "" : String(display.ac);
+      }
     });
+    if (needsRerender) renderPartyCards();
   }
 
   function setPartyPortraitHidden(id, hidden) {
@@ -519,6 +547,8 @@ function createPartyCardsController(deps = {}) {
     hpWrap.appendChild(hpCur);
     hpWrap.appendChild(slash);
     hpWrap.appendChild(hpMax);
+    const acValue = createTrackerAcValue(display.ac);
+    if (acValue) hpWrap.appendChild(acValue);
 
     hpRow.appendChild(hpLabel);
     hpRow.appendChild(hpWrap);

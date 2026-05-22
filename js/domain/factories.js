@@ -23,7 +23,8 @@
  *   status: string,
  *   className: string,
  *   hpMax: number | null,
- *   hpCurrent: number | null
+ *   hpCurrent: number | null,
+ *   ac: number | null
  * }} TrackerVitals
  */
 /**
@@ -90,6 +91,7 @@ export function makeNpc({ sectionId = "", group = "undecided", name = "", notes 
     className: "",
     hpMax: null,
     hpCurrent: null,
+    ac: null,
     imgBlobId: null,
     portraitHidden: false,
     collapsed: false
@@ -111,6 +113,7 @@ export function makePartyMember({ sectionId = "party", name = "", notes = "", ch
     className: "",
     hpMax: null,
     hpCurrent: null,
+    ac: null,
     imgBlobId: null,
     portraitHidden: false,
     collapsed: false

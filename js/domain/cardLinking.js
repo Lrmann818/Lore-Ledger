@@ -8,7 +8,7 @@ import { withAllowedStateMutation } from "../utils/dev.js";
 /** @typedef {import("../state.js").CharacterEntry} CharacterEntry */
 /** @typedef {import("./factories.js").NpcCard | import("./factories.js").PartyMemberCard} LinkedTrackerCard */
 /** @typedef {{ markDirty?: () => void }} SaveManagerLike */
-/** @typedef {"name" | "className" | "hpCurrent" | "hpMax" | "status" | "imgBlobId"} LinkedCardField */
+/** @typedef {"name" | "className" | "hpCurrent" | "hpMax" | "ac" | "status" | "imgBlobId"} LinkedCardField */
 
 /** @type {Readonly<Record<LinkedCardField, keyof CharacterEntry>>} */
 export const LINKED_FIELD_MAP = Object.freeze({
@@ -16,6 +16,7 @@ export const LINKED_FIELD_MAP = Object.freeze({
   className: "classLevel",
   hpCurrent: "hpCur",
   hpMax: "hpMax",
+  ac: "ac",
   status: "status",
   imgBlobId: "imgBlobId"
 });
@@ -59,6 +60,7 @@ export function getLinkedCharacter(card, state) {
  *   className: string,
  *   hpCurrent: number | null,
  *   hpMax: number | null,
+ *   ac: number | null,
  *   status: string,
  *   imgBlobId: string | null,
  *   isLinked: boolean,
@@ -78,6 +80,7 @@ export function resolveCardDisplayData(card, state) {
       className: typeof base.className === "string" ? base.className : "",
       hpCurrent: base.hpCurrent ?? null,
       hpMax: base.hpMax ?? null,
+      ac: base.ac ?? null,
       status: typeof base.status === "string" ? base.status : "",
       imgBlobId: typeof base.imgBlobId === "string" ? base.imgBlobId : null,
       isLinked: false,
@@ -92,6 +95,7 @@ export function resolveCardDisplayData(card, state) {
     className: character.classLevel || "",
     hpCurrent: character.hpCur ?? null,
     hpMax: character.hpMax ?? null,
+    ac: character.ac ?? null,
     status: character.status || "",
     imgBlobId: character.imgBlobId || null,
     isLinked: true,

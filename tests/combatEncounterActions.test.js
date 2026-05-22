@@ -5,9 +5,12 @@ import {
   advanceCombatTurn,
   applyCombatParticipantHpAction,
   clearCombat,
+  markCombatParticipantStable,
   moveCombatParticipant,
   removeCombatParticipantStatusEffect,
   removeCombatParticipant,
+  setCombatParticipantDeathSaveFailures,
+  setCombatParticipantDeathSaveSuccesses,
   setCombatParticipantRole,
   updateCombatParticipantStatusEffect,
   undoCombatTurn
@@ -57,6 +60,7 @@ function makeState() {
             hpCurrent: 10,
             hpMax: 12,
             tempHp: 3,
+            deathSaves: { successes: 0, failures: 0 },
             statusEffects: [
               makeStatusEffect({ id: "s_time", label: "Haste", durationMode: "time", remaining: 12 })
             ]
@@ -69,6 +73,7 @@ function makeState() {
             hpCurrent: 10,
             hpMax: 12,
             tempHp: 3,
+            deathSaves: { successes: 0, failures: 0 },
             statusEffects: []
           }
         ],
@@ -277,6 +282,63 @@ describe("combat encounter actions", () => {
     expect(result).toMatchObject({ changed: false, wroteCanonical: false, effect: null });
     expect(state.combat.encounter.participants[0].statusEffects).toHaveLength(1);
     expect(state.tracker.npcs[0].status).toBe("Poisoned");
+  });
+
+  it("tracks death save counts manually without automatic outcomes", () => {
+    const state = makeState();
+    state.combat.encounter.participants[0].hpCurrent = 0;
+
+    const successResult = setCombatParticipantDeathSaveSuccesses(state, "cmb_1", 5);
+    const failureResult = setCombatParticipantDeathSaveFailures(state, "cmb_1", -2);
+
+    expect(successResult).toMatchObject({
+      changed: true,
+      participant: {
+        deathSaves: { successes: 3, failures: 0 }
+      }
+    });
+    expect(failureResult).toMatchObject({
+      changed: false,
+      participant: null
+    });
+    expect(state.combat.encounter.participants[0]).toMatchObject({
+      hpCurrent: 0,
+      deathSaves: { successes: 3, failures: 0 }
+    });
+  });
+
+  it("stabilizes a participant by clearing death saves and setting HP to 1", () => {
+    const state = makeState();
+    state.characters = {
+      activeId: "char_a",
+      entries: [{
+        id: "char_a",
+        name: "Arlen",
+        hpCur: 0,
+        hpMax: 12,
+        ac: 15,
+        status: "Poisoned"
+      }]
+    };
+    state.tracker.npcs[0].characterId = "char_a";
+    state.combat.encounter.participants[0].hpCurrent = 0;
+    state.combat.encounter.participants[0].deathSaves = { successes: 2, failures: 1 };
+
+    const result = markCombatParticipantStable(state, "cmb_1");
+
+    expect(result).toMatchObject({
+      changed: true,
+      wroteCanonical: true,
+      participant: {
+        hpCurrent: 1,
+        deathSaves: { successes: 0, failures: 0 }
+      }
+    });
+    expect(state.combat.encounter.participants[0]).toMatchObject({
+      hpCurrent: 1,
+      deathSaves: { successes: 0, failures: 0 }
+    });
+    expect(state.characters.entries[0].hpCur).toBe(1);
   });
 
   it("keeps role overrides and order changes encounter-only", () => {

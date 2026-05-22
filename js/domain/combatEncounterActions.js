@@ -11,6 +11,7 @@ import {
   makeCombatId,
   makeStatusEffect,
   normalizeCombatEncounter,
+  normalizeCombatDeathSaves,
   normalizeCombatRole,
   normalizeStatusDurationMode,
   undoLastTurnAdvance
@@ -155,6 +156,40 @@ function writeParticipantStatusToCanonicalSource(state, participant) {
     .filter(Boolean)
     .join(", ");
   return writeCardLinkedField(source.card, "status", statusText, state, { queueSave: false }).written;
+}
+
+/**
+ * @param {State | Record<string, unknown>} state
+ * @param {string} participantId
+ * @param {"successes" | "failures"} field
+ * @param {unknown} value
+ * @param {{ now?: string | null }} [options]
+ * @returns {{ changed: boolean, encounter: CombatEncounter, participant: CombatParticipant | null }}
+ */
+function setCombatParticipantDeathSaveField(state, participantId, field, value, options = {}) {
+  let updatedParticipant = /** @type {CombatParticipant | null} */ (null);
+  const nextCount = normalizeCombatDeathSaves({ [field]: value })[field];
+
+  const result = mutateEncounter(state, (encounter) => {
+    const index = findParticipantIndex(encounter, participantId);
+    if (index < 0) return false;
+    const current = encounter.participants[index];
+    const currentDeathSaves = normalizeCombatDeathSaves(current.deathSaves);
+    if (currentDeathSaves[field] === nextCount) return false;
+
+    const participant = {
+      ...current,
+      deathSaves: {
+        ...currentDeathSaves,
+        [field]: nextCount
+      }
+    };
+    updatedParticipant = participant;
+    const participants = encounter.participants.map((entry, i) => (i === index ? participant : entry));
+    return touchEncounter({ ...encounter, participants }, options.now);
+  });
+
+  return { ...result, participant: updatedParticipant };
 }
 
 /**
@@ -352,6 +387,65 @@ export function applyCombatParticipantHpAction(state, participantId, mode, amoun
     ) {
       return false;
     }
+
+    updatedParticipant = participant;
+    wroteCanonical = writeParticipantHpToCanonicalSource(state, participant);
+    const participants = encounter.participants.map((entry, i) => (i === index ? participant : entry));
+    return touchEncounter({ ...encounter, participants }, options.now);
+  });
+
+  return { ...result, participant: updatedParticipant, wroteCanonical };
+}
+
+/**
+ * @param {State | Record<string, unknown>} state
+ * @param {string} participantId
+ * @param {unknown} successes
+ * @param {{ now?: string | null }} [options]
+ * @returns {{ changed: boolean, encounter: CombatEncounter, participant: CombatParticipant | null }}
+ */
+export function setCombatParticipantDeathSaveSuccesses(state, participantId, successes, options = {}) {
+  return setCombatParticipantDeathSaveField(state, participantId, "successes", successes, options);
+}
+
+/**
+ * @param {State | Record<string, unknown>} state
+ * @param {string} participantId
+ * @param {unknown} failures
+ * @param {{ now?: string | null }} [options]
+ * @returns {{ changed: boolean, encounter: CombatEncounter, participant: CombatParticipant | null }}
+ */
+export function setCombatParticipantDeathSaveFailures(state, participantId, failures, options = {}) {
+  return setCombatParticipantDeathSaveField(state, participantId, "failures", failures, options);
+}
+
+/**
+ * @param {State | Record<string, unknown>} state
+ * @param {string} participantId
+ * @param {{ now?: string | null }} [options]
+ * @returns {{ changed: boolean, encounter: CombatEncounter, participant: CombatParticipant | null, wroteCanonical: boolean }}
+ */
+export function markCombatParticipantStable(state, participantId, options = {}) {
+  let updatedParticipant = /** @type {CombatParticipant | null} */ (null);
+  let wroteCanonical = false;
+
+  const result = mutateEncounter(state, (encounter) => {
+    const index = findParticipantIndex(encounter, participantId);
+    if (index < 0) return false;
+    const current = encounter.participants[index];
+    const participant = {
+      ...current,
+      hpCurrent: 1,
+      deathSaves: {
+        successes: 0,
+        failures: 0
+      }
+    };
+
+    const unchanged = current.hpCurrent === participant.hpCurrent
+      && normalizeCombatDeathSaves(current.deathSaves).successes === 0
+      && normalizeCombatDeathSaves(current.deathSaves).failures === 0;
+    if (unchanged) return false;
 
     updatedParticipant = participant;
     wroteCanonical = writeParticipantHpToCanonicalSource(state, participant);

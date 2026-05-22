@@ -13,7 +13,7 @@ The source of truth is the code, primarily:
 
 This is intentionally a maintainer-focused document. It describes the state as it exists today, including a few legacy or duplicated fields that still appear because the app preserves backward compatibility.
 
-Current structured schema version: `4`
+Current structured schema version: `5`
 
 ## 2. Schema versioning policy
 
@@ -165,6 +165,7 @@ Current NPC record shape comes from `makeNpc(...)`:
   className: string,
   hpMax: number | null,
   hpCurrent: number | null,
+  ac: number | null,
   imgBlobId: string | null,
   portraitHidden: boolean,
   collapsed: boolean
@@ -175,6 +176,7 @@ Notes:
 
 - `sectionId` is the current grouping field.
 - `group` is retained for backward compatibility with older fixed-group NPC saves.
+- `ac` is optional fallback tracker-card AC. Linked cards derive it from canonical character data; unlinked/orphaned cards may retain the last known snapshot.
 - `imgBlobId` points to the IndexedDB blob store.
 
 NPC section metadata is created lazily by the NPC panel if missing:
@@ -198,11 +200,16 @@ Current party member shape comes from `makePartyMember(...)`:
   className: string,
   hpMax: number | null,
   hpCurrent: number | null,
+  ac: number | null,
   imgBlobId: string | null,
   portraitHidden: boolean,
   collapsed: boolean
 }
 ```
+
+Notes:
+
+- `ac` is optional fallback tracker-card AC. Linked cards derive it from canonical character data; unlinked/orphaned cards may retain the last known snapshot.
 
 Party section metadata is also lazy-created:
 
@@ -634,7 +641,7 @@ Current structured shape:
   - Defaults to `6`.
 - `participants: unknown[]`
   - Current entries are Combat participants normalized by `js/domain/combat.js`.
-  - Each participant stores an encounter-local `id`, display `name`, `role`, `source` reference, `hpCurrent`, `hpMax`, `tempHp`, and structured `statusEffects`.
+  - Each participant stores an encounter-local `id`, display `name`, `role`, `source` reference, `hpCurrent`, `hpMax`, `tempHp`, `deathSaves`, and structured `statusEffects`.
   - Multiple participants may point at the same tracker source card.
 - `undoStack: unknown[]`
   - Current entries are turn-advance undo records.
@@ -645,6 +652,7 @@ Notes:
 - Combat is stored in each campaign document, not in app-shell UI.
 - Combat participants are encounter-local. Role, order, active participant, timer state, duplicate participant entries, and status timing do not write back to tracker cards.
 - Direct Combat HP/temp HP actions intentionally write `hpCurrent` and `tempHp` back to the source tracker card when the source still exists.
+- `deathSaves` is encounter-local manual tracking only: `{ successes: 0..3, failures: 0..3 }`.
 - Direct Combat status edits intentionally mirror visible status labels back to the source tracker card's text status field for NPC and party sources; duration timing remains encounter-local.
 - Embedded Combat panels host the canonical Character page Vitals, Spells, and Weapons / Attacks panel modules as live alternate views of the active character. They resolve `getActiveCharacter(state)`, read/write canonical `state.characters.entries[]` data, and update through active-character change events plus panel invalidation/rebinding rather than copied data, duplicate state, or a sync store.
 - Older campaign docs without `combat` migrate to the default split shape.

@@ -139,6 +139,7 @@ describe("combat page shell helpers", () => {
             name: "Arlen",
             hpCurrent: 7,
             hpMax: 10,
+            ac: 15,
             tempHp: 0,
             imgBlobId: "blob_arlen",
             status: ""
@@ -150,6 +151,7 @@ describe("combat page shell helpers", () => {
             name: "Bandit",
             hpCurrent: 5,
             hpMax: 11,
+            ac: 12,
             tempHp: 4,
             imgBlobId: null,
             status: "Haste, Bless"
@@ -224,6 +226,8 @@ describe("combat page shell helpers", () => {
         hpCurrentLabel: "7",
         hpMaxLabel: "10",
         hpDisplayLabel: "7",
+        acLabel: "15",
+        hasAc: true,
         hasTempHp: false,
         portraitBlobId: "blob_arlen",
         statusEffects: []
@@ -238,6 +242,8 @@ describe("combat page shell helpers", () => {
         hpCurrentLabel: "5",
         hpMaxLabel: "11",
         hpDisplayLabel: "9",
+        acLabel: "12",
+        hasAc: true,
         tempHp: 4,
         hasTempHp: true,
         portraitBlobId: null,
@@ -298,6 +304,7 @@ describe("combat page shell helpers", () => {
           name: "Arlen",
           hpCur: 14,
           hpMax: 20,
+          ac: 16,
           status: "",
           imgBlobId: "char-portrait"
         }]
@@ -331,7 +338,9 @@ describe("combat page shell helpers", () => {
     expect(cards[0]).toMatchObject({
       portraitBlobId: "char-portrait",
       hpMaxLabel: "20",
-      hpCurrentLabel: "14"
+      hpCurrentLabel: "14",
+      acLabel: "16",
+      hasAc: true
     });
   });
 
@@ -417,12 +426,47 @@ describe("combat page shell helpers", () => {
     expect(cards[0]).toMatchObject({
       hpDisplayLabel: "0",
       hpState: "zero",
-      hasTempHp: false
+      hasTempHp: false,
+      showsDeathSaves: true
     });
     expect(cards[1]).toMatchObject({
       hpDisplayLabel: "3",
       hpState: "temp",
-      hasTempHp: true
+      hasTempHp: true,
+      showsDeathSaves: true
+    });
+  });
+
+  it("normalizes death saves and AC labels for zero-hp combat cards", () => {
+    const cards = getCombatCardViewModels({
+      tracker: {
+        npcs: [{ id: "npc_1", name: "Bandit", hpCurrent: 0, hpMax: 10, ac: 14 }]
+      },
+      combat: {
+        encounter: {
+          participants: [{
+            id: "cmb_1",
+            name: "Bandit",
+            role: "enemy",
+            source: { type: "npc", id: "npc_1", sectionId: "", group: "" },
+            hpCurrent: 0,
+            hpMax: 10,
+            tempHp: 0,
+            deathSaves: { successes: 7, failures: -2 },
+            statusEffects: []
+          }]
+        }
+      }
+    });
+
+    expect(cards[0]).toMatchObject({
+      showsDeathSaves: true,
+      acLabel: "14",
+      hasAc: true,
+      deathSaves: {
+        successes: 3,
+        failures: 0
+      }
     });
   });
 

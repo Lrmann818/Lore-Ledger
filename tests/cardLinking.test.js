@@ -20,6 +20,7 @@ function makeState() {
           classLevel: "Wizard 5",
           hpCur: 7,
           hpMax: 20,
+          ac: 15,
           status: "Poisoned",
           imgBlobId: "char-portrait"
         }
@@ -36,6 +37,7 @@ function makeState() {
           className: "Fallback Role",
           hpCurrent: 1,
           hpMax: 2,
+          ac: 12,
           status: "Fallback Status",
           imgBlobId: "fallback-portrait",
           notes: "Card notes",
@@ -52,6 +54,7 @@ function makeState() {
           className: "Fallback Class",
           hpCurrent: 3,
           hpMax: 4,
+          ac: 13,
           status: "Fallback Party Status",
           imgBlobId: "fallback-party-portrait",
           notes: "Party notes",
@@ -70,6 +73,7 @@ describe("cardLinking", () => {
       className: "classLevel",
       hpCurrent: "hpCur",
       hpMax: "hpMax",
+      ac: "ac",
       status: "status",
       imgBlobId: "imgBlobId"
     });
@@ -88,6 +92,7 @@ describe("cardLinking", () => {
       className: "Wizard 5",
       hpCurrent: 7,
       hpMax: 20,
+      ac: 15,
       status: "Poisoned",
       imgBlobId: "char-portrait",
       isLinked: true,
@@ -106,6 +111,7 @@ describe("cardLinking", () => {
       className: "Fallback Role",
       hpCurrent: 1,
       hpMax: 2,
+      ac: 12,
       status: "Fallback Status",
       imgBlobId: "fallback-portrait",
       isLinked: false,
@@ -147,13 +153,19 @@ describe("cardLinking", () => {
       target: "card",
       written: true
     });
+    expect(writeCardLinkedField(orphaned, "ac", 17, state)).toEqual({
+      target: "card",
+      written: true
+    });
     expect(writeCardLinkedField(orphaned, "status", "Prone", state)).toEqual({
       target: "card",
       written: true
     });
     expect(standalone.hpCurrent).toBe(9);
+    expect(orphaned.ac).toBe(17);
     expect(orphaned.status).toBe("Prone");
     expect(state.characters.entries[0].hpCur).toBe(7);
+    expect(state.characters.entries[0].ac).toBe(15);
     expect(state.characters.entries[0].status).toBe("Poisoned");
   });
 
@@ -168,6 +180,7 @@ describe("cardLinking", () => {
       className: "Wizard 5",
       hpCurrent: 7,
       hpMax: 20,
+      ac: 15,
       status: "Poisoned",
       imgBlobId: "char-portrait",
       notes: "Card notes"

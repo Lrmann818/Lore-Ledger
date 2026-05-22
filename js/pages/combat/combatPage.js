@@ -13,9 +13,12 @@ import {
   addCombatParticipantStatusEffect,
   applyCombatParticipantHpAction,
   clearCombat,
+  markCombatParticipantStable,
   moveCombatParticipant,
   removeCombatParticipantStatusEffect,
   removeCombatParticipant,
+  setCombatParticipantDeathSaveFailures,
+  setCombatParticipantDeathSaveSuccesses,
   setActiveCombatParticipant,
   setCombatParticipantRole,
   setCombatSecondsPerTurn,
@@ -85,9 +88,16 @@ import { DEV_MODE } from "../../utils/dev.js";
  *   hpCurrentLabel: string,
  *   hpMaxLabel: string,
  *   hpDisplayLabel: string,
+ *   acLabel: string,
+ *   hasAc: boolean,
  *   tempHp: number,
  *   hasTempHp: boolean,
  *   hpState: "normal" | "temp" | "zero",
+ *   showsDeathSaves: boolean,
+ *   deathSaves: {
+ *     successes: number,
+ *     failures: number
+ *   },
  *   portraitBlobId: string | null,
  *   statusEffects: Array<{
  *     id: string,
@@ -280,6 +290,7 @@ export function getCombatCardViewModels(state) {
 
     const sourceHp = sourceDisplay ? getCombatHpFromSource(sourceDisplay) : null;
     const canonicalMax = sourceHp?.hpMax ?? participant.hpMax;
+    const combatAc = sourceDisplay?.ac;
     const currentHp = participant.hpCurrent;
     const tempHp = Math.max(0, Math.trunc(Number(participant.tempHp) || 0));
     const displayHp = currentHp == null ? null : currentHp + tempHp;
@@ -287,6 +298,7 @@ export function getCombatCardViewModels(state) {
     const hpMax = canonicalMax == null ? "--" : String(canonicalMax);
     const hpDisplay = displayHp == null ? "--" : String(displayHp);
     const hpState = tempHp > 0 ? "temp" : displayHp === 0 ? "zero" : "normal";
+    const deathSaves = participant.deathSaves || { successes: 0, failures: 0 };
 
     return {
       id: participant.id,
@@ -299,9 +311,16 @@ export function getCombatCardViewModels(state) {
       hpCurrentLabel: hpCurrent,
       hpMaxLabel: hpMax,
       hpDisplayLabel: hpDisplay,
+      acLabel: combatAc == null ? "--" : String(combatAc),
+      hasAc: combatAc != null,
       tempHp,
       hasTempHp: tempHp > 0,
       hpState,
+      showsDeathSaves: currentHp === 0,
+      deathSaves: {
+        successes: Math.max(0, Math.min(3, Math.trunc(Number(deathSaves.successes) || 0))),
+        failures: Math.max(0, Math.min(3, Math.trunc(Number(deathSaves.failures) || 0)))
+      },
       portraitBlobId,
       statusEffects: participant.statusEffects.map((effect) => ({
         id: effect.id,
@@ -512,6 +531,42 @@ function renderCompactStatusEffect(effect) {
 }
 
 /**
+ * @param {string} label
+ * @param {number} checkedCount
+ * @param {"successes" | "failures"} field
+ * @returns {HTMLElement}
+ */
+function renderDeathSaveRow(label, checkedCount, field) {
+  const row = document.createElement("div");
+  row.className = "combatDeathSavesRow";
+
+  const labelEl = document.createElement("span");
+  labelEl.className = "combatDeathSavesLabel";
+  labelEl.textContent = label;
+  row.appendChild(labelEl);
+
+  const boxes = document.createElement("div");
+  boxes.className = "combatDeathSavesBoxes";
+  for (let index = 0; index < 3; index += 1) {
+    const boxLabel = document.createElement("label");
+    boxLabel.className = `combatDeathSaveBox${field === "failures" ? " isFailure" : ""}`;
+
+    const input = document.createElement("input");
+    input.type = "checkbox";
+    input.className = "combatDeathSaveInput";
+    input.dataset.combatDeathSavesField = field;
+    input.dataset.combatDeathSavesIndex = String(index);
+    input.checked = index < checkedCount;
+    input.setAttribute("aria-label", `${label} ${index + 1}`);
+    boxLabel.appendChild(input);
+    boxes.appendChild(boxLabel);
+  }
+
+  row.appendChild(boxes);
+  return row;
+}
+
+/**
  * Renders a small portrait area for the left column of a combat card.
  * Uses a canonical blob ID — no image data is copied into encounter state.
  * Falls back to an initials avatar when no portrait is set.
@@ -602,40 +657,66 @@ function renderCombatCard(card, blobIdToObjectUrl, Popovers) {
     preferRight: true
   });
 
-  // HP area: single clickable button — opens HP modal
-  const hpBtn = document.createElement("button");
-  hpBtn.type = "button";
-  hpBtn.className = "combatHpBtn";
-  hpBtn.classList.toggle("hasTempHp", card.hasTempHp);
-  hpBtn.classList.toggle("isZeroHp", card.hpState === "zero");
-  hpBtn.dataset.combatAction = "hp-modal";
-  hpBtn.setAttribute("aria-label", `Adjust HP for ${card.name}`);
-  const hpLabel = document.createElement("span");
-  hpLabel.className = "combatHpLabel";
-  hpLabel.textContent = "HP";
-  const hpValue = document.createElement("span");
-  hpValue.className = "combatHpValue";
-  hpValue.textContent = card.hpDisplayLabel;
-  hpBtn.appendChild(hpLabel);
-  hpBtn.appendChild(hpValue);
+  const body = document.createElement("div");
+  body.className = "combatCardBody";
 
-  // Status row: compact chips with gear buttons + add button
-  const statusRow = document.createElement("div");
-  statusRow.className = "combatStatusRow";
-  if (card.statusEffects.length === 0) {
-    statusRow.appendChild(createTextEl("No status effects", "combatNoStatus"));
+  if (card.showsDeathSaves) {
+    const deathSaves = document.createElement("div");
+    deathSaves.className = "combatDeathSaves";
+    deathSaves.dataset.combatAction = "death-saves-long-press";
+    deathSaves.setAttribute("role", "group");
+    deathSaves.setAttribute("aria-label", `Death saves for ${card.name}. Long press to mark stable.`);
+    deathSaves.appendChild(renderDeathSaveRow("Pass", card.deathSaves.successes, "successes"));
+    deathSaves.appendChild(renderDeathSaveRow("Fail", card.deathSaves.failures, "failures"));
+    body.appendChild(deathSaves);
   } else {
-    card.statusEffects.forEach((effect) => {
-      statusRow.appendChild(renderCompactStatusEffect(effect));
-    });
+    const vitalsRow = document.createElement("div");
+    vitalsRow.className = "combatCardVitals";
+
+    const hpBtn = document.createElement("button");
+    hpBtn.type = "button";
+    hpBtn.className = "combatHpBtn";
+    hpBtn.classList.toggle("hasTempHp", card.hasTempHp);
+    hpBtn.classList.toggle("isZeroHp", card.hpState === "zero");
+    hpBtn.dataset.combatAction = "hp-modal";
+    hpBtn.setAttribute("aria-label", `Adjust HP for ${card.name}`);
+    const hpLabel = document.createElement("span");
+    hpLabel.className = "combatHpLabel";
+    hpLabel.textContent = "HP";
+    const hpValue = document.createElement("span");
+    hpValue.className = "combatHpValue";
+    hpValue.textContent = card.hpDisplayLabel;
+    hpBtn.appendChild(hpLabel);
+    hpBtn.appendChild(hpValue);
+    vitalsRow.appendChild(hpBtn);
+
+    const acValue = document.createElement("div");
+    acValue.className = "combatAcValue";
+    acValue.classList.toggle("isPlaceholder", !card.hasAc);
+    acValue.setAttribute("aria-label", `${card.name} armor class`);
+    acValue.appendChild(createTextEl("AC", "combatAcLabel"));
+    acValue.appendChild(createTextEl(card.acLabel, "combatAcNumber"));
+    vitalsRow.appendChild(acValue);
+    body.appendChild(vitalsRow);
+
+    const statusRow = document.createElement("div");
+    statusRow.className = "combatStatusRow";
+    if (card.statusEffects.length === 0) {
+      statusRow.appendChild(createTextEl("No status effects", "combatNoStatus"));
+    } else {
+      card.statusEffects.forEach((effect) => {
+        statusRow.appendChild(renderCompactStatusEffect(effect));
+      });
+    }
+    statusRow.appendChild(
+      createCombatActionButton({
+        action: "status-modal-open-add",
+        text: "+ Status Effect",
+        className: "panelBtn panelBtnSm combatAddStatusBtn"
+      })
+    );
+    body.appendChild(statusRow);
   }
-  statusRow.appendChild(
-    createCombatActionButton({
-      action: "status-modal-open-add",
-      text: "+ Status Effect",
-      className: "panelBtn panelBtnSm combatAddStatusBtn"
-    })
-  );
 
   // Controls row: ↑/↓ move buttons (reuse moveBtn style) + make active + remove
   const controlRow = document.createElement("div");
@@ -680,8 +761,7 @@ function renderCombatCard(card, blobIdToObjectUrl, Popovers) {
   );
 
   content.appendChild(header);
-  content.appendChild(hpBtn);
-  content.appendChild(statusRow);
+  content.appendChild(body);
   content.appendChild(controlRow);
   article.appendChild(content);
   return article;
@@ -1031,6 +1111,8 @@ export function initCombatPage(deps = {}) {
   let _hpParticipantId = /** @type {string | null} */ (null);
   let _statusParticipantId = /** @type {string | null} */ (null);
   let _statusEffectId = /** @type {string | null} */ (null);
+  let deathSavesLongPressTimer = /** @type {number | null} */ (null);
+  let deathSavesLongPressParticipantId = /** @type {string | null} */ (null);
 
   /**
    * @param {string} participantId
@@ -1102,6 +1184,14 @@ export function initCombatPage(deps = {}) {
     statusModal.overlay.setAttribute("aria-hidden", "true");
     _statusParticipantId = null;
     _statusEffectId = null;
+  };
+
+  const clearDeathSavesLongPress = () => {
+    if (deathSavesLongPressTimer != null) {
+      window.clearTimeout(deathSavesLongPressTimer);
+      deathSavesLongPressTimer = null;
+    }
+    deathSavesLongPressParticipantId = null;
   };
 
   // ── Helpers ────────────────────────────────────────────────────────────────
@@ -1295,6 +1385,29 @@ export function initCombatPage(deps = {}) {
   };
 
   /**
+   * @param {Event} event
+   * @returns {void}
+   */
+  const handleCombatCardChange = (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLInputElement) || target.type !== "checkbox") return;
+    const field = target.dataset.combatDeathSavesField;
+    const index = Number(target.dataset.combatDeathSavesIndex);
+    if ((field !== "successes" && field !== "failures") || !Number.isInteger(index) || index < 0) return;
+
+    const cardEl = target.closest("[data-combat-participant-id]");
+    if (!(cardEl instanceof HTMLElement)) return;
+    const participantId = cleanIdOrNull(cardEl.dataset.combatParticipantId);
+    if (!participantId) return;
+
+    const nextCount = target.checked ? index + 1 : index;
+    const result = field === "successes"
+      ? setCombatParticipantDeathSaveSuccesses(state, participantId, nextCount)
+      : setCombatParticipantDeathSaveFailures(state, participantId, nextCount);
+    commitCombatResult(result, "Death saves updated.");
+  };
+
+  /**
    * Handles role select changes on combat cards.
    * @param {Event} event
    * @returns {void}
@@ -1367,6 +1480,7 @@ export function initCombatPage(deps = {}) {
     }
     const result = applyCombatParticipantHpAction(state, _hpParticipantId, action, amount);
     if (commitCombatResult(result, "Combat HP updated.")) {
+      if (result.wroteCanonical) notifyPanelDataChanged("vitals", { source: "combat-page" });
       closeHpModal();
     }
   }, { signal });
@@ -1495,6 +1609,50 @@ export function initCombatPage(deps = {}) {
 
   cardsShell.addEventListener("click", handleCombatCardClick, { signal });
   cardsShell.addEventListener("change", handleCombatRoleChange, { signal });
+  cardsShell.addEventListener("change", handleCombatCardChange, { signal });
+  cardsShell.addEventListener("pointerdown", (event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    const deathSavesEl = target?.closest(".combatDeathSaves");
+    if (!(deathSavesEl instanceof HTMLElement)) return;
+    const cardEl = deathSavesEl.closest("[data-combat-participant-id]");
+    if (!(cardEl instanceof HTMLElement)) return;
+    const participantId = cleanIdOrNull(cardEl.dataset.combatParticipantId);
+    if (!participantId) return;
+
+    clearDeathSavesLongPress();
+    deathSavesLongPressParticipantId = participantId;
+    deathSavesLongPressTimer = window.setTimeout(() => {
+      deathSavesLongPressTimer = null;
+      const currentParticipantId = deathSavesLongPressParticipantId;
+      deathSavesLongPressParticipantId = null;
+      if (!currentParticipantId) return;
+
+      const cards = getCombatCardViewModels(state);
+      const card = cards.find((entry) => entry.id === currentParticipantId);
+      if (!card || !card.showsDeathSaves) return;
+
+      Promise.resolve(
+        typeof uiConfirm === "function"
+          ? uiConfirm(`Clear death saves and set ${card.name} to 1 HP?`, {
+              title: "Mark Stable?",
+              okText: "Mark Stable",
+              cancelText: "Cancel"
+            })
+          : true
+      ).then((ok) => {
+        if (!ok) return;
+        const result = markCombatParticipantStable(state, currentParticipantId);
+        if (commitCombatResult(result, "Combatant marked stable.") && result.wroteCanonical) {
+          notifyPanelDataChanged("vitals", { source: "combat-page" });
+        }
+      }).catch(() => {
+        setStatus("Could not mark combatant stable.", { stickyMs: 2500 });
+      });
+    }, 600);
+  }, { signal });
+  ["pointerup", "pointerleave", "pointercancel"].forEach((eventName) => {
+    cardsShell.addEventListener(eventName, clearDeathSavesLongPress, { signal });
+  });
 
   turnSecondsButton.addEventListener("click", openTurnSecondsModal, { signal });
 
@@ -1523,6 +1681,7 @@ export function initCombatPage(deps = {}) {
   window.addEventListener(COMBAT_ENCOUNTER_CHANGED_EVENT, render, { signal });
   addDestroy(subscribePanelDataChanged("vitals", render));
   addDestroy(subscribePanelDataChanged("character-fields", render));
+  addDestroy(clearDeathSavesLongPress);
   render();
 
   const api = {
