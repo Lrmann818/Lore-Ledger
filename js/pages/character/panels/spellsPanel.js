@@ -405,7 +405,7 @@ export function initSpellsPanel(deps = {}) {
 
     const resetExpBtn = document.createElement("button");
     resetExpBtn.type = "button";
-    resetExpBtn.textContent = "Reset Cast";
+    resetExpBtn.textContent = "Reset";
     resetExpBtn.title = "Clear expended/cast flags for this level";
     resetExpBtn.addEventListener("click", () => {
       const updated = mutateSpellLevel(levelId, levelIndex, (currentLevel) => {

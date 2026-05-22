@@ -4704,7 +4704,7 @@ select.npcField:focus {
   padding-right: var(--numWrapPadRight);
 }
 
-@media (max-width: 600px) {
+@media (max-width: 360px) {
   .charTwo {
     grid-template-columns: 1fr;
   }
@@ -5038,26 +5038,16 @@ select.npcField:focus {
 
 
 @media (max-width: 600px) {
+  /* Two attack cards per row on portrait phones instead of a single column */
+  .attackList {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .attackRow {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto;
-
-    flex: 1 1 100%;
-    max-width: 100%;
     min-width: 0;
-  }
-
-  .attackTop,
-  .attackMiddle,
-  .attackBottom {
-    grid-column: 1;
-    grid-template-columns: 1fr;
-  }
-
-  .attackActions {
-    grid-column: 1;
-    grid-row: auto;
-    justify-content: flex-end;
+    max-width: 100%;
+    /* inner layout (top/middle/bottom) retains its natural 2-col structure */
   }
 }
 
@@ -5110,22 +5100,16 @@ select.npcField:focus {
 
 .abilityGrid {
   display: grid;
-
-  /* was: repeat(2, minmax(0, 1fr)); */
-  grid-template-columns: repeat(auto-fit, minmax(0, 400px));
-
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 4px;
   align-items: start;
-
-  /* keeps the 400px columns from stretching across the full row */
-  justify-content: center;
 }
 
 .moneyTile .numWrap {
   margin: 0 auto;
 }
 
-@media (max-width: 600px) {
+@media (max-width: 380px) {
   .abilityGrid {
     grid-template-columns: 1fr;
   }
@@ -5137,7 +5121,7 @@ select.npcField:focus {
   box-shadow: 0 6px 16px var(--shadow-drop);
   overflow: hidden;
   width: 100%;
-  max-width: 400px;
+  max-width: 100%;
 }
 
 .abilityHeader {
@@ -5157,9 +5141,11 @@ select.npcField:focus {
 .abilityStats {
   display: flex;
   align-items: center;
-  justify-content: flex-start;
-  gap: 50px;
-  /* spacing between score / mod / save */
+  justify-content: space-between;
+  gap: 8px;
+  /* min gap between score / mod / save; space-between distributes extra space */
+  margin-top: 4px;
+  /* nudges Mod/Save row lower, better centered between title and card divider */
 }
 
 /* make the score box a predictable width */
@@ -5216,6 +5202,16 @@ select.npcField:focus {
 
 .skillRow span:last-child {
   font-weight: 600;
+}
+
+/* Skill name: shrinks and ellipsis-truncates on narrow ability blocks (2-col
+   portrait layout). Wide blocks have enough room and truncation never triggers.
+   Does not affect the value span (:last-child / [data-skill-value]). */
+.skillRow > span:not([data-skill-value]) {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .skillsGrid {
@@ -5562,19 +5558,34 @@ button.spellToggle.warn[aria-pressed="true"] {
     align-items: flex-start;
   }
 
-  .spellLevelRight {
-    width: 100%;
-    justify-content: flex-end;
-    flex-wrap: wrap;
+  /* Cap the title side so it doesn't greedily prevent controls from fitting
+     beside it. Cantrip rows (no slot inputs) now stay single-line; leveled
+     rows with slot inputs wrap more compactly. */
+  .spellLevelLeft {
+    max-width: 40%;
+    flex-shrink: 1;
   }
 
-  .spellRowTop {
+  .spellLevelTitle,
+  .spellLevelTitle input {
+    max-width: 100%; /* cap at the (now smaller) left container */
+  }
+
+  /* Don't force a full-width row; let it sit beside the title when space allows */
+  .spellLevelRight {
+    justify-content: flex-end;
     flex-wrap: wrap;
+    flex-shrink: 0;
+  }
+
+  /* Keep spell name + toggles on one row; name shrinks as needed */
+  .spellRowTop {
+    flex-wrap: nowrap;
   }
 
   .spellToggles,
   .spellMiniBtns {
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
   }
 }
 
