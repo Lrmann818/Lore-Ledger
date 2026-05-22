@@ -30,22 +30,6 @@ const USE_INCREMENTAL_REORDER = true;
 const MASONRY_OPTIONS = { panelName: "party", minCardWidth: 175, gapVar: "--cards-grid-gap" };
 const matchesSearch = makeFieldSearchMatcher(["name", "className", "status", "notes"]);
 
-function createTrackerAcValue(ac) {
-  if (ac == null) return null;
-  const acValue = document.createElement("div");
-  acValue.className = "npcAcValue";
-  acValue.dataset.linkedField = "ac";
-  acValue.setAttribute("aria-label", "Armor Class");
-  const label = document.createElement("span");
-  label.className = "npcAcLabel";
-  label.textContent = "AC";
-  const number = document.createElement("span");
-  number.className = "npcAcNumber";
-  number.textContent = String(ac);
-  acValue.append(label, number);
-  return acValue;
-}
-
 function createPartyCardsController(deps = {}) {
   const {
     state,
@@ -213,7 +197,7 @@ function createPartyCardsController(deps = {}) {
     const result = writeCardLinkedField(member, field, value, state, { SaveManager, queueSave: false });
     if (!result.written) return;
     SaveManager.markDirty();
-    if (result.target === "character" && (field === "hpCurrent" || field === "hpMax")) {
+    if (result.target === "character" && (field === "hpCurrent" || field === "hpMax" || field === "ac")) {
       notifyPanelDataChanged("vitals", { source: partyControllerSource });
     }
     if (result.target === "character" && (field === "name" || field === "className" || field === "status")) {
@@ -265,14 +249,12 @@ function createPartyCardsController(deps = {}) {
         hpMaxEl.value = display.hpMax != null ? String(display.hpMax) : "";
       }
       const acEl = cardEl.querySelector("[data-linked-field='ac']");
-      if (!(acEl instanceof HTMLElement) && display.ac != null) {
+      if (!(acEl instanceof HTMLInputElement)) {
         needsRerender = true;
         return;
       }
-      if (acEl instanceof HTMLElement) {
-        acEl.hidden = display.ac == null;
-        const acNumberEl = acEl.querySelector(".npcAcNumber");
-        if (acNumberEl instanceof HTMLElement) acNumberEl.textContent = display.ac == null ? "" : String(display.ac);
+      if (document.activeElement !== acEl) {
+        acEl.value = display.ac != null ? String(display.ac) : "";
       }
     });
     if (needsRerender) renderPartyCards();
@@ -547,11 +529,36 @@ function createPartyCardsController(deps = {}) {
     hpWrap.appendChild(hpCur);
     hpWrap.appendChild(slash);
     hpWrap.appendChild(hpMax);
-    const acValue = createTrackerAcValue(display.ac);
-    if (acValue) hpWrap.appendChild(acValue);
 
     hpRow.appendChild(hpLabel);
     hpRow.appendChild(hpWrap);
+
+    const acRow = document.createElement("div");
+    acRow.className = "npcRowBlock npcAcRow";
+
+    const acLabel = document.createElement("div");
+    acLabel.className = "npcMiniLabel";
+    acLabel.textContent = "AC";
+
+    const acWrap = document.createElement("div");
+    acWrap.className = "npcAcWrap";
+
+    const acInput = document.createElement("input");
+    acInput.className = "npcField npcAcInput";
+    acInput.classList.add("num-lg");
+    acInput.classList.add("autosize");
+    acInput.type = "number";
+    acInput.placeholder = "AC";
+    acInput.dataset.linkedField = "ac";
+    acInput.value = display.ac != null ? String(display.ac) : "";
+    autoSizeInput(acInput, { min: 30, max: 70 });
+    acInput.addEventListener("input", () => {
+      autoSizeInput(acInput, { min: 30, max: 70 });
+      updatePartyLinkedField(member, "ac", parseNumberOrNull(acInput.value), false);
+    });
+
+    acWrap.appendChild(acInput);
+    acRow.append(acLabel, acWrap);
 
     const statusRow = document.createElement("div");
     statusRow.className = "npcRowBlock";
@@ -596,6 +603,7 @@ function createPartyCardsController(deps = {}) {
 
     collapsible.appendChild(classRow);
     collapsible.appendChild(hpRow);
+    collapsible.appendChild(acRow);
     collapsible.appendChild(statusRow);
     collapsible.appendChild(notesBlock);
 

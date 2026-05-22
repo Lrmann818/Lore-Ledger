@@ -70,6 +70,7 @@ Current automated scope is intentionally targeted:
 - `tests/storage.backup.test.js` covers backup export shape, referenced blob/text collection, import validation failures, staged blob/text writes before state swap, rollback attempts for touched text IDs on covered failure paths, cleanup of staged assets after pre-swap failures, and blob-ID remap fallback when an import collides with an existing blob id.
 - `tests/support.test.js` covers the focused support helpers: safe debug-info formatting, mailto generation, runtime/context capability hints, and route/query-string hardening so copied debug info stays privacy-safe.
 - `tests/dataPanel.support.test.js` covers `Data & Settings` -> `Support` wiring, support summary display, `Report Bug`, `Copy Debug Info`, hub-versus-active-campaign debug snapshots, clipboard success, and both copy/mailto fallback paths when platform features are unavailable.
+- `tests/imagePicker.test.js` covers the native iOS image-picker guardrails: source prompt cleanup, camera-permission denial messaging, duplicate-launch prevention, and clean camera cancellation handling.
 - `tests/smoke/app.smoke.js` covers top-level shell boot in Chromium, opening the Map workspace, and a campaign-title reload-persistence check against the dedicated production-mode Vite server.
 - `tests/smoke/backup.smoke.js` covers backup export to a real download, import of that backup into a fresh Chromium browser context, and visible failure handling for invalid JSON import input.
 - `tests/smoke/combatShell.smoke.js` covers the Combat tab shell, Combat Cards, round controls, HP/temp HP actions, AC display, status effects, turn undo, tracker writeback for HP/status labels, role/order/remove/clear flows, mobile stacking, and embedded panel selection/reorder/source-panel behavior. Death Saves visibility, checkbox interaction, long-press stabilization, and TestFlight portrait-card layout still need explicit manual QA.
@@ -375,7 +376,14 @@ Normal usage audit flows with `?dev=1`:
    - Set a map image, draw on the map, refresh, and confirm persistence.
 2. NPC portrait flow
    - Add an NPC, set a name, pick a portrait, refresh, and confirm persistence.
-3. Backup flow
+3. Native iOS/TestFlight image-picking flow
+   - On a real iPhone native/TestFlight build, open any portrait picker and confirm the in-app source prompt offers `Take Photo`, `Photo Library`, `Files`, and `Cancel`.
+   - Choose `Take Photo`, capture an image, and confirm Lore Ledger returns to the crop modal instead of freezing.
+   - Repeat `Take Photo`, cancel from the camera UI, and confirm Lore Ledger returns cleanly with no stuck overlay.
+   - Deny camera access for Lore Ledger in iOS Settings, choose `Take Photo`, and confirm Lore Ledger shows a user-facing permission message instead of freezing or crashing.
+   - Confirm `Photo Library` still selects an image normally.
+   - Confirm `Files` still selects an image normally.
+4. Backup flow
    - Export a backup, reset everything, import the backup, and confirm restoration.
 
 Expected result for all normal flows:

@@ -295,6 +295,7 @@ Lore Ledger uses [Capacitor](https://capacitorjs.com/) as the native packaging l
   - `appName: "Lore Ledger"`
   - `webDir: "dist"`
 - Capacitor packages: `@capacitor/core`, `@capacitor/cli`, `@capacitor/ios` — all pinned to `7.6.5`.
+- Native image capture uses `@capacitor/camera@7.0.5` on iOS so `Take Photo` no longer depends on the WKWebView file-input camera path.
 - CocoaPods 1.16.2 (installed via Homebrew) manages native iOS dependencies.
 
 ### Native project status
@@ -459,6 +460,16 @@ Manual TestFlight QA for intro audio:
 7. Launch with intro music disabled: confirm no intro jingle plays.
 8. Launch when the app restores directly into an open campaign: confirm there is no temporary Campaign Hub flash before the restored campaign appears.
 9. Confirm Export Backup still works after the splash timing change.
+
+Manual TestFlight QA for native image capture:
+
+1. Confirm `ios/App/App/Info.plist` contains non-placeholder camera/photo usage strings before archiving.
+2. Open a portrait picker on a real iPhone/TestFlight build and confirm the in-app source prompt shows `Take Photo`, `Photo Library`, `Files`, and `Cancel`.
+3. Choose `Take Photo`, capture an image, and confirm the app returns to the crop modal instead of freezing or crashing.
+4. Repeat `Take Photo`, cancel from the camera UI, and confirm the app returns cleanly with no stuck overlay or blocked taps.
+5. Deny Camera access for Lore Ledger in iOS Settings, choose `Take Photo`, and confirm the app shows a permission message instead of freezing.
+6. Confirm `Photo Library` still selects an image normally.
+7. Confirm `Files` still selects an image normally.
 
 ### Xcode native build fix (2026-05-16)
 

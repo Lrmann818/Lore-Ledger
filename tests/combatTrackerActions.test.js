@@ -10,6 +10,7 @@ describe("tracker add-to-combat actions", () => {
       sectionId: "sec_foe",
       hpCurrent: 7,
       hpMax: 11,
+      ac: 12,
       status: "Poisoned"
     };
     const state = {
@@ -67,6 +68,7 @@ describe("tracker add-to-combat actions", () => {
       hpCurrent: 7,
       hpMax: 11
     });
+    expect(state.combat.encounter.participants[0]).not.toHaveProperty("ac");
 
     state.combat.encounter.participants[0].hpCurrent = 1;
     state.combat.encounter.participants[0].statusEffects[0].label = "Changed";
@@ -131,6 +133,7 @@ describe("tracker add-to-combat actions", () => {
           classLevel: "Wizard 5",
           hpCur: 14,
           hpMax: 20,
+          ac: 16,
           status: "Blessed",
           imgBlobId: "char-portrait"
         }]
@@ -164,6 +167,7 @@ describe("tracker add-to-combat actions", () => {
       statusEffects: [expect.objectContaining({ label: "Blessed" })],
       source: { type: "npc", id: "npc_1", sectionId: "sec_foe", group: "" }
     });
+    expect(state.combat.encounter.participants[0]).not.toHaveProperty("ac");
   });
 
   it("repairs malformed combat buckets defensively while keeping canonical tracker data separate", () => {

@@ -549,7 +549,7 @@ function renderDeathSaveRow(label, checkedCount, field) {
   boxes.className = "combatDeathSavesBoxes";
   for (let index = 0; index < 3; index += 1) {
     const boxLabel = document.createElement("label");
-    boxLabel.className = `combatDeathSaveBox${field === "failures" ? " isFailure" : ""}`;
+    boxLabel.className = `combatDeathSaveBox ${field === "failures" ? "isFailure" : "isSuccess"}`;
 
     const input = document.createElement("input");
     input.type = "checkbox";
@@ -675,27 +675,27 @@ function renderCombatCard(card, blobIdToObjectUrl, Popovers) {
 
     const hpBtn = document.createElement("button");
     hpBtn.type = "button";
-    hpBtn.className = "combatHpBtn";
+    hpBtn.className = "combatHpBtn combatStatTile combatVitalTile";
     hpBtn.classList.toggle("hasTempHp", card.hasTempHp);
     hpBtn.classList.toggle("isZeroHp", card.hpState === "zero");
     hpBtn.dataset.combatAction = "hp-modal";
     hpBtn.setAttribute("aria-label", `Adjust HP for ${card.name}`);
     const hpLabel = document.createElement("span");
-    hpLabel.className = "combatHpLabel";
+    hpLabel.className = "combatHpLabel combatStatLabel";
     hpLabel.textContent = "HP";
     const hpValue = document.createElement("span");
-    hpValue.className = "combatHpValue";
+    hpValue.className = "combatHpValue combatStatValue";
     hpValue.textContent = card.hpDisplayLabel;
     hpBtn.appendChild(hpLabel);
     hpBtn.appendChild(hpValue);
     vitalsRow.appendChild(hpBtn);
 
     const acValue = document.createElement("div");
-    acValue.className = "combatAcValue";
+    acValue.className = "combatAcValue combatStatTile combatVitalTile";
     acValue.classList.toggle("isPlaceholder", !card.hasAc);
     acValue.setAttribute("aria-label", `${card.name} armor class`);
-    acValue.appendChild(createTextEl("AC", "combatAcLabel"));
-    acValue.appendChild(createTextEl(card.acLabel, "combatAcNumber"));
+    acValue.appendChild(createTextEl("AC", "combatAcLabel combatStatLabel"));
+    acValue.appendChild(createTextEl(card.acLabel, "combatAcNumber combatStatValue"));
     vitalsRow.appendChild(acValue);
     body.appendChild(vitalsRow);
 

@@ -65,7 +65,7 @@ import {
 } from "./js/features/autosize.js";
 
 import { cropImageModal, getPortraitAspect } from "./js/features/imageCropper.js";
-import { createFilePicker } from "./js/features/imagePicker.js";
+import { createImagePicker } from "./js/features/imagePicker.js";
 import { pickCropStorePortrait } from "./js/features/portraitFlow.js";
 
 import { enhanceNumberSteppers } from "./js/features/numberSteppers.js";
@@ -163,7 +163,12 @@ const VaultRuntime = { current: null };
 
 /************************ Shared file picker ************************/
 // One hidden <input type="file"> for the whole app.
-const ImagePicker = createFilePicker({ accept: "image/*" });
+const ImagePicker = createImagePicker({
+  accept: "image/*",
+  uiAlert,
+  setStatus: (message) => StatusApi.setStatus(message),
+  loadCameraApi: () => import("@capacitor/camera")
+});
 
 // Local persistence (kept as a tiny wrapper for SaveManager + autosize integration)
 function saveAll() {

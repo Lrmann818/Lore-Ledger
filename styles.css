@@ -53,6 +53,8 @@
   --warn: #FF8C00;
   --warn-border: #ff8c0059;
   --warn-hover: #ff8c001f;
+  --success: #53d769;
+  --success-border: #53d76959;
   --danger: #ff5a5a;
   --danger-border: #ff5a5a59;
   --danger-hover: #ff5a5a60;
@@ -3004,21 +3006,32 @@ button.panelSelectBtn:hover {
   align-items: stretch;
 }
 
+.combatVitalTile {
+  justify-items: center;
+  align-content: center;
+  text-align: center;
+  gap: 2px;
+  min-width: 72px;
+  min-height: 64px;
+  padding: 8px 10px;
+}
+
+.combatVitalTile .combatStatLabel,
+.combatVitalTile .combatStatValue {
+  margin-top: 0;
+}
+
 /* HP area — single clickable button */
 .combatHpBtn {
   display: inline-grid;
   grid-template-columns: auto;
-  gap: 4px;
   cursor: pointer;
   border: 1px solid var(--border);
   border-radius: 12px;
   background: var(--surface-2);
-  padding: 10px 12px;
   font: inherit;
   color: inherit;
-  text-align: left;
   transition: border-color 0.12s, background 0.12s;
-  min-width: 88px;
 }
 
 .combatHpBtn:hover {
@@ -3056,12 +3069,9 @@ button.panelSelectBtn:hover {
 
 .combatAcValue {
   display: inline-grid;
-  gap: 4px;
   border: 1px solid var(--border);
   border-radius: 12px;
   background: var(--surface-2);
-  padding: 10px 12px;
-  min-width: 88px;
 }
 
 .combatAcLabel {
@@ -3182,10 +3192,15 @@ button.panelSelectBtn:hover {
   align-items: center;
   justify-content: center;
   min-height: 46px;
-  border: 2px solid color-mix(in srgb, var(--accent) 55%, var(--border));
+  border: 2px solid color-mix(in srgb, var(--success) 62%, var(--border));
   border-radius: 12px;
-  background: color-mix(in srgb, var(--accent) 10%, var(--surface-2));
+  background: color-mix(in srgb, var(--success) 10%, var(--surface-2));
   cursor: pointer;
+}
+
+.combatDeathSaveBox.isSuccess {
+  border-color: color-mix(in srgb, var(--success) 62%, var(--border));
+  background: color-mix(in srgb, var(--success) 10%, var(--surface-2));
 }
 
 .combatDeathSaveBox.isFailure {
@@ -3206,7 +3221,11 @@ button.panelSelectBtn:hover {
 }
 
 .combatDeathSaveBox .combatDeathSaveInput {
-  color: color-mix(in srgb, var(--accent) 70%, var(--text));
+  color: color-mix(in srgb, var(--success) 72%, var(--text));
+}
+
+.combatDeathSaveBox.isSuccess .combatDeathSaveInput {
+  color: color-mix(in srgb, var(--success) 72%, var(--text));
 }
 
 .combatDeathSaveBox.isFailure .combatDeathSaveInput {
@@ -6892,27 +6911,28 @@ section.combatPanel[data-collapsed="true"]> :not([data-panel-header]) {
   white-space: nowrap;
 }
 
-.npcAcValue {
-  flex: 0 0 auto;
-  display: inline-flex;
+.npcAcRow {
+  grid-template-columns: var(--npc-label-w, 40px) minmax(0, 1fr);
+}
+
+.npcAcWrap {
+  display: flex;
   align-items: center;
-  gap: 4px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--surface-2);
-  color: var(--text);
-  padding: 5px 8px;
-  min-height: 32px;
-  white-space: nowrap;
+  min-width: 0;
 }
 
-.npcAcLabel {
-  color: var(--muted);
-  font-size: 12px;
+.npcAcWrap .numWrap {
+  flex: 0 1 auto;
+  width: auto;
+  max-width: 100%;
 }
 
-.npcAcNumber {
-  font-weight: 700;
+.npcField.npcAcInput {
+  width: auto;
+  text-align: center;
+  padding: 5px;
+  padding-right: var(--numWrapPadRight);
+  min-width: 0;
 }
 
 /* Status Effects input: autosize until constrained, then clamp + truncate */

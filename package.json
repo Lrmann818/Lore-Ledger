@@ -20,12 +20,14 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.59.1",
+    "jsdom": "^29.1.1",
     "typescript": "5.9.3",
     "vite": "^5.4.0",
     "vite-plugin-pwa": "^0.20.5",
     "vitest": "^1.6.0"
   },
   "dependencies": {
+    "@capacitor/camera": "^7.0.5",
     "@capacitor/cli": "7.6.5",
     "@capacitor/core": "7.6.5",
     "@capacitor/ios": "7.6.5"
