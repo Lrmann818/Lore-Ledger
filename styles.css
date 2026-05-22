@@ -2986,6 +2986,28 @@ button.panelSelectBtn:hover {
   color: var(--accent);
 }
 
+.combatStabilizeBtn {
+  display: inline-flex;
+  align-items: center;
+  font: inherit;
+  font-size: var(--small-font-size);
+  line-height: 1.2;
+  padding: 3px 8px;
+  min-height: 28px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.combatStabilizeBtn:hover {
+  border-color: var(--success);
+  color: var(--success);
+}
+
 .combatRoleSelect {
   flex: 0 0 auto;
 }

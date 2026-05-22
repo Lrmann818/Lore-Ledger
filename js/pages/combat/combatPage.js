@@ -636,6 +636,15 @@ function renderCombatCard(card, blobIdToObjectUrl, Popovers) {
   nameEl.textContent = card.name;
   titleWrap.appendChild(nameEl);
   if (card.isActive) titleWrap.appendChild(createTextEl("Active", "combatActiveBadge"));
+  if (card.showsDeathSaves) {
+    const stabilizeBtn = document.createElement("button");
+    stabilizeBtn.type = "button";
+    stabilizeBtn.className = "combatStabilizeBtn";
+    stabilizeBtn.dataset.combatAction = "stabilize";
+    stabilizeBtn.textContent = "Stabilize";
+    stabilizeBtn.setAttribute("aria-label", `Stabilize ${card.name}`);
+    titleWrap.appendChild(stabilizeBtn);
+  }
 
   const roleSelect = document.createElement("select");
   roleSelect.className = COMBAT_ROLE_SELECT_CLASSES;
@@ -663,9 +672,8 @@ function renderCombatCard(card, blobIdToObjectUrl, Popovers) {
   if (card.showsDeathSaves) {
     const deathSaves = document.createElement("div");
     deathSaves.className = "combatDeathSaves";
-    deathSaves.dataset.combatAction = "death-saves-long-press";
     deathSaves.setAttribute("role", "group");
-    deathSaves.setAttribute("aria-label", `Death saves for ${card.name}. Long press to mark stable.`);
+    deathSaves.setAttribute("aria-label", `Death saves for ${card.name}.`);
     deathSaves.appendChild(renderDeathSaveRow("Pass", card.deathSaves.successes, "successes"));
     deathSaves.appendChild(renderDeathSaveRow("Fail", card.deathSaves.failures, "failures"));
     body.appendChild(deathSaves);
@@ -1111,9 +1119,6 @@ export function initCombatPage(deps = {}) {
   let _hpParticipantId = /** @type {string | null} */ (null);
   let _statusParticipantId = /** @type {string | null} */ (null);
   let _statusEffectId = /** @type {string | null} */ (null);
-  let deathSavesLongPressTimer = /** @type {number | null} */ (null);
-  let deathSavesLongPressParticipantId = /** @type {string | null} */ (null);
-
   /**
    * @param {string} participantId
    * @param {CombatCardViewModel} card
@@ -1186,12 +1191,30 @@ export function initCombatPage(deps = {}) {
     _statusEffectId = null;
   };
 
-  const clearDeathSavesLongPress = () => {
-    if (deathSavesLongPressTimer != null) {
-      window.clearTimeout(deathSavesLongPressTimer);
-      deathSavesLongPressTimer = null;
-    }
-    deathSavesLongPressParticipantId = null;
+  /**
+   * @param {string} participantId
+   * @param {CombatCardViewModel} card
+   * @returns {void}
+   */
+  const openStabilizeModal = (participantId, card) => {
+    if (!card.showsDeathSaves) return;
+    Promise.resolve(
+      typeof uiConfirm === "function"
+        ? uiConfirm(`Clear death saves and set ${card.name} to 1 HP?`, {
+            title: "Mark Stable?",
+            okText: "Mark Stable",
+            cancelText: "Cancel"
+          })
+        : true
+    ).then((ok) => {
+      if (!ok) return;
+      const result = markCombatParticipantStable(state, participantId);
+      if (commitCombatResult(result, "Combatant marked stable.") && result.wroteCanonical) {
+        notifyPanelDataChanged("vitals", { source: "combat-page" });
+      }
+    }).catch(() => {
+      setStatus("Could not mark combatant stable.", { stickyMs: 2500 });
+    });
   };
 
   // ── Helpers ────────────────────────────────────────────────────────────────
@@ -1380,6 +1403,12 @@ export function initCombatPage(deps = {}) {
       const card = cards.find((c) => c.id === participantId);
       const effect = card?.statusEffects.find((e) => e.id === effectId) ?? null;
       openStatusModal(participantId, effectId, effect);
+      return;
+    }
+    if (action === "stabilize") {
+      const cards = getCombatCardViewModels(state);
+      const card = cards.find((c) => c.id === participantId);
+      if (card) openStabilizeModal(participantId, card);
       return;
     }
   };
@@ -1610,49 +1639,6 @@ export function initCombatPage(deps = {}) {
   cardsShell.addEventListener("click", handleCombatCardClick, { signal });
   cardsShell.addEventListener("change", handleCombatRoleChange, { signal });
   cardsShell.addEventListener("change", handleCombatCardChange, { signal });
-  cardsShell.addEventListener("pointerdown", (event) => {
-    const target = event.target instanceof Element ? event.target : null;
-    const deathSavesEl = target?.closest(".combatDeathSaves");
-    if (!(deathSavesEl instanceof HTMLElement)) return;
-    const cardEl = deathSavesEl.closest("[data-combat-participant-id]");
-    if (!(cardEl instanceof HTMLElement)) return;
-    const participantId = cleanIdOrNull(cardEl.dataset.combatParticipantId);
-    if (!participantId) return;
-
-    clearDeathSavesLongPress();
-    deathSavesLongPressParticipantId = participantId;
-    deathSavesLongPressTimer = window.setTimeout(() => {
-      deathSavesLongPressTimer = null;
-      const currentParticipantId = deathSavesLongPressParticipantId;
-      deathSavesLongPressParticipantId = null;
-      if (!currentParticipantId) return;
-
-      const cards = getCombatCardViewModels(state);
-      const card = cards.find((entry) => entry.id === currentParticipantId);
-      if (!card || !card.showsDeathSaves) return;
-
-      Promise.resolve(
-        typeof uiConfirm === "function"
-          ? uiConfirm(`Clear death saves and set ${card.name} to 1 HP?`, {
-              title: "Mark Stable?",
-              okText: "Mark Stable",
-              cancelText: "Cancel"
-            })
-          : true
-      ).then((ok) => {
-        if (!ok) return;
-        const result = markCombatParticipantStable(state, currentParticipantId);
-        if (commitCombatResult(result, "Combatant marked stable.") && result.wroteCanonical) {
-          notifyPanelDataChanged("vitals", { source: "combat-page" });
-        }
-      }).catch(() => {
-        setStatus("Could not mark combatant stable.", { stickyMs: 2500 });
-      });
-    }, 600);
-  }, { signal });
-  ["pointerup", "pointerleave", "pointercancel"].forEach((eventName) => {
-    cardsShell.addEventListener(eventName, clearDeathSavesLongPress, { signal });
-  });
 
   turnSecondsButton.addEventListener("click", openTurnSecondsModal, { signal });
 
@@ -1681,7 +1667,6 @@ export function initCombatPage(deps = {}) {
   window.addEventListener(COMBAT_ENCOUNTER_CHANGED_EVENT, render, { signal });
   addDestroy(subscribePanelDataChanged("vitals", render));
   addDestroy(subscribePanelDataChanged("character-fields", render));
-  addDestroy(clearDeathSavesLongPress);
   render();
 
   const api = {
