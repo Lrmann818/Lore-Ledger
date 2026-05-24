@@ -434,12 +434,12 @@ To enable automated UI testing in future passes: grant Terminal (or the shell ru
 #### App icon / splash status
 
 - ✅ **App icon is correct** — `AppIcon.appiconset/lore-ledger-icon-1024.png` is 1024×1024; `Contents.json` declares it as the universal iOS icon. Xcode generates the required size variants (e.g. 120×120 @2x) automatically from this source.
-- ✅ **Managed splash is the only branded splash** — the full Lore Ledger splash artwork still lives in `public/splash.png` and `#appSplash` for the app-owned web splash. The native iOS `LaunchScreen.storyboard` is now only a plain warm/dark bridge background, so launch no longer shows the full branded art twice.
+- ✅ **Managed splash is the only branded splash** — the full Lore Ledger splash artwork lives in `public/splash.png` (portrait/default, `background-size: contain`) and `public/landscape-splash.png` (landscape, `background-size: cover`). `#appSplash` renders the artwork as a CSS `background-image` switched by an `@media (orientation: landscape)` rule — no `<img>` elements, no specificity conflicts, exactly one image visible at a time. The native iOS `LaunchScreen.storyboard` is only a plain warm/dark bridge background, so launch no longer shows the full branded art twice.
 
 #### Intro audio / splash behavior
 
 - The iOS launch screen is a native storyboard bridge (`LaunchScreen.storyboard`), so JavaScript cannot run until WKWebView starts loading the web app.
-- Native iOS/TestFlight-style launches now hand off immediately into an app-owned web splash (`#appSplash`) that reuses `public/splash.png`.
+- Native iOS/TestFlight-style launches now hand off immediately into an app-owned web splash (`#appSplash`) that uses `public/splash.png` in portrait and `public/landscape-splash.png` in landscape.
 - The native handoff path now keeps the same warm dark background on all three earliest surfaces: `LaunchScreen.storyboard`, the Capacitor bridge/root view in `Main.storyboard`, and the critical source-HTML background before `styles.css` loads.
 - That web splash is the timing source for installed native launches: it stays visible until both app startup/restore is ready and the native-only managed minimum (`1800 ms`) has elapsed.
 - The managed minimum is intentionally gated to native-style runtimes (`Capacitor.isNativePlatform()` / `capacitor:`) so ordinary browser and desktop loads are not forced through the same delay.

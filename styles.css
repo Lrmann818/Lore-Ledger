@@ -132,11 +132,6 @@
   display: none !important;
 }
 
-.appSplashImage {
-  display: block;
-  flex: 1 1 auto;
-}
-
 html[data-app-boot="loading"],
 body[data-app-boot="loading"] {
   overflow: hidden;
