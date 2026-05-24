@@ -136,6 +136,7 @@ That means covering at least:
 - CSP/dev-audit sanity checks when startup or asset-loading behavior changed
 - browser coverage of latest Chromium desktop plus latest Firefox desktop before production release
 - touch-device coverage when map, drawing, gestures, image picking, or mobile layout changed
+- when native/TestFlight tablet or desktop-width sizing changed, explicit QA at the `600px`/`601px` seam so mobile native layouts stay unchanged while larger native layouts pick up the intended scale uplift
 - installed-PWA version/build confirmation after applying any prompt-style service-worker update
 
 Any data-loss, restore, offline-shell, or CSP regression should block release.

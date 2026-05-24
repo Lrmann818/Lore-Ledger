@@ -1,3 +1,5 @@
+import { syncNativeAppClass } from "./js/utils/runtime.js";
+
 // boot.js - module loaded before app.js so theme is set as early as possible.
 try {
   const bootStartedAt =
@@ -6,6 +8,23 @@ try {
       : Date.now();
   window.__APP_BOOT_STARTED_AT__ = bootStartedAt;
   document.documentElement.dataset.appBoot = "loading";
+  const isNativeAppRuntime = syncNativeAppClass({
+    documentElement: document.documentElement,
+    body: document.body ?? null
+  });
+  if (!document.body) {
+    document.addEventListener(
+      "DOMContentLoaded",
+      () => {
+        syncNativeAppClass({
+          documentElement: document.documentElement,
+          body: document.body ?? null,
+          enabled: isNativeAppRuntime
+        });
+      },
+      { once: true }
+    );
+  }
 
   // Expose app version/build metadata early so UI can display it (e.g., Settings -> About).
   const viteVersion =

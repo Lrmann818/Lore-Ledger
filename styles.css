@@ -12,6 +12,32 @@
    ====================== */
 
 :root {
+  --ui-scale: 1;
+  --app-font-size: calc(16px * var(--ui-scale));
+  --topbarHeight: calc(64px * var(--ui-scale));
+  --topbar-gap: calc(12px * var(--ui-scale));
+  --topbar-pad-y: calc(8px * var(--ui-scale));
+  --topbar-pad-x: calc(10px * var(--ui-scale));
+  --topbar-title-size: calc(20px * var(--ui-scale));
+  --compact-gap: calc(4px * var(--ui-scale));
+  --layout-gap: calc(10px * var(--ui-scale));
+  --card-gap: calc(8px * var(--ui-scale));
+  --panel-padding: calc(6px * var(--ui-scale));
+  --card-body-padding: calc(10px * var(--ui-scale));
+  --control-pad-y: calc(6px * var(--ui-scale));
+  --control-pad-x: calc(8px * var(--ui-scale));
+  --control-radius: calc(10px * var(--ui-scale));
+  --chip-pad-y: calc(6px * var(--ui-scale));
+  --chip-pad-x: calc(8px * var(--ui-scale));
+  --status-chip-pad-y: calc(3px * var(--ui-scale));
+  --status-chip-pad-x: calc(6px * var(--ui-scale));
+  --char-portrait-column-width: calc(220px * var(--ui-scale));
+  --char-portrait-min-height: calc(320px * var(--ui-scale));
+  --tracker-portrait-height: calc(160px * var(--ui-scale));
+  --combat-portrait-width: calc(132px * var(--ui-scale));
+  --combat-portrait-min-height: calc(196px * var(--ui-scale));
+  --combat-card-gap: calc(14px * var(--ui-scale));
+  --combat-card-padding: calc(14px * var(--ui-scale));
   --bg: #0A0A0A;
   --panel: #121212;
   --card: linear-gradient(to bottom,
@@ -780,11 +806,18 @@ body {
 body {
   margin: 0;
   font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  font-size: var(--app-font-size);
   background: var(--bg);
   color: var(--text);
   background-repeat: no-repeat;
   background-size: cover;
   background-attachment: fixed;
+}
+
+@media (min-width: 601px) and (min-height: 431px) {
+  html.is-native-app {
+    --ui-scale: 1.08;
+  }
 }
 
 body[data-shell-mode="hub"] {
@@ -1138,10 +1171,10 @@ input[type="range"].uiRange::-moz-range-thumb {
 
 .topbar {
   display: flex;
-  gap: 12px;
+  gap: var(--topbar-gap);
   align-items: center;
   justify-content: space-between;
-  padding: 8px 10px;
+  padding: var(--topbar-pad-y) var(--topbar-pad-x);
   border-bottom: 1px solid var(--border);
   background: var(--panel);
 }
@@ -1152,7 +1185,7 @@ input[type="range"].uiRange::-moz-range-thumb {
 
 #campaignTitle {
   margin: 0;
-  font-size: 20px;
+  font-size: var(--topbar-title-size);
   line-height: 1.2;
   white-space: nowrap;
   overflow: hidden;
@@ -1171,14 +1204,14 @@ input[type="range"].uiRange::-moz-range-thumb {
 .clockChip {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: calc(6px * var(--ui-scale));
   border: 2px solid color-mix(in srgb, var(--border) 75%, transparent);
   opacity: 0.95;
   background: color-mix(in srgb, var(--panel) 85%, black);
   color: var(--text);
-  border-radius: 10px;
-  padding: 5px;
-  font-size: 14px;
+  border-radius: var(--control-radius);
+  padding: calc(5px * var(--ui-scale));
+  font-size: calc(14px * var(--ui-scale));
   font-weight: 500;
   line-height: 1;
   font-variant-numeric: tabular-nums;
@@ -1211,7 +1244,7 @@ input[type="range"].uiRange::-moz-range-thumb {
 
 .tabs {
   display: flex;
-  gap: 4px;
+  gap: var(--compact-gap);
   flex-wrap: wrap;
 }
 
@@ -1239,8 +1272,8 @@ input[type="range"].uiRange::-moz-range-thumb {
   border: 1px solid var(--border);
   background: var(--surface-3);
   color: var(--text);
-  padding: 6px 8px;
-  border-radius: 10px;
+  padding: var(--control-pad-y) var(--control-pad-x);
+  border-radius: var(--control-radius);
 }
 
 .tab.active {
@@ -1263,7 +1296,7 @@ button[aria-expanded="true"] {
 }
 
 main {
-  padding: 10px;
+  padding: calc(10px * var(--ui-scale));
 }
 
 body[data-shell-mode="hub"] main {
@@ -1922,7 +1955,7 @@ body[data-shell-mode="hub"] main {
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 12px;
-  padding: 6px;
+  padding: var(--panel-padding);
   box-shadow:
     0 6px 16px var(--shadow-inset);
   min-width: 0;
@@ -1933,7 +1966,7 @@ body[data-shell-mode="hub"] main {
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 12px;
-  padding: 6px;
+  padding: var(--panel-padding);
   box-shadow:
     0 6px 16px var(--shadow-inset);
   min-width: 0;
@@ -1945,7 +1978,7 @@ body[data-shell-mode="hub"] main {
   /* map panel background */
   border: 1px solid var(--border);
   border-radius: 12px;
-  padding: 10px;
+  padding: calc(10px * var(--ui-scale));
   box-shadow:
     0 0 0 1px var(--shadow-inset) inset,
     0 6px 16px var(--shadow-drop);
@@ -1953,7 +1986,7 @@ body[data-shell-mode="hub"] main {
 
 .grid2 {
   display: grid;
-  gap: 10px;
+  gap: var(--layout-gap);
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
@@ -1990,7 +2023,7 @@ body[data-shell-mode="hub"] main {
 .charSelectorBar {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: calc(6px * var(--ui-scale));
   margin-bottom: 8px;
   min-width: 0;
 }
@@ -2046,33 +2079,33 @@ button.charActionMenuBtn {
 
 .charColumns {
   display: grid;
-  gap: 10px;
+  gap: var(--layout-gap);
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .charCol {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--layout-gap);
   min-width: 0;
 }
 
 .trackerColumns {
   display: grid;
-  gap: 10px;
+  gap: var(--layout-gap);
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .combatColumns {
   display: grid;
-  gap: 10px;
+  gap: var(--layout-gap);
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .trackerCol {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--layout-gap);
   min-width: 0;
   /* allow children to shrink */
 }
@@ -2080,7 +2113,7 @@ button.charActionMenuBtn {
 .combatCol {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--layout-gap);
   min-width: 0;
 }
 
@@ -2114,21 +2147,23 @@ button.charActionMenuBtn {
 textarea {
   width: 100%;
   min-height: 140px;
-  border-radius: 10px;
+  border-radius: var(--control-radius);
   border: 1px solid var(--border);
   background: var(--surface-2);
   color: var(--text);
-  padding: 6px 8px;
+  padding: var(--control-pad-y) var(--control-pad-x);
   resize: vertical;
+  max-width: 100%;
 }
 
 input {
   width: 100%;
-  border-radius: 10px;
+  border-radius: var(--control-radius);
   border: 1px solid var(--border);
   background: var(--surface-2);
   color: var(--text);
-  padding: 6px 8px;
+  padding: var(--control-pad-y) var(--control-pad-x);
+  max-width: 100%;
 }
 
 /* Match all text fields site-wide */
@@ -2139,7 +2174,7 @@ textarea {
 
 .row {
   display: flex;
-  gap: 4px;
+  gap: var(--compact-gap);
   align-items: center;
   flex-wrap: wrap;
 }
@@ -2166,12 +2201,13 @@ button,
   border: 1px solid var(--border);
   background: var(--surface-3);
   color: var(--text);
-  padding: 6px 8px;
-  border-radius: 10px;
+  padding: var(--control-pad-y) var(--control-pad-x);
+  border-radius: var(--control-radius);
   cursor: pointer;
   font: inherit;
   font-size: 0.85rem;
   line-height: 1.2;
+  max-width: 100%;
 }
 
 button:hover,
@@ -2205,14 +2241,14 @@ button.warn:hover {
 .mapbar {
   display: flex;
   justify-content: space-between;
-  gap: 4px;
+  gap: var(--compact-gap);
   flex-wrap: wrap;
   margin-bottom: 4px;
 }
 
 .maptools {
   display: flex;
-  gap: 4px;
+  gap: var(--compact-gap);
   flex-wrap: wrap;
   align-items: center;
   padding: 0;
@@ -2220,7 +2256,7 @@ button.warn:hover {
 
 .mapSelectLabel {
   display: flex;
-  gap: 4px;
+  gap: var(--compact-gap);
   align-items: center;
 }
 
@@ -2230,7 +2266,7 @@ button.warn:hover {
 }
 
 .chip {
-  padding: 6px 8px;
+  padding: var(--chip-pad-y) var(--chip-pad-x);
   border-radius: 999px;
 }
 
@@ -2247,7 +2283,7 @@ button.warn:hover {
 
 .topbarRight {
   display: flex;
-  gap: 4px;
+  gap: var(--compact-gap);
   align-items: center;
   min-width: 0;
   max-width: 100%;
@@ -2323,9 +2359,9 @@ button.warn:hover {
   border: 1px solid var(--border);
   background: var(--surface-2);
   color: var(--text);
-  padding: 6px 36px 6px 8px;
+  padding: var(--control-pad-y) calc(36px * var(--ui-scale)) var(--control-pad-y) var(--control-pad-x);
   /* room for arrow */
-  border-radius: 10px;
+  border-radius: var(--control-radius);
   font: inherit;
 
   appearance: none;
@@ -2361,9 +2397,9 @@ button.settingsSelectBtn {
   border: 1px solid var(--border);
   background: var(--surface-2);
   color: var(--text);
-  padding: 6px 36px 6px 8px;
+  padding: var(--control-pad-y) calc(36px * var(--ui-scale)) var(--control-pad-y) var(--control-pad-x);
   /* room for arrow */
-  border-radius: 10px;
+  border-radius: var(--control-radius);
   font: inherit;
 
   appearance: none;
@@ -2665,13 +2701,13 @@ a.settingsItem {
    Shared panel controls (buttons, search, selects)
    ====================== */
 :root {
-  --panel-control-gap: 4px;
-  --panel-control-h: 30px;
-  --panel-control-radius: 10px;
-  --panel-control-pad-x: 5px;
-  --panel-control-pad-y: 8px;
+  --panel-control-gap: calc(4px * var(--ui-scale));
+  --panel-control-h: calc(30px * var(--ui-scale));
+  --panel-control-radius: var(--control-radius);
+  --panel-control-pad-x: calc(5px * var(--ui-scale));
+  --panel-control-pad-y: calc(8px * var(--ui-scale));
   --panel-control-font: 0.85rem;
-  --panel-control-min-search: 80px;
+  --panel-control-min-search: calc(80px * var(--ui-scale));
 }
 
 /* Controls row in panel headers */
@@ -2698,7 +2734,7 @@ a.settingsItem {
 /* Small panel button (header actions, icon-ish actions) */
 .panelBtnSm {
   height: var(--panel-control-h);
-  padding: 6px 8px;
+  padding: var(--control-pad-y) var(--control-pad-x);
   font-size: var(--panel-control-font);
 }
 
@@ -2722,10 +2758,10 @@ a.settingsItem {
   border: 1px solid var(--border);
   background: var(--surface-2);
   color: var(--text);
-  padding: 6px 8px;
-  border-radius: 10px;
+  padding: var(--control-pad-y) var(--control-pad-x);
+  border-radius: var(--control-radius);
   min-width: var(--panel-control-min-search);
-  max-width: 150px;
+  max-width: calc(150px * var(--ui-scale));
   width: auto;
   height: var(--panel-control-h);
   font-size: var(--panel-control-font);
@@ -2738,9 +2774,9 @@ button.panelSelectBtn {
   border: 1px solid var(--border);
   background: var(--surface-2);
   color: var(--text);
-  padding: 6px 30px 6px 8px;
+  padding: var(--control-pad-y) calc(30px * var(--ui-scale)) var(--control-pad-y) var(--control-pad-x);
   /* room for arrow */
-  border-radius: 10px;
+  border-radius: var(--control-radius);
   height: var(--panel-control-h);
   font-size: var(--panel-control-font);
 
@@ -2788,14 +2824,14 @@ button.panelSelectBtn:hover {
 /* Panel move buttons (top-right arrows) */
 .moveBtn,
 .panelMoveBtn {
-  width: 30px;
+  width: calc(30px * var(--ui-scale));
   height: var(--panel-control-h);
   display: grid;
   place-items: center;
   border: 1px solid var(--border);
   background: var(--surface-3);
   color: var(--muted);
-  border-radius: 10px;
+  border-radius: var(--control-radius);
   cursor: pointer;
   padding: 0;
   line-height: 1;
@@ -2839,7 +2875,7 @@ button.panelSelectBtn:hover {
 .combatCardsShell {
   min-height: 12px;
   display: grid;
-  gap: 8px;
+  gap: var(--card-gap);
 }
 
 /* ── Combat card layout ─────────────────────────────────────────────────── */
@@ -2850,11 +2886,11 @@ button.panelSelectBtn:hover {
   overflow: hidden;
   display: flex;
   flex-direction: row;
-  gap: 14px;
+  gap: var(--combat-card-gap);
   border: 1px solid var(--border);
   border-radius: 16px;
   background: var(--surface-1);
-  padding: 14px;
+  padding: var(--combat-card-padding);
   min-width: 0;
   align-items: stretch;
 }
@@ -2897,9 +2933,9 @@ button.panelSelectBtn:hover {
 
 /* Portrait column (left side, always present) */
 .combatCardPortrait {
-  flex: 0 0 132px;
-  width: 132px;
-  min-height: 196px;
+  flex: 0 0 var(--combat-portrait-width);
+  width: var(--combat-portrait-width);
+  min-height: var(--combat-portrait-min-height);
   align-self: stretch;
   border-radius: 12px;
   overflow: hidden;
@@ -2934,14 +2970,14 @@ button.panelSelectBtn:hover {
   flex: 1 1 0;
   min-width: 0;
   display: grid;
-  gap: 10px;
+  gap: var(--layout-gap);
 }
 
 /* Card header: name + role select */
 .combatCardHeader,
 .combatCardControls {
   display: flex;
-  gap: 6px;
+  gap: calc(6px * var(--ui-scale));
   align-items: center;
   flex-wrap: wrap;
   min-width: 0;
@@ -2954,7 +2990,7 @@ button.panelSelectBtn:hover {
 .combatCardTitleWrap {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: calc(6px * var(--ui-scale));
   min-width: 0;
   flex: 1 1 140px;
 }
@@ -2971,7 +3007,7 @@ button.panelSelectBtn:hover {
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--surface-2);
-  padding: 3px 6px;
+  padding: var(--status-chip-pad-y) var(--status-chip-pad-x);
   font-size: var(--small-font-size);
   line-height: 1.2;
 }
@@ -2987,8 +3023,8 @@ button.panelSelectBtn:hover {
   font: inherit;
   font-size: var(--small-font-size);
   line-height: 1.2;
-  padding: 3px 8px;
-  min-height: 28px;
+  padding: var(--status-chip-pad-y) var(--control-pad-x);
+  min-height: calc(28px * var(--ui-scale));
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--surface-2);
@@ -3013,12 +3049,12 @@ button.panelSelectBtn:hover {
 
 .combatCardBody {
   display: grid;
-  gap: 10px;
+  gap: var(--layout-gap);
 }
 
 .combatCardVitals {
   display: flex;
-  gap: 8px;
+  gap: var(--card-gap);
   flex-wrap: wrap;
   align-items: stretch;
 }
@@ -3029,8 +3065,8 @@ button.panelSelectBtn:hover {
   text-align: center;
   gap: 2px;
   min-width: 72px;
-  min-height: 64px;
-  padding: 8px 10px;
+  min-height: calc(64px * var(--ui-scale));
+  padding: calc(8px * var(--ui-scale)) calc(10px * var(--ui-scale));
 }
 
 .combatVitalTile .combatStatLabel,
@@ -3078,7 +3114,7 @@ button.panelSelectBtn:hover {
   border: 1px solid color-mix(in srgb, var(--accent) 50%, var(--border));
   border-radius: 8px;
   background: color-mix(in srgb, var(--accent) 12%, var(--surface-2));
-  padding: 2px 5px;
+  padding: calc(2px * var(--ui-scale)) calc(5px * var(--ui-scale));
   font-size: var(--small-font-size);
   color: var(--accent);
   line-height: 1.2;
@@ -3108,7 +3144,7 @@ button.panelSelectBtn:hover {
 /* Status row */
 .combatStatusRow {
   display: grid;
-  gap: 8px;
+  gap: var(--card-gap);
   min-height: 24px;
 }
 
@@ -3129,7 +3165,7 @@ button.panelSelectBtn:hover {
 
 .combatStatusGearBtn {
   font-size: 0.85rem;
-  padding: 2px 5px;
+  padding: calc(2px * var(--ui-scale)) calc(5px * var(--ui-scale));
   opacity: 0.6;
   flex-shrink: 0;
 }
@@ -3147,7 +3183,7 @@ button.panelSelectBtn:hover {
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--surface-2);
-  padding: 3px 6px;
+  padding: var(--status-chip-pad-y) var(--status-chip-pad-x);
   font-size: var(--small-font-size);
   line-height: 1.2;
   white-space: nowrap;
@@ -3173,7 +3209,7 @@ button.panelSelectBtn:hover {
 /* Move buttons (↑/↓) reuse existing .moveBtn style */
 .combatCardMoves {
   display: flex;
-  gap: 3px;
+  gap: calc(3px * var(--ui-scale));
 }
 
 .combatDeathSaves {
@@ -3718,7 +3754,7 @@ div.mutedSmall {
 
 .sectionMoves {
   display: flex;
-  gap: 4px;
+  gap: var(--compact-gap);
   align-items: center;
 }
 
@@ -3727,7 +3763,7 @@ div.mutedSmall {
   top: 10px;
   right: 10px;
   display: flex;
-  gap: 4px;
+  gap: var(--compact-gap);
 }
 
 /* Abilities header: title + ⋯ grouped on the left, section move buttons stay right.
@@ -3747,8 +3783,8 @@ div.mutedSmall {
 /* Character portrait column layout */
 .charBasicsLayout {
   display: grid;
-  grid-template-columns: 220px minmax(0, 1fr);
-  gap: 4px;
+  grid-template-columns: var(--char-portrait-column-width) minmax(0, 1fr);
+  gap: var(--compact-gap);
   margin-top: 4px;
   align-items: stretch;
 }
@@ -3761,7 +3797,7 @@ div.mutedSmall {
 
 .charPortraitTop {
   flex: 1 1 auto;
-  min-height: 320px;
+  min-height: var(--char-portrait-min-height);
   display: grid;
   place-items: center;
 }
@@ -3999,7 +4035,7 @@ div.mutedSmall {
 
 .sessionTabs {
   display: flex;
-  gap: 4px;
+  gap: var(--compact-gap);
   align-items: center;
   width: max-content;
   /* so it scrolls horizontally on mobile */
@@ -4009,7 +4045,7 @@ div.mutedSmall {
   border: 1px solid var(--border);
   background: var(--surface-3);
   color: var(--text);
-  padding: 6px 8px;
+  padding: var(--chip-pad-y) var(--chip-pad-x);
   border-radius: 999px;
   cursor: pointer;
   white-space: nowrap;
@@ -4035,7 +4071,7 @@ div.mutedSmall {
 
 .npcTabsWrap {
   display: flex;
-  gap: 4px;
+  gap: var(--compact-gap);
   flex-wrap: wrap;
   margin-bottom: 12px;
 }
@@ -4044,7 +4080,7 @@ div.mutedSmall {
   border: 1px solid var(--border);
   background: var(--surface-3);
   color: var(--text);
-  padding: 6px 8px;
+  padding: var(--chip-pad-y) var(--chip-pad-x);
   border-radius: 999px;
   cursor: pointer;
 }
@@ -4056,7 +4092,7 @@ div.mutedSmall {
 }
 
 .trackerCardsGrid {
-  --cards-grid-gap: 8px;
+  --cards-grid-gap: var(--card-gap);
   display: grid;
   gap: var(--cards-grid-gap);
   grid-template-columns: repeat(2, minmax(var(--card-min-width), 1fr));
@@ -4302,9 +4338,9 @@ select.npcField {
   border: 1px solid var(--border);
   background: var(--surface-2);
   color: var(--text);
-  padding: 6px 36px 6px 8px;
+  padding: var(--control-pad-y) calc(36px * var(--ui-scale)) var(--control-pad-y) var(--control-pad-x);
   /* space for arrow */
-  border-radius: 10px;
+  border-radius: var(--control-radius);
   font: inherit;
 
   appearance: none;
@@ -4346,7 +4382,7 @@ select.npcField:focus {
 
 .npcPortraitTop {
   width: 100%;
-  height: 160px;
+  height: var(--tracker-portrait-height);
   background: var(--map-empty);
   display: flex;
   align-items: center;
@@ -4431,9 +4467,9 @@ select.npcField:focus {
 }
 
 .npcCardBodyStack {
-  padding: 10px;
+  padding: var(--card-body-padding);
   display: grid;
-  gap: 4px;
+  gap: var(--compact-gap);
 }
 
 /* Collapsible card header (name + toggle) */
@@ -4887,7 +4923,7 @@ select.npcField:focus {
      (avoids big empty space when a row has an empty grid cell). */
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--card-gap);
 
   /* pack from the left; leftover space stays on the right */
   justify-content: flex-start;
@@ -4907,12 +4943,12 @@ select.npcField:focus {
 .attackRow {
   border: 2px solid var(--border);
   border-radius: 16px;
-  padding: 6px 8px;
+  padding: var(--control-pad-y) var(--control-pad-x);
   background: var(--card);
   box-shadow: 0 6px 16px var(--shadow-drop);
 
   display: grid;
-  gap: 4px;
+  gap: var(--compact-gap);
 
   /* Keep two columns so top/mid rows stay paired. */
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -4931,7 +4967,7 @@ select.npcField:focus {
 .attackBottom {
   grid-column: 1 / -1;
   display: grid;
-  gap: 4px;
+  gap: var(--compact-gap);
   grid-template-columns: 1fr 1fr;
 }
 
@@ -4956,14 +4992,14 @@ select.npcField:focus {
 
 .attackHeaderActions {
   display: inline-flex;
-  gap: 4px;
+  gap: var(--compact-gap);
   justify-self: end;
 }
 
 .attackMiddle {
   grid-template-columns: max-content max-content;
   /* or: auto auto */
-  column-gap: 4px;
+  column-gap: var(--compact-gap);
   /* spacing between damage fields */
   justify-content: start;
   /* keep them left */
@@ -4973,7 +5009,7 @@ select.npcField:focus {
 .attackBottom {
   grid-template-columns: max-content max-content max-content;
   /* third column holds delete action */
-  column-gap: 4px;
+  column-gap: var(--compact-gap);
   /* spacing between range/type/actions */
   justify-content: start;
   overflow: hidden;
@@ -4998,7 +5034,7 @@ select.npcField:focus {
 .attackActions {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: calc(6px * var(--ui-scale));
 }
 
 /* keep delete from being absolutely positioned */
@@ -5013,7 +5049,7 @@ select.npcField:focus {
 .attackRow .attackBottom {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--compact-gap);
   /* spacing between Range and Type */
   justify-content: flex-start;
 }
@@ -5279,8 +5315,8 @@ select.npcField:focus {
 
 /* Skill proficiency options button */
 .skillProfBtn {
-  width: 26px;
-  height: 26px;
+  width: calc(26px * var(--ui-scale));
+  height: calc(26px * var(--ui-scale));
   padding: 0;
   border-radius: 10px;
   display: grid;
@@ -5357,7 +5393,7 @@ select.npcField:focus {
 .spellLevels {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--compact-gap);
   margin-top: 4px;
 }
 
@@ -5373,8 +5409,8 @@ select.npcField:focus {
   display: flex;
   justify-content: flex-start;
   align-items: center;
-  gap: 4px;
-  padding: 6px 8px;
+  gap: var(--compact-gap);
+  padding: var(--control-pad-y) var(--control-pad-x);
   position: relative;
   background: var(--spell-level-header);
 }
@@ -5382,7 +5418,7 @@ select.npcField:focus {
 .spellLevelLeft {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--compact-gap);
   min-width: 80px;
   max-width: 350px;
 }
@@ -5400,8 +5436,8 @@ select.npcField:focus {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 4px;
-  padding: 6px 0;
+  gap: var(--compact-gap);
+  padding: var(--control-pad-y) 0;
   flex: 0 0 auto;
   margin-left: auto;
 }
@@ -5414,7 +5450,7 @@ select.npcField:focus {
 .spellSlots {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--compact-gap);
 }
 
 .spellSlots input {
@@ -5430,7 +5466,7 @@ select.npcField:focus {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 4px;
+  gap: var(--compact-gap);
   flex: 0 0 auto;
 }
 
@@ -5443,7 +5479,7 @@ select.npcField:focus {
 }
 
 .spellBody {
-  padding: 0 8px 8px;
+  padding: 0 var(--control-pad-x) var(--control-pad-x);
   position: relative;
   background: var(--spell-card);
 }
@@ -5476,7 +5512,7 @@ select.npcField:focus {
 .spellRowTop {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--compact-gap);
   min-width: 0;
 }
 
@@ -5489,13 +5525,13 @@ select.npcField:focus {
 .spellToggles {
   display: flex;
   align-items: flex-end;
-  gap: 4px;
+  gap: var(--compact-gap);
   flex: 0 0 auto;
   margin-left: auto;
 }
 
 .spellToggle {
-  padding: 6px 6px;
+  padding: var(--control-pad-y) var(--control-pad-y);
   border-radius: 999px;
   border: 1px solid var(--border);
   background: var(--spell-toggle-bg);
@@ -5516,8 +5552,8 @@ select.npcField:focus {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  padding: 6px 0;
-  gap: 4px;
+  padding: var(--control-pad-y) 0;
+  gap: var(--compact-gap);
   flex: 0 0 auto;
 }
 
@@ -5598,6 +5634,24 @@ button.spellToggle.warn[aria-pressed="true"] {
   .spellName {
     width: auto;
   }
+}
+
+.topbarRight > *,
+.charSelectorBar > *,
+.panelControls > *,
+.sessionControls > *,
+.npcControls > *,
+.partyControls > *,
+.locControls > *,
+.combatCardHeader > *,
+.combatCardControls > *,
+.spellLevelLeft > *,
+.spellLevelRight > *,
+.attackTop > *,
+.attackMiddle > *,
+.attackBottom > * {
+  min-width: 0;
+  max-width: 100%;
 }
 
 
@@ -5878,9 +5932,9 @@ button.mapSelectBtn {
   border: 1px solid var(--border);
   background: var(--surface-2);
   color: var(--text);
-  padding: 6px 36px 6px 8px;
+  padding: var(--control-pad-y) calc(36px * var(--ui-scale)) var(--control-pad-y) var(--control-pad-x);
   /* space for arrow */
-  border-radius: 10px;
+  border-radius: var(--control-radius);
   font: inherit;
   font-size: 0.85rem;
   /* match app button sizing */

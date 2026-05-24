@@ -1,5 +1,7 @@
 // @ts-check
 
+import { isNativeAppRuntime } from "../utils/runtime.js";
+
 export const DEFAULT_APP_SPLASH_MIN_DURATION_MS = 1800;
 export const DEFAULT_APP_SPLASH_FADE_MS = 180;
 
@@ -11,19 +13,7 @@ export const DEFAULT_APP_SPLASH_FADE_MS = 180;
  * @returns {boolean}
  */
 export function shouldUseManagedAppSplashHold(options = {}) {
-  const locationObj = options.locationObj ?? globalThis.location;
-  if (locationObj?.protocol === "capacitor:") return true;
-
-  const globals = /** @type {typeof globalThis & { Capacitor?: { isNativePlatform?: (() => boolean) | unknown } }} */ (globalThis);
-  const capacitorObj = options.capacitorObj ?? globals.Capacitor;
-  if (!capacitorObj || typeof capacitorObj !== "object") return false;
-  if (typeof capacitorObj.isNativePlatform !== "function") return false;
-
-  try {
-    return capacitorObj.isNativePlatform() === true;
-  } catch {
-    return false;
-  }
+  return isNativeAppRuntime(options);
 }
 
 /**
