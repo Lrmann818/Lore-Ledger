@@ -5146,6 +5146,11 @@ select.npcField:focus {
   /* min gap between score / mod / save; space-between distributes extra space */
   margin-top: 4px;
   /* nudges Mod/Save row lower, better centered between title and card divider */
+  max-width: 200px;
+  /* prevents Score / Mod / Save from spreading too far on wide desktop blocks;
+     on mobile (block content ~161px) this cap is never reached so no regression */
+  margin-inline: auto;
+  /* centers the constrained stat group within the block on desktop */
 }
 
 /* make the score box a predictable width */
