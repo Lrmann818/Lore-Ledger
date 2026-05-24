@@ -35,6 +35,17 @@ async function importBackupFile(page, file) {
 }
 
 test("backup export round-trips tracker data into a fresh browser context", async ({ page, browser }, testInfo) => {
+  await page.addInitScript(() => {
+    try {
+      Object.defineProperty(window, "showSaveFilePicker", {
+        configurable: true,
+        value: undefined
+      });
+    } catch {
+      window.showSaveFilePicker = undefined;
+    }
+  });
+
   const fatalSignals = await openSmokeApp(page);
   const campaignTitle = "Smoke Backup Chronicle";
   const npcName = "Roundtrip Scout";
@@ -113,6 +124,180 @@ test("backup export round-trips tracker data into a fresh browser context", asyn
     await importContext.close();
   }
 
+  await expectNoFatalSignals(page, fatalSignals);
+});
+
+test("backup export uses the file system save picker in a desktop installed-PWA-like runtime when available", async ({ page }) => {
+  await page.addInitScript(() => {
+    globalThis.__backupShareCalls = 0;
+    globalThis.__backupPickerCalls = 0;
+    globalThis.__backupPickerClosed = false;
+    globalThis.__backupPickerOptions = null;
+    globalThis.__backupSavedJson = "";
+
+    const buildMediaQueryList = (matches, media) => ({
+      matches,
+      media,
+      onchange: null,
+      addListener() {},
+      removeListener() {},
+      addEventListener() {},
+      removeEventListener() {},
+      dispatchEvent() {
+        return false;
+      }
+    });
+
+    const originalMatchMedia = window.matchMedia?.bind(window);
+    window.matchMedia = (query) => {
+      if (query === "(display-mode: standalone)") {
+        return buildMediaQueryList(true, query);
+      }
+      return originalMatchMedia
+        ? originalMatchMedia(query)
+        : buildMediaQueryList(false, query);
+    };
+
+    Object.defineProperty(window, "showSaveFilePicker", {
+      configurable: true,
+      value: async (options) => {
+        globalThis.__backupPickerCalls += 1;
+        globalThis.__backupPickerOptions = options;
+        return {
+          async createWritable() {
+            return {
+              async write(fileBlob) {
+                globalThis.__backupSavedJson = await fileBlob.text();
+              },
+              async close() {
+                globalThis.__backupPickerClosed = true;
+              }
+            };
+          }
+        };
+      }
+    });
+    Object.defineProperty(navigator, "share", {
+      configurable: true,
+      value: async () => {
+        globalThis.__backupShareCalls += 1;
+      }
+    });
+    Object.defineProperty(navigator, "canShare", {
+      configurable: true,
+      value: () => true
+    });
+    Object.defineProperty(navigator, "platform", {
+      configurable: true,
+      value: "MacIntel"
+    });
+    Object.defineProperty(navigator, "maxTouchPoints", {
+      configurable: true,
+      value: 0
+    });
+    Object.defineProperty(navigator, "userAgent", {
+      configurable: true,
+      value: "Mozilla/5.0 (Macintosh; Intel Mac OS X 15_5) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Safari/605.1.15"
+    });
+  });
+
+  const fatalSignals = await openSmokeApp(page);
+  await openDataPanel(page);
+
+  let downloadSeen = false;
+  page.on("download", () => {
+    downloadSeen = true;
+  });
+
+  await page.getByRole("button", { name: "Export Backup (.json)" }).click();
+
+  await expect.poll(() => page.evaluate(() => globalThis.__backupPickerCalls || 0)).toBe(1);
+  await expect.poll(() => page.evaluate(() => globalThis.__backupPickerClosed || false)).toBe(true);
+  await expect.poll(() => page.evaluate(() => globalThis.__backupShareCalls || 0)).toBe(0);
+  await expect.poll(() => downloadSeen).toBe(false);
+
+  const pickerOptions = await page.evaluate(() => globalThis.__backupPickerOptions);
+  expect(pickerOptions?.suggestedName).toMatch(/^campaign-backup-\d{4}-\d{2}-\d{2}\.json$/);
+  expect(pickerOptions?.types).toEqual([
+    {
+      description: "Lore Ledger Backup",
+      accept: {
+        "application/json": [".json"]
+      }
+    }
+  ]);
+
+  const exported = JSON.parse(await page.evaluate(() => globalThis.__backupSavedJson));
+  expect(exported.version).toBe(2);
+  await expectNoFatalSignals(page, fatalSignals);
+});
+
+test("backup export stays on direct download in a macOS installed-PWA-like runtime", async ({ page }, testInfo) => {
+  await page.addInitScript(() => {
+    globalThis.__backupShareCalls = 0;
+
+    const buildMediaQueryList = (matches, media) => ({
+      matches,
+      media,
+      onchange: null,
+      addListener() {},
+      removeListener() {},
+      addEventListener() {},
+      removeEventListener() {},
+      dispatchEvent() {
+        return false;
+      }
+    });
+
+    Object.defineProperty(window, "showSaveFilePicker", {
+      configurable: true,
+      value: undefined
+    });
+    const originalMatchMedia = window.matchMedia?.bind(window);
+    window.matchMedia = (query) => {
+      if (query === "(display-mode: standalone)") {
+        return buildMediaQueryList(true, query);
+      }
+      return originalMatchMedia
+        ? originalMatchMedia(query)
+        : buildMediaQueryList(false, query);
+    };
+
+    Object.defineProperty(navigator, "share", {
+      configurable: true,
+      value: async () => {
+        globalThis.__backupShareCalls += 1;
+      }
+    });
+    Object.defineProperty(navigator, "canShare", {
+      configurable: true,
+      value: () => true
+    });
+    Object.defineProperty(navigator, "platform", {
+      configurable: true,
+      value: "MacIntel"
+    });
+    Object.defineProperty(navigator, "maxTouchPoints", {
+      configurable: true,
+      value: 0
+    });
+    Object.defineProperty(navigator, "userAgent", {
+      configurable: true,
+      value: "Mozilla/5.0 (Macintosh; Intel Mac OS X 15_5) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Safari/605.1.15"
+    });
+  });
+
+  const fatalSignals = await openSmokeApp(page);
+  await openDataPanel(page);
+
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Export Backup (.json)" }).click();
+  const download = await downloadPromise;
+  const backupPath = testInfo.outputPath(download.suggestedFilename());
+  await download.saveAs(backupPath);
+
+  expect(download.suggestedFilename()).toMatch(/^campaign-backup-\d{4}-\d{2}-\d{2}\.json$/);
+  await expect.poll(() => page.evaluate(() => globalThis.__backupShareCalls || 0)).toBe(0);
   await expectNoFatalSignals(page, fatalSignals);
 });
 

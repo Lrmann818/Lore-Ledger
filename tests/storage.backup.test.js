@@ -72,6 +72,17 @@ function makeImportDeps(overrides = {}) {
   };
 }
 
+function stubNativeCapacitor(plugin) {
+  vi.stubGlobal("Capacitor", {
+    getPlatform: vi.fn(() => "ios"),
+    isNativePlatform: vi.fn(() => true),
+    isPluginAvailable: vi.fn((name) => name === "NativeBackupExport"),
+    Plugins: {
+      NativeBackupExport: plugin
+    }
+  });
+}
+
 class TestInputElement {
   constructor(files = []) {
     this.files = files;
@@ -311,17 +322,17 @@ describe("exportBackup", () => {
     expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:backup-export");
   });
 
-  it("prefers the system share sheet in Capacitor/iOS-style contexts when file sharing is available", async () => {
+  it("uses native document export in Capacitor iOS runtimes and does not touch share/download", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-04-02T15:30:00.000Z"));
 
     const state = makeState();
     const share = vi.fn(async () => {});
-    const canShare = vi.fn(() => true);
+    const nativeExport = vi.fn(async () => ({ status: "saved" }));
 
+    stubNativeCapacitor({ exportBackup: nativeExport });
     vi.stubGlobal("navigator", {
       share,
-      canShare,
       userAgent: "LoreLedgerTest/1.0"
     });
     vi.stubGlobal("location", { protocol: "capacitor:" });
@@ -343,15 +354,332 @@ describe("exportBackup", () => {
       sanitizeForSave
     });
 
-    expect(canShare).toHaveBeenCalledTimes(1);
-    expect(share).toHaveBeenCalledTimes(1);
-    const sharePayload = share.mock.calls[0][0];
-    expect(sharePayload.title).toBe("campaign-backup-2026-04-02.json");
-    expect(sharePayload.text).toBe("Lore Ledger backup");
-    expect(sharePayload.files).toHaveLength(1);
-    expect(sharePayload.files[0].name).toBe("campaign-backup-2026-04-02.json");
+    expect(nativeExport).toHaveBeenCalledTimes(1);
+    expect(nativeExport).toHaveBeenCalledWith({
+      filename: "campaign-backup-2026-04-02.json",
+      json: expect.any(String)
+    });
+    const nativePayload = nativeExport.mock.calls[0][0];
+    const parsed = JSON.parse(nativePayload.json);
+    expect(parsed.version).toBe(2);
+    expect(parsed.exportedAt).toBe("2026-04-02T15:30:00.000Z");
+    expect(share).not.toHaveBeenCalled();
     expect(document.createElement).not.toHaveBeenCalled();
     expect(URL.createObjectURL).not.toHaveBeenCalled();
+  });
+
+  it("treats native export cancellation as a clean no-op without falling back", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-04-02T15:30:00.000Z"));
+
+    const state = makeState();
+    const share = vi.fn(async () => {});
+    const nativeExport = vi.fn(async () => ({ status: "cancelled" }));
+
+    stubNativeCapacitor({ exportBackup: nativeExport });
+    vi.stubGlobal("navigator", {
+      share,
+      userAgent: "LoreLedgerTest/1.0"
+    });
+    vi.stubGlobal("location", { protocol: "capacitor:" });
+    vi.stubGlobal("URL", {
+      createObjectURL: vi.fn(() => "blob:unused"),
+      revokeObjectURL: vi.fn()
+    });
+    vi.stubGlobal("document", {
+      body: { appendChild: vi.fn() },
+      createElement: vi.fn(() => ({ click: vi.fn() }))
+    });
+
+    await exportBackup({
+      state,
+      ensureMapManager: vi.fn(),
+      getBlob: vi.fn(async () => null),
+      blobToDataUrl: vi.fn(async () => ""),
+      getTextRecord: vi.fn(async () => null),
+      sanitizeForSave
+    });
+
+    expect(nativeExport).toHaveBeenCalledTimes(1);
+    expect(uiAlert).not.toHaveBeenCalled();
+    expect(share).not.toHaveBeenCalled();
+    expect(document.createElement).not.toHaveBeenCalled();
+    expect(URL.createObjectURL).not.toHaveBeenCalled();
+  });
+
+  it("shows a native-export error without falling back to share or download", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-04-02T15:30:00.000Z"));
+
+    const state = makeState();
+    const share = vi.fn(async () => {});
+    const nativeExport = vi.fn(async () => {
+      throw Object.assign(new Error("The native save dialog could not open."), {
+        code: "EXPORT_PRESENTATION_FAILED"
+      });
+    });
+
+    stubNativeCapacitor({ exportBackup: nativeExport });
+    vi.stubGlobal("navigator", {
+      share,
+      userAgent: "LoreLedgerTest/1.0"
+    });
+    vi.stubGlobal("location", { protocol: "capacitor:" });
+    vi.stubGlobal("URL", {
+      createObjectURL: vi.fn(() => "blob:unused"),
+      revokeObjectURL: vi.fn()
+    });
+    vi.stubGlobal("document", {
+      body: { appendChild: vi.fn() },
+      createElement: vi.fn(() => ({ click: vi.fn() }))
+    });
+
+    await exportBackup({
+      state,
+      ensureMapManager: vi.fn(),
+      getBlob: vi.fn(async () => null),
+      blobToDataUrl: vi.fn(async () => ""),
+      getTextRecord: vi.fn(async () => null),
+      sanitizeForSave
+    });
+
+    expect(nativeExport).toHaveBeenCalledTimes(1);
+    expect(uiAlert).toHaveBeenCalledWith(
+      "Export failed. The native save dialog could not open.",
+      { title: "Export failed" }
+    );
+    expect(share).not.toHaveBeenCalled();
+    expect(document.createElement).not.toHaveBeenCalled();
+    expect(URL.createObjectURL).not.toHaveBeenCalled();
+  });
+
+  it("shows an explicit error when a native iOS runtime is missing the export plugin", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-04-02T15:30:00.000Z"));
+
+    const state = makeState();
+    const share = vi.fn(async () => {});
+
+    vi.stubGlobal("Capacitor", {
+      getPlatform: vi.fn(() => "ios"),
+      isNativePlatform: vi.fn(() => true),
+      isPluginAvailable: vi.fn(() => false),
+      Plugins: {}
+    });
+    vi.stubGlobal("navigator", {
+      share,
+      userAgent: "LoreLedgerTest/1.0"
+    });
+    vi.stubGlobal("location", { protocol: "capacitor:" });
+    vi.stubGlobal("URL", {
+      createObjectURL: vi.fn(() => "blob:unused"),
+      revokeObjectURL: vi.fn()
+    });
+    vi.stubGlobal("document", {
+      body: { appendChild: vi.fn() },
+      createElement: vi.fn(() => ({ click: vi.fn() }))
+    });
+
+    await exportBackup({
+      state,
+      ensureMapManager: vi.fn(),
+      getBlob: vi.fn(async () => null),
+      blobToDataUrl: vi.fn(async () => ""),
+      getTextRecord: vi.fn(async () => null),
+      sanitizeForSave
+    });
+
+    expect(uiAlert).toHaveBeenCalledWith(
+      "Export failed. This device couldn't save the backup file.",
+      { title: "Export failed" }
+    );
+    expect(share).not.toHaveBeenCalled();
+    expect(document.createElement).not.toHaveBeenCalled();
+    expect(URL.createObjectURL).not.toHaveBeenCalled();
+  });
+
+  it("uses the file system save picker in desktop/PWA contexts when available", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-04-02T15:30:00.000Z"));
+
+    const state = makeState();
+    const write = vi.fn(async () => {});
+    const close = vi.fn(async () => {});
+    const createWritable = vi.fn(async () => ({ write, close }));
+    const showSaveFilePicker = vi.fn(async () => ({ createWritable }));
+
+    vi.stubGlobal("window", {
+      matchMedia: vi.fn((query) => ({ matches: query === "(display-mode: standalone)" })),
+      showSaveFilePicker
+    });
+    vi.stubGlobal("navigator", {
+      userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 15_5) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Safari/605.1.15",
+      platform: "MacIntel",
+      maxTouchPoints: 0
+    });
+    vi.stubGlobal("location", { protocol: "https:" });
+    vi.stubGlobal("URL", {
+      createObjectURL: vi.fn(() => "blob:backup-export"),
+      revokeObjectURL: vi.fn()
+    });
+    vi.stubGlobal("document", {
+      body: { appendChild: vi.fn() },
+      createElement: vi.fn(() => ({ click: vi.fn() }))
+    });
+
+    await exportBackup({
+      state,
+      ensureMapManager: vi.fn(),
+      getBlob: vi.fn(async () => null),
+      blobToDataUrl: vi.fn(async () => ""),
+      getTextRecord: vi.fn(async () => null),
+      sanitizeForSave
+    });
+
+    expect(showSaveFilePicker).toHaveBeenCalledTimes(1);
+    expect(showSaveFilePicker).toHaveBeenCalledWith({
+      suggestedName: "campaign-backup-2026-04-02.json",
+      types: [
+        {
+          description: "Lore Ledger Backup",
+          accept: {
+            "application/json": [".json"]
+          }
+        }
+      ]
+    });
+    expect(createWritable).toHaveBeenCalledTimes(1);
+    expect(write).toHaveBeenCalledTimes(1);
+    expect(close).toHaveBeenCalledTimes(1);
+    const writtenBlob = write.mock.calls[0][0];
+    expect(writtenBlob).toBeInstanceOf(Blob);
+    const parsed = JSON.parse(await writtenBlob.text());
+    expect(parsed.version).toBe(2);
+    expect(parsed.exportedAt).toBe("2026-04-02T15:30:00.000Z");
+    expect(document.createElement).not.toHaveBeenCalled();
+    expect(URL.createObjectURL).not.toHaveBeenCalled();
+  });
+
+  it("treats save-picker AbortError as a cancelled export on desktop without falling back", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-04-02T15:30:00.000Z"));
+
+    const state = makeState();
+    const showSaveFilePicker = vi.fn(async () => {
+      const error = new Error("cancelled");
+      error.name = "AbortError";
+      throw error;
+    });
+
+    vi.stubGlobal("window", {
+      matchMedia: vi.fn((query) => ({ matches: query === "(display-mode: standalone)" })),
+      showSaveFilePicker
+    });
+    vi.stubGlobal("navigator", {
+      userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 15_5) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Safari/605.1.15",
+      platform: "MacIntel",
+      maxTouchPoints: 0
+    });
+    vi.stubGlobal("location", { protocol: "https:" });
+    vi.stubGlobal("URL", {
+      createObjectURL: vi.fn(() => "blob:backup-export"),
+      revokeObjectURL: vi.fn()
+    });
+    vi.stubGlobal("document", {
+      body: { appendChild: vi.fn() },
+      createElement: vi.fn(() => ({ click: vi.fn() }))
+    });
+
+    await exportBackup({
+      state,
+      ensureMapManager: vi.fn(),
+      getBlob: vi.fn(async () => null),
+      blobToDataUrl: vi.fn(async () => ""),
+      getTextRecord: vi.fn(async () => null),
+      sanitizeForSave
+    });
+
+    expect(showSaveFilePicker).toHaveBeenCalledTimes(1);
+    expect(document.createElement).not.toHaveBeenCalled();
+    expect(URL.createObjectURL).not.toHaveBeenCalled();
+    expect(uiAlert).not.toHaveBeenCalled();
+  });
+
+  it("falls back to direct download in macOS installed PWA-like environments when the save picker is unavailable", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-04-02T15:30:00.000Z"));
+
+    const state = makeState();
+    const anchor = { click: vi.fn(), href: "", download: "", rel: "", remove: vi.fn() };
+
+    vi.stubGlobal("window", {
+      matchMedia: vi.fn((query) => ({ matches: query === "(display-mode: standalone)" }))
+    });
+    vi.stubGlobal("navigator", {
+      userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 15_5) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Safari/605.1.15",
+      platform: "MacIntel",
+      maxTouchPoints: 0
+    });
+    vi.stubGlobal("location", { protocol: "https:" });
+    vi.stubGlobal("URL", {
+      createObjectURL: vi.fn(() => "blob:backup-export"),
+      revokeObjectURL: vi.fn()
+    });
+    vi.stubGlobal("document", {
+      body: { appendChild: vi.fn() },
+      createElement: vi.fn(() => anchor)
+    });
+
+    await exportBackup({
+      state,
+      ensureMapManager: vi.fn(),
+      getBlob: vi.fn(async () => null),
+      blobToDataUrl: vi.fn(async () => ""),
+      getTextRecord: vi.fn(async () => null),
+      sanitizeForSave
+    });
+
+    expect(anchor.click).toHaveBeenCalledTimes(1);
+    expect(anchor.download).toBe("campaign-backup-2026-04-02.json");
+    expect(URL.createObjectURL).toHaveBeenCalledTimes(1);
+    vi.runAllTimers();
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:backup-export");
+  });
+
+  it("keeps iPadOS desktop-mode Safari on the web download path when no save picker exists", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-04-02T15:30:00.000Z"));
+
+    const state = makeState();
+    const anchor = { click: vi.fn(), href: "", download: "", rel: "", remove: vi.fn() };
+
+    vi.stubGlobal("navigator", {
+      userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1",
+      platform: "MacIntel",
+      maxTouchPoints: 5
+    });
+    vi.stubGlobal("location", { protocol: "https:" });
+    vi.stubGlobal("URL", {
+      createObjectURL: vi.fn(() => "blob:unused"),
+      revokeObjectURL: vi.fn()
+    });
+    vi.stubGlobal("document", {
+      body: { appendChild: vi.fn() },
+      createElement: vi.fn(() => anchor)
+    });
+
+    await exportBackup({
+      state,
+      ensureMapManager: vi.fn(),
+      getBlob: vi.fn(async () => null),
+      blobToDataUrl: vi.fn(async () => ""),
+      getTextRecord: vi.fn(async () => null),
+      sanitizeForSave
+    });
+
+    expect(anchor.click).toHaveBeenCalledTimes(1);
+    expect(anchor.download).toBe("campaign-backup-2026-04-02.json");
+    expect(URL.createObjectURL).toHaveBeenCalledTimes(1);
   });
 
   it("shows a clear alert when the browser download path throws", async () => {
@@ -369,6 +697,12 @@ describe("exportBackup", () => {
       remove: vi.fn()
     };
 
+    vi.stubGlobal("navigator", {
+      userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 15_5) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Safari/605.1.15",
+      platform: "MacIntel",
+      maxTouchPoints: 0
+    });
+    vi.stubGlobal("location", { protocol: "https:" });
     vi.stubGlobal("URL", {
       createObjectURL: vi.fn(() => "blob:backup-export"),
       revokeObjectURL: vi.fn()

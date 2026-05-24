@@ -102,6 +102,7 @@ Preview checks:
 - `#tracker`, `#character`, and `#map` still reload correctly
 - icons and manifest-backed PWA assets load from the built output
 - the in-app `About` dialog shows the expected version/build metadata
+- if validating an installed PWA, use `Data & Settings` -> `Check for updates`, apply the refresh when offered, and re-check the visible `Version`/`Build` line before trusting any runtime result
 
 Use preview or a deployed production build for PWA and offline checks. `npm run dev` does not register the production service worker.
 
@@ -130,11 +131,12 @@ That means covering at least:
 - local Chromium browser smoke for app shell and Campaign Hub boot/layout flows, one reload-persistence path, backup export/import in a fresh browser context, invalid import feedback, tracker-page re-init safety, character-page re-init safety, targeted NPC/Party/Location panel regressions around portrait toggles, search/filter, section moves, reorder, collapse, and focus restoration, Combat Workspace card/round/status/embedded-panel flows, plus shared dropdown/popover regressions around enhanced selects and card-menu clickability
 - persistence durability across refresh
 - Tracker, Character, and Map baseline flows
-- backup export, `Reset Everything`, and backup import
+- backup export, `Reset Everything`, and backup import, including a macOS desktop/PWA check that export opens a native Save dialog when supported, falls back to a real `.json` download otherwise, and never opens the broken share popover
 - production PWA/offline behavior
 - CSP/dev-audit sanity checks when startup or asset-loading behavior changed
 - browser coverage of latest Chromium desktop plus latest Firefox desktop before production release
 - touch-device coverage when map, drawing, gestures, image picking, or mobile layout changed
+- installed-PWA version/build confirmation after applying any prompt-style service-worker update
 
 Any data-loss, restore, offline-shell, or CSP regression should block release.
 
@@ -267,7 +269,8 @@ Capture and keep the following evidence for each production release:
 - successful `npm run test:smoke` output
 - preview or deployed URL used for validation
 - browser coverage used for the release check
-- confirmation that backup export, reset, and import all worked
+- confirmation that macOS desktop/PWA backup export opened the expected Save dialog or fallback download path, produced a real `.json` file, reset worked, and import of that exported file restored data
+- confirmation that iPhone/iPad native-wrapper backup export still produced a usable backup file when applicable
 - confirmation that map image/drawing persistence worked after refresh
 - confirmation that offline shell loading worked from a production build
 - confirmation that the in-app `About` dialog shows the expected version, build, and schema

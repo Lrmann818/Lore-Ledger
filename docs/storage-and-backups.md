@@ -255,9 +255,11 @@ Current flow:
    - `state: sanitizeForSave(...)`
    - `blobs`
    - `texts`
-7. Serialize to JSON and deliver `campaign-backup-YYYY-MM-DD.json` through:
-   - a normal browser download in desktop/web contexts
-   - the system share sheet in iOS/Capacitor contexts when file sharing is available
+7. Serialize to JSON and deliver `campaign-backup-YYYY-MM-DD.json` through an explicit runtime strategy:
+   - `native-document-export` for native Apple runtimes inside Capacitor/TestFlight, using the local `NativeBackupExport` bridge to write a temporary `.json` file and present `UIDocumentPickerViewController(forExporting:asCopy:)`
+   - `file-system-save-picker` for desktop browsers or installed PWAs when `window.showSaveFilePicker()` exists, so the user gets a real Save dialog with the suggested filename
+   - `direct-download` for desktop/web when the File System Access API is unavailable, using a blob URL plus a temporary anchor download
+   - `unsupported/error` only when neither the native Apple export bridge nor the desktop/web save paths are available
 
 Combat Workspace Slice 1 has no blob or text references. Its `workspace` and `encounter` buckets are preserved through the structured `sanitizeForSave(...)` payload.
 
@@ -266,9 +268,15 @@ Export safety behavior:
 - unreadable blobs are skipped with `console.warn(...)`
 - export does not abort when one blob read fails
 - unreadable text records are skipped with `console.warn(...)`
-- iOS/native export prefers file sharing over detached blob downloads because WKWebView may ignore `download` links without throwing
+- native Apple/TestFlight export does not use `navigator.share`; it stages the backup into the app sandbox and hands off to the native document export picker so the user chooses a real destination in Files/Finder
+- if the native document export path fails or is missing in a native Apple runtime, Lore Ledger shows an `Export failed` dialog and does not silently fall back to `navigator.share`
+- desktop/PWA export prefers `showSaveFilePicker()` when available so the user chooses the destination folder and filename in a native Save dialog
+- desktop/PWA fallback uses a temporary object URL plus `download` anchor so Finder/Downloads still receives an actual `.json` backup file when the save picker is unavailable
+- desktop/macOS export does not silently fall back from save-picker or direct-download attempts into `navigator.share`
+- canceling the save picker is treated as a clean user cancel, not an export error
 - export failures surface an in-app `Export failed` dialog instead of failing silently
-- if the download click fails, the user gets an alert
+- if the save picker or download path fails, the user gets an alert
+- maintainers can enable export-path diagnostics with `localStorage.setItem("loreledger:debug-backup-export", "1")` or `?debugBackupExport=1`; the console log includes platform, user agent, touch points, display-mode/PWA signals, `showSaveFilePicker` availability, `navigator.share` availability, Capacitor presence/platform/native flags, native-plugin availability, the selected strategy, and which delivery path was attempted
 
 Compatibility note:
 

@@ -67,12 +67,12 @@ Current automated scope is intentionally targeted:
 - `tests/storage.blobReplacement.test.js` covers the hardened blob replacement contract: write new, apply new reference, flush structured save, then delete old, with rollback on failure.
 - `tests/assetReplacementFlows.test.js` covers portrait/map replacement failure paths so old asset references remain intact when the replacement save cannot be committed.
 - `tests/storage.saveManager.test.js` covers the local save lifecycle: dirty-delay timing, debounce behavior, `flush()` results, failure banner behavior, retry after failure, repeated dirty cycles, and `init()` reset behavior.
-- `tests/storage.backup.test.js` covers backup export shape, referenced blob/text collection, import validation failures, staged blob/text writes before state swap, rollback attempts for touched text IDs on covered failure paths, cleanup of staged assets after pre-swap failures, and blob-ID remap fallback when an import collides with an existing blob id.
+- `tests/storage.backup.test.js` covers backup export shape, explicit native-document-export/save-picker/direct-download strategy selection, native export success/cancel/failure handling, save-picker success/cancel behavior, referenced blob/text collection, import validation failures, staged blob/text writes before state swap, rollback attempts for touched text IDs on covered failure paths, cleanup of staged assets after pre-swap failures, and blob-ID remap fallback when an import collides with an existing blob id.
 - `tests/support.test.js` covers the focused support helpers: safe debug-info formatting, mailto generation, runtime/context capability hints, and route/query-string hardening so copied debug info stays privacy-safe.
 - `tests/dataPanel.support.test.js` covers `Data & Settings` -> `Support` wiring, support summary display, `Report Bug`, `Copy Debug Info`, hub-versus-active-campaign debug snapshots, clipboard success, and both copy/mailto fallback paths when platform features are unavailable.
 - `tests/imagePicker.test.js` covers the image picker: file selection returning the chosen File, clean cancellation via the cancel event, `image/*` accept attribute (which produces the native iOS Photo Library / Take Photo / Files action sheet), absence of any in-app source chooser overlay, and request serialization so concurrent picks do not race.
 - `tests/smoke/app.smoke.js` covers top-level shell boot in Chromium, opening the Map workspace, and a campaign-title reload-persistence check against the dedicated production-mode Vite server.
-- `tests/smoke/backup.smoke.js` covers backup export to a real download, import of that backup into a fresh Chromium browser context, and visible failure handling for invalid JSON import input.
+- `tests/smoke/backup.smoke.js` covers save-picker selection in a desktop installed-PWA-like runtime, direct-download export/import round trips in Chromium when the picker is unavailable, and visible failure handling for invalid JSON import input.
 - `tests/smoke/combatShell.smoke.js` covers the Combat tab shell, Combat Cards, round controls, HP/temp HP actions, AC display, status effects, turn undo, tracker writeback for HP/status labels, role/order/remove/clear flows, mobile stacking, and embedded panel selection/reorder/source-panel behavior. Death Saves visibility, checkbox interaction, long-press stabilization, and TestFlight portrait-card layout still need explicit manual QA.
 - `tests/smoke/npcPortrait.smoke.js` covers NPC portrait crop/save behavior plus incremental tracker-card patch paths for portrait toggles, search, section moves, reorder, collapse, and focus restoration.
 - `tests/smoke/partyLocationPanels.smoke.js` covers the same controller-scoped tracker-card behaviors for Party and Location panels, including location type filtering.
@@ -306,6 +306,12 @@ Run this flow whenever persistence, import/export, blobs, texts, or migrations c
    - Map background and drawing
 2. Open `Data & Settings`.
 3. Under `Backups`, click `Export Backup (.json)` and save the file.
+   Expected on supported macOS/desktop browsers and installed PWAs: a native Save dialog opens with `campaign-backup-YYYY-MM-DD.json` suggested, you choose the destination, and a real `.json` file is written there.
+   Expected on unsupported desktop browsers: the browser falls back to a real `campaign-backup-YYYY-MM-DD.json` download, usually in Downloads depending on browser settings.
+   Expected on macOS desktop browsers and installed PWAs in all cases: do not see a share popover with only Copy/Edit Extensions.
+   Expected on iPhone/iPad native/TestFlight builds: the app opens a native Files export/save picker, not a share popover, and the backup is saved as a real `.json` file to the chosen destination.
+   Expected on iOS browser/PWA contexts: stay on the web save path; do not assume a native share/export picker is available.
+   For installed PWAs, also note the visible `Version x.y.z • Build <sha>` line in `Data & Settings` or the `About` dialog so you can prove which build produced the file.
 4. Under `Danger Zone`, click `Reset Everything` and confirm.
    Expected: the app reloads to a clean/default state.
 5. Open `Data & Settings` again and import the backup file from step 3.
@@ -317,6 +323,13 @@ Run this flow whenever persistence, import/export, blobs, texts, or migrations c
    - Map background image and drawing
 
 If import/export code changed, also try one bad input path such as invalid JSON or an unsupported file and confirm the app fails safely instead of partially replacing live data.
+
+If export-path diagnosis is needed on a maintainer machine:
+
+1. In DevTools Console, run `localStorage.setItem("loreledger:debug-backup-export", "1")`.
+2. Export a backup again.
+3. Inspect the `[backup-export]` console entries for platform, user agent, touch points, display-mode/PWA detection, `showSaveFilePicker` availability, `navigator.share` availability, Capacitor presence/platform/native flags, native plugin availability, selected strategy, and attempted delivery path.
+4. Clear the flag afterward with `localStorage.removeItem("loreledger:debug-backup-export")`.
 
 For pure `migrateState(...)` changes, the automated Vitest suite documents the current structural behavior. This manual flow is still required because import/export also exercises file parsing, blob restoration, text restoration, reload timing, and startup storage migration outside `migrateState(...)`.
 
@@ -340,6 +353,7 @@ When the change touched update handling:
 
 - Use the `Check for updates` action in `Data & Settings` and confirm it does not error.
 - If you have a staged newer build available, verify the update banner appears and the `Refresh` / `Later` actions behave correctly.
+- For installed PWAs, do not trust the running app version until you confirm the `Version`/`Build` line in `Data & Settings` or `About` matches the build you just deployed. This app uses prompt-style service-worker updates, so an installed app can continue running an older cached bundle until the user refreshes/applies the update.
 
 If caches become stale during testing:
 
@@ -384,7 +398,12 @@ Normal usage audit flows with `?dev=1`:
    - Cancel the picker and confirm the app returns cleanly with no stuck overlay.
    - ⚠️ **Known issue — Take Photo**: Selecting `Take Photo` from the native WKWebView file-input action sheet may cause the app to freeze after the user captures a photo. This is a known iOS/WKWebView bug. Do not reintroduce the custom in-app source modal as a workaround; a dedicated Capacitor native-camera bridge is the correct long-term fix. Document any freeze on a real device and track it separately.
 4. Backup flow
-   - Export a backup, reset everything, import the backup, and confirm restoration.
+   - On supported macOS desktop browser/PWA, export a backup and confirm a native Save dialog lets you choose the destination and writes a real `.json` file there.
+   - On unsupported desktop browser/PWA, export a backup and confirm the fallback download still produces a real `.json` file.
+   - On an installed iPhone TestFlight build, export a backup and confirm the native Files export picker opens instead of a share popover, then save `campaign-backup-YYYY-MM-DD.json` and confirm it is visible in Files.
+   - On an installed iPad TestFlight build, repeat the same flow and confirm the native Files export picker still allows choosing a destination and saving a real `.json` file.
+   - On an Apple Silicon Mac running the iOS TestFlight build when available, export a backup and confirm Finder presents a native save/export destination flow rather than the Copy/Edit Extensions share popover.
+   - Reset everything, import the exported backup, and confirm restoration.
 
 Expected result for all normal flows:
 
