@@ -38,6 +38,15 @@
   --combat-portrait-min-height: calc(196px * var(--ui-scale));
   --combat-card-gap: calc(14px * var(--ui-scale));
   --combat-card-padding: calc(14px * var(--ui-scale));
+  /* Typography tokens — all scale with --ui-scale */
+  --small-font-size: calc(12px * var(--ui-scale));
+  --xsmall-font-size: calc(11px * var(--ui-scale));
+  --label-font-size: calc(13px * var(--ui-scale));
+  --icon-font-size: calc(16px * var(--ui-scale));
+  --subheading-font-size: calc(18px * var(--ui-scale));
+  /* Compact spacing tokens */
+  --tight-gap: calc(6px * var(--ui-scale));
+  --compact-pad: calc(5px * var(--ui-scale));
   --bg: #0A0A0A;
   --panel: #121212;
   --card: linear-gradient(to bottom,
@@ -1137,7 +1146,7 @@ input[type="range"].uiRange::-moz-range-thumb {
   opacity: 0.95;
   cursor: pointer;
   line-height: 1;
-  font-size: 12px;
+  font-size: var(--small-font-size);
 
   user-select: none;
 
@@ -1174,6 +1183,7 @@ input[type="range"].uiRange::-moz-range-thumb {
   gap: var(--topbar-gap);
   align-items: center;
   justify-content: space-between;
+  min-height: var(--topbarHeight);
   padding: var(--topbar-pad-y) var(--topbar-pad-x);
   border-bottom: 1px solid var(--border);
   background: var(--panel);
@@ -1239,7 +1249,7 @@ input[type="range"].uiRange::-moz-range-thumb {
 }
 
 .small {
-  font-size: 12px;
+  font-size: var(--small-font-size);
 }
 
 .tabs {
@@ -1420,7 +1430,7 @@ body[data-shell-mode="hub"] main {
   max-width: 100%;
   margin: 0 auto;
   display: grid;
-  gap: 16px;
+  gap: calc(16px * var(--ui-scale));
   position: relative;
   z-index: 1;
   isolation: isolate;
@@ -1476,14 +1486,14 @@ body[data-shell-mode="hub"] main {
   position: relative;
   z-index: 1;
   display: grid;
-  gap: 10px;
+  gap: calc(10px * var(--ui-scale));
 }
 
 .hubHeroEyebrow,
 .hubSectionEyebrow {
   letter-spacing: 0.24em;
   text-transform: uppercase;
-  font-size: 11px;
+  font-size: var(--xsmall-font-size);
   color: var(--hub-muted-strong);
 }
 
@@ -1515,7 +1525,7 @@ body[data-shell-mode="hub"] main {
 .hubHeroDivider {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: calc(12px * var(--ui-scale));
   max-width: 360px;
 }
 
@@ -1538,7 +1548,7 @@ body[data-shell-mode="hub"] main {
 
 .hubHeroFeatureLine {
   margin: 0;
-  font-size: 13px;
+  font-size: var(--label-font-size);
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--hub-muted);
@@ -1621,7 +1631,7 @@ body[data-shell-mode="hub"] main {
   display: grid;
   grid-template-columns: minmax(250px, 340px) minmax(0, 1fr);
   align-items: start;
-  gap: 14px;
+  gap: calc(14px * var(--ui-scale));
   position: relative;
   z-index: 1;
   min-width: 0;
@@ -1629,7 +1639,7 @@ body[data-shell-mode="hub"] main {
 
 .panel.hubPanel {
   position: relative;
-  padding: 18px;
+  padding: calc(18px * var(--ui-scale));
   border-radius: 24px;
   border-color: var(--hub-border);
   background:
@@ -1651,17 +1661,17 @@ body[data-shell-mode="hub"] main {
 .hubCreatePanel,
 .hubListPanel {
   display: grid;
-  gap: 12px;
+  gap: calc(12px * var(--ui-scale));
 }
 
 .hubSectionHeader {
   display: grid;
-  gap: 4px;
+  gap: var(--compact-gap);
 }
 
 .hubCreateForm {
   display: grid;
-  gap: 10px;
+  gap: calc(10px * var(--ui-scale));
 }
 
 .hubCreateForm button {
@@ -1674,7 +1684,7 @@ body[data-shell-mode="hub"] main {
 
 .hubCampaignCount {
   white-space: nowrap;
-  padding: 7px 10px;
+  padding: calc(7px * var(--ui-scale)) calc(10px * var(--ui-scale));
   border: 1px solid rgba(194, 150, 95, 0.34);
   border-radius: 999px;
   background: rgba(44, 32, 24, 0.7);
@@ -1683,25 +1693,25 @@ body[data-shell-mode="hub"] main {
 
 .hubListHeader {
   display: flex;
-  gap: 8px;
+  gap: var(--card-gap);
   align-items: start;
   justify-content: space-between;
 }
 
 .hubCreateField {
   display: grid;
-  gap: 6px;
+  gap: var(--tight-gap);
 }
 
 .hubFieldLabel {
-  font-size: 12px;
+  font-size: var(--small-font-size);
   color: var(--hub-muted-strong);
 }
 
 .hubEmptyState {
   display: grid;
-  gap: 6px;
-  padding: 14px;
+  gap: var(--tight-gap);
+  padding: calc(14px * var(--ui-scale));
   border: 1px dashed rgba(194, 151, 95, 0.34);
   border-radius: 18px;
   background: rgba(32, 24, 18, 0.72);
@@ -1712,15 +1722,15 @@ body[data-shell-mode="hub"] main {
   margin: 0;
   padding: 0;
   display: grid;
-  gap: 8px;
+  gap: var(--card-gap);
 }
 
 .hubCampaignCard {
   display: flex;
-  gap: 12px;
+  gap: calc(12px * var(--ui-scale));
   align-items: center;
   justify-content: space-between;
-  padding: 14px 16px;
+  padding: calc(14px * var(--ui-scale)) calc(16px * var(--ui-scale));
   border: 1px solid rgba(189, 141, 83, 0.26);
   border-radius: 18px;
   background:
@@ -1744,29 +1754,29 @@ body[data-shell-mode="hub"] main {
 .hubCampaignSummary {
   min-width: 0;
   display: grid;
-  gap: 4px;
+  gap: var(--compact-gap);
 }
 
 .hubCampaignTitleRow {
   display: flex;
-  gap: 8px;
+  gap: var(--card-gap);
   align-items: center;
   flex-wrap: wrap;
 }
 
 .hubCampaignTitle {
   margin: 0;
-  font-size: 18px;
+  font-size: var(--subheading-font-size);
   line-height: 1.2;
   color: var(--hub-ink);
 }
 
 .hubCampaignBadge {
-  padding: 4px 9px;
+  padding: var(--compact-gap) calc(9px * var(--ui-scale));
   border-radius: 999px;
   border: 1px solid rgba(221, 173, 108, 0.42);
   background: rgba(65, 44, 28, 0.78);
-  font-size: 12px;
+  font-size: var(--small-font-size);
   color: var(--hub-ink-soft);
 }
 
@@ -1777,7 +1787,7 @@ body[data-shell-mode="hub"] main {
 
 .hubCampaignActions {
   display: flex;
-  gap: 6px;
+  gap: var(--tight-gap);
   align-items: center;
   flex-wrap: wrap;
   justify-content: flex-end;
@@ -2205,7 +2215,7 @@ button,
   border-radius: var(--control-radius);
   cursor: pointer;
   font: inherit;
-  font-size: 0.85rem;
+  font-size: var(--label-font-size);
   line-height: 1.2;
   max-width: 100%;
 }
@@ -2243,7 +2253,7 @@ button.warn:hover {
   justify-content: space-between;
   gap: var(--compact-gap);
   flex-wrap: wrap;
-  margin-bottom: 4px;
+  margin-bottom: var(--compact-gap);
 }
 
 .maptools {
@@ -2277,8 +2287,7 @@ button.warn:hover {
 }
 
 .mutedSmall {
-  padding-top: 6px 8px;
-  font-size: 12px;
+  font-size: var(--small-font-size);
 }
 
 .topbarRight {
@@ -2317,8 +2326,8 @@ button.warn:hover {
 
 /* Settings button icon */
 .settingsBtnIcon {
-  width: 15px;
-  height: 15px;
+  width: calc(15px * var(--ui-scale));
+  height: calc(15px * var(--ui-scale));
   display: block;
   pointer-events: none;
 }
@@ -2326,14 +2335,14 @@ button.warn:hover {
 .settingsMenu {
   position: absolute;
   right: 0;
-  top: calc(100% + 8px);
-  min-width: 240px;
+  top: calc(100% + calc(8px * var(--ui-scale)));
+  min-width: calc(240px * var(--ui-scale));
   z-index: 999;
 
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 6px 8px;
+  border-radius: calc(12px * var(--ui-scale));
+  padding: var(--control-pad-y) var(--control-pad-x);
 
   box-shadow:
     0 0 0 1px var(--shadow-inset) inset,
@@ -2345,12 +2354,12 @@ button.warn:hover {
 
 .settingsSection {
   display: grid;
-  gap: 4px;
-  padding: 6px 2px 8px;
+  gap: calc(4px * var(--ui-scale));
+  padding: calc(6px * var(--ui-scale)) calc(2px * var(--ui-scale)) calc(8px * var(--ui-scale));
 }
 
 .settingsLabel {
-  font-size: 12px;
+  font-size: var(--small-font-size);
   color: var(--muted);
 }
 
@@ -2463,9 +2472,9 @@ button.settingsSelectBtn[aria-expanded="true"] {
   border: 1px solid var(--border);
   background: var(--surface-3);
   color: var(--text);
-  border-radius: 10px;
-  padding: 6px 8px;
-  margin: 6px 0;
+  border-radius: calc(10px * var(--ui-scale));
+  padding: calc(6px * var(--ui-scale)) calc(8px * var(--ui-scale));
+  margin: calc(6px * var(--ui-scale)) 0;
   cursor: pointer;
 }
 
@@ -2475,7 +2484,7 @@ a.settingsItem {
   display: inline-flex;
   align-items: center;
   justify-content: flex-start;
-  gap: 8px;
+  gap: calc(8px * var(--ui-scale));
 }
 
 a.settingsItem {
@@ -2483,7 +2492,7 @@ a.settingsItem {
 }
 
 .settingsToggleItem {
-  min-height: 36px;
+  min-height: calc(36px * var(--ui-scale));
 }
 
 .settingsToggleItem input[type="checkbox"] {
@@ -2535,7 +2544,7 @@ a.settingsItem {
 }
 
 .saveOptionsTitle {
-  font-size: 12px;
+  font-size: var(--small-font-size);
   color: var(--muted);
   margin: 2px 2px 4px;
 }
@@ -2543,7 +2552,7 @@ a.settingsItem {
 .saveOptionsGrid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 4px;
+  gap: var(--compact-gap);
 }
 
 .saveOpt {
@@ -2557,17 +2566,17 @@ a.settingsItem {
 
 .saveOptLabel {
   margin-top: 4px;
-  font-size: 12px;
+  font-size: var(--small-font-size);
   color: var(--muted);
 }
 
 .saveOptionsRow {
   display: grid;
-  gap: 4px;
+  gap: var(--compact-gap);
 }
 
 .saveOptionsRowLabel {
-  font-size: 12px;
+  font-size: var(--small-font-size);
   color: var(--muted);
 }
 
@@ -2706,7 +2715,7 @@ a.settingsItem {
   --panel-control-radius: var(--control-radius);
   --panel-control-pad-x: calc(5px * var(--ui-scale));
   --panel-control-pad-y: calc(8px * var(--ui-scale));
-  --panel-control-font: 0.85rem;
+  --panel-control-font: var(--label-font-size);
   --panel-control-min-search: calc(80px * var(--ui-scale));
 }
 
@@ -3214,11 +3223,11 @@ button.panelSelectBtn:hover {
 
 .combatDeathSaves {
   display: grid;
-  gap: 12px;
+  gap: calc(12px * var(--ui-scale));
   border: 1px solid var(--border);
   border-radius: 16px;
   background: color-mix(in srgb, var(--surface-2) 92%, transparent);
-  padding: 12px 14px;
+  padding: calc(12px * var(--ui-scale)) calc(14px * var(--ui-scale));
   touch-action: manipulation;
 }
 
@@ -3340,22 +3349,22 @@ button.panelSelectBtn:hover {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 16px 10px;
+  padding: calc(14px * var(--ui-scale)) calc(16px * var(--ui-scale)) calc(10px * var(--ui-scale));
   border-bottom: 1px solid var(--hairline);
 }
 
 .combatModalBody {
-  padding: 14px 16px;
+  padding: calc(14px * var(--ui-scale)) calc(16px * var(--ui-scale));
   display: grid;
-  gap: 10px;
+  gap: calc(10px * var(--ui-scale));
 }
 
 .combatModalFooter {
   display: flex;
-  gap: 8px;
+  gap: var(--card-gap);
   align-items: center;
   flex-wrap: wrap;
-  padding: 10px 16px 14px;
+  padding: calc(10px * var(--ui-scale)) calc(16px * var(--ui-scale)) calc(14px * var(--ui-scale));
   border-top: 1px solid var(--hairline);
 }
 
@@ -3407,15 +3416,15 @@ button.panelSelectBtn:hover {
 .combatRoundStats {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-  margin-bottom: 8px;
+  gap: var(--card-gap);
+  margin-bottom: var(--card-gap);
 }
 
 .combatStatTile {
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: calc(8px * var(--ui-scale));
   background: var(--surface-1);
-  padding: 10px;
+  padding: calc(10px * var(--ui-scale));
   min-width: 0;
 }
 
@@ -3864,7 +3873,7 @@ div.mutedSmall {
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 14px;
-  padding: 10px;
+  padding: calc(10px * var(--ui-scale));
   box-shadow:
     0 0 0 1px var(--shadow-inset) inset,
     0 16px 40px var(--shadow-drop);
@@ -3914,7 +3923,7 @@ div.mutedSmall {
 
 .modalLabel {
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--small-font-size);
 }
 
 .modalRange {
@@ -3945,7 +3954,7 @@ div.mutedSmall {
   margin: 0;
   /* remove any inherited margin */
   padding: 0;
-  font-size: 18px;
+  font-size: var(--subheading-font-size);
 }
 
 .uiDialogBody {
@@ -3994,8 +4003,8 @@ div.mutedSmall {
   border: 1px solid var(--border);
   background: var(--surface-3);
   color: var(--text);
-  padding: 6px 8px;
-  border-radius: 10px;
+  padding: var(--control-pad-y) var(--control-pad-x);
+  border-radius: var(--control-radius);
   cursor: pointer;
 }
 
@@ -4489,13 +4498,13 @@ select.npcField:focus {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 22px;
-  padding: 0 7px;
+  min-height: calc(22px * var(--ui-scale));
+  padding: 0 calc(7px * var(--ui-scale));
   border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
-  border-radius: 8px;
+  border-radius: calc(8px * var(--ui-scale));
   background: color-mix(in srgb, var(--accent) 12%, var(--surface-2));
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--xsmall-font-size);
   font-weight: 700;
   line-height: 1;
   white-space: nowrap;
@@ -4510,21 +4519,21 @@ select.npcField:focus {
 .linkedCardWarning {
   grid-column: 1 / -1;
   color: var(--danger);
-  font-size: 12px;
+  font-size: var(--small-font-size);
   line-height: 1.25;
   overflow-wrap: anywhere;
 }
 
 .npcCollapseToggle {
   flex: 0 0 auto;
-  width: 30px;
-  height: 30px;
+  width: var(--collapse-card-size);
+  height: var(--collapse-card-size);
   display: grid;
   place-items: center;
   border: 1px solid var(--border);
   background: var(--surface-3);
   color: var(--muted);
-  border-radius: 10px;
+  border-radius: var(--collapse-radius);
   cursor: pointer;
   padding: 0;
   line-height: 1;
@@ -4547,9 +4556,9 @@ select.npcField:focus {
 }
 
 .npcNameBig {
-  font-size: 18px;
+  font-size: var(--subheading-font-size);
   font-weight: 800;
-  padding: 6px 8px;
+  padding: var(--control-pad-y) var(--control-pad-x);
 }
 
 .npcClass {
@@ -4557,9 +4566,9 @@ select.npcField:focus {
 }
 
 .npcMiniLabel {
-  font-size: 12px;
+  font-size: var(--small-font-size);
   color: var(--muted);
-  margin: 0 0 6px 2px;
+  margin: 0 0 calc(6px * var(--ui-scale)) 2px;
 }
 
 .npcHpRow {
@@ -4621,7 +4630,7 @@ select.npcField:focus {
 
 /* Footer actions separated from "in-world" content */
 .npcCardFooter {
-  padding: 4px 12px;
+  padding: var(--compact-gap) calc(12px * var(--ui-scale));
   /* IMPORTANT:
      Do NOT use transform here.
      A transformed ancestor becomes the containing block for `position: fixed`.
@@ -4633,7 +4642,7 @@ select.npcField:focus {
   position: relative;
 
   display: flex;
-  gap: 6px;
+  gap: var(--tight-gap);
   align-items: center;
   align-content: center;
   justify-content: space-between;
@@ -4679,8 +4688,8 @@ select.npcField:focus {
   overflow-x: hidden;
 
   /* give shadows room so they don’t clip against the scroll box edges */
-  padding: 12px;
-  padding-bottom: 20px;
+  padding: calc(12px * var(--ui-scale));
+  padding-bottom: calc(20px * var(--ui-scale));
   /* extra room for bottom shadows */
 
   /* prevents weird “stretching/squishing” behavior in some layouts */
@@ -4787,9 +4796,9 @@ select.npcField:focus {
 }
 
 .fieldLabel {
-  font-size: 16px;
+  font-size: var(--icon-font-size);
   color: var(--muted);
-  margin: 4px 0 4px 2px;
+  margin: var(--compact-gap) 0 var(--compact-gap) 2px;
   letter-spacing: 0.02em;
 }
 
@@ -4802,7 +4811,7 @@ select.npcField:focus {
 .charTile {
   border: 2px solid var(--border);
   border-radius: 16px;
-  padding: 6px 8px;
+  padding: var(--control-pad-y) var(--control-pad-x);
   background: var(--card);
   /* vitals tile background */
   box-shadow: 0 6px 16px var(--shadow-drop);
@@ -4814,7 +4823,7 @@ select.npcField:focus {
 
 .charTileLabel {
   font-weight: 700;
-  font-size: 15px;
+  font-size: calc(15px * var(--ui-scale));
   margin-left: 2px;
 }
 
@@ -4850,7 +4859,7 @@ select.npcField:focus {
 .resourceTitle {
   margin-right: 4px;
   font-weight: 700;
-  font-size: 15px;
+  font-size: calc(15px * var(--ui-scale));
   line-height: 1.2;
   white-space: nowrap;
   overflow: hidden;
@@ -4865,10 +4874,10 @@ select.npcField:focus {
 }
 
 .iconBtn {
-  padding: 6px 8px;
-  border-radius: 10px;
+  padding: var(--control-pad-y) var(--control-pad-x);
+  border-radius: var(--control-radius);
   line-height: 1;
-  width: 30px;
+  width: var(--panel-control-h);
   height: var(--panel-control-h);
 }
 
@@ -5215,7 +5224,7 @@ select.npcField:focus {
 }
 
 .abilityStat {
-  font-size: 13px;
+  font-size: var(--label-font-size);
   font-weight: 600;
   text-align: center;
 }
@@ -5232,7 +5241,7 @@ select.npcField:focus {
 }
 
 .abilitySkills {
-  padding: 6px 8px;
+  padding: var(--control-pad-y) var(--control-pad-x);
   background: var(--spell-card);
 }
 
@@ -5265,7 +5274,7 @@ select.npcField:focus {
 .skillBlock {
   border: 1px solid var(--border);
   border-radius: 12px;
-  padding: 6px 8px;
+  padding: var(--control-pad-y) var(--control-pad-x);
   background: var(--surface-2);
 }
 
@@ -5283,7 +5292,7 @@ select.npcField:focus {
 }
 
 .skillRow span {
-  font-size: 14px;
+  font-size: var(--label-font-size);
 }
 
 .skillRow input {
@@ -5334,9 +5343,9 @@ select.npcField:focus {
 .skillMenuRow {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 6px 8px;
-  border-radius: 10px;
+  gap: var(--compact-gap);
+  padding: var(--control-pad-y) var(--control-pad-x);
+  border-radius: var(--control-radius);
   cursor: pointer;
 }
 
@@ -5358,12 +5367,12 @@ select.npcField:focus {
 
 .skillMenuMisc {
   display: grid;
-  gap: 4px;
-  padding: 6px 8px;
+  gap: var(--compact-gap);
+  padding: var(--control-pad-y) var(--control-pad-x);
 }
 
 .skillMenuLabel {
-  font-size: 12px;
+  font-size: var(--small-font-size);
   color: var(--muted);
 }
 
@@ -5444,7 +5453,7 @@ select.npcField:focus {
 
 .spellLevelRight .danger {
   margin-left: 0;
-  padding: 6px 8px;
+  padding: var(--control-pad-y) var(--control-pad-x);
 }
 
 .spellSlots {
@@ -5454,9 +5463,9 @@ select.npcField:focus {
 }
 
 .spellSlots input {
-  width: 55px;
+  width: calc(55px * var(--ui-scale));
   text-align: left;
-  padding: 5px 4px;
+  padding: var(--compact-pad) var(--compact-gap);
   flex: 0 0 auto;
   min-width: 30px;
   max-width: 40px;
@@ -5472,7 +5481,7 @@ select.npcField:focus {
 
 .spellCollapseBtn,
 .spellSpellCollapseBtn {
-  padding: 6px 6px;
+  padding: var(--control-pad-y) var(--control-pad-y);
   border-radius: 12px;
   line-height: 1;
   flex: 0 0 auto;
@@ -5675,7 +5684,7 @@ input[type="range"] {
 .brushSizeLabel {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: calc(8px * var(--ui-scale));
   white-space: nowrap;
 }
 
@@ -5707,7 +5716,7 @@ input[type="range"] {
 .dropdownBtn {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--compact-gap);
 }
 
 .dropdownBtn .caret {
@@ -5720,8 +5729,8 @@ input[type="range"] {
   left: 0;
   z-index: 50;
   min-width: 120px;
-  padding: 4px;
-  border-radius: 12px;
+  padding: var(--compact-gap);
+  border-radius: calc(12px * var(--ui-scale));
   border: 1px solid var(--border);
   background: var(--panel);
   box-shadow: 0 12px 28px var(--shadow-drop);
@@ -5740,8 +5749,8 @@ input[type="range"] {
   width: 100%;
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 6px 8px;
+  gap: var(--compact-gap);
+  padding: var(--control-pad-y) var(--control-pad-x);
   border-radius: 10px;
   border: 1px solid transparent;
   background: transparent;
@@ -5813,9 +5822,9 @@ input[type="range"] {
 /* --- Color grid dropdown --- */
 .colorGrid {
   display: grid;
-  grid-template-columns: repeat(3, 36px);
-  gap: 4px;
-  padding: 4px;
+  grid-template-columns: repeat(3, calc(36px * var(--ui-scale)));
+  gap: var(--compact-gap);
+  padding: var(--compact-gap);
 
   justify-content: center;
   align-content: center;
@@ -5829,8 +5838,8 @@ input[type="range"] {
 }
 
 .colorSwatch {
-  width: 26px;
-  height: 26px;
+  width: calc(26px * var(--ui-scale));
+  height: calc(26px * var(--ui-scale));
   border-radius: 50%;
   cursor: pointer;
   border: 1px solid var(--color-swatch-border);
@@ -5854,8 +5863,8 @@ input[type="range"] {
 
 /* Preview circle in the button */
 .colorPreview {
-  width: 16px;
-  height: 16px;
+  width: var(--icon-font-size);
+  height: var(--icon-font-size);
   border-radius: 50%;
   background: var(--swatch-color);
   border: 1px solid var(--swatch-color-preview);
@@ -5913,8 +5922,8 @@ select.nativeSelectHidden {
 }
 
 .dropdownGroupLabel {
-  padding: 6px 8px 4px;
-  font-size: 0.78rem;
+  padding: var(--control-pad-y) var(--control-pad-x) var(--compact-gap);
+  font-size: var(--xsmall-font-size);
   opacity: 0.85;
   color: var(--muted);
   user-select: none;
@@ -5936,7 +5945,7 @@ button.mapSelectBtn {
   /* space for arrow */
   border-radius: var(--control-radius);
   font: inherit;
-  font-size: 0.85rem;
+  font-size: var(--panel-control-font);
   /* match app button sizing */
   line-height: 1.2;
 
@@ -5996,11 +6005,11 @@ button.mapToolDropDown {
   border: 1px solid var(--border);
   background: var(--surface-2);
   color: var(--text);
-  padding: 6px 36px 6px 8px;
+  padding: var(--control-pad-y) calc(36px * var(--ui-scale)) var(--control-pad-y) var(--control-pad-x);
   /* space for arrow */
-  border-radius: 10px;
+  border-radius: var(--control-radius);
   font: inherit;
-  font-size: 0.85rem;
+  font-size: var(--panel-control-font);
   /* keep consistent with app buttons */
   line-height: 1.2;
 
@@ -6045,15 +6054,15 @@ button#colorBtn.dropdownBtn {
   color: var(--text);
 
   /* height + font match */
-  padding: 6px 36px 6px 8px;
+  padding: var(--control-pad-y) calc(36px * var(--ui-scale)) var(--control-pad-y) var(--control-pad-x);
   /* space for arrow */
-  border-radius: 10px;
+  border-radius: var(--control-radius);
   font: inherit;
-  font-size: 0.85rem;
+  font-size: var(--panel-control-font);
   line-height: 1.2;
 
   width: auto;
-  min-width: 44px;
+  min-width: calc(44px * var(--ui-scale));
   white-space: nowrap;
 
   /* SAME arrow system as mapSelect */
@@ -6107,9 +6116,8 @@ button#colorBtn[aria-expanded="true"] {
 
 .calcBtn {
   /* match the settings button feel */
-  padding: 6px 8px;
-  /* same as normal buttons */
-  min-width: 35px;
+  padding: var(--control-pad-y) var(--control-pad-x);
+  min-width: calc(35px * var(--ui-scale));
   /* keeps it "chip" sized like ⚙ */
   display: inline-flex;
   align-items: center;
@@ -6187,8 +6195,8 @@ button#colorBtn[aria-expanded="true"] {
 
 /* Calculator button icon */
 .btnIcon {
-  width: 16px;
-  height: 16px;
+  width: var(--icon-font-size);
+  height: var(--icon-font-size);
   display: block;
   pointer-events: none;
   transform: scale(1.15) translateY(-0.5px);
@@ -6196,10 +6204,10 @@ button#colorBtn[aria-expanded="true"] {
 }
 
 .calcMenu {
-  width: 280px;
-  padding: 10px;
+  width: calc(280px * var(--ui-scale));
+  padding: calc(10px * var(--ui-scale));
   border: 2px solid var(--border);
-  border-radius: 16px;
+  border-radius: calc(16px * var(--ui-scale));
   background: var(--calculatorBg);
   box-shadow: 0 10px 24px var(--shadow-drop);
   z-index: 50;
@@ -6209,8 +6217,8 @@ button#colorBtn[aria-expanded="true"] {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 8px;
+  gap: calc(8px * var(--ui-scale));
+  margin-bottom: calc(8px * var(--ui-scale));
 }
 
 .calcTitle {
@@ -6220,32 +6228,30 @@ button#colorBtn[aria-expanded="true"] {
 .calcClose {
   border: 2px solid var(--border);
   background: var(--card);
-  border-radius: 10px;
-  padding: 2px 8px;
+  border-radius: calc(10px * var(--ui-scale));
+  padding: calc(2px * var(--ui-scale)) calc(8px * var(--ui-scale));
   cursor: pointer;
 }
 
 .calcDisplay {
   width: 100%;
   box-sizing: border-box;
-  margin-bottom: 8px;
+  margin-bottom: var(--card-gap);
   text-align: right;
-  font-size: 18px;
+  font-size: var(--subheading-font-size);
 }
 
 .calcKeys {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 6px;
-  margin-bottom: 10px;
+  gap: var(--tight-gap);
+  margin-bottom: calc(10px * var(--ui-scale));
 }
 
 .calcKeys button {
-  padding: 8px 6px;
-  /* sizing only */
-  min-height: 34px;
-  /* nicer touch target */
-  font-size: 0.9rem;
+  padding: calc(8px * var(--ui-scale)) calc(6px * var(--ui-scale));
+  min-height: calc(34px * var(--ui-scale));
+  font-size: var(--label-font-size);
 }
 
 .calcKeys button.wide {
@@ -6259,21 +6265,21 @@ button#colorBtn[aria-expanded="true"] {
 
 .calcHistoryWrap {
   border-top: 1px solid var(--diceDivText);
-  padding-top: 8px;
+  padding-top: calc(8px * var(--ui-scale));
 }
 
 .calcHistoryTitle {
-  font-size: 12px;
-  margin-bottom: 6px;
+  font-size: var(--small-font-size);
+  margin-bottom: var(--tight-gap);
   color: var(--diceDivText);
 }
 
 .calcHistory {
-  max-height: 120px;
+  max-height: calc(120px * var(--ui-scale));
   overflow: auto;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: calc(4px * var(--ui-scale));
 }
 
 .calcHistory .mutedSmall {
@@ -6281,9 +6287,9 @@ button#colorBtn[aria-expanded="true"] {
 }
 
 .calcHistItem {
-  font-size: 12px;
-  padding: 4px 6px;
-  border-radius: 10px;
+  font-size: var(--small-font-size);
+  padding: var(--compact-gap) var(--tight-gap);
+  border-radius: calc(10px * var(--ui-scale));
   border: 1px solid var(--border);
   background: var(--surface-3);
   cursor: pointer;
@@ -6310,14 +6316,14 @@ button#colorBtn[aria-expanded="true"] {
 }
 
 .diceIcon {
-  font-size: 16px;
+  font-size: var(--icon-font-size);
   line-height: 1;
 }
 
 /* Dice icon in top bar */
 .diceIconImg {
-  width: 16px;
-  height: 16px;
+  width: var(--icon-font-size);
+  height: var(--icon-font-size);
   display: block;
 }
 
@@ -6330,10 +6336,10 @@ button#colorBtn[aria-expanded="true"] {
   flex-direction: column;
 
   /* match calc "card" look */
-  width: 280px;
-  padding: 10px;
+  width: calc(280px * var(--ui-scale));
+  padding: calc(10px * var(--ui-scale));
   border: 2px solid var(--border);
-  border-radius: 16px;
+  border-radius: calc(16px * var(--ui-scale));
   background: var(--calculatorBg);
   box-shadow: 0 10px 24px var(--shadow-drop);
 
@@ -6351,8 +6357,8 @@ button#colorBtn[aria-expanded="true"] {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 8px;
+  gap: calc(8px * var(--ui-scale));
+  margin-bottom: calc(8px * var(--ui-scale));
 }
 
 .diceTitle {
@@ -6360,15 +6366,15 @@ button#colorBtn[aria-expanded="true"] {
 }
 
 .diceClose {
-  padding: 6px 10px;
-  border-radius: 10px;
+  padding: calc(6px * var(--ui-scale)) calc(10px * var(--ui-scale));
+  border-radius: calc(10px * var(--ui-scale));
 }
 
 .diceRow {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 6px;
-  margin-bottom: 8px;
+  gap: calc(6px * var(--ui-scale));
+  margin-bottom: calc(8px * var(--ui-scale));
 }
 
 @media (max-width: 600px) {
@@ -6384,8 +6390,8 @@ button#colorBtn[aria-expanded="true"] {
 
 .diceActions {
   display: flex;
-  gap: 6px;
-  margin-bottom: 8px;
+  gap: var(--tight-gap);
+  margin-bottom: var(--card-gap);
 }
 
 .diceRollBtn {
@@ -6395,32 +6401,32 @@ button#colorBtn[aria-expanded="true"] {
 .dicePresets {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  margin-bottom: 8px;
+  gap: var(--tight-gap);
+  margin-bottom: var(--card-gap);
 }
 
 .dicePreset {
-  padding: 6px 10px;
+  padding: calc(6px * var(--ui-scale)) calc(10px * var(--ui-scale));
   border-radius: 999px;
 }
 
 .diceHistoryWrap {
   border-top: 1px solid var(--diceDivText);
-  padding-top: 8px;
+  padding-top: calc(8px * var(--ui-scale));
 }
 
 .diceHistoryTitle {
-  font-size: 12px;
+  font-size: var(--small-font-size);
   color: var(--diceDivText);
-  margin: 0 2px 6px;
+  margin: 0 2px var(--tight-gap);
 }
 
 .diceHistory {
-  max-height: 120px;
+  max-height: calc(120px * var(--ui-scale));
   overflow: auto;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: calc(6px * var(--ui-scale));
   padding-right: 2px;
 }
 
@@ -6429,9 +6435,9 @@ button#colorBtn[aria-expanded="true"] {
 }
 
 .diceHistRow {
-  font-size: 12px;
-  padding: 4px 6px;
-  border-radius: 10px;
+  font-size: var(--small-font-size);
+  padding: var(--compact-gap) var(--tight-gap);
+  border-radius: calc(10px * var(--ui-scale));
   border: 1px solid var(--border);
   background: var(--surface-3);
   cursor: pointer;
@@ -6440,13 +6446,13 @@ button#colorBtn[aria-expanded="true"] {
 
 /* Big active die icon */
 .diceHero {
-  flex: 0 0 70px;
-  min-width: 70px;
-  max-width: 70px;
-  width: 70px;
-  height: 70px;
+  flex: 0 0 calc(70px * var(--ui-scale));
+  min-width: calc(70px * var(--ui-scale));
+  max-width: calc(70px * var(--ui-scale));
+  width: calc(70px * var(--ui-scale));
+  height: calc(70px * var(--ui-scale));
   position: relative;
-  margin-bottom: 8px;
+  margin-bottom: calc(8px * var(--ui-scale));
 }
 
 /* keep transforms smooth */
@@ -6468,8 +6474,8 @@ button#colorBtn[aria-expanded="true"] {
 
 .dicePctDie {
   position: absolute;
-  width: 56px;
-  height: 56px;
+  width: calc(56px * var(--ui-scale));
+  height: calc(56px * var(--ui-scale));
   transform-origin: 50% 55%;
   opacity: 0.95;
 }
@@ -6512,8 +6518,8 @@ button#colorBtn[aria-expanded="true"] {
 .diceRollRow {
   display: grid;
   grid-template-columns: 1fr 1.4fr 1fr;
-  gap: 6px;
-  margin: 6px 0 8px;
+  gap: calc(6px * var(--ui-scale));
+  margin: calc(6px * var(--ui-scale)) 0 calc(8px * var(--ui-scale));
 }
 
 .diceAltBtn {
@@ -6523,7 +6529,7 @@ button#colorBtn[aria-expanded="true"] {
 .diceActions {
   display: flex;
   justify-content: center;
-  margin-bottom: 8px;
+  margin-bottom: calc(8px * var(--ui-scale));
 }
 
 .diceClearBtn {
@@ -6543,25 +6549,25 @@ button#colorBtn[aria-expanded="true"] {
 }
 
 .dicePreset {
-  padding: 4px 3px;
-  border-radius: 12px;
+  padding: calc(4px * var(--ui-scale)) calc(3px * var(--ui-scale));
+  border-radius: calc(12px * var(--ui-scale));
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  margin-top: 2px;
-  gap: 6px;
-  margin-bottom: 2px;
+  margin-top: calc(2px * var(--ui-scale));
+  gap: calc(6px * var(--ui-scale));
+  margin-bottom: calc(2px * var(--ui-scale));
 }
 
 .dicePresetIcon {
-  width: 30px;
-  height: 30px;
+  width: calc(30px * var(--ui-scale));
+  height: calc(30px * var(--ui-scale));
   display: block;
 }
 
 .dicePresetPct {
   font-weight: 800;
-  font-size: 18px;
+  font-size: var(--subheading-font-size);
   line-height: 1;
 }
 
@@ -6587,8 +6593,8 @@ button#colorBtn[aria-expanded="true"] {
   display: grid;
   grid-template-columns: 1fr max-content 1fr;
   align-items: center;
-  column-gap: 10px;
-  margin: 0 0 8px;
+  column-gap: calc(10px * var(--ui-scale));
+  margin: 0 0 calc(8px * var(--ui-scale));
   /* no auto-centering */
   width: 100%;
   /* IMPORTANT: give it real space */
@@ -6608,13 +6614,13 @@ button#colorBtn[aria-expanded="true"] {
   flex-direction: column;
   align-items: center;
   /* keeps label centered over input */
-  min-width: 56px;
+  min-width: calc(56px * var(--ui-scale));
 }
 
 /* Mod side: modWrap is often the clampHost, so give it the same minimum */
 #diceMenu .diceTopRow .modWrap {
   width: auto;
-  min-width: 56px;
+  min-width: calc(56px * var(--ui-scale));
   /* <-- key */
 }
 
@@ -6691,8 +6697,8 @@ button#colorBtn[aria-expanded="true"] {
   border: 1px solid var(--border);
   background: var(--panel);
   color: var(--text);
-  border-radius: 10px;
-  padding: 4px 4px;
+  border-radius: calc(10px * var(--ui-scale));
+  padding: calc(4px * var(--ui-scale));
   line-height: 1;
   cursor: pointer;
 }
@@ -6769,7 +6775,7 @@ body.modal-open { overflow: hidden; overscroll-behavior: none; }
 }
 
 .dataPanelPanel {
-  width: min(300px, 100%);
+  width: min(calc(300px * var(--ui-scale)), 100%);
   max-height: calc(
     100dvh
     - env(safe-area-inset-top, 0px)
@@ -6798,30 +6804,30 @@ body.modal-open { overflow: hidden; overscroll-behavior: none; }
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: calc(10px * var(--ui-scale));
   flex: 0 0 auto;
 }
 
 .dataPanelBody {
   overflow: auto;
   min-height: 0;
-  padding-right: 8px;
+  padding-right: calc(8px * var(--ui-scale));
   -webkit-overflow-scrolling: touch;
 }
 
 .dataPanelSection {
-  padding: 6px 4px;
+  padding: var(--control-pad-y) var(--compact-gap);
 }
 
 .dataPanelLabel {
   font-weight: 700;
-  margin: 2px 0 8px;
+  margin: calc(2px * var(--ui-scale)) 0 calc(8px * var(--ui-scale));
 }
 
 .dataPanelActions {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--card-gap);
   align-items: center;
 }
 
@@ -6852,10 +6858,10 @@ body.modal-open { overflow: hidden; overscroll-behavior: none; }
    ========================================================= */
 
 :root {
-  --collapse-card-size: 30px;
-  --collapse-panel-size: 26px;
-  --collapse-radius: 10px;
-  --collapse-font-size: 0.85rem;
+  --collapse-card-size: calc(30px * var(--ui-scale));
+  --collapse-panel-size: calc(26px * var(--ui-scale));
+  --collapse-radius: calc(10px * var(--ui-scale));
+  --collapse-font-size: var(--small-font-size);
 }
 
 /* shared base */
@@ -7079,10 +7085,10 @@ section.combatPanel[data-collapsed="true"]> :not([data-panel-header]) {
 
 .updateBanner__btn {
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: calc(8px * var(--ui-scale));
   background: var(--surface-3);
   color: var(--text);
-  padding: 6px 10px;
+  padding: var(--control-pad-y) calc(10px * var(--ui-scale));
   font: inherit;
   cursor: pointer;
 }
@@ -7152,4 +7158,122 @@ section.combatPanel[data-collapsed="true"]> :not([data-panel-header]) {
 
 .saveBanner__btn--primary:hover {
   background: rgba(255, 255, 255, 0.35);
+}
+
+/* =================================================================
+   Native tablet / desktop visual comfort layer
+   Applied on top of --ui-scale: 1.08. Targets only the topbar,
+   calc/dice popovers, settings/data panel, and map toolbar.
+   Character page is deliberately untouched — it already looks good.
+   Does not affect mobile (< 601 px wide or < 431 px tall).
+   ================================================================= */
+@media (min-width: 601px) and (min-height: 431px) {
+  /* Comfort-layer tokens — new names that don't shadow global tokens */
+  html.is-native-app {
+    --native-icon-size: calc(19px * var(--ui-scale));
+    --native-btn-min-h: calc(35px * var(--ui-scale));
+    --native-popover-w: calc(310px * var(--ui-scale));
+    --native-popover-btn-h: calc(38px * var(--ui-scale));
+    --native-popup-title: calc(18px * var(--ui-scale));
+    --native-section-head: calc(17px * var(--ui-scale));
+    --native-panel-w: calc(330px * var(--ui-scale));
+    --native-calc-key-font: calc(15px * var(--ui-scale));
+  }
+
+  /* ── Topbar: larger icons, taller nav + icon buttons ── */
+  html.is-native-app .settingsBtnIcon {
+    width: var(--native-icon-size);
+    height: var(--native-icon-size);
+  }
+
+  html.is-native-app .btnIcon,
+  html.is-native-app .diceIconImg {
+    width: var(--native-icon-size);
+    height: var(--native-icon-size);
+  }
+
+  html.is-native-app .calcBtn,
+  html.is-native-app .diceBtn,
+  html.is-native-app .settingsBtn,
+  html.is-native-app .combatTab {
+    min-height: var(--native-btn-min-h);
+    min-width: var(--native-btn-min-h);
+  }
+
+  html.is-native-app .topbarRight > .tab {
+    min-height: var(--native-btn-min-h);
+    padding-left: calc(12px * var(--ui-scale));
+    padding-right: calc(12px * var(--ui-scale));
+  }
+
+  /* ── Calculator panel ── */
+  html.is-native-app .calcMenu {
+    width: var(--native-popover-w);
+  }
+
+  html.is-native-app .calcTitle {
+    font-size: var(--native-popup-title);
+  }
+
+  html.is-native-app .calcKeys button {
+    min-height: var(--native-popover-btn-h);
+    font-size: var(--native-calc-key-font);
+  }
+
+  /* ── Dice Roller panel ── */
+  html.is-native-app .diceMenu {
+    width: var(--native-popover-w);
+  }
+
+  html.is-native-app .diceTitle {
+    font-size: var(--native-popup-title);
+  }
+
+  html.is-native-app .diceRollRow > * {
+    min-height: var(--native-popover-btn-h);
+  }
+
+  html.is-native-app .diceClearBtn {
+    min-height: var(--native-popover-btn-h);
+  }
+
+  html.is-native-app .dicePresetIcon {
+    width: calc(34px * var(--ui-scale));
+    height: calc(34px * var(--ui-scale));
+  }
+
+  /* ── Settings / Data panel ── */
+  html.is-native-app .dataPanelPanel {
+    width: min(var(--native-panel-w), 100%);
+  }
+
+  html.is-native-app #dataPanelTitle {
+    font-size: var(--native-popup-title);
+  }
+
+  html.is-native-app .dataPanelLabel {
+    font-size: var(--native-section-head);
+    margin-bottom: calc(10px * var(--ui-scale));
+  }
+
+  html.is-native-app .settingsItem {
+    min-height: var(--native-btn-min-h);
+    padding-top: calc(8px * var(--ui-scale));
+    padding-bottom: calc(8px * var(--ui-scale));
+  }
+
+  /* ── Map toolbar: bold "Map" label and consistent sizing ── */
+  html.is-native-app .mapSelectLabel {
+    font-weight: 700;
+    font-size: var(--app-font-size);
+  }
+
+  html.is-native-app .brushSizeLabel {
+    font-weight: 600;
+  }
+
+  html.is-native-app .maptools button,
+  html.is-native-app .maptools .filebtn {
+    min-height: calc(34px * var(--ui-scale));
+  }
 }
