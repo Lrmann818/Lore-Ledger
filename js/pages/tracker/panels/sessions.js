@@ -115,40 +115,43 @@ function _finishSessionDrag({ commit }) {
   if (!dragState.started) return;
 
   _suppressNextSessionTabClick = true;
-  if (!commit) {
+  if (!commit || !dragState.stableOrder) {
     renderSessionTabs();
     return;
   }
 
   _saveActiveSessionNotes();
-  const orderChanged = _applyVisibleSessionOrder(
-    _getVisibleSessionIdsFromDom(),
-    dragState.activeSessionId
+  const finalOrder = _computeFinalOrder(
+    dragState.stableOrder,
+    dragState.sessionId,
+    dragState.provisionalIndex
   );
-
+  const orderChanged = _applyVisibleSessionOrder(finalOrder, dragState.activeSessionId);
   if (orderChanged) markDirty();
   renderSessionTabs();
 }
 
-function _updateDraggedTabPosition(dragState) {
-  if (!dragState?.buttonEl || !_tabsEl) return;
-  const draggedRect = dragState.buttonEl.getBoundingClientRect();
-  const draggedCenter = draggedRect.left + (draggedRect.width / 2);
-  const siblings = Array.from(_tabsEl.querySelectorAll(".sessionTab"))
-    .filter((el) => el !== dragState.buttonEl);
+// Returns the target insertion index (among all tabs) for the dragged tab,
+// computed against stable midpoints captured at drag start — no live DOM reads.
+function _calcProvisionalIndex(dragState, deltaX) {
+  const { stableOrder, stableMidpoints, sessionId } = dragState;
+  if (!stableOrder || !stableMidpoints) return 0;
 
-  let insertBeforeEl = null;
-  for (const sibling of siblings) {
-    const rect = sibling.getBoundingClientRect();
-    const center = rect.left + (rect.width / 2);
-    if (draggedCenter < center) {
-      insertBeforeEl = sibling;
-      break;
-    }
+  const originalMidX = stableMidpoints.get(sessionId) || 0;
+  const currentMidX = originalMidX + deltaX;
+
+  let insertAfterCount = 0;
+  for (const id of stableOrder) {
+    if (id === sessionId) continue;
+    if (currentMidX > (stableMidpoints.get(id) || 0)) insertAfterCount++;
   }
+  return insertAfterCount;
+}
 
-  if (insertBeforeEl) _tabsEl.insertBefore(dragState.buttonEl, insertBeforeEl);
-  else _tabsEl.appendChild(dragState.buttonEl);
+function _computeFinalOrder(stableOrder, sessionId, provisionalIndex) {
+  const without = stableOrder.filter((id) => id !== sessionId);
+  without.splice(provisionalIndex, 0, sessionId);
+  return without;
 }
 
 function _beginSessionTabDrag(event, buttonEl, sessionId) {
@@ -168,7 +171,11 @@ function _beginSessionTabDrag(event, buttonEl, sessionId) {
     startY: event.clientY,
     startScrollLeft: wrapEl?.scrollLeft || 0,
     started: false,
-    cleanup: null
+    cleanup: null,
+    // Captured once at drag start; never updated during the drag.
+    stableOrder: null,
+    stableMidpoints: null,
+    provisionalIndex: 0,
   };
 
   const handlePointerMove = (moveEvent) => {
@@ -193,14 +200,28 @@ function _beginSessionTabDrag(event, buttonEl, sessionId) {
 
       dragState.started = true;
       try { dragState.buttonEl.setPointerCapture?.(dragState.pointerId); } catch { /* noop */ }
+
+      // Freeze tab geometry before any DOM or transform change.
+      const tabs = Array.from(_tabsEl.querySelectorAll(".sessionTab"));
+      dragState.stableOrder = tabs.map((el) => el.dataset.sessionId || "").filter(Boolean);
+      const midpoints = new Map();
+      tabs.forEach((el) => {
+        const rect = el.getBoundingClientRect();
+        const id = el.dataset.sessionId || "";
+        if (id) midpoints.set(id, rect.left + rect.width / 2);
+      });
+      dragState.stableMidpoints = midpoints;
+      dragState.provisionalIndex = dragState.stableOrder.indexOf(sessionId);
+
       dragState.buttonEl.classList.add("isDragging");
       _tabsEl.classList.add("isDraggingSessions");
       document.body?.classList.add("isDraggingSessionTabs");
     }
 
     moveEvent.preventDefault();
+    // Only translate the dragged tab — do NOT move it in the DOM.
     dragState.buttonEl.style.transform = `translateX(${deltaX}px)`;
-    _updateDraggedTabPosition(dragState);
+    dragState.provisionalIndex = _calcProvisionalIndex(dragState, deltaX);
   };
 
   const handlePointerUp = (upEvent) => {
