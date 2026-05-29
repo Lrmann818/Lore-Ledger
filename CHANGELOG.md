@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Simplified the native iOS launch screen to a plain warm/dark bridge background so the branded Lore Ledger splash artwork appears only once in the managed web splash.
 - Kept the earliest native, bridge, and source-HTML backgrounds aligned to the managed splash background to reduce black seams during iPhone native-to-web handoff.
 - Hardened backup export for iOS/native contexts by preferring the system share sheet when direct blob downloads are unreliable.
+- Unified the desktop/native topbar control height so Tracker, Character, Map, combat, calculator, dice, and settings buttons share the same visual height through a topbar-scoped CSS token.
 
 ## [v0.5.0] - 2026-04-16
 

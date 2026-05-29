@@ -19,6 +19,7 @@
   --topbar-pad-y: calc(8px * var(--ui-scale));
   --topbar-pad-x: calc(10px * var(--ui-scale));
   --topbar-title-size: calc(20px * var(--ui-scale));
+  --topbar-control-height: calc((var(--control-pad-y) * 2) + (var(--label-font-size) * 1.2) + 2px);
   --compact-gap: calc(4px * var(--ui-scale));
   --layout-gap: calc(10px * var(--ui-scale));
   --card-gap: calc(8px * var(--ui-scale));
@@ -1276,6 +1277,17 @@ input[type="range"].uiRange::-moz-range-thumb {
 .topbarRight>.tabs>.tab {
   flex: 0 0 auto;
   white-space: nowrap;
+}
+
+@media (min-width: 601px) {
+  .topbarRight .tab {
+    min-height: var(--topbar-control-height);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1.2;
+    box-sizing: border-box;
+  }
 }
 
 .tab {
@@ -7181,6 +7193,10 @@ section.combatPanel[data-collapsed="true"]> :not([data-panel-header]) {
   }
 
   /* ── Topbar: larger icons, taller nav + icon buttons ── */
+  html.is-native-app .topbarRight {
+    --topbar-control-height: var(--native-btn-min-h);
+  }
+
   html.is-native-app .settingsBtnIcon {
     width: var(--native-icon-size);
     height: var(--native-icon-size);
@@ -7192,18 +7208,10 @@ section.combatPanel[data-collapsed="true"]> :not([data-panel-header]) {
     height: var(--native-icon-size);
   }
 
-  html.is-native-app .calcBtn,
-  html.is-native-app .diceBtn,
-  html.is-native-app .settingsBtn,
-  html.is-native-app .combatTab {
-    min-height: var(--native-btn-min-h);
+  html.is-native-app .topbarRight > :is(.calcDropdown, .diceDropdown) > .tab,
+  html.is-native-app .topbarRight > .settingsBtn,
+  html.is-native-app .topbarRight > .combatTab {
     min-width: var(--native-btn-min-h);
-  }
-
-  html.is-native-app .topbarRight > .tab {
-    min-height: var(--native-btn-min-h);
-    padding-left: calc(12px * var(--ui-scale));
-    padding-right: calc(12px * var(--ui-scale));
   }
 
   /* ── Calculator panel ── */
