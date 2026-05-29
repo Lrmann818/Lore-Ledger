@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { backfillInventoryItemsFromLegacyEquipment, CURRENT_SCHEMA_VERSION, migrateState } from "../js/state.js";
+import { backfillInventoryItemsFromLegacyEquipment, CURRENT_SCHEMA_VERSION, migrateState, normalizeInventoryItems } from "../js/state.js";
 
 function cloneState(value) {
   return structuredClone(value);
@@ -95,7 +95,7 @@ describe("migrateState", () => {
       expect(migrated.map.character).toBeUndefined();
       expect(entry.equipment).toBe("Rope and grappling hook");
       expect(entry.inventoryItems).toEqual([
-        { title: "Inventory", notes: "Rope and grappling hook" }
+        expect.objectContaining({ id: expect.any(String), title: "Inventory", notes: "Rope and grappling hook" })
       ]);
       expectDefaultSingleSession(migrated.tracker.sessions);
       expect(migrated.tracker.npcs).toEqual([]);
@@ -151,11 +151,11 @@ describe("migrateState", () => {
 
       expect(malformedVersion.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
       expect(activeEntry(malformedVersion).inventoryItems).toEqual([
-        { title: "Inventory", notes: "Bedroll" }
+        expect.objectContaining({ id: expect.any(String), title: "Inventory", notes: "Bedroll" })
       ]);
       expect(negativeVersion.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
       expect(activeEntry(negativeVersion).inventoryItems).toEqual([
-        { title: "Inventory", notes: "Lantern" }
+        expect.objectContaining({ id: expect.any(String), title: "Inventory", notes: "Lantern" })
       ]);
     });
 
@@ -182,13 +182,13 @@ describe("migrateState", () => {
 
       expect(missingInventory.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
       expect(activeEntry(missingInventory).inventoryItems).toEqual([
-        { title: "Inventory", notes: "Bedroll" }
+        expect.objectContaining({ id: expect.any(String), title: "Inventory", notes: "Bedroll" })
       ]);
       expect(activeEntry(blankNotes).inventoryItems).toEqual([
-        { title: "Inventory", notes: "Lantern" }
+        expect.objectContaining({ id: expect.any(String), title: "Inventory", notes: "Lantern" })
       ]);
       expect(activeEntry(fractionalVersion).inventoryItems).toEqual([
-        { title: "Inventory", notes: "Tinderbox" }
+        expect.objectContaining({ id: expect.any(String), title: "Inventory", notes: "Tinderbox" })
       ]);
     });
 
@@ -212,11 +212,13 @@ describe("migrateState", () => {
       });
 
       expect(migrated.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
-      expect(CURRENT_SCHEMA_VERSION).toBe(6);
+      expect(CURRENT_SCHEMA_VERSION).toBe(7);
       expect(migrated.combat).toEqual(DEFAULT_COMBAT_STATE);
       expect(migrated.tracker.campaignTitle).toBe("Moonfall");
       expect(migrated.tracker.misc).toBe("Preserve this");
-      expect(activeEntry(migrated).inventoryItems).toEqual([{ title: "Inventory", notes: "Rations" }]);
+      expect(activeEntry(migrated).inventoryItems).toEqual([
+        expect.objectContaining({ id: expect.any(String), title: "Inventory", notes: "Rations" })
+      ]);
       expect(migrated.ui.theme).toBe("forest");
     });
 
@@ -267,6 +269,58 @@ describe("migrateState", () => {
       }));
       expect(migrated.tracker.sessions[0].id).not.toBe(migrated.tracker.sessions[1].id);
       expect(migrated.tracker.activeSessionIndex).toBe(1);
+    });
+
+    it("upgrades schema v6 saves by assigning stable ids to character inventory items", () => {
+      const migrated = migrateState({
+        schemaVersion: 6,
+        characters: {
+          activeId: "char_a",
+          entries: [
+            {
+              id: "char_a",
+              inventoryItems: [
+                { title: "Weapons", notes: "Sword" },
+                { title: "Consumables", notes: "Potions" }
+              ],
+              activeInventoryIndex: 1
+            }
+          ]
+        }
+      });
+
+      expect(migrated.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
+      const entry = activeEntry(migrated);
+      expect(entry.inventoryItems).toHaveLength(2);
+      expect(entry.inventoryItems[0]).toEqual(expect.objectContaining({
+        id: expect.any(String),
+        title: "Weapons",
+        notes: "Sword"
+      }));
+      expect(entry.inventoryItems[1]).toEqual(expect.objectContaining({
+        id: expect.any(String),
+        title: "Consumables",
+        notes: "Potions"
+      }));
+      expect(entry.inventoryItems[0].id).not.toBe(entry.inventoryItems[1].id);
+      expect(entry.activeInventoryIndex).toBe(1);
+    });
+
+    it("normalizeInventoryItems preserves existing stable ids and only generates new ones for missing or duplicate ids", () => {
+      const result = normalizeInventoryItems([
+        { id: "inv_existing", title: "Pack", notes: "Rope" },
+        { title: "Consumables", notes: "Potions" },
+        { id: "inv_existing", title: "Weapons", notes: "Sword" }
+      ]);
+
+      expect(result).toHaveLength(3);
+      expect(result[0].id).toBe("inv_existing");
+      expect(result[0].title).toBe("Pack");
+      expect(result[1].id).toEqual(expect.any(String));
+      expect(result[1].id).not.toBe("inv_existing");
+      expect(result[2].id).toEqual(expect.any(String));
+      expect(result[2].id).not.toBe("inv_existing");
+      expect(result[1].id).not.toBe(result[2].id);
     });
 
     it("repairs malformed combat state while keeping workspace limited to composition data", () => {
@@ -379,7 +433,7 @@ describe("migrateState", () => {
       });
       expect(migrated.ui.calc.history).toEqual([]);
       expect(activeEntry(migrated).inventoryItems).toEqual([
-        { title: "Inventory", notes: "Pack" }
+        expect.objectContaining({ id: expect.any(String), title: "Inventory", notes: "Pack" })
       ]);
       expect(migrated.combat).toEqual(DEFAULT_COMBAT_STATE);
       expect(migrated.app.preferences.playHubOpenSound).toBe(false);
@@ -488,7 +542,9 @@ describe("migrateState", () => {
       expect(entry.skills).toEqual({});
       expect(entry.ui.textareaHeights).toEqual({});
       expect(entry.spells).toEqual({ levels: [] });
-      expect(entry.inventoryItems).toEqual([{ title: "Inventory", notes: "" }]);
+      expect(entry.inventoryItems).toEqual([
+        expect.objectContaining({ id: expect.any(String), title: "Inventory", notes: "" })
+      ]);
       expect(entry.activeInventoryIndex).toBe(0);
       expect(entry.inventorySearch).toBe("");
       expect(entry.hitDieAmt).toBeNull();
@@ -707,6 +763,36 @@ describe("migrateState", () => {
       );
     });
 
+    it("repairs current-schema inventory items with missing or duplicate ids", () => {
+      const migrated = migrateState({
+        schemaVersion: CURRENT_SCHEMA_VERSION,
+        characters: {
+          activeId: "char_a",
+          entries: [
+            {
+              id: "char_a",
+              inventoryItems: [
+                { id: "inv_alpha", title: "Alpha", notes: "A" },
+                { title: "Bravo", notes: "B" },
+                { id: "inv_alpha", title: "Charlie", notes: "C" }
+              ],
+              activeInventoryIndex: 2
+            }
+          ]
+        }
+      });
+
+      const entry = activeEntry(migrated);
+      expect(entry.inventoryItems).toHaveLength(3);
+      expect(entry.inventoryItems[0].id).toBe("inv_alpha");
+      expect(entry.inventoryItems[1].id).toEqual(expect.any(String));
+      expect(entry.inventoryItems[1].id).not.toBe("inv_alpha");
+      expect(entry.inventoryItems[2].id).toEqual(expect.any(String));
+      expect(entry.inventoryItems[2].id).not.toBe("inv_alpha");
+      expect(entry.inventoryItems[1].id).not.toBe(entry.inventoryItems[2].id);
+      expect(entry.activeInventoryIndex).toBe(2);
+    });
+
     it("repairs current-schema tracker sessions with missing or duplicate ids", () => {
       const migrated = migrateState({
         schemaVersion: CURRENT_SCHEMA_VERSION,
@@ -758,7 +844,9 @@ describe("migrateState", () => {
       expect(migrated.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
       expect(migrated.map.character).toBeUndefined();
       expect(entry.equipment).toBe("Rope");
-      expect(entry.inventoryItems).toEqual([{ title: "Inventory", notes: "Rope" }]);
+      expect(entry.inventoryItems).toEqual([
+        expect.objectContaining({ id: expect.any(String), title: "Inventory", notes: "Rope" })
+      ]);
       expect(migrated.map.maps).toEqual([]);
       expect(migrated.map.ui).toEqual({ activeTool: "brush", brushSize: 6 });
       expect(migrated.combat).toEqual(DEFAULT_COMBAT_STATE);

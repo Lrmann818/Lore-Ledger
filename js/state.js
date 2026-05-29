@@ -7,7 +7,7 @@ export const STORAGE_KEY = "localCampaignTracker_v1";
 export const ACTIVE_TAB_KEY = "localCampaignTracker_activeTab";
 
 // Save schema versioning
-export const CURRENT_SCHEMA_VERSION = 6;
+export const CURRENT_SCHEMA_VERSION = 7;
 
 /** @typedef {import("./domain/factories.js").NpcCard & PortraitRef} NpcCard */
 /** @typedef {import("./domain/factories.js").PartyMemberCard & PortraitRef} PartyMemberCard */
@@ -55,6 +55,11 @@ export const SCHEMA_MIGRATION_HISTORY = Object.freeze([
     version: 6,
     date: "2026-05-29",
     changes: "Added stable tracker session ids so session tab order can persist independently of titles."
+  },
+  {
+    version: 7,
+    date: "2026-05-29",
+    changes: "Added stable inventory item ids so equipment tab order can persist independently of titles."
   }
 ]);
 
@@ -76,6 +81,12 @@ export const SCHEMA_MIGRATION_HISTORY = Object.freeze([
  * @typedef {NotesEntry & {
  *   id: string
  * }} SessionEntry
+ */
+
+/**
+ * @typedef {NotesEntry & {
+ *   id: string
+ * }} InventoryEntry
  */
 
 /**
@@ -250,6 +261,49 @@ function newSessionId() {
   return `session_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
+function newInventoryId() {
+  return `inv_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+/**
+ * Ensure every inventory item has a stable id. Items that already have a valid
+ * unique id keep it; others receive a freshly generated one. Returns a new
+ * array so callers can detect whether anything changed by reference.
+ * @param {unknown} input
+ * @returns {InventoryEntry[]}
+ */
+export function normalizeInventoryItems(input) {
+  if (!Array.isArray(input) || input.length === 0) {
+    return [{ id: newInventoryId(), title: "Inventory", notes: "" }];
+  }
+
+  const seenIds = new Set();
+  /** @type {InventoryEntry[]} */
+  const normalized = [];
+
+  for (let index = 0; index < input.length; index += 1) {
+    const raw = input[index];
+    const source = raw && typeof raw === "object" && !Array.isArray(raw)
+      ? /** @type {Record<string, unknown>} */ (raw)
+      : {};
+
+    let id = typeof source.id === "string" ? source.id.trim() : "";
+    if (!id || seenIds.has(id)) id = newInventoryId();
+    seenIds.add(id);
+
+    normalized.push({
+      ...source,
+      id,
+      title: typeof source.title === "string" ? source.title : `Item ${index + 1}`,
+      notes: typeof source.notes === "string" ? source.notes : ""
+    });
+  }
+
+  return normalized.length > 0
+    ? normalized
+    : [{ id: newInventoryId(), title: "Inventory", notes: "" }];
+}
+
 /**
  * @param {unknown} input
  * @returns {SessionEntry[]}
@@ -384,7 +438,7 @@ function normalizeTrackerSessions(input) {
  *   languages: string,
  *   attacks: AttackEntry[],
  *   spells: CharacterSpells,
- *   inventoryItems: NotesEntry[],
+ *   inventoryItems: InventoryEntry[],
  *   activeInventoryIndex: number,
  *   inventorySearch: string,
  *   equipment: string,
@@ -1290,13 +1344,32 @@ export function migrateState(raw) {
     }
   }
 
+  function migrateToV7() {
+    const chars = data.characters && typeof data.characters === "object" && !Array.isArray(data.characters)
+      ? /** @type {CharactersCollection & Record<string, unknown>} */ (data.characters)
+      : null;
+    const entries = Array.isArray(chars?.entries) ? chars.entries : [];
+    entries.forEach((c) => {
+      if (!c || typeof c !== "object" || Array.isArray(c)) return;
+      const entry = /** @type {Record<string, unknown>} */ (c);
+      entry.inventoryItems = normalizeInventoryItems(entry.inventoryItems);
+      const items = /** @type {InventoryEntry[]} */ (entry.inventoryItems);
+      if (typeof entry.activeInventoryIndex !== "number") entry.activeInventoryIndex = 0;
+      if (/** @type {number} */ (entry.activeInventoryIndex) < 0) entry.activeInventoryIndex = 0;
+      if (/** @type {number} */ (entry.activeInventoryIndex) >= items.length) {
+        entry.activeInventoryIndex = items.length - 1;
+      }
+    });
+  }
+
   const SCHEMA_MIGRATIONS = Object.freeze({
     0: migrateToV1,
     1: migrateToV2,
     2: migrateToV3,
     3: migrateToV4,
     4: migrateToV5,
-    5: migrateToV6
+    5: migrateToV6,
+    6: migrateToV7
   });
 
   function applyMigrationStep(version) {
@@ -1326,6 +1399,7 @@ export function migrateState(raw) {
   migrateToV4();
   migrateToV5();
   migrateToV6();
+  migrateToV7();
 
   data.schemaVersion = CURRENT_SCHEMA_VERSION;
   return normalizeState(/** @type {State} */ (data));

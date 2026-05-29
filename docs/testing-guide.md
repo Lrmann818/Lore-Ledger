@@ -72,6 +72,7 @@ Current automated scope is intentionally targeted:
 - `tests/dataPanel.support.test.js` covers `Data & Settings` -> `Support` wiring, support summary display, `Report Bug`, `Copy Debug Info`, hub-versus-active-campaign debug snapshots, clipboard success, and both copy/mailto fallback paths when platform features are unavailable.
 - `tests/imagePicker.test.js` covers the image picker: file selection returning the chosen File, clean cancellation via the cancel event, `image/*` accept attribute (which produces the native iOS Photo Library / Take Photo / Files action sheet), absence of any in-app source chooser overlay, and request serialization so concurrent picks do not race.
 - `tests/sessionsPanel.test.js` covers session tab click selection, drag-to-reorder (stable-id commitment, release-click suppression after drag), sub-threshold pointer movement that must not trigger reorder or click suppression, drag followed by rename preserving the reordered position via stable id, and drag followed by delete leaving no stale tab entries in state or DOM.
+- `tests/state.migrate.test.js` also covers the v6→v7 `normalizeInventoryItems` migration: stable ID assignment, missing/duplicate ID repair, active-index clamping, and idempotence across a migrate→sanitize→migrate round trip.
 - `tests/smoke/app.smoke.js` covers top-level shell boot in Chromium, opening the Map workspace, and a campaign-title reload-persistence check against the dedicated production-mode Vite server.
 - `tests/smoke/backup.smoke.js` covers save-picker selection in a desktop installed-PWA-like runtime, direct-download export/import round trips in Chromium when the picker is unavailable, and visible failure handling for invalid JSON import input.
 - `tests/smoke/combatShell.smoke.js` covers the Combat tab shell, Combat Cards, round controls, HP/temp HP actions, AC display, status effects, turn undo, tracker writeback for HP/status labels, role/order/remove/clear flows, mobile stacking, and embedded panel selection/reorder/source-panel behavior. Death Saves visibility, checkbox interaction, long-press stabilization, and TestFlight portrait-card layout still need explicit manual QA.
@@ -102,6 +103,7 @@ Critical paths currently protected by automation:
 - Combat Workspace behavior for combat tab layout, card actions, HP/temp HP, status timing, turn undo, tracker HP/status-label writeback exceptions, mobile stacking, and embedded character panels
 - shared dropdown/popover interaction paths for enhanced selects and tracker card menus after rerender
 - session tab drag-to-reorder: stable-midpoint index calculation, commit-on-drop ordering, sub-threshold no-op, rename-after-reorder id stability, delete-after-reorder cleanup, and reload persistence
+- equipment tab drag-to-reorder: stable inventory item IDs (v7 migration), active-item identity preservation across reorder, and Pointer Events reorder wired through the shared `tabReorder` helper
 
 Manual release checks that remain by decision:
 
@@ -274,6 +276,7 @@ Additional checks when the change touched Character-specific UI persistence:
 - Reorder vitals/resources or ability blocks if the change touched those systems.
 - Verify textarea sizing/collapse behavior still persists for any field using persisted UI sizing.
 - If inventory search or the active inventory item changed, confirm the selection/search state survives reload.
+- If inventory tab drag-to-reorder was touched, drag tabs into a new order, reload, and confirm the order persists. Also confirm rename and delete still work on a reordered tab.
 
 ## 8. Map page checks
 

@@ -13,7 +13,7 @@ The source of truth is the code, primarily:
 
 This is intentionally a maintainer-focused document. It describes the state as it exists today, including a few legacy or duplicated fields that still appear because the app preserves backward compatibility.
 
-Current structured schema version: `5`
+Current structured schema version: `7`
 
 ## 2. Schema versioning policy
 
@@ -455,7 +455,7 @@ Notes:
 
 ### Inventory, equipment, and money
 
-- `inventoryItems: Array<{ title: string, notes: string }>`
+- `inventoryItems: Array<{ id: string, title: string, notes: string }>`
 - `activeInventoryIndex: number`
 - `inventorySearch: string`
 - `equipment: string`
@@ -777,6 +777,19 @@ Current structural migrations:
   - ensure campaign-scoped `combat.workspace` exists
   - ensure campaign-scoped `combat.encounter` exists
   - repair malformed Combat Workspace fields to safe defaults without touching unrelated campaign data
+- `3 -> 4`
+  - migrate legacy singleton `state.character` into `state.characters` collection (`{ activeId, entries: [...] }`)
+  - skip migration when `characters` already exists; remove stale `character` key
+  - repair dangling or invalid `activeId` references; repair missing or duplicate entry `id` fields
+- `4 -> 5`
+  - add `characterId: null` to NPC and Party tracker cards that are missing it
+  - add `status: ""` to character entries that are missing it
+- `5 -> 6`
+  - (internal normalization pass — no structural shape change)
+- `6 -> 7`
+  - assign stable `id` fields to all `inventoryItems` entries on every character
+  - repair missing, non-string, or duplicate inventory item IDs
+  - clamp `activeInventoryIndex` to a valid range after ID normalization
 
 ### Automated migration coverage
 
