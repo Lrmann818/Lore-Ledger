@@ -11,6 +11,15 @@ function activeEntry(migrated) {
   return migrated.characters?.entries?.[0] ?? null;
 }
 
+function expectDefaultSingleSession(sessions) {
+  expect(sessions).toHaveLength(1);
+  expect(sessions[0]).toEqual(expect.objectContaining({
+    id: expect.any(String),
+    title: "Session 1",
+    notes: ""
+  }));
+}
+
 const EMPTY_CHARACTERS = { activeId: null, entries: [] };
 
 const DEFAULT_COMBAT_STATE = {
@@ -88,7 +97,7 @@ describe("migrateState", () => {
       expect(entry.inventoryItems).toEqual([
         { title: "Inventory", notes: "Rope and grappling hook" }
       ]);
-      expect(migrated.tracker.sessions).toEqual([{ title: "Session 1", notes: "" }]);
+      expectDefaultSingleSession(migrated.tracker.sessions);
       expect(migrated.tracker.npcs).toEqual([]);
       expect(migrated.tracker.party).toEqual([]);
       expect(migrated.tracker.locationsList).toEqual([]);
@@ -203,7 +212,7 @@ describe("migrateState", () => {
       });
 
       expect(migrated.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
-      expect(CURRENT_SCHEMA_VERSION).toBe(5);
+      expect(CURRENT_SCHEMA_VERSION).toBe(6);
       expect(migrated.combat).toEqual(DEFAULT_COMBAT_STATE);
       expect(migrated.tracker.campaignTitle).toBe("Moonfall");
       expect(migrated.tracker.misc).toBe("Preserve this");
@@ -230,6 +239,34 @@ describe("migrateState", () => {
       expect(migrated.tracker.party[0].characterId).toBeNull();
       expect(migrated.tracker.locationsList[0].characterId).toBeUndefined();
       expect(activeEntry(migrated).status).toBe("");
+    });
+
+    it("upgrades schema v5 saves by assigning stable ids to tracker sessions", () => {
+      const migrated = migrateState({
+        schemaVersion: 5,
+        tracker: {
+          sessions: [
+            { title: "Alpha", notes: "A" },
+            { title: "Bravo", notes: "B" }
+          ],
+          activeSessionIndex: 1
+        }
+      });
+
+      expect(migrated.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
+      expect(migrated.tracker.sessions).toHaveLength(2);
+      expect(migrated.tracker.sessions[0]).toEqual(expect.objectContaining({
+        id: expect.any(String),
+        title: "Alpha",
+        notes: "A"
+      }));
+      expect(migrated.tracker.sessions[1]).toEqual(expect.objectContaining({
+        id: expect.any(String),
+        title: "Bravo",
+        notes: "B"
+      }));
+      expect(migrated.tracker.sessions[0].id).not.toBe(migrated.tracker.sessions[1].id);
+      expect(migrated.tracker.activeSessionIndex).toBe(1);
     });
 
     it("repairs malformed combat state while keeping workspace limited to composition data", () => {
@@ -435,7 +472,7 @@ describe("migrateState", () => {
 
       expect(migrated.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
       expect(migrated.tracker.campaignTitle).toBe("Vault 13");
-      expect(migrated.tracker.sessions).toEqual([{ title: "Session 1", notes: "" }]);
+      expectDefaultSingleSession(migrated.tracker.sessions);
       expect(migrated.tracker.ui.textareaHeights).toEqual({});
       expect(entry.imgBlobId).toBe("portrait_1");
       expect(entry.money).toEqual({ pp: 0, gp: 0, ep: 0, sp: 0, cp: 0 });
@@ -576,7 +613,7 @@ describe("migrateState", () => {
         const migrated = migrateState(input);
 
         expect(migrated.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
-        expect(migrated.tracker.sessions).toEqual([{ title: "Session 1", notes: "" }]);
+        expectDefaultSingleSession(migrated.tracker.sessions);
         // No character data — collection should be empty.
         expect(migrated.characters).toEqual(EMPTY_CHARACTERS);
         expect(migrated.map).toMatchObject({
@@ -608,7 +645,7 @@ describe("migrateState", () => {
       expect(migrated.characters).toEqual(EMPTY_CHARACTERS);
       expect(Array.isArray(migrated.map)).toBe(false);
       expect(Array.isArray(migrated.ui)).toBe(false);
-      expect(migrated.tracker.sessions).toEqual([{ title: "Session 1", notes: "" }]);
+      expectDefaultSingleSession(migrated.tracker.sessions);
       expect(migrated.map.maps).toEqual([]);
       expect(migrated.combat).toEqual(DEFAULT_COMBAT_STATE);
       expect(migrated.ui.theme).toBe("system");
@@ -627,7 +664,7 @@ describe("migrateState", () => {
       expect(migrated.characters).toEqual(EMPTY_CHARACTERS);
       expect(Array.isArray(migrated.map)).toBe(false);
       expect(Array.isArray(migrated.ui)).toBe(false);
-      expect(migrated.tracker.sessions).toEqual([{ title: "Session 1", notes: "" }]);
+      expectDefaultSingleSession(migrated.tracker.sessions);
       expect(migrated.map.ui).toEqual({ activeTool: "brush", brushSize: 6 });
       expect(migrated.combat).toEqual(DEFAULT_COMBAT_STATE);
       expect(migrated.ui.theme).toBe("system");
@@ -652,7 +689,7 @@ describe("migrateState", () => {
 
       expect(migrated.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
       expect(migrated.tracker.campaignTitle).toBe("Vault 13");
-      expect(migrated.tracker.sessions).toEqual([{ title: "Session 1", notes: "" }]);
+      expectDefaultSingleSession(migrated.tracker.sessions);
       // Character has no meaningful data (resources null, ui array) — empty collection.
       expect(migrated.characters).toEqual(EMPTY_CHARACTERS);
       expect(migrated.map).toMatchObject({
@@ -668,6 +705,41 @@ describe("migrateState", () => {
           panelCollapsed: {}
         })
       );
+    });
+
+    it("repairs current-schema tracker sessions with missing or duplicate ids", () => {
+      const migrated = migrateState({
+        schemaVersion: CURRENT_SCHEMA_VERSION,
+        tracker: {
+          sessions: [
+            { id: "session_alpha", title: "Alpha", notes: "A" },
+            { title: "Bravo", notes: "B" },
+            { id: "session_alpha", title: "Charlie", notes: "C" }
+          ],
+          activeSessionIndex: 2
+        }
+      });
+
+      expect(migrated.tracker.sessions).toHaveLength(3);
+      expect(migrated.tracker.sessions[0]).toEqual(expect.objectContaining({
+        id: "session_alpha",
+        title: "Alpha",
+        notes: "A"
+      }));
+      expect(migrated.tracker.sessions[1]).toEqual(expect.objectContaining({
+        id: expect.any(String),
+        title: "Bravo",
+        notes: "B"
+      }));
+      expect(migrated.tracker.sessions[2]).toEqual(expect.objectContaining({
+        id: expect.any(String),
+        title: "Charlie",
+        notes: "C"
+      }));
+      expect(migrated.tracker.sessions[1].id).not.toBe("session_alpha");
+      expect(migrated.tracker.sessions[2].id).not.toBe("session_alpha");
+      expect(migrated.tracker.sessions[1].id).not.toBe(migrated.tracker.sessions[2].id);
+      expect(migrated.tracker.activeSessionIndex).toBe(2);
     });
 
     it("migrates legacy map.character even when sibling map fields are malformed", () => {

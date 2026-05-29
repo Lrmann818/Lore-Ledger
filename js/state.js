@@ -7,7 +7,7 @@ export const STORAGE_KEY = "localCampaignTracker_v1";
 export const ACTIVE_TAB_KEY = "localCampaignTracker_activeTab";
 
 // Save schema versioning
-export const CURRENT_SCHEMA_VERSION = 5;
+export const CURRENT_SCHEMA_VERSION = 6;
 
 /** @typedef {import("./domain/factories.js").NpcCard & PortraitRef} NpcCard */
 /** @typedef {import("./domain/factories.js").PartyMemberCard & PortraitRef} PartyMemberCard */
@@ -50,6 +50,11 @@ export const SCHEMA_MIGRATION_HISTORY = Object.freeze([
     version: 5,
     date: "2026-04-15",
     changes: "Added character-linked NPC/Party card references and character status field."
+  },
+  {
+    version: 6,
+    date: "2026-05-29",
+    changes: "Added stable tracker session ids so session tab order can persist independently of titles."
   }
 ]);
 
@@ -65,6 +70,12 @@ export const SCHEMA_MIGRATION_HISTORY = Object.freeze([
  *   notes: string,
  *   [key: string]: unknown
  * }} NotesEntry
+ */
+
+/**
+ * @typedef {NotesEntry & {
+ *   id: string
+ * }} SessionEntry
  */
 
 /**
@@ -211,7 +222,7 @@ export const SCHEMA_MIGRATION_HISTORY = Object.freeze([
 /**
  * @typedef {{
  *   campaignTitle: string,
- *   sessions: NotesEntry[],
+ *   sessions: SessionEntry[],
  *   sessionSearch: string,
  *   activeSessionIndex: number,
  *   npcs: NpcCard[],
@@ -234,6 +245,46 @@ export const SCHEMA_MIGRATION_HISTORY = Object.freeze([
  *   [key: string]: unknown
  * }} TrackerState
  */
+
+function newSessionId() {
+  return `session_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+/**
+ * @param {unknown} input
+ * @returns {SessionEntry[]}
+ */
+function normalizeTrackerSessions(input) {
+  if (!Array.isArray(input) || input.length === 0) {
+    return [{ id: newSessionId(), title: "Session 1", notes: "" }];
+  }
+
+  const seenIds = new Set();
+  /** @type {SessionEntry[]} */
+  const normalized = [];
+
+  for (let index = 0; index < input.length; index += 1) {
+    const raw = input[index];
+    const source = raw && typeof raw === "object" && !Array.isArray(raw)
+      ? /** @type {Record<string, unknown>} */ (raw)
+      : {};
+
+    let id = typeof source.id === "string" ? source.id.trim() : "";
+    if (!id || seenIds.has(id)) id = newSessionId();
+    seenIds.add(id);
+
+    normalized.push({
+      ...source,
+      id,
+      title: typeof source.title === "string" ? source.title : `Session ${index + 1}`,
+      notes: typeof source.notes === "string" ? source.notes : ""
+    });
+  }
+
+  return normalized.length > 0
+    ? normalized
+    : [{ id: newSessionId(), title: "Session 1", notes: "" }];
+}
 
 /**
  * @typedef {{
@@ -490,7 +541,7 @@ export const state = {
   schemaVersion: CURRENT_SCHEMA_VERSION,
   tracker: {
     campaignTitle: "My Campaign",
-    sessions: [{ title: "Session 1", notes: "" }],
+    sessions: [{ id: newSessionId(), title: "Session 1", notes: "" }],
     sessionSearch: "",
     activeSessionIndex: 0,
     npcs: [],                 // array of npc objects
@@ -922,7 +973,7 @@ export function migrateState(raw) {
       t.ui.textareaHeights = t.ui.textareaHeigts;
     }
     ensureObj(t.ui, "textareaHeights");
-    if (!Array.isArray(t.sessions)) t.sessions = [{ title: "Session 1", notes: "" }];
+    t.sessions = normalizeTrackerSessions(t.sessions);
     if (!Array.isArray(t.npcs)) t.npcs = [];
     if (!Array.isArray(t.party)) t.party = [];
     if (!Array.isArray(t.locationsList)) t.locationsList = [];
@@ -1228,12 +1279,24 @@ export function migrateState(raw) {
     }
   }
 
+  function migrateToV6() {
+    const tracker = ensureObj(data, "tracker");
+    tracker.sessions = normalizeTrackerSessions(tracker.sessions);
+
+    if (typeof tracker.activeSessionIndex !== "number") tracker.activeSessionIndex = 0;
+    if (tracker.activeSessionIndex < 0) tracker.activeSessionIndex = 0;
+    if (tracker.activeSessionIndex >= tracker.sessions.length) {
+      tracker.activeSessionIndex = tracker.sessions.length - 1;
+    }
+  }
+
   const SCHEMA_MIGRATIONS = Object.freeze({
     0: migrateToV1,
     1: migrateToV2,
     2: migrateToV3,
     3: migrateToV4,
-    4: migrateToV5
+    4: migrateToV5,
+    5: migrateToV6
   });
 
   function applyMigrationStep(version) {
@@ -1262,6 +1325,7 @@ export function migrateState(raw) {
   // and removes any stale character key that migrateToV1 may have re-created.
   migrateToV4();
   migrateToV5();
+  migrateToV6();
 
   data.schemaVersion = CURRENT_SCHEMA_VERSION;
   return normalizeState(/** @type {State} */ (data));

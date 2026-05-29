@@ -221,8 +221,8 @@ Baseline checks:
 
 1. Campaign and sessions
    - Edit the campaign title.
-   - Add or rename a session, enter notes, switch sessions, and reload.
-   - Expected: title, session notes, and active session are preserved.
+   - Add or rename a session, enter notes, switch sessions, drag session tabs into a new order, and reload.
+   - Expected: title, session notes, active session, and the reordered session-tab order are preserved.
 2. NPCs
    - Add an NPC.
    - Set `Name`, `Class / Role`, `HP Cur`, `HP Max`, `Status`, and notes.

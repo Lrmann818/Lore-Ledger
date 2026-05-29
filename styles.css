@@ -4072,10 +4072,25 @@ div.mutedSmall {
   white-space: nowrap;
 }
 
+.sessionTab.isDragging {
+  position: relative;
+  z-index: 1;
+  opacity: 0.92;
+  cursor: grabbing;
+}
+
+.sessionTabs.isDraggingSessions .sessionTab:not(.isDragging) {
+  cursor: grabbing;
+}
+
 .sessionTab.active {
   background: var(--surface-3-hover);
   outline: none;
   box-shadow: 0 0 0 2px var(--ring) inset;
+}
+
+body.isDraggingSessionTabs {
+  user-select: none;
 }
 
 

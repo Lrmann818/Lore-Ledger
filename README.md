@@ -34,7 +34,7 @@ That direction is visible in the current structure:
 ## 3. Feature overview
 
 - Campaign Hub for creating campaigns, switching the active campaign, renaming campaigns, and deleting campaigns
-- Tracker page for campaign title, session tabs and notes, NPC cards, party cards, location cards, and loose notes
+- Tracker page for campaign title, reorderable session tabs and notes, NPC cards, party cards, location cards, and loose notes
 - Sectioned tracker collections with add/rename/delete controls, search inputs, and portrait/image support for cards
 - Combat Workspace with participant cards sourced from tracker entries, HP/temp HP actions, role/order controls, status effects, round timing, undo for turn advances, and embedded Vitals, Spells, Weapons / Attacks, Equipment, and Abilities / Skills panels that are live views of the canonical active character
 - Character page with multi-character selection, `...` actions for New/Rename/Delete Character, Add to NPCs/Party, Export/Import Character, an empty-state "Create your first character" prompt, portrait, identity fields, vitals, resources, abilities and skills, proficiencies, weapons, spells, equipment, inventory tabs, money, and personality notes

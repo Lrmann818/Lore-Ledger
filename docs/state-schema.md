@@ -119,7 +119,7 @@ State only stores references such as `imgBlobId`, `bgBlobId`, `drawingBlobId`, a
 ### Core fields
 
 - `campaignTitle: string`
-- `sessions: Array<{ title: string, notes: string }>`
+- `sessions: Array<{ id: string, title: string, notes: string }>`
 - `sessionSearch: string`
 - `activeSessionIndex: number`
 - `npcs: NpcCard[]`
@@ -139,16 +139,17 @@ State only stores references such as `imgBlobId`, `bgBlobId`, `drawingBlobId`, a
 
 ### Sessions
 
-Sessions are index-based, not ID-based:
+Sessions use stable IDs and persist in rendered order:
 
 ```js
-{ title: string, notes: string }
+{ id: string, title: string, notes: string }
 ```
 
 Notes:
 
 - `activeSessionIndex` must always be clamped to the array bounds.
-- There is no stable session ID today, so migrations that reorder or split sessions must preserve index semantics carefully.
+- Session tab drag reorder persists by rewriting the `sessions` array order itself.
+- `id` is the stable identity for reordering and rename-safe persistence; visible titles are not the ordering key.
 
 ### NPCs
 
