@@ -1,4 +1,5 @@
 import { syncNativeAppClass } from "./js/utils/runtime.js";
+import { resolveThemeChoiceFromStoredData } from "./js/ui/themeState.js";
 
 // boot.js - module loaded before app.js so theme is set as early as possible.
 try {
@@ -43,7 +44,7 @@ try {
 
   const raw = localStorage.getItem("localCampaignTracker_v1");
   const data = raw ? JSON.parse(raw) : null;
-  const theme = data?.appShell?.ui?.theme || data?.ui?.theme || "system";
+  const theme = resolveThemeChoiceFromStoredData(data);
 
   const prefersDark =
     window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;

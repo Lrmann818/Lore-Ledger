@@ -664,6 +664,7 @@ const NOOP_HUB_PAGE_API = {
       await SaveManager.flush();
       await withAllowedStateMutationAsync(async () => {
         switchCampaignPersist(createSwitchCampaignDeps(normalizedCampaignId));
+        Theme.initFromState();
         destroyCampaignModules();
         if (hasActiveCampaign()) initCampaignModules();
         refreshShellUi({ targetTab });
@@ -686,6 +687,7 @@ const NOOP_HUB_PAGE_API = {
         });
         VaultRuntime.current = created.vault;
         switchCampaignPersist(createSwitchCampaignDeps(created.campaignId));
+        Theme.initFromState();
         destroyCampaignModules();
         initCampaignModules();
         refreshShellUi({ targetTab: "tracker" });
@@ -727,6 +729,7 @@ const NOOP_HUB_PAGE_API = {
 
         if (deletingActiveCampaign) {
           switchCampaignPersist(createSwitchCampaignDeps(null));
+          Theme.initFromState();
           destroyCampaignModules();
         }
 

@@ -95,7 +95,9 @@ class FakeDocument extends EventTarget {
     super();
     this._elements = new Map(elements.map((element) => [element.id, element]));
     this.lastModified = "2026-04-08";
+    this.documentElement = new FakeElement("html");
     this.body = new FakeElement("body");
+    this.documentElement.ownerDocument = this;
     this.activeElement = this.body;
     this.body.ownerDocument = this;
     elements.forEach((element) => {
@@ -118,6 +120,7 @@ function installFakeDom() {
     new FakeElement("dataPanelOverlay"),
     new FakeElement("dataPanelPanel"),
     new FakeElement("dataPanelClose"),
+    Object.assign(new FakeElement("dataPanelThemeSelect"), { dataset: { built: "1" } }),
     new FakeElement("dataExportBtn"),
     new FakeElement("dataResetUiBtn"),
     new FakeElement("dataPlayHubOpenSoundToggleItem"),
@@ -197,6 +200,7 @@ function installFakeDom() {
     location,
     localStorage,
     navigator,
+    themeSelect: document.getElementById("dataPanelThemeSelect"),
     resetUiBtn: document.getElementById("dataResetUiBtn"),
     campaignSection: document.getElementById("dataCampaignSection"),
     campaignDivider: document.getElementById("dataCampaignDivider"),
@@ -502,6 +506,27 @@ describe("initDataPanel support actions", () => {
     expect(dom.campaignSection.hidden).toBe(true);
     expect(dom.campaignDivider.hidden).toBe(true);
     expect(dom.openHubBtn.disabled).toBe(true);
+  });
+
+  it("keeps the Settings theme select aligned with the applied DOM theme after campaign theme sync", async () => {
+    const deps = createDeps();
+    deps.state.appShell.activeCampaignId = "campaign_beta";
+    deps.state.ui.theme = "red-gold";
+    deps.state.tracker.ui.theme = "green";
+
+    const { createThemeManager } = await import("../js/ui/theme.js");
+    const { initDataPanel } = await import("../js/ui/dataPanel.js");
+
+    const themeManager = createThemeManager({ state: deps.state });
+    deps.applyTheme = themeManager.applyTheme;
+    themeManager.initFromState();
+
+    const panel = initDataPanel(deps);
+    panel.open?.();
+
+    expect(deps.state.ui.theme).toBe("green");
+    expect(dom.document.documentElement.dataset.theme).toBe("green");
+    expect(dom.themeSelect.value).toBe("green");
   });
 
   it("updates the app-scoped Hub intro music preference from the settings toggle", async () => {

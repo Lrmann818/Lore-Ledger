@@ -73,7 +73,7 @@ Each `campaignDocs[id]` entry stores one campaign document:
 - `map`
 - `combat`
 
-At runtime, the active campaign document is projected back into `state.tracker`, `state.characters`, `state.map`, and `state.combat` so existing page modules can operate against one active campaign. App-level UI such as theme and active tab is stored under `appShell.ui`.
+At runtime, the active campaign document is projected back into `state.tracker`, `state.characters`, `state.map`, and `state.combat` so existing page modules can operate against one active campaign. Campaign theme is stored per campaign at `campaignDocs[id].tracker.ui.theme`. The runtime root `state.ui.theme` mirrors the currently active theme so shared UI and DOM application stay in sync, while `appShell.ui` keeps the shell/root UI snapshot used for Hub and no-active-campaign flows.
 
 Current character state uses:
 
@@ -108,7 +108,7 @@ The separate UI key is `localCampaignTracker_activeTab`.
 
 That key is written immediately by [`js/ui/navigation.js`](../js/ui/navigation.js) when the top tab changes. It does not mark the full save dirty.
 
-`boot.js` also reads `localCampaignTracker_v1` directly on startup to apply the saved theme as early as possible. It reads the vault-era `appShell.ui.theme` path and falls back to the legacy root `ui.theme` path.
+`boot.js` also reads `localCampaignTracker_v1` directly on startup to apply the saved theme as early as possible. If an active campaign exists, boot resolves theme from `campaignDocs[activeCampaignId].tracker.ui.theme` first. Otherwise it falls back to the vault-era `appShell.ui.theme` path, then the legacy root `ui.theme` path for older saves.
 
 ## 4. IndexedDB responsibilities
 

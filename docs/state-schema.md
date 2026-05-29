@@ -101,7 +101,7 @@ The main `localStorage["localCampaignTracker_v1"]` value is now a campaign vault
 }
 ```
 
-`campaignDocs[id]` owns campaign data. `appShell.ui` owns app-level UI preferences such as theme and active tab. Startup projects only the selected active campaign document into the runtime `state.tracker`, `state.characters`, `state.map`, and `state.combat` buckets.
+`campaignDocs[id]` owns campaign data. Campaign theme is stored per campaign in `campaignDocs[id].tracker.ui.theme`. `appShell.ui` keeps the shell/root UI snapshot such as active tab and the last root theme value used when no campaign is open. Startup projects only the selected active campaign document into the runtime `state.tracker`, `state.characters`, `state.map`, and `state.combat` buckets, then mirrors that active campaign theme into runtime `state.ui.theme` before applying the DOM theme.
 
 The app also uses companion persisted stores:
 
@@ -665,7 +665,8 @@ Root `state.ui` is the canonical shared UI bucket for app-wide preferences.
 Current fields:
 
 - `theme: string`
-  - Canonical theme ID.
+  - Runtime theme ID currently applied to the visible app shell.
+  - When a campaign is open, this mirrors that campaign's stored `tracker.ui.theme`.
   - Current allowed values are:
     - `system`
     - `dark`
@@ -736,6 +737,7 @@ These are currently part of saved state, even though they are not clean canonica
 - `character.equipment`
 - `tracker.npcActiveGroup`
 - `tracker.ui.theme`
+  - Campaign-scoped stored theme ID.
 - `tracker.ui.textareaHeights`
 - `character.ui.textareaHeights`
 - duplicated brush size state across `map.ui.brushSize` and `map.maps[*].brushSize`

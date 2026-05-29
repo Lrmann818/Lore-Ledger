@@ -260,17 +260,20 @@ The main localStorage payload is now a campaign vault:
 - `campaignIndex.entries`
 - `campaignDocs[id]`
 
-Each `campaignDocs[id]` stores the campaign-level `schemaVersion`, `tracker`, `characters`, `map`, and `combat` buckets. App-level UI such as theme, textarea heights, panel collapse, and active tab is stored under `appShell.ui`.
+Each `campaignDocs[id]` stores the campaign-level `schemaVersion`, `tracker`, `characters`, `map`, and `combat` buckets. Campaign theme is stored per campaign in `campaignDocs[id].tracker.ui.theme`. The runtime root `state.ui.theme` mirrors the currently active theme so shared UI and DOM application still have one current theme value, while `appShell.ui` keeps the shell/root UI snapshot used by Hub/no-active-campaign flows and early boot.
 
 Important persisted UI/state examples:
 
 - Root UI:
   - `state.ui.theme`
+    - runtime mirror of the currently active theme
   - `state.ui.textareaHeights`
   - `state.ui.panelCollapsed`
   - `state.ui.activeTab`
 - Tracker page UI:
   - `state.tracker.ui.sectionOrder`
+  - `state.tracker.ui.theme`
+    - campaign-scoped stored theme for the active campaign document
 - Character page UI:
   - `state.characters.entries[].ui.sectionOrder`
   - `state.characters.entries[].ui.vitalsOrder`

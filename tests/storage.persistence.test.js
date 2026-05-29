@@ -209,13 +209,13 @@ describe("multi-campaign persistence foundation", () => {
       campaignDocs: {
         campaign_alpha: {
           schemaVersion: CURRENT_SCHEMA_VERSION,
-          tracker: { campaignTitle: "Alpha Drifted", misc: "alpha" },
+          tracker: { campaignTitle: "Alpha Drifted", misc: "alpha", ui: { theme: "red-gold" } },
           character: {},
           map: {}
         },
         campaign_beta: {
           schemaVersion: CURRENT_SCHEMA_VERSION,
-          tracker: { campaignTitle: "Beta Drifted", misc: "beta" },
+          tracker: { campaignTitle: "Beta Drifted", misc: "beta", ui: { theme: "dark" } },
           character: {},
           map: {}
         }

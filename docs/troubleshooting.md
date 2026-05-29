@@ -28,7 +28,8 @@ Common symptoms:
 Current behavior:
 
 - `boot.js` applies the saved theme early from `localStorage["localCampaignTracker_v1"]`
-- the current theme is stored in root `ui.theme`
+- when a campaign is open, the visible theme comes from that campaign's saved `tracker.ui.theme`
+- runtime `ui.theme` mirrors the currently applied theme so shared UI and DOM state stay in sync
 - choosing `System` follows the browser/OS `prefers-color-scheme` setting
 
 Recovery:
