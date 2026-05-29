@@ -71,6 +71,7 @@ Current automated scope is intentionally targeted:
 - `tests/support.test.js` covers the focused support helpers: safe debug-info formatting, mailto generation, runtime/context capability hints, and route/query-string hardening so copied debug info stays privacy-safe.
 - `tests/dataPanel.support.test.js` covers `Data & Settings` -> `Support` wiring, support summary display, `Report Bug`, `Copy Debug Info`, hub-versus-active-campaign debug snapshots, clipboard success, and both copy/mailto fallback paths when platform features are unavailable.
 - `tests/imagePicker.test.js` covers the image picker: file selection returning the chosen File, clean cancellation via the cancel event, `image/*` accept attribute (which produces the native iOS Photo Library / Take Photo / Files action sheet), absence of any in-app source chooser overlay, and request serialization so concurrent picks do not race.
+- `tests/sessionsPanel.test.js` covers session tab click selection, drag-to-reorder (stable-id commitment, release-click suppression after drag), sub-threshold pointer movement that must not trigger reorder or click suppression, drag followed by rename preserving the reordered position via stable id, and drag followed by delete leaving no stale tab entries in state or DOM.
 - `tests/smoke/app.smoke.js` covers top-level shell boot in Chromium, opening the Map workspace, and a campaign-title reload-persistence check against the dedicated production-mode Vite server.
 - `tests/smoke/backup.smoke.js` covers save-picker selection in a desktop installed-PWA-like runtime, direct-download export/import round trips in Chromium when the picker is unavailable, and visible failure handling for invalid JSON import input.
 - `tests/smoke/combatShell.smoke.js` covers the Combat tab shell, Combat Cards, round controls, HP/temp HP actions, AC display, status effects, turn undo, tracker writeback for HP/status labels, role/order/remove/clear flows, mobile stacking, and embedded panel selection/reorder/source-panel behavior. Death Saves visibility, checkbox interaction, long-press stabilization, and TestFlight portrait-card layout still need explicit manual QA.
@@ -78,6 +79,7 @@ Current automated scope is intentionally targeted:
 - `tests/smoke/npcPortrait.smoke.js` covers NPC portrait crop/save behavior plus incremental tracker-card patch paths for portrait toggles, search, section moves, reorder, collapse, and focus restoration.
 - `tests/smoke/partyLocationPanels.smoke.js` covers the same controller-scoped tracker-card behaviors for Party and Location panels, including location type filtering.
 - `tests/smoke/trackerPanelLifecycle.smoke.js` covers repeated `initTrackerPage(...)` calls and checks that tracker panel listeners stay single-bound after re-init.
+- `tests/smoke/sessionTabReorder.smoke.js` covers session tab drag-to-reorder in a real browser: adding a second session, dragging the first tab past the second tab's midpoint, confirming the DOM order changes, and confirming the reordered order survives a full page reload via localStorage persistence.
 - `tests/smoke/characterPanelLifecycle.smoke.js` covers repeated `initCharacterPageUI(...)` calls and checks that representative Character page panel actions stay single-bound after teardown/re-init.
 - `tests/smoke/dropdownRegression.smoke.js` covers shared dropdown/popover behavior, including enhanced select opening, tracker card menu clickability in the body-ported menu path, and dropdown wiring after rerender.
 
@@ -99,6 +101,7 @@ Critical paths currently protected by automation:
 - tracker incremental DOM patch paths for portrait toggles, reorder, collapse, section moves, search/filter-visible lists, and focus restoration in the tracker card panels
 - Combat Workspace behavior for combat tab layout, card actions, HP/temp HP, status timing, turn undo, tracker HP/status-label writeback exceptions, mobile stacking, and embedded character panels
 - shared dropdown/popover interaction paths for enhanced selects and tracker card menus after rerender
+- session tab drag-to-reorder: stable-midpoint index calculation, commit-on-drop ordering, sub-threshold no-op, rename-after-reorder id stability, delete-after-reorder cleanup, and reload persistence
 
 Manual release checks that remain by decision:
 
