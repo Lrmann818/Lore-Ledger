@@ -4,6 +4,7 @@
 import { enhanceSelectDropdown } from "../../../ui/selectDropdown.js";
 import { attachSearchHighlightOverlay } from "../../../ui/searchHighlightOverlay.js";
 import { renderSectionTabs, wireSectionCrud } from "./cards/shared/cardsShared.js";
+import { createTabReorder, applyTabReorder } from "../../../ui/tabReorder.js";
 import { pickAndStorePortrait } from "./cards/shared/cardPortraitShared.js";
 import { deleteTrackerCardWithBlobCleanup } from "./cards/shared/cardDeletionShared.js";
 import { makeFieldSearchMatcher } from "./cards/shared/cardSearchShared.js";
@@ -733,6 +734,27 @@ function createNpcCardsController(deps = {}) {
       },
       listenerSignal,
     });
+
+    const npcTabReorder = createTabReorder({
+      tabsEl,
+      wrapEl: tabsEl.parentElement,
+      tabSelector: ".npcTab",
+      getTabId: (el) => el.dataset.tabId || "",
+      onCommit: (newVisibleOrder) => {
+        mutateTracker((tracker) => {
+          const { items, changed } = applyTabReorder(
+            tracker.npcSections || [],
+            newVisibleOrder,
+            (sec) => sec.id
+          );
+          if (!changed) return false;
+          tracker.npcSections = items;
+          return true;
+        });
+        renderNpcTabs();
+      },
+    });
+    addDestroy(() => npcTabReorder.destroy());
 
     renderNpcTabs();
     renderNpcCards();

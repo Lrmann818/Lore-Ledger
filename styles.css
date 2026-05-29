@@ -4127,6 +4127,17 @@ body.isDraggingSessionTabs {
   box-shadow: 0 0 0 2px var(--ring) inset;
 }
 
+.npcTab.isDragging {
+  position: relative;
+  z-index: 1;
+  opacity: 0.92;
+  cursor: grabbing;
+}
+
+.sessionTabs.isDraggingSessions .npcTab:not(.isDragging) {
+  cursor: grabbing;
+}
+
 .trackerCardsGrid {
   --cards-grid-gap: var(--card-gap);
   display: grid;
