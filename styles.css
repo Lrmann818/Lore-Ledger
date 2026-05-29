@@ -7184,6 +7184,8 @@ section.combatPanel[data-collapsed="true"]> :not([data-panel-header]) {
   html.is-native-app {
     --native-icon-size: calc(19px * var(--ui-scale));
     --native-btn-min-h: calc(35px * var(--ui-scale));
+    --native-topbar-title-size: calc(25px * var(--ui-scale));
+    --native-topbar-status-size: calc(13px * var(--ui-scale));
     --native-popover-w: calc(310px * var(--ui-scale));
     --native-popover-btn-h: calc(38px * var(--ui-scale));
     --native-popup-title: calc(18px * var(--ui-scale));
@@ -7212,6 +7214,24 @@ section.combatPanel[data-collapsed="true"]> :not([data-panel-header]) {
   html.is-native-app .topbarRight > .settingsBtn,
   html.is-native-app .topbarRight > .combatTab {
     min-width: var(--native-btn-min-h);
+  }
+
+  html.is-native-app .titlewrap {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: calc(2px * var(--ui-scale));
+  }
+
+  html.is-native-app #campaignTitle {
+    font-size: var(--native-topbar-title-size);
+    line-height: 1.1;
+    font-weight: 800;
+  }
+
+  html.is-native-app #statusText {
+    font-size: var(--native-topbar-status-size);
+    line-height: 1.2;
   }
 
   /* ── Calculator panel ── */
