@@ -4138,6 +4138,19 @@ div.mutedSmall {
   /* so it scrolls horizontally on mobile */
 }
 
+.tabReorderDropCue {
+  position: absolute;
+  width: 3px;
+  border-radius: 999px;
+  background: var(--ring);
+  box-shadow:
+    0 0 0 1px var(--surface-2),
+    0 0 10px var(--ring);
+  pointer-events: none;
+  transform: translateX(-50%);
+  z-index: 3;
+}
+
 .sessionTab {
   border: 1px solid var(--border);
   background: var(--surface-3);
@@ -4157,6 +4170,10 @@ div.mutedSmall {
 }
 
 .sessionTabs.isDraggingSessions .sessionTab:not(.isDragging) {
+  cursor: grabbing;
+}
+
+.sessionTabsWrap.isReorderScrollLocked {
   cursor: grabbing;
 }
 

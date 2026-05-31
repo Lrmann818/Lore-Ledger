@@ -87,13 +87,32 @@ test("mobile session tabs allow swipe scrolling and deliberate hold-to-drag reor
 
   const dragStartX = thirdTabBox.x + (thirdTabBox.width / 2);
   const dragStartY = thirdTabBox.y + (thirdTabBox.height / 2);
-  await dispatchTouchDrag(client, [
-    { x: dragStartX, y: dragStartY },
-    { x: dragStartX + 90, y: dragStartY },
-    { x: dragStartX + 150, y: dragStartY },
-  ], { holdMs: 450 });
+  await client.send("Input.dispatchTouchEvent", {
+    type: "touchStart",
+    touchPoints: [{ x: dragStartX, y: dragStartY }],
+  });
+  await new Promise((resolve) => setTimeout(resolve, 450));
+  await client.send("Input.dispatchTouchEvent", {
+    type: "touchMove",
+    touchPoints: [{ x: dragStartX + 90, y: dragStartY }],
+  });
+
+  await expect.poll(() => page.evaluate(() => {
+    const cue = document.querySelector(".tabReorderDropCue");
+    return cue instanceof HTMLElement ? cue.style.left : "";
+  })).not.toBe("");
+
+  await client.send("Input.dispatchTouchEvent", {
+    type: "touchMove",
+    touchPoints: [{ x: dragStartX + 150, y: dragStartY }],
+  });
+  await client.send("Input.dispatchTouchEvent", {
+    type: "touchEnd",
+    touchPoints: [],
+  });
 
   await expect(page.locator("#sessionTabs .sessionTab").nth(3)).toHaveAttribute("data-session-id", thirdTabIdBefore);
+  await expect.poll(() => page.evaluate(() => document.querySelector(".tabReorderDropCue") === null)).toBe(true);
 
   await expectNoFatalSignals(page, fatalSignals);
   await context.close();

@@ -72,7 +72,7 @@ Current automated scope is intentionally targeted:
 - `tests/dataPanel.support.test.js` covers `Data & Settings` -> `Support` wiring, support summary display, `Report Bug`, `Copy Debug Info`, hub-versus-active-campaign debug snapshots, clipboard success, and both copy/mailto fallback paths when platform features are unavailable.
 - `tests/imagePicker.test.js` covers the image picker: file selection returning the chosen File, clean cancellation via the cancel event, `image/*` accept attribute (which produces the native iOS Photo Library / Take Photo / Files action sheet), absence of any in-app source chooser overlay, and request serialization so concurrent picks do not race.
 - `tests/sessionsPanel.test.js` covers session tab click selection, drag-to-reorder (stable-id commitment, release-click suppression after drag), sub-threshold pointer movement that must not trigger reorder or click suppression, touch swipe intent staying native until a long-press reorder is armed, intentional touch reorder after the long-press gate, drag followed by rename preserving the reordered position via stable id, and drag followed by delete leaving no stale tab entries in state or DOM.
-- `tests/tabReorder.test.js` covers the shared horizontal pill-row reorder helper used outside the sessions panel, including immediate mouse drag, quick touch swipe fallthrough without `preventDefault()`, and deliberate touch reorder only after the long-press gate.
+- `tests/tabReorder.test.js` covers the shared horizontal pill-row reorder helper used outside the sessions panel, including immediate mouse drag, active-drag scroll locking, insertion-cue lifecycle, quick touch swipe fallthrough without `preventDefault()`, and deliberate touch reorder only after the long-press gate.
 - `tests/state.migrate.test.js` also covers the v6→v7 `normalizeInventoryItems` migration: stable ID assignment, missing/duplicate ID repair, active-index clamping, and idempotence across a migrate→sanitize→migrate round trip.
 - `tests/smoke/app.smoke.js` covers top-level shell boot in Chromium, opening the Map workspace, and a campaign-title reload-persistence check against the dedicated production-mode Vite server.
 - `tests/smoke/backup.smoke.js` covers save-picker selection in a desktop installed-PWA-like runtime, direct-download export/import round trips in Chromium when the picker is unavailable, and visible failure handling for invalid JSON import input.
@@ -105,8 +105,8 @@ Critical paths currently protected by automation:
 - tracker incremental DOM patch paths for portrait toggles, reorder, collapse, section moves, search/filter-visible lists, and focus restoration in the tracker card panels
 - Combat Workspace behavior for combat tab layout, card actions, HP/temp HP, status timing, turn undo, tracker HP/status-label writeback exceptions, mobile stacking, and embedded character panels
 - shared dropdown/popover interaction paths for enhanced selects and tracker card menus after rerender
-- session tab drag-to-reorder: stable-midpoint index calculation, commit-on-drop ordering, sub-threshold no-op, quick-touch native scroll intent fallthrough, long-press touch reorder, rename-after-reorder id stability, delete-after-reorder cleanup, and reload persistence
-- equipment tab drag-to-reorder: stable inventory item IDs (v7 migration), active-item identity preservation across reorder, and shared `tabReorder` long-press touch handling that leaves swipe-to-scroll native until reorder is armed
+- session tab drag-to-reorder: stable-midpoint index calculation, commit-on-drop ordering, insertion cue rendering/cleanup, active-drag scroll locking on desktop, quick-touch native scroll intent fallthrough, long-press touch reorder, rename-after-reorder id stability, delete-after-reorder cleanup, and reload persistence
+- equipment tab drag-to-reorder: stable inventory item IDs (v7 migration), active-item identity preservation across reorder, and shared `tabReorder` long-press touch handling that leaves swipe-to-scroll native until reorder is armed while still locking row scroll once drag begins
 
 Manual release checks that remain by decision:
 
@@ -233,7 +233,8 @@ Baseline checks:
    - Edit the campaign title.
    - Add or rename a session, enter notes, switch sessions, drag session tabs into a new order, and reload.
    - Expected: title, session notes, active session, and the reordered session-tab order are preserved.
-   - On a real touch device when this area was touched, start a horizontal swipe directly on a session pill and confirm the row scrolls naturally; then long-press a pill for roughly half a second and confirm touch reorder still works intentionally.
+   - On a real touch device when this area was touched, start a horizontal swipe directly on a session pill and confirm the row scrolls naturally; then long-press a pill for roughly half a second and confirm touch reorder still works intentionally with the insertion cue visible.
+   - On desktop when this area was touched, drag a session pill and confirm the row stays horizontally fixed during the active reorder while the insertion cue matches the eventual drop position.
 2. NPCs
    - Add an NPC.
    - Set `Name`, `Class / Role`, `HP Cur`, `HP Max`, `Status`, and notes.

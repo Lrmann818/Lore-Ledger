@@ -73,3 +73,53 @@ test("dragged session tab order persists after a full page reload", async ({ pag
 
   await expectNoFatalSignals(page, fatalSignals);
 });
+
+test("desktop drag reorder keeps row scroll locked and shows a drop cue", async ({ page }) => {
+  const fatalSignals = await openSmokeApp(page);
+  await expectTrackerShell(page);
+
+  for (let i = 0; i < 6; i += 1) {
+    await page.locator("#addSessionBtn").click();
+  }
+  await expect(page.locator("#sessionTabs .sessionTab")).toHaveCount(7);
+
+  const lockedScrollLeft = await page.evaluate(() => {
+    const wrap = document.querySelector(".sessionTabsWrap");
+    if (!(wrap instanceof HTMLElement)) return 0;
+    wrap.scrollLeft = 120;
+    return wrap.scrollLeft;
+  });
+
+  const source = page.locator("#sessionTabs .sessionTab").nth(2);
+  const target = page.locator("#sessionTabs .sessionTab").nth(3);
+  const sourceId = await source.getAttribute("data-session-id");
+  const sourceBox = await source.boundingBox();
+  const targetBox = await target.boundingBox();
+  if (!sourceId || !sourceBox || !targetBox) {
+    throw new Error("Session tabs are not ready for desktop overflow drag smoke test.");
+  }
+
+  const startX = sourceBox.x + sourceBox.width / 2;
+  const startY = sourceBox.y + sourceBox.height / 2;
+  const endX = targetBox.x + targetBox.width * 0.7;
+  const endY = targetBox.y + targetBox.height / 2;
+
+  await page.mouse.move(startX, startY);
+  await page.mouse.down();
+  await page.mouse.move(endX, endY, { steps: 10 });
+
+  await expect.poll(() => page.evaluate(() => {
+    const cue = document.querySelector(".tabReorderDropCue");
+    return cue instanceof HTMLElement ? cue.style.left : "";
+  })).not.toBe("");
+  await expect.poll(() => page.evaluate(() => {
+    const wrap = document.querySelector(".sessionTabsWrap");
+    return wrap instanceof HTMLElement ? wrap.scrollLeft : -1;
+  })).toBe(lockedScrollLeft);
+
+  await page.mouse.up();
+
+  await expect.poll(() => page.evaluate(() => document.querySelector(".tabReorderDropCue") === null)).toBe(true);
+  await expect(page.locator("#sessionTabs .sessionTab").nth(3)).toHaveAttribute("data-session-id", sourceId);
+  await expectNoFatalSignals(page, fatalSignals);
+});

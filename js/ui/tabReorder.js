@@ -4,6 +4,8 @@
 const DRAG_START_THRESHOLD_PX = 14;
 const TOUCH_DRAG_HOLD_MS = 420;
 const TOUCH_DRAG_ARM_SLOP_PX = 10;
+const DROP_CUE_WIDTH_PX = 3;
+const DROP_CUE_EDGE_OFFSET_PX = 8;
 
 /**
  * Apply a partial (visible-only) tab reorder back into a full items array.
@@ -65,6 +67,9 @@ export function createTabReorder({
   const doc = tabsEl.ownerDocument || document;
   let activeDrag = null;
   let suppressNextClick = false;
+  const dropCueEl = doc.createElement("div");
+  dropCueEl.className = "tabReorderDropCue";
+  dropCueEl.setAttribute("aria-hidden", "true");
 
   const clickSuppressor = (event) => {
     if (!suppressNextClick) return;
@@ -97,21 +102,99 @@ export function createTabReorder({
     const allTabs = /** @type {HTMLElement[]} */ (Array.from(tabsEl.querySelectorAll(tabSelector)));
     dragState.stableOrder = allTabs.map((el) => getTabId(el)).filter(Boolean);
     const midpoints = new Map();
+    const rects = new Map();
     allTabs.forEach((el) => {
       const rect = el.getBoundingClientRect();
       const id = getTabId(el);
-      if (id) midpoints.set(id, rect.left + rect.width / 2);
+      if (!id) return;
+      midpoints.set(id, rect.left + rect.width / 2);
+      rects.set(id, {
+        left: rect.left,
+        right: rect.right,
+        top: rect.top,
+        height: rect.height,
+      });
     });
     dragState.stableMidpoints = midpoints;
+    dragState.stableRects = rects;
+    dragState.tabsRect = tabsEl.getBoundingClientRect();
     dragState.provisionalIndex = dragState.stableOrder.indexOf(dragState.tabId);
+  }
+
+  function getCueLeft(dragState) {
+    const stableOrder = dragState.stableOrder || [];
+    const stableRects = dragState.stableRects;
+    if (!stableOrder.length || !stableRects) return null;
+
+    const remaining = stableOrder.filter((id) => id !== dragState.tabId);
+    if (!remaining.length) return null;
+
+    if (dragState.provisionalIndex <= 0) {
+      const nextRect = stableRects.get(remaining[0]);
+      return nextRect ? nextRect.left - DROP_CUE_EDGE_OFFSET_PX : null;
+    }
+
+    if (dragState.provisionalIndex >= remaining.length) {
+      const prevRect = stableRects.get(remaining[remaining.length - 1]);
+      return prevRect ? prevRect.right + DROP_CUE_EDGE_OFFSET_PX : null;
+    }
+
+    const prevRect = stableRects.get(remaining[dragState.provisionalIndex - 1]);
+    const nextRect = stableRects.get(remaining[dragState.provisionalIndex]);
+    if (!prevRect || !nextRect) return null;
+    return (prevRect.right + nextRect.left) / 2;
+  }
+
+  function updateDropCue(dragState) {
+    const cueLeft = getCueLeft(dragState);
+    const tabsRect = dragState.tabsRect;
+    const draggedRect = dragState.stableRects?.get(dragState.tabId);
+    if (cueLeft == null || !tabsRect || !draggedRect) {
+      dropCueEl.remove();
+      return;
+    }
+
+    if (!dropCueEl.isConnected) tabsEl.appendChild(dropCueEl);
+    dropCueEl.style.left = `${cueLeft - tabsRect.left}px`;
+    dropCueEl.style.top = `${draggedRect.top - tabsRect.top}px`;
+    dropCueEl.style.height = `${draggedRect.height}px`;
+  }
+
+  function lockWrapScroll(dragState) {
+    if (!wrapEl) return;
+    dragState.lockedScrollLeft = wrapEl.scrollLeft;
+
+    const handleScroll = () => {
+      if (!activeDrag || activeDrag !== dragState || !dragState.started) return;
+      if (wrapEl.scrollLeft !== dragState.lockedScrollLeft) {
+        wrapEl.scrollLeft = dragState.lockedScrollLeft;
+      }
+    };
+    const handleWheel = (event) => {
+      if (!activeDrag || activeDrag !== dragState || !dragState.started) return;
+      event.preventDefault();
+    };
+
+    wrapEl.addEventListener("scroll", handleScroll, { passive: true });
+    wrapEl.addEventListener("wheel", handleWheel, { passive: false });
+    wrapEl.classList.add("isReorderScrollLocked");
+    dragState.releaseWrapLock = () => {
+      wrapEl.removeEventListener("scroll", handleScroll);
+      wrapEl.removeEventListener("wheel", handleWheel);
+      wrapEl.classList.remove("isReorderScrollLocked");
+    };
   }
 
   function markDragStarted(dragState) {
     dragState.started = true;
     captureStableLayout(dragState);
+    dragState.prevTabsInlinePosition = tabsEl.style.position;
+    tabsEl.style.position = "relative";
     dragState.buttonEl.classList.add(draggingClass);
     tabsEl.classList.add(containerDraggingClass);
     if (bodyDraggingClass) doc.body?.classList.add(bodyDraggingClass);
+    lockWrapScroll(dragState);
+    updateDropCue(dragState);
   }
 
   function finishDrag({ commit }) {
@@ -120,9 +203,12 @@ export function createTabReorder({
 
     if (drag.armTimer) clearTimeout(drag.armTimer);
     drag.cleanup?.();
+    drag.releaseWrapLock?.();
+    dropCueEl.remove();
     drag.buttonEl.classList.remove(draggingClass);
     drag.buttonEl.style.transform = "";
     tabsEl.classList.remove(containerDraggingClass);
+    tabsEl.style.position = drag.prevTabsInlinePosition || "";
     if (bodyDraggingClass) doc.body?.classList.remove(bodyDraggingClass);
     activeDrag = null;
 
@@ -180,6 +266,7 @@ export function createTabReorder({
       moveEvent.preventDefault();
       buttonEl.style.transform = `translateX(${deltaX}px)`;
       dragState.provisionalIndex = calcProvisionalIndex(dragState, deltaX);
+      updateDropCue(dragState);
     };
 
     const handleUp = (upEvent) => {
@@ -193,13 +280,22 @@ export function createTabReorder({
       finishDrag({ commit: false });
     };
 
+    const handleKeyDown = (keyEvent) => {
+      if (!activeDrag || activeDrag !== dragState) return;
+      if (keyEvent.key !== "Escape") return;
+      keyEvent.preventDefault();
+      finishDrag({ commit: false });
+    };
+
     doc.addEventListener("pointermove", handleMove);
     doc.addEventListener("pointerup", handleUp);
     doc.addEventListener("pointercancel", handleCancel);
+    doc.addEventListener("keydown", handleKeyDown);
     dragState.cleanup = () => {
       doc.removeEventListener("pointermove", handleMove);
       doc.removeEventListener("pointerup", handleUp);
       doc.removeEventListener("pointercancel", handleCancel);
+      doc.removeEventListener("keydown", handleKeyDown);
     };
 
     activeDrag = dragState;
@@ -283,6 +379,7 @@ export function createTabReorder({
       moveEvent.preventDefault();
       buttonEl.style.transform = `translateX(${deltaX}px)`;
       dragState.provisionalIndex = calcProvisionalIndex(dragState, deltaX);
+      updateDropCue(dragState);
     };
 
     const handleEnd = (endEvent) => {
@@ -297,13 +394,22 @@ export function createTabReorder({
       finishDrag({ commit: false });
     };
 
+    const handleKeyDown = (keyEvent) => {
+      if (!activeDrag || activeDrag !== dragState) return;
+      if (keyEvent.key !== "Escape") return;
+      keyEvent.preventDefault();
+      finishDrag({ commit: false });
+    };
+
     doc.addEventListener("touchmove", handleMove, { passive: false });
     doc.addEventListener("touchend", handleEnd);
     doc.addEventListener("touchcancel", handleCancel);
+    doc.addEventListener("keydown", handleKeyDown);
     dragState.cleanup = () => {
       doc.removeEventListener("touchmove", handleMove);
       doc.removeEventListener("touchend", handleEnd);
       doc.removeEventListener("touchcancel", handleCancel);
+      doc.removeEventListener("keydown", handleKeyDown);
     };
     dragState.armTimer = setTimeout(() => {
       if (!activeDrag || activeDrag !== dragState || dragState.started) return;

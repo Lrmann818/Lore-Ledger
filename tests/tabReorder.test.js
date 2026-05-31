@@ -100,7 +100,7 @@ describe("createTabReorder", () => {
     document.body.innerHTML = "";
   });
 
-  it("keeps mouse drag reorder responsive without a hold delay", () => {
+  it("keeps mouse drag reorder responsive, locks scroll during drag, and removes the cue after drop", () => {
     const { tabsEl, wrapEl, buttons } = setupDom();
     const onCommit = vi.fn();
     const cleanup = createTabReorder({
@@ -113,9 +113,41 @@ describe("createTabReorder", () => {
 
     dispatchPointer(buttons[0], "pointerdown", { clientX: 50, clientY: 16, timeStamp: 0 });
     dispatchPointer(document, "pointermove", { clientX: 190, clientY: 16, timeStamp: 20 });
+
+    const cue = document.querySelector(".tabReorderDropCue");
+    expect(cue).not.toBeNull();
+    expect(cue?.style.left).not.toBe("");
+
+    wrapEl.scrollLeft = 48;
+    wrapEl.dispatchEvent(new Event("scroll"));
+    expect(wrapEl.scrollLeft).toBe(0);
+
     dispatchPointer(document, "pointerup", { clientX: 190, clientY: 16, timeStamp: 30 });
 
     expect(onCommit).toHaveBeenCalledWith(["tab_b", "tab_a", "tab_c"]);
+    expect(document.querySelector(".tabReorderDropCue")).toBeNull();
+    cleanup.destroy();
+  });
+
+  it("removes the insertion cue on desktop cancel", () => {
+    const { tabsEl, wrapEl, buttons } = setupDom();
+    const onCommit = vi.fn();
+    const cleanup = createTabReorder({
+      tabsEl,
+      wrapEl,
+      tabSelector: ".sessionTab",
+      getTabId: (el) => el.dataset.tabId || "",
+      onCommit,
+    });
+
+    dispatchPointer(buttons[0], "pointerdown", { clientX: 50, clientY: 16, timeStamp: 0 });
+    dispatchPointer(document, "pointermove", { clientX: 190, clientY: 16, timeStamp: 20 });
+    expect(document.querySelector(".tabReorderDropCue")).not.toBeNull();
+
+    dispatchPointer(document, "pointercancel", { clientX: 190, clientY: 16, timeStamp: 25 });
+
+    expect(onCommit).not.toHaveBeenCalled();
+    expect(document.querySelector(".tabReorderDropCue")).toBeNull();
     cleanup.destroy();
   });
 
@@ -170,11 +202,17 @@ describe("createTabReorder", () => {
     vi.advanceTimersByTime(430);
     const moveTouch = makeTouch({ identifier: 9, clientX: 190, clientY: 16 });
     const moveEvent = dispatchTouch(document, "touchmove", { touches: [moveTouch] });
+
+    const cue = document.querySelector(".tabReorderDropCue");
+    expect(cue).not.toBeNull();
+    expect(cue?.style.left).not.toBe("");
+
     dispatchTouch(document, "touchend", { touches: [], changedTouches: [moveTouch], targetTouches: [] });
 
     expect(onCommit).toHaveBeenCalledWith(["tab_b", "tab_a", "tab_c"]);
     expect(moveEvent.defaultPrevented).toBe(true);
     expect(buttons[0].setPointerCapture).not.toHaveBeenCalled();
+    expect(document.querySelector(".tabReorderDropCue")).toBeNull();
 
     const releaseClick = new Event("click", { bubbles: true, cancelable: true });
     expect(buttons[0].dispatchEvent(releaseClick)).toBe(false);
