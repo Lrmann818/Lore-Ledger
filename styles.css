@@ -2333,6 +2333,15 @@ button,
   }
 }
 
+/* Momentary pressed feedback — applies on touch, mouse, and trackpad.
+   Lives outside the fine-pointer hover query so tapping a button on
+   mobile/iPad still shows a brief darker state, then returns on release.
+   Slightly darker than the hover fill so the press reads as distinct on desktop. */
+button:active,
+.filebtn:active {
+  background: color-mix(in srgb, var(--surface-3-hover) 82%, #000);
+}
+
 button.danger {
   border-color: var(--danger-border);
   color: var(--danger);
@@ -2345,6 +2354,11 @@ button.danger {
   }
 }
 
+button.danger:active {
+  background: var(--danger-hover);
+  color: var(--text);
+}
+
 button.warn {
   border-color: var(--warn-border);
   color: var(--warn);
@@ -2354,6 +2368,10 @@ button.warn {
   button.warn:hover {
     background: var(--warn-hover);
   }
+}
+
+button.warn:active {
+  background: var(--warn-hover);
 }
 
 .filebtn input {
@@ -7117,6 +7135,8 @@ body.modal-open { overflow: hidden; overscroll-behavior: none; }
 
 .cardCollapseBtn:active,
 .npcCollapseToggle:active {
+  color: var(--collapse-btn-fg-hover);
+  background: var(--collapse-btn-bg-hover);
   transform: translateY(1px);
 }
 
@@ -7146,6 +7166,8 @@ body.modal-open { overflow: hidden; overscroll-behavior: none; }
 .spellSpellCollapseBtn:active,
 .panelCollapseBtn:active,
 .collapseMini:active {
+  color: var(--collapse-btn-fg-hover);
+  background: var(--collapse-btn-bg-hover);
   transform: translateY(1px);
 }
 
