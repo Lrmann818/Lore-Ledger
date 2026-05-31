@@ -73,6 +73,7 @@ Current automated scope is intentionally targeted:
 - `tests/imagePicker.test.js` covers the image picker: file selection returning the chosen File, clean cancellation via the cancel event, `image/*` accept attribute (which produces the native iOS Photo Library / Take Photo / Files action sheet), absence of any in-app source chooser overlay, and request serialization so concurrent picks do not race.
 - `tests/sessionsPanel.test.js` covers session tab click selection, drag-to-reorder (stable-id commitment, release-click suppression after drag), sub-threshold pointer movement that must not trigger reorder or click suppression, touch swipe intent staying native until a long-press reorder is armed, intentional touch reorder after the long-press gate, drag followed by rename preserving the reordered position via stable id, and drag followed by delete leaving no stale tab entries in state or DOM.
 - `tests/tabReorder.test.js` covers the shared horizontal pill-row reorder helper used outside the sessions panel, including immediate mouse drag, active-drag scroll locking, insertion-cue lifecycle, quick touch swipe fallthrough without `preventDefault()`, and deliberate touch reorder only after the long-press gate.
+- `tests/buttonStateStyles.test.js` covers the shared button-state CSS contract: hover-only visuals stay gated to fine-pointer devices, and generic expanded-button styling does not make collapse toggles look like open dropdown buttons.
 - `tests/state.migrate.test.js` also covers the v6→v7 `normalizeInventoryItems` migration: stable ID assignment, missing/duplicate ID repair, active-index clamping, and idempotence across a migrate→sanitize→migrate round trip.
 - `tests/smoke/app.smoke.js` covers top-level shell boot in Chromium, opening the Map workspace, and a campaign-title reload-persistence check against the dedicated production-mode Vite server.
 - `tests/smoke/backup.smoke.js` covers save-picker selection in a desktop installed-PWA-like runtime, direct-download export/import round trips in Chromium when the picker is unavailable, and visible failure handling for invalid JSON import input.
@@ -176,6 +177,8 @@ Run these before merging any user-visible change:
    Expected: the saved theme applies immediately with no obvious flash to the wrong theme.
 7. If the change touched textarea or editor styling, inspect the affected long-form editors in at least two themes with focused and unfocused states.
    Expected: session notes, loose notes, inventory notes, and any other touched note editor keep the normal control surface, border, placeholder, and focus treatment instead of showing a flatter or transparent fill.
+8. If the change touched shared button, dropdown, or collapse styling, inspect one desktop hover-capable viewport and one touch/coarse-pointer viewport.
+   Expected: desktop hover remains visible, keyboard `:focus-visible` still has a clear ring, and touch taps do not leave controls painted with hover or pressed fills after release.
 
 ## 4. Pre-release minimum checks
 

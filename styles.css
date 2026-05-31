@@ -948,8 +948,10 @@ body::before {
   /* makes it look “inset” & consistent */
 }
 
-*::-webkit-scrollbar-thumb:hover {
-  background: var(--sb-thumb-hover);
+@media (hover: hover) and (pointer: fine) {
+  *::-webkit-scrollbar-thumb:hover {
+    background: var(--sb-thumb-hover);
+  }
 }
 
 /* ======================
@@ -1152,11 +1154,17 @@ input[type="range"].uiRange::-moz-range-thumb {
   transition: opacity 0.12s ease;
 }
 
-/* Show steppers on hover or focus (matches native behavior) */
-.numWrap:hover .numStepper,
+/* Show steppers on focus, plus hover where sticky mobile hover is not a risk. */
 .numWrap:focus-within .numStepper {
   opacity: 1;
   pointer-events: auto;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .numWrap:hover .numStepper {
+    opacity: 1;
+    pointer-events: auto;
+  }
 }
 
 /* just the glyphs, no box */
@@ -1185,9 +1193,11 @@ input[type="range"].uiRange::-moz-range-thumb {
 }
 
 /* subtle hover so it still feels interactive */
-.numStepBtn:hover {
-  color: var(--text);
-  opacity: 1;
+@media (hover: hover) and (pointer: fine) {
+  .numStepBtn:hover {
+    color: var(--text);
+    opacity: 1;
+  }
 }
 
 .numStepBtn:active {
@@ -1195,9 +1205,14 @@ input[type="range"].uiRange::-moz-range-thumb {
   opacity: 0.85;
 }
 
-.numWrap:hover .numStepBtn,
 .numWrap:focus-within .numStepBtn {
   opacity: 1;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .numWrap:hover .numStepBtn {
+    opacity: 1;
+  }
 }
 
 .numStepBtn:focus,
@@ -1340,7 +1355,7 @@ input[type="range"].uiRange::-moz-range-thumb {
   cursor: not-allowed;
 }
 
-button[aria-expanded="true"] {
+button[aria-haspopup="true"][aria-expanded="true"] {
   box-shadow: 0 0 0 2px var(--ring) inset;
 }
 
@@ -1777,10 +1792,12 @@ body[data-shell-mode="hub"] main {
   transition: border-color 160ms ease, transform 160ms ease, box-shadow 160ms ease;
 }
 
-.hubCampaignCard:hover {
-  transform: translateY(-1px);
-  border-color: rgba(215, 165, 104, 0.42);
-  box-shadow: 0 12px 26px rgba(0, 0, 0, 0.24);
+@media (hover: hover) and (pointer: fine) {
+  .hubCampaignCard:hover {
+    transform: translateY(-1px);
+    border-color: rgba(215, 165, 104, 0.42);
+    box-shadow: 0 12px 26px rgba(0, 0, 0, 0.24);
+  }
 }
 
 .hubCampaignCard.active {
@@ -1862,10 +1879,12 @@ body[data-shell-mode="hub"] main {
   box-shadow: inset 0 1px 0 rgba(255, 247, 234, 0.04);
 }
 
-#page-hub button:hover,
-#page-hub .panelBtn:hover,
-#page-hub .panelBtnSm:hover {
-  background: linear-gradient(180deg, rgba(94, 68, 48, 0.98) 0%, rgba(55, 40, 29, 0.98) 100%);
+@media (hover: hover) and (pointer: fine) {
+  #page-hub button:hover,
+  #page-hub .panelBtn:hover,
+  #page-hub .panelBtnSm:hover {
+    background: linear-gradient(180deg, rgba(94, 68, 48, 0.98) 0%, rgba(55, 40, 29, 0.98) 100%);
+  }
 }
 
 #page-hub button:focus-visible,
@@ -1886,11 +1905,13 @@ body[data-shell-mode="hub"] main {
   background: linear-gradient(180deg, rgba(74, 35, 26, 0.98) 0%, rgba(45, 20, 16, 0.98) 100%);
 }
 
-#page-hub button.danger:hover,
-#page-hub .panelBtn.danger:hover,
-#page-hub .panelBtnSm.danger:hover {
-  background: linear-gradient(180deg, rgba(103, 48, 34, 0.98) 0%, rgba(61, 27, 20, 0.98) 100%);
-  color: #f7e4d4;
+@media (hover: hover) and (pointer: fine) {
+  #page-hub button.danger:hover,
+  #page-hub .panelBtn.danger:hover,
+  #page-hub .panelBtnSm.danger:hover {
+    background: linear-gradient(180deg, rgba(103, 48, 34, 0.98) 0%, rgba(61, 27, 20, 0.98) 100%);
+    color: #f7e4d4;
+  }
 }
 
 #page-hub #hubCreateBtn {
@@ -1900,8 +1921,10 @@ body[data-shell-mode="hub"] main {
   color: #fff0dc;
 }
 
-#page-hub #hubCreateBtn:hover {
-  background: linear-gradient(180deg, rgba(174, 119, 60, 0.98) 0%, rgba(110, 71, 36, 0.98) 100%);
+@media (hover: hover) and (pointer: fine) {
+  #page-hub #hubCreateBtn:hover {
+    background: linear-gradient(180deg, rgba(174, 119, 60, 0.98) 0%, rgba(110, 71, 36, 0.98) 100%);
+  }
 }
 
 @media (max-width: 700px) {
@@ -2303,9 +2326,11 @@ button,
   max-width: 100%;
 }
 
-button:hover,
-.filebtn:hover {
-  background: var(--surface-3-hover);
+@media (hover: hover) and (pointer: fine) {
+  button:hover,
+  .filebtn:hover {
+    background: var(--surface-3-hover);
+  }
 }
 
 button.danger {
@@ -2313,9 +2338,11 @@ button.danger {
   color: var(--danger);
 }
 
-button.danger:hover {
-  background: var(--danger-hover);
-  color: var(--text);
+@media (hover: hover) and (pointer: fine) {
+  button.danger:hover {
+    background: var(--danger-hover);
+    color: var(--text);
+  }
 }
 
 button.warn {
@@ -2323,8 +2350,10 @@ button.warn {
   color: var(--warn);
 }
 
-button.warn:hover {
-  background: var(--warn-hover);
+@media (hover: hover) and (pointer: fine) {
+  button.warn:hover {
+    background: var(--warn-hover);
+  }
 }
 
 .filebtn input {
@@ -2517,22 +2546,24 @@ button.settingsSelectBtn {
   text-align: left;
 }
 
-button.settingsSelectBtn:hover {
-  background: var(--surface-3-hover);
-  /* SAME arrow system as mapSelect */
-  background-image:
-    linear-gradient(45deg, transparent 50%, var(--muted) 50%),
-    linear-gradient(135deg, var(--muted) 50%, transparent 50%),
-    linear-gradient(to right, transparent, transparent);
-  background-position:
-    calc(100% - 18px) 55%,
-    calc(100% - 12px) 55%,
-    0 0;
-  background-size:
-    6px 6px,
-    6px 6px,
-    100% 100%;
-  background-repeat: no-repeat;
+@media (hover: hover) and (pointer: fine) {
+  button.settingsSelectBtn:hover {
+    background: var(--surface-3-hover);
+    /* SAME arrow system as mapSelect */
+    background-image:
+      linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+      linear-gradient(135deg, var(--muted) 50%, transparent 50%),
+      linear-gradient(to right, transparent, transparent);
+    background-position:
+      calc(100% - 18px) 55%,
+      calc(100% - 12px) 55%,
+      0 0;
+    background-size:
+      6px 6px,
+      6px 6px,
+      100% 100%;
+    background-repeat: no-repeat;
+  }
 }
 
 button.settingsSelectBtn:focus-visible,
@@ -2585,8 +2616,10 @@ a.settingsItem {
   flex: 0 0 auto;
 }
 
-.settingsItem:hover {
-  background: var(--surface-3-hover);
+@media (hover: hover) and (pointer: fine) {
+  .settingsItem:hover {
+    background: var(--surface-3-hover);
+  }
 }
 
 .settingsItem.danger {
@@ -2840,8 +2873,10 @@ a.settingsItem {
   font-size: var(--panel-control-font);
 }
 
-.panelDelete:hover {
-  background: var(--danger-hover);
+@media (hover: hover) and (pointer: fine) {
+  .panelDelete:hover {
+    background: var(--danger-hover);
+  }
 }
 
 /* Search inputs used in panel headers */
@@ -2896,24 +2931,26 @@ button.panelSelectBtn {
   text-align: left;
 }
 
-.panelSelect:hover,
-.locFilter:hover,
-button.panelSelectBtn:hover {
-  background: var(--surface-3-hover);
-  /* SAME arrow system as mapSelect */
-  background-image:
-    linear-gradient(45deg, transparent 50%, var(--muted) 50%),
-    linear-gradient(135deg, var(--muted) 50%, transparent 50%),
-    linear-gradient(to right, transparent, transparent);
-  background-position:
-    calc(100% - 18px) 55%,
-    calc(100% - 12px) 55%,
-    0 0;
-  background-size:
-    6px 6px,
-    6px 6px,
-    100% 100%;
-  background-repeat: no-repeat;
+@media (hover: hover) and (pointer: fine) {
+  .panelSelect:hover,
+  .locFilter:hover,
+  button.panelSelectBtn:hover {
+    background: var(--surface-3-hover);
+    /* SAME arrow system as mapSelect */
+    background-image:
+      linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+      linear-gradient(135deg, var(--muted) 50%, transparent 50%),
+      linear-gradient(to right, transparent, transparent);
+    background-position:
+      calc(100% - 18px) 55%,
+      calc(100% - 12px) 55%,
+      0 0;
+    background-size:
+      6px 6px,
+      6px 6px,
+      100% 100%;
+    background-repeat: no-repeat;
+  }
 }
 
 /* Panel move buttons (top-right arrows) */
@@ -2933,10 +2970,12 @@ button.panelSelectBtn:hover {
   font-size: var(--panel-control-font);
 }
 
-.moveBtn:hover,
-.panelMoveBtn:hover {
-  color: var(--text);
-  background: var(--surface-3-hover);
+@media (hover: hover) and (pointer: fine) {
+  .moveBtn:hover,
+  .panelMoveBtn:hover {
+    color: var(--text);
+    background: var(--surface-3-hover);
+  }
 }
 
 /* Any “header row” that is the first child of a panel gets the same gap */
@@ -3129,9 +3168,11 @@ button.panelSelectBtn:hover {
   flex-shrink: 0;
 }
 
-.combatStabilizeBtn:hover {
-  border-color: var(--success);
-  color: var(--success);
+@media (hover: hover) and (pointer: fine) {
+  .combatStabilizeBtn:hover {
+    border-color: var(--success);
+    color: var(--success);
+  }
 }
 
 .combatRoleSelect {
@@ -3182,9 +3223,11 @@ button.panelSelectBtn:hover {
   transition: border-color 0.12s, background 0.12s;
 }
 
-.combatHpBtn:hover {
-  border-color: var(--accent);
-  background: var(--surface-3);
+@media (hover: hover) and (pointer: fine) {
+  .combatHpBtn:hover {
+    border-color: var(--accent);
+    background: var(--surface-3);
+  }
 }
 
 .combatHpLabel {
@@ -3265,8 +3308,10 @@ button.panelSelectBtn:hover {
   flex-shrink: 0;
 }
 
-.combatStatusGearBtn:hover {
-  opacity: 1;
+@media (hover: hover) and (pointer: fine) {
+  .combatStatusGearBtn:hover {
+    opacity: 1;
+  }
 }
 
 .combatStatusNameBox {
@@ -3524,8 +3569,10 @@ button.panelSelectBtn:hover {
   cursor: pointer;
 }
 
-.combatTurnSecondsButton:hover {
-  background: var(--surface-2);
+@media (hover: hover) and (pointer: fine) {
+  .combatTurnSecondsButton:hover {
+    background: var(--surface-2);
+  }
 }
 
 .combatTurnSecondsButton:focus-visible {
@@ -3805,23 +3852,25 @@ button.cardSelectBtn {
   background-repeat: no-repeat;
 }
 
-.cardSelect:hover,
-button.cardSelectBtn:hover {
-  background: var(--surface-3-hover);
-  /* SAME arrow system as mapSelect */
-  background-image:
-    linear-gradient(45deg, transparent 50%, var(--muted) 50%),
-    linear-gradient(135deg, var(--muted) 50%, transparent 50%),
-    linear-gradient(to right, transparent, transparent);
-  background-position:
-    calc(100% - 18px) 55%,
-    calc(100% - 12px) 55%,
-    0 0;
-  background-size:
-    6px 6px,
-    6px 6px,
-    100% 100%;
-  background-repeat: no-repeat;
+@media (hover: hover) and (pointer: fine) {
+  .cardSelect:hover,
+  button.cardSelectBtn:hover {
+    background: var(--surface-3-hover);
+    /* SAME arrow system as mapSelect */
+    background-image:
+      linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+      linear-gradient(135deg, var(--muted) 50%, transparent 50%),
+      linear-gradient(to right, transparent, transparent);
+    background-position:
+      calc(100% - 18px) 55%,
+      calc(100% - 12px) 55%,
+      0 0;
+    background-size:
+      6px 6px,
+      6px 6px,
+      100% 100%;
+    background-repeat: no-repeat;
+  }
 }
 
 .cardSelect:focus,
@@ -4094,8 +4143,10 @@ div.mutedSmall {
   cursor: pointer;
 }
 
-.modalBtn:hover {
-  background: var(--surface-3-hover);
+@media (hover: hover) and (pointer: fine) {
+  .modalBtn:hover {
+    background: var(--surface-3-hover);
+  }
 }
 
 .modalBtnPrimary {
@@ -4553,9 +4604,11 @@ select.npcField:focus {
   /* above the image, below card frame pseudo-elements */
 }
 
-.npcPortraitBtn:hover {
-  color: var(--text);
-  background: color-mix(in srgb, var(--surface-3-hover) 35%, transparent);
+@media (hover: hover) and (pointer: fine) {
+  .npcPortraitBtn:hover {
+    color: var(--text);
+    background: color-mix(in srgb, var(--surface-3-hover) 35%, transparent);
+  }
 }
 
 .npcPortraitBtn:focus {
@@ -4577,10 +4630,15 @@ select.npcField:focus {
   background: color-mix(in srgb, var(--surface-3) 88%, transparent);
 }
 
-.npcPortraitTop:hover .cardPortraitToggleBtnOverlay,
 .npcPortraitTop:focus-within .cardPortraitToggleBtnOverlay,
 .cardPortraitToggleBtnOverlay:focus-visible {
   opacity: 1;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .npcPortraitTop:hover .cardPortraitToggleBtnOverlay {
+    opacity: 1;
+  }
 }
 
 .cardPortraitToggleBtnHeader {
@@ -4672,9 +4730,11 @@ select.npcField:focus {
   line-height: 1;
 }
 
-.npcCollapseToggle:hover {
-  color: var(--text);
-  background: var(--surface-3-hover);
+@media (hover: hover) and (pointer: fine) {
+  .npcCollapseToggle:hover {
+    color: var(--text);
+    background: var(--surface-3-hover);
+  }
 }
 
 .npcCollapsible {
@@ -5485,8 +5545,10 @@ select.npcField:focus {
   cursor: pointer;
 }
 
-.skillMenuRow:hover {
-  background: var(--surface-3-hover);
+@media (hover: hover) and (pointer: fine) {
+  .skillMenuRow:hover {
+    background: var(--surface-3-hover);
+  }
 }
 
 .skillMenuRow input[type="checkbox"] {
@@ -5895,9 +5957,11 @@ input[type="range"] {
   text-align: left;
 }
 
-.swatchOption:hover {
-  background: var(--surface-3-hover);
-  border-color: var(--hairline);
+@media (hover: hover) and (pointer: fine) {
+  .swatchOption:hover {
+    background: var(--surface-3-hover);
+    border-color: var(--hairline);
+  }
 }
 
 .swatchOption.active {
@@ -5951,8 +6015,10 @@ input[type="range"] {
   cursor: not-allowed;
 }
 
-.dropdown.disabled .dropdownBtn:hover {
-  background: var(--surface-3);
+@media (hover: hover) and (pointer: fine) {
+  .dropdown.disabled .dropdownBtn:hover {
+    background: var(--surface-3);
+  }
 }
 
 /* --- Color grid dropdown --- */
@@ -5987,9 +6053,11 @@ input[type="range"] {
     box-shadow 0.12s ease;
 }
 
-.colorSwatch:hover {
-  transform: scale(1.08);
-  border-color: var(--color-swatch-hover);
+@media (hover: hover) and (pointer: fine) {
+  .colorSwatch:hover {
+    transform: scale(1.08);
+    border-color: var(--color-swatch-hover);
+  }
 }
 
 .colorSwatch.active {
@@ -6105,23 +6173,25 @@ button.mapSelectBtn {
   background-repeat: no-repeat;
 }
 
-select.mapSelect:hover,
-button.mapSelectBtn:hover {
-  background: var(--surface-3-hover);
-  /* SAME arrow system as mapSelect */
-  background-image:
-    linear-gradient(45deg, transparent 50%, var(--muted) 50%),
-    linear-gradient(135deg, var(--muted) 50%, transparent 50%),
-    linear-gradient(to right, transparent, transparent);
-  background-position:
-    calc(100% - 18px) 55%,
-    calc(100% - 12px) 55%,
-    0 0;
-  background-size:
-    6px 6px,
-    6px 6px,
-    100% 100%;
-  background-repeat: no-repeat;
+@media (hover: hover) and (pointer: fine) {
+  select.mapSelect:hover,
+  button.mapSelectBtn:hover {
+    background: var(--surface-3-hover);
+    /* SAME arrow system as mapSelect */
+    background-image:
+      linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+      linear-gradient(135deg, var(--muted) 50%, transparent 50%),
+      linear-gradient(to right, transparent, transparent);
+    background-position:
+      calc(100% - 18px) 55%,
+      calc(100% - 12px) 55%,
+      0 0;
+    background-size:
+      6px 6px,
+      6px 6px,
+      100% 100%;
+    background-repeat: no-repeat;
+  }
 }
 
 select.mapSelect:focus,
@@ -6165,22 +6235,24 @@ button.mapToolDropDown {
   background-repeat: no-repeat;
 }
 
-button.mapToolDropDown:hover {
-  background: var(--surface-3-hover);
-  /* SAME arrow system as mapSelect */
-  background-image:
-    linear-gradient(45deg, transparent 50%, var(--muted) 50%),
-    linear-gradient(135deg, var(--muted) 50%, transparent 50%),
-    linear-gradient(to right, transparent, transparent);
-  background-position:
-    calc(100% - 18px) 55%,
-    calc(100% - 12px) 55%,
-    0 0;
-  background-size:
-    6px 6px,
-    6px 6px,
-    100% 100%;
-  background-repeat: no-repeat;
+@media (hover: hover) and (pointer: fine) {
+  button.mapToolDropDown:hover {
+    background: var(--surface-3-hover);
+    /* SAME arrow system as mapSelect */
+    background-image:
+      linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+      linear-gradient(135deg, var(--muted) 50%, transparent 50%),
+      linear-gradient(to right, transparent, transparent);
+    background-position:
+      calc(100% - 18px) 55%,
+      calc(100% - 12px) 55%,
+      0 0;
+    background-size:
+      6px 6px,
+      6px 6px,
+      100% 100%;
+    background-repeat: no-repeat;
+  }
 }
 
 /* Map color dropdown — EXACT match to map select / tool dropdown */
@@ -6222,22 +6294,24 @@ button#colorBtn .caret {
   display: none;
 }
 
-button#colorBtn:hover {
-  background: var(--surface-3-hover);
-  /* SAME arrow system as mapSelect */
-  background-image:
-    linear-gradient(45deg, transparent 50%, var(--muted) 50%),
-    linear-gradient(135deg, var(--muted) 50%, transparent 50%),
-    linear-gradient(to right, transparent, transparent);
-  background-position:
-    calc(100% - 18px) 55%,
-    calc(100% - 12px) 55%,
-    0 0;
-  background-size:
-    6px 6px,
-    6px 6px,
-    100% 100%;
-  background-repeat: no-repeat;
+@media (hover: hover) and (pointer: fine) {
+  button#colorBtn:hover {
+    background: var(--surface-3-hover);
+    /* SAME arrow system as mapSelect */
+    background-image:
+      linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+      linear-gradient(135deg, var(--muted) 50%, transparent 50%),
+      linear-gradient(to right, transparent, transparent);
+    background-position:
+      calc(100% - 18px) 55%,
+      calc(100% - 12px) 55%,
+      0 0;
+    background-size:
+      6px 6px,
+      6px 6px,
+      100% 100%;
+    background-repeat: no-repeat;
+  }
 }
 
 button#colorBtn:focus-visible,
@@ -6432,8 +6506,10 @@ button#colorBtn[aria-expanded="true"] {
   opacity: 0.95;
 }
 
-.calcHistItem:hover {
-  background: var(--surface-3-hover);
+@media (hover: hover) and (pointer: fine) {
+  .calcHistItem:hover {
+    background: var(--surface-3-hover);
+  }
 }
 
 
@@ -7031,10 +7107,12 @@ body.modal-open { overflow: hidden; overscroll-behavior: none; }
   border-radius: var(--collapse-radius);
 }
 
-.cardCollapseBtn:hover,
-.npcCollapseToggle:hover {
-  color: var(--collapse-btn-fg-hover);
-  background: var(--collapse-btn-bg-hover);
+@media (hover: hover) and (pointer: fine) {
+  .cardCollapseBtn:hover,
+  .npcCollapseToggle:hover {
+    color: var(--collapse-btn-fg-hover);
+    background: var(--collapse-btn-bg-hover);
+  }
 }
 
 .cardCollapseBtn:active,
@@ -7054,12 +7132,14 @@ body.modal-open { overflow: hidden; overscroll-behavior: none; }
   border-radius: var(--collapse-radius);
 }
 
-.spellCollapseBtn:hover,
-.spellSpellCollapseBtn:hover,
-.panelCollapseBtn:hover,
-.collapseMini:hover {
-  color: var(--collapse-btn-fg-hover);
-  background: var(--collapse-btn-bg-hover);
+@media (hover: hover) and (pointer: fine) {
+  .spellCollapseBtn:hover,
+  .spellSpellCollapseBtn:hover,
+  .panelCollapseBtn:hover,
+  .collapseMini:hover {
+    color: var(--collapse-btn-fg-hover);
+    background: var(--collapse-btn-bg-hover);
+  }
 }
 
 .spellCollapseBtn:active,
@@ -7243,8 +7323,10 @@ section.combatPanel[data-collapsed="true"]> :not([data-panel-header]) {
   cursor: pointer;
 }
 
-.updateBanner__btn:hover {
-  background: var(--surface-3-hover);
+@media (hover: hover) and (pointer: fine) {
+  .updateBanner__btn:hover {
+    background: var(--surface-3-hover);
+  }
 }
 
 .updateBanner__btn:focus-visible {
@@ -7297,8 +7379,10 @@ section.combatPanel[data-collapsed="true"]> :not([data-panel-header]) {
   white-space: nowrap;
 }
 
-.saveBanner__btn:hover {
-  background: rgba(255, 255, 255, 0.15);
+@media (hover: hover) and (pointer: fine) {
+  .saveBanner__btn:hover {
+    background: rgba(255, 255, 255, 0.15);
+  }
 }
 
 .saveBanner__btn--primary {
@@ -7306,8 +7390,10 @@ section.combatPanel[data-collapsed="true"]> :not([data-panel-header]) {
   font-weight: 600;
 }
 
-.saveBanner__btn--primary:hover {
-  background: rgba(255, 255, 255, 0.35);
+@media (hover: hover) and (pointer: fine) {
+  .saveBanner__btn--primary:hover {
+    background: rgba(255, 255, 255, 0.35);
+  }
 }
 
 /* =================================================================

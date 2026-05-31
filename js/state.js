@@ -1049,7 +1049,7 @@ export function migrateState(raw) {
     ensureObj(c, "skills");
     ensureObj(c, "ui");
     ensureObj(c.ui, "textareaHeights");
-    c.inventoryItems = /** @type {NotesEntry[]} */ (
+    c.inventoryItems = normalizeInventoryItems(
       backfillInventoryItemsFromLegacyEquipment(c.inventoryItems, c.equipment)
     );
 
@@ -1157,7 +1157,7 @@ export function migrateState(raw) {
       data.character = /** @type {Partial<CharacterState> & Record<string, unknown>} */ ({});
     }
     const c = /** @type {Partial<CharacterState> & Record<string, unknown>} */ (data.character);
-    c.inventoryItems = /** @type {NotesEntry[]} */ (
+    c.inventoryItems = normalizeInventoryItems(
       backfillInventoryItemsFromLegacyEquipment(c.inventoryItems, c.equipment)
     );
   }
@@ -1335,13 +1335,13 @@ export function migrateState(raw) {
 
   function migrateToV6() {
     const tracker = ensureObj(data, "tracker");
-    tracker.sessions = normalizeTrackerSessions(tracker.sessions);
+    const sessions = normalizeTrackerSessions(tracker.sessions);
+    tracker.sessions = sessions;
 
-    if (typeof tracker.activeSessionIndex !== "number") tracker.activeSessionIndex = 0;
-    if (tracker.activeSessionIndex < 0) tracker.activeSessionIndex = 0;
-    if (tracker.activeSessionIndex >= tracker.sessions.length) {
-      tracker.activeSessionIndex = tracker.sessions.length - 1;
-    }
+    let activeSessionIndex = typeof tracker.activeSessionIndex === "number" ? tracker.activeSessionIndex : 0;
+    if (activeSessionIndex < 0) activeSessionIndex = 0;
+    if (activeSessionIndex >= sessions.length) activeSessionIndex = sessions.length - 1;
+    tracker.activeSessionIndex = activeSessionIndex;
   }
 
   function migrateToV7() {
