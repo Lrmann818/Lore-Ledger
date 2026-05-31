@@ -968,6 +968,8 @@ export function initAbilitiesPanel(deps = {}) {
 
       const header = blockEl.querySelector(".abilityHeader");
       if (!(header instanceof HTMLElement)) return;
+      const headerTop = header.querySelector(".abilityHeaderTop");
+      const targetHeader = headerTop instanceof HTMLElement ? headerTop : header;
 
       /** @type {HTMLElement | null} */
       let wrap = header.querySelector(`[data-ability-moves="${key}"]`);
@@ -975,7 +977,9 @@ export function initAbilitiesPanel(deps = {}) {
         wrap = document.createElement("div");
         wrap.className = "abilityMoves";
         wrap.dataset.abilityMoves = key;
-        header.appendChild(wrap);
+        targetHeader.appendChild(wrap);
+      } else if (wrap.parentElement !== targetHeader) {
+        targetHeader.appendChild(wrap);
       }
 
       wrap.replaceChildren();

@@ -686,6 +686,7 @@ Map boundary rule:
   - shared status line and global error surface
 - `searchHighlightOverlay.js`
   - in-field search highlight overlay
+  - shared search-highlight visuals route through the theme tokens `--search-highlight-bg`, `--search-highlight-text`, `--search-highlight-active-bg`, and `--search-highlight-active-text` in `styles.css`
 - `masonryLayout.js`, `flipSwap.js`
   - generic layout/animation helpers
 - `safeAsync.js`

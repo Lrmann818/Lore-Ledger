@@ -27,6 +27,8 @@ let _activeDrag = null;
 
 const DRAG_START_THRESHOLD_PX = 14;
 const SCROLL_CANCEL_THRESHOLD_PX = 6;
+const TOUCH_DRAG_HOLD_MS = 180;
+const TOUCH_DRAG_ARM_SLOP_PX = 8;
 
 function _newSessionId() {
   return `session_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
@@ -112,7 +114,10 @@ function _finishSessionDrag({ commit }) {
   _clearActiveDragStyles(dragState);
   _activeDrag = null;
 
-  if (!dragState.started) return;
+  if (!dragState.started) {
+    if (dragState.touchScrolling) _suppressNextSessionTabClick = true;
+    return;
+  }
 
   _suppressNextSessionTabClick = true;
   if (!commit || !dragState.stableOrder) {
@@ -154,6 +159,12 @@ function _computeFinalOrder(stableOrder, sessionId, provisionalIndex) {
   return without;
 }
 
+function _applyTouchTabScroll(dragState, deltaX) {
+  const wrapEl = _tabsEl?.parentElement;
+  if (!wrapEl) return;
+  wrapEl.scrollLeft = Math.max(0, dragState.startScrollLeft - deltaX);
+}
+
 function _beginSessionTabDrag(event, buttonEl, sessionId) {
   if (!buttonEl || !sessionId || !_tabsEl) return;
   if ((_state?.tracker?.sessions?.length || 0) <= 1) return;
@@ -164,12 +175,15 @@ function _beginSessionTabDrag(event, buttonEl, sessionId) {
   const wrapEl = _tabsEl.parentElement;
   const dragState = {
     pointerId: event.pointerId,
+    pointerType: event.pointerType || "",
     buttonEl,
     sessionId,
     activeSessionId: _state?.tracker?.sessions?.[_state?.tracker?.activeSessionIndex]?.id || sessionId,
     startX: event.clientX,
     startY: event.clientY,
+    startTimeStamp: event.timeStamp,
     startScrollLeft: wrapEl?.scrollLeft || 0,
+    touchScrolling: false,
     started: false,
     cleanup: null,
     // Captured once at drag start; never updated during the drag.
@@ -186,13 +200,26 @@ function _beginSessionTabDrag(event, buttonEl, sessionId) {
     const absX = Math.abs(deltaX);
     const absY = Math.abs(deltaY);
     const scrolledBy = Math.abs((wrapEl?.scrollLeft || 0) - dragState.startScrollLeft);
+    const isTouchPointer = dragState.pointerType === "touch";
+    const pointerAgeMs = moveEvent.timeStamp - dragState.startTimeStamp;
 
     if (!dragState.started) {
-      if (scrolledBy > SCROLL_CANCEL_THRESHOLD_PX) {
+      if (absY > DRAG_START_THRESHOLD_PX && absY > absX) {
         _finishSessionDrag({ commit: false });
         return;
       }
-      if (absY > DRAG_START_THRESHOLD_PX && absY > absX) {
+      if (isTouchPointer && pointerAgeMs < TOUCH_DRAG_HOLD_MS) {
+        if (absX > TOUCH_DRAG_ARM_SLOP_PX && absX > absY) {
+          dragState.touchScrolling = true;
+        }
+        if (dragState.touchScrolling) _applyTouchTabScroll(dragState, deltaX);
+        return;
+      }
+      if (dragState.touchScrolling) {
+        _applyTouchTabScroll(dragState, deltaX);
+        return;
+      }
+      if (scrolledBy > SCROLL_CANCEL_THRESHOLD_PX) {
         _finishSessionDrag({ commit: false });
         return;
       }

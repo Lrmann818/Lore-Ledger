@@ -15,6 +15,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Kept the earliest native, bridge, and source-HTML backgrounds aligned to the managed splash background to reduce black seams during iPhone native-to-web handoff.
 - Hardened backup export for iOS/native contexts by preferring the system share sheet when direct blob downloads are unreliable.
 - Unified the desktop/native topbar control height so Tracker, Character, Map, combat, calculator, dice, and settings buttons share the same visual height through a topbar-scoped CSS token.
+- Lowered the Ability card `Mod` / `Save` row so the save proficiency bubble no longer crowds the move controls at the narrow two-column Character layout.
+- Promoted the Map workspace title to a proper panel heading so it matches the rest of the app without tightening the toolbar controls.
+- Aligned compact collapse/expand controls with the app’s shared button surface tokens and made touch pill-row reordering require a short intentional hold so iPhone horizontal scrolling still works when a swipe starts directly on a pill.
 
 ## [v0.5.0] - 2026-04-16
 

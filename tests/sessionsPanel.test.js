@@ -61,14 +61,21 @@ function layoutSessionTabs() {
 
 function dispatchPointer(target, type, props = {}) {
   const event = new Event(type, { bubbles: true, cancelable: true });
-  Object.assign(event, {
+  const payload = {
     pointerId: 1,
     pointerType: "mouse",
     button: 0,
     clientX: 0,
     clientY: 0,
+    timeStamp: 0,
     ...props
-  });
+  };
+  for (const [key, value] of Object.entries(payload)) {
+    Object.defineProperty(event, key, {
+      configurable: true,
+      value
+    });
+  }
   target.dispatchEvent(event);
   return event;
 }
@@ -215,6 +222,114 @@ describe("initSessionsPanel", () => {
     const click = new Event("click", { bubbles: true, cancelable: true });
     expect(secondTab.dispatchEvent(click)).toBe(true);
     expect(state.tracker.activeSessionIndex).toBe(1);
+  });
+
+  it("treats a quick touch swipe as scroll intent instead of starting a reorder", async () => {
+    const { initSessionsPanel } = await loadSessionsPanel();
+    const state = makeState();
+    const markDirty = vi.fn();
+
+    initSessionsPanel({
+      state,
+      tabsEl: document.getElementById("sessionTabs"),
+      notesBox: document.getElementById("sessionNotesBox"),
+      searchEl: document.getElementById("sessionSearch"),
+      addBtn: document.getElementById("addSessionBtn"),
+      renameBtn: document.getElementById("renameSessionBtn"),
+      deleteBtn: document.getElementById("deleteSessionBtn"),
+      SaveManager: { markDirty },
+      uiPrompt: vi.fn(),
+      uiAlert: vi.fn(),
+      uiConfirm: vi.fn(),
+      setStatus: vi.fn()
+    });
+
+    layoutSessionTabs();
+
+    const firstTab = document.querySelectorAll("#sessionTabs .sessionTab")[0];
+    dispatchPointer(firstTab, "pointerdown", {
+      pointerType: "touch",
+      clientX: 50,
+      clientY: 16,
+      timeStamp: 0
+    });
+    dispatchPointer(document, "pointermove", {
+      pointerType: "touch",
+      clientX: 18,
+      clientY: 18,
+      timeStamp: 60
+    });
+    dispatchPointer(document, "pointerup", {
+      pointerType: "touch",
+      clientX: 18,
+      clientY: 18,
+      timeStamp: 80
+    });
+
+    expect(state.tracker.sessions.map((s) => s.id)).toEqual([
+      "session_a", "session_b", "session_c"
+    ]);
+    expect(markDirty).not.toHaveBeenCalled();
+    expect(document.querySelector(".sessionTabsWrap").scrollLeft).toBeGreaterThan(0);
+
+    const releaseClick = new Event("click", { bubbles: true, cancelable: true });
+    expect(firstTab.dispatchEvent(releaseClick)).toBe(false);
+
+    const secondTab = document.querySelectorAll("#sessionTabs .sessionTab")[1];
+    const click = new Event("click", { bubbles: true, cancelable: true });
+    expect(secondTab.dispatchEvent(click)).toBe(true);
+    expect(state.tracker.activeSessionIndex).toBe(1);
+  });
+
+  it("still allows intentional touch reorder after a short hold", async () => {
+    const { initSessionsPanel } = await loadSessionsPanel();
+    const state = makeState();
+    const markDirty = vi.fn();
+
+    initSessionsPanel({
+      state,
+      tabsEl: document.getElementById("sessionTabs"),
+      notesBox: document.getElementById("sessionNotesBox"),
+      searchEl: document.getElementById("sessionSearch"),
+      addBtn: document.getElementById("addSessionBtn"),
+      renameBtn: document.getElementById("renameSessionBtn"),
+      deleteBtn: document.getElementById("deleteSessionBtn"),
+      SaveManager: { markDirty },
+      uiPrompt: vi.fn(),
+      uiAlert: vi.fn(),
+      uiConfirm: vi.fn(),
+      setStatus: vi.fn()
+    });
+
+    layoutSessionTabs();
+
+    const firstTab = document.querySelectorAll("#sessionTabs .sessionTab")[0];
+    dispatchPointer(firstTab, "pointerdown", {
+      pointerType: "touch",
+      clientX: 50,
+      clientY: 16,
+      timeStamp: 0
+    });
+    dispatchPointer(document, "pointermove", {
+      pointerType: "touch",
+      clientX: 190,
+      clientY: 16,
+      timeStamp: 220
+    });
+    dispatchPointer(document, "pointerup", {
+      pointerType: "touch",
+      clientX: 190,
+      clientY: 16,
+      timeStamp: 240
+    });
+
+    expect(state.tracker.sessions.map((s) => s.id)).toEqual([
+      "session_b",
+      "session_a",
+      "session_c"
+    ]);
+    expect(state.tracker.activeSessionIndex).toBe(1);
+    expect(markDirty).toHaveBeenCalledTimes(1);
   });
 
   it("drag reorder followed by rename preserves the reordered position via stable id", async () => {

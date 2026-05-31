@@ -119,10 +119,18 @@
   --sb-track: color-mix(in srgb, var(--panel) 70%, transparent);
   --sb-thumb: color-mix(in srgb, var(--border) 70%, transparent);
   --sb-thumb-hover: color-mix(in srgb, var(--border) 92%, transparent);
-  --search-mark-color: #ffffff33;
-  --search-mark-bg: color-mix(in srgb, var(--search-mark-color) 90%, transparent);
+  --search-highlight-bg: color-mix(in srgb, #ffffff33 90%, transparent);
+  --search-highlight-text: var(--text);
+  --search-highlight-active-bg: color-mix(in srgb, #ffffff59 92%, transparent);
+  --search-highlight-active-text: var(--text);
   --search-mark-radius: 3px;
   --search-mark-pad-x: 1px;
+  --field-surface-bg: linear-gradient(to bottom,
+      color-mix(in srgb, var(--surface-2) 100%, transparent),
+      color-mix(in srgb, var(--surface-2) 90%, var(--panel)));
+  --field-disabled-surface-bg: linear-gradient(to bottom,
+      color-mix(in srgb, var(--surface-2) 80%, var(--panel)),
+      color-mix(in srgb, var(--surface-2) 66%, var(--panel)));
 
   /* Size variants (override default width) */
   .num-xs {
@@ -406,6 +414,18 @@ body[data-app-boot="loading"] {
   --warn-border: #a84300;
   --warn-hover: #ff7b001f;
   --spell-toggle-warn-on-border: #a84300;
+}
+
+/* Search highlights need a stronger palette on light field surfaces. */
+:root[data-theme="light"],
+:root[data-theme="beige"],
+:root[data-theme="rose"],
+:root[data-theme="teal"],
+:root[data-theme="blue"] {
+  --search-highlight-bg: color-mix(in srgb, var(--warn) 34%, #ffef9a 66%);
+  --search-highlight-text: color-mix(in srgb, var(--text) 94%, #000000 6%);
+  --search-highlight-active-bg: color-mix(in srgb, var(--warn) 50%, #ffe27a 50%);
+  --search-highlight-active-text: color-mix(in srgb, var(--text) 96%, #000000 4%);
 }
 
 /*======================
@@ -946,16 +966,23 @@ body::before {
   inset: 0;
   overflow: hidden;
   pointer-events: none;
+  background: var(--field-surface-bg);
   color: transparent;
   /* hide overlay text, show only <mark> backgrounds */
   border-radius: inherit;
 }
 
 .searchMark {
-  background: var(--search-mark-bg);
-  color: inherit;
+  background: var(--search-highlight-bg);
+  color: var(--search-highlight-text);
   border-radius: var(--search-mark-radius);
   padding: 0 var(--search-mark-pad-x);
+}
+
+.searchMark.isCurrentSearchMatch,
+.searchMark[data-search-active="true"] {
+  background: var(--search-highlight-active-bg);
+  color: var(--search-highlight-active-text);
 }
 
 .hlOverlay .searchMark {
@@ -2171,11 +2198,17 @@ textarea {
   min-height: 140px;
   border-radius: var(--control-radius);
   border: 1px solid var(--border);
-  background: var(--surface-2);
+  background: var(--field-surface-bg);
   color: var(--text);
   padding: var(--control-pad-y) var(--control-pad-x);
   resize: vertical;
   max-width: 100%;
+  box-sizing: border-box;
+  appearance: none;
+  -webkit-appearance: none;
+  box-shadow: 0 0 0 1px var(--shadow-inset) inset;
+  caret-color: var(--text);
+  transition: background 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
 }
 
 input {
@@ -2192,6 +2225,32 @@ input {
 input,
 textarea {
   font: inherit;
+}
+
+textarea::placeholder {
+  color: var(--muted);
+  opacity: 1;
+}
+
+textarea:focus,
+textarea:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--ring) inset;
+}
+
+textarea:disabled,
+textarea[readonly] {
+  background: var(--field-disabled-surface-bg);
+}
+
+textarea:disabled {
+  color: var(--muted);
+  cursor: not-allowed;
+}
+
+textarea[readonly] {
+  color: color-mix(in srgb, var(--text) 82%, var(--muted));
+  cursor: default;
 }
 
 .row {
@@ -2216,6 +2275,18 @@ textarea {
 
 .m0 {
   margin: 0;
+}
+
+.visuallyHidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0 0 0 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
 }
 
 button,
@@ -2266,6 +2337,7 @@ button.warn:hover {
   gap: var(--compact-gap);
   flex-wrap: wrap;
   margin-bottom: var(--compact-gap);
+  min-width: 0;
 }
 
 .maptools {
@@ -2274,12 +2346,14 @@ button.warn:hover {
   flex-wrap: wrap;
   align-items: center;
   padding: 0;
+  min-width: 0;
 }
 
 .mapSelectLabel {
   display: flex;
   gap: var(--compact-gap);
   align-items: center;
+  min-width: 0;
 }
 
 .mapSelect {
@@ -3780,11 +3854,11 @@ div.mutedSmall {
 }
 
 .abilityMoves {
-  position: absolute;
-  top: 10px;
-  right: 10px;
   display: flex;
   gap: var(--compact-gap);
+  flex: 0 0 auto;
+  margin-left: auto;
+  align-self: flex-start;
 }
 
 /* Abilities header: title + ⋯ grouped on the left, section move buttons stay right.
@@ -4070,6 +4144,7 @@ div.mutedSmall {
   border-radius: 999px;
   cursor: pointer;
   white-space: nowrap;
+  touch-action: pan-y;
 }
 
 .sessionTab.isDragging {
@@ -4119,6 +4194,7 @@ body.isDraggingSessionTabs {
   padding: var(--chip-pad-y) var(--chip-pad-x);
   border-radius: 999px;
   cursor: pointer;
+  touch-action: pan-y;
 }
 
 .npcTab.active {
@@ -4710,11 +4786,11 @@ select.npcField:focus {
 
 .npcTextarea {
   width: 100%;
-  border-radius: 10px;
+  border-radius: var(--control-radius);
   border: 1px solid var(--border);
-  background: var(--surface-2);
+  background: var(--field-surface-bg);
   color: var(--text);
-  padding: 6px 8px;
+  padding: var(--control-pad-y) var(--control-pad-x);
   resize: vertical;
 }
 
@@ -5203,17 +5279,25 @@ select.npcField:focus {
 }
 
 .abilityHeader {
+  display: flex;
+  flex-direction: column;
   padding: 6px 8px;
   border-bottom: 1px solid var(--border);
   background: var(--spell-level-header);
   cursor: pointer;
-  position: relative;
-  /* anchors .abilityMoves */
+}
+
+.abilityHeaderTop {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--compact-gap);
+  min-width: 0;
 }
 
 .abilityTitle {
+  flex: 1 1 auto;
   font-weight: 700;
-  margin-bottom: 6px;
+  min-width: 0;
 }
 
 .abilityStats {
@@ -5221,14 +5305,9 @@ select.npcField:focus {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  /* min gap between score / mod / save; space-between distributes extra space */
-  margin-top: 4px;
-  /* nudges Mod/Save row lower, better centered between title and card divider */
-  max-width: 200px;
-  /* prevents Score / Mod / Save from spreading too far on wide desktop blocks;
-     on mobile (block content ~161px) this cap is never reached so no regression */
+  width: min(100%, 208px);
+  margin-top: 8px;
   margin-inline: auto;
-  /* centers the constrained stat group within the block on desktop */
 }
 
 /* make the score box a predictable width */
@@ -6733,8 +6812,8 @@ button#colorBtn[aria-expanded="true"] {
 
 .collapseMini {
   border: 1px solid var(--border);
-  background: var(--panel);
-  color: var(--text);
+  background: var(--surface-3);
+  color: var(--muted);
   border-radius: calc(10px * var(--ui-scale));
   padding: calc(4px * var(--ui-scale));
   line-height: 1;
@@ -6900,6 +6979,10 @@ body.modal-open { overflow: hidden; overscroll-behavior: none; }
   --collapse-panel-size: calc(26px * var(--ui-scale));
   --collapse-radius: calc(10px * var(--ui-scale));
   --collapse-font-size: var(--small-font-size);
+  --collapse-btn-bg: var(--surface-3);
+  --collapse-btn-bg-hover: var(--surface-3-hover);
+  --collapse-btn-fg: var(--muted);
+  --collapse-btn-fg-hover: var(--text);
 }
 
 /* shared base */
@@ -6910,7 +6993,8 @@ body.modal-open { overflow: hidden; overscroll-behavior: none; }
 .panelCollapseBtn,
 .collapseMini {
   border: 1px solid var(--border);
-  color: var(--muted);
+  background: var(--collapse-btn-bg);
+  color: var(--collapse-btn-fg);
   cursor: pointer;
   padding: 0;
   line-height: 1;
@@ -6926,13 +7010,12 @@ body.modal-open { overflow: hidden; overscroll-behavior: none; }
   display: grid;
   place-items: center;
   border-radius: var(--collapse-radius);
-  background: var(--surface-3);
 }
 
 .cardCollapseBtn:hover,
 .npcCollapseToggle:hover {
-  color: var(--text);
-  background: var(--surface-3-hover);
+  color: var(--collapse-btn-fg-hover);
+  background: var(--collapse-btn-bg-hover);
 }
 
 .cardCollapseBtn:active,
@@ -6950,15 +7033,14 @@ body.modal-open { overflow: hidden; overscroll-behavior: none; }
   display: grid;
   place-items: center;
   border-radius: var(--collapse-radius);
-  background: var(--panel);
-  color: var(--text);
 }
 
 .spellCollapseBtn:hover,
 .spellSpellCollapseBtn:hover,
 .panelCollapseBtn:hover,
 .collapseMini:hover {
-  background: var(--surface-3-hover);
+  color: var(--collapse-btn-fg-hover);
+  background: var(--collapse-btn-bg-hover);
 }
 
 .spellCollapseBtn:active,
@@ -6966,6 +7048,17 @@ body.modal-open { overflow: hidden; overscroll-behavior: none; }
 .panelCollapseBtn:active,
 .collapseMini:active {
   transform: translateY(1px);
+}
+
+.cardCollapseBtn:disabled,
+.npcCollapseToggle:disabled,
+.spellCollapseBtn:disabled,
+.spellSpellCollapseBtn:disabled,
+.panelCollapseBtn:disabled,
+.collapseMini:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
 }
 
 /* Click-to-collapse panels: header stays visible */
@@ -7314,12 +7407,6 @@ section.combatPanel[data-collapsed="true"]> :not([data-panel-header]) {
     min-height: var(--native-btn-min-h);
     padding-top: calc(8px * var(--ui-scale));
     padding-bottom: calc(8px * var(--ui-scale));
-  }
-
-  /* ── Map toolbar: bold "Map" label and consistent sizing ── */
-  html.is-native-app .mapSelectLabel {
-    font-weight: 700;
-    font-size: var(--app-font-size);
   }
 
   html.is-native-app .brushSizeLabel {
