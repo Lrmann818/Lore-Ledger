@@ -91,7 +91,7 @@ test("mobile session tabs allow swipe scrolling and deliberate hold-to-drag reor
     { x: dragStartX, y: dragStartY },
     { x: dragStartX + 90, y: dragStartY },
     { x: dragStartX + 150, y: dragStartY },
-  ], { holdMs: 220 });
+  ], { holdMs: 450 });
 
   await expect(page.locator("#sessionTabs .sessionTab").nth(3)).toHaveAttribute("data-session-id", thirdTabIdBefore);
 

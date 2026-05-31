@@ -3,6 +3,7 @@
 
 import { attachSearchHighlightOverlay } from "../../../ui/searchHighlightOverlay.js";
 import { safeAsync } from "../../../ui/safeAsync.js";
+import { createTabReorder, applyTabReorder } from "../../../ui/tabReorder.js";
 import { requireMany, getNoopDestroyApi } from "../../../utils/domGuards.js";
 
 let _tabsEl = null;
@@ -12,6 +13,7 @@ let _addBtn = null;
 let _renameBtn = null;
 let _deleteBtn = null;
 let _notesHl = null;
+let _tabReorder = null;
 
 // Injected services from page-level wiring.
 let _SaveManager = null;
@@ -22,13 +24,6 @@ let _state = null;
 let _setStatus = null;
 
 let _wired = false;
-let _suppressNextSessionTabClick = false;
-let _activeDrag = null;
-
-const DRAG_START_THRESHOLD_PX = 14;
-const SCROLL_CANCEL_THRESHOLD_PX = 6;
-const TOUCH_DRAG_HOLD_MS = 180;
-const TOUCH_DRAG_ARM_SLOP_PX = 8;
 
 function _newSessionId() {
   return `session_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
@@ -66,212 +61,19 @@ function _saveActiveSessionNotes() {
   if (cur && _notesBox) cur.notes = _notesBox.value;
 }
 
-function _getVisibleSessionIdsFromDom() {
-  if (!_tabsEl) return [];
-  return Array.from(_tabsEl.querySelectorAll(".sessionTab"))
-    .map((el) => el.dataset.sessionId || "")
-    .filter(Boolean);
-}
-
 function _applyVisibleSessionOrder(visibleIds, activeSessionId) {
   const sessions = Array.isArray(_state?.tracker?.sessions) ? _state.tracker.sessions : [];
-  if (sessions.length <= 1 || visibleIds.length <= 1) return false;
-
-  const visibleSet = new Set(visibleIds);
-  const sessionById = new Map(sessions.map((session) => [session.id, session]));
-  const reorderedVisible = visibleIds
-    .map((id) => sessionById.get(id))
-    .filter(Boolean);
-
-  let visibleCursor = 0;
-  const nextSessions = sessions.map((session) => {
-    if (!visibleSet.has(session.id)) return session;
-    return reorderedVisible[visibleCursor++] || session;
-  });
-
-  const changed = nextSessions.some((session, index) => session?.id !== sessions[index]?.id);
+  const { items: nextSessions, changed } = applyTabReorder(
+    sessions,
+    visibleIds,
+    (session) => session.id
+  );
   if (!changed) return false;
 
   _state.tracker.sessions = nextSessions;
   const nextActiveIndex = _getSessionIndexById(activeSessionId);
   _state.tracker.activeSessionIndex = nextActiveIndex >= 0 ? nextActiveIndex : 0;
   return true;
-}
-
-function _clearActiveDragStyles(dragState) {
-  if (!dragState?.buttonEl) return;
-  dragState.buttonEl.classList.remove("isDragging");
-  dragState.buttonEl.style.transform = "";
-  _tabsEl?.classList.remove("isDraggingSessions");
-  document.body?.classList.remove("isDraggingSessionTabs");
-}
-
-function _finishSessionDrag({ commit }) {
-  const dragState = _activeDrag;
-  if (!dragState) return;
-
-  dragState.cleanup?.();
-  _clearActiveDragStyles(dragState);
-  _activeDrag = null;
-
-  if (!dragState.started) {
-    if (dragState.touchScrolling) _suppressNextSessionTabClick = true;
-    return;
-  }
-
-  _suppressNextSessionTabClick = true;
-  if (!commit || !dragState.stableOrder) {
-    renderSessionTabs();
-    return;
-  }
-
-  _saveActiveSessionNotes();
-  const finalOrder = _computeFinalOrder(
-    dragState.stableOrder,
-    dragState.sessionId,
-    dragState.provisionalIndex
-  );
-  const orderChanged = _applyVisibleSessionOrder(finalOrder, dragState.activeSessionId);
-  if (orderChanged) markDirty();
-  renderSessionTabs();
-}
-
-// Returns the target insertion index (among all tabs) for the dragged tab,
-// computed against stable midpoints captured at drag start — no live DOM reads.
-function _calcProvisionalIndex(dragState, deltaX) {
-  const { stableOrder, stableMidpoints, sessionId } = dragState;
-  if (!stableOrder || !stableMidpoints) return 0;
-
-  const originalMidX = stableMidpoints.get(sessionId) || 0;
-  const currentMidX = originalMidX + deltaX;
-
-  let insertAfterCount = 0;
-  for (const id of stableOrder) {
-    if (id === sessionId) continue;
-    if (currentMidX > (stableMidpoints.get(id) || 0)) insertAfterCount++;
-  }
-  return insertAfterCount;
-}
-
-function _computeFinalOrder(stableOrder, sessionId, provisionalIndex) {
-  const without = stableOrder.filter((id) => id !== sessionId);
-  without.splice(provisionalIndex, 0, sessionId);
-  return without;
-}
-
-function _applyTouchTabScroll(dragState, deltaX) {
-  const wrapEl = _tabsEl?.parentElement;
-  if (!wrapEl) return;
-  wrapEl.scrollLeft = Math.max(0, dragState.startScrollLeft - deltaX);
-}
-
-function _beginSessionTabDrag(event, buttonEl, sessionId) {
-  if (!buttonEl || !sessionId || !_tabsEl) return;
-  if ((_state?.tracker?.sessions?.length || 0) <= 1) return;
-  if (event.pointerType === "mouse" && event.button !== 0) return;
-  if (_activeDrag) _finishSessionDrag({ commit: false });
-
-  const doc = buttonEl.ownerDocument || document;
-  const wrapEl = _tabsEl.parentElement;
-  const dragState = {
-    pointerId: event.pointerId,
-    pointerType: event.pointerType || "",
-    buttonEl,
-    sessionId,
-    activeSessionId: _state?.tracker?.sessions?.[_state?.tracker?.activeSessionIndex]?.id || sessionId,
-    startX: event.clientX,
-    startY: event.clientY,
-    startTimeStamp: event.timeStamp,
-    startScrollLeft: wrapEl?.scrollLeft || 0,
-    touchScrolling: false,
-    started: false,
-    cleanup: null,
-    // Captured once at drag start; never updated during the drag.
-    stableOrder: null,
-    stableMidpoints: null,
-    provisionalIndex: 0,
-  };
-
-  const handlePointerMove = (moveEvent) => {
-    if (!_activeDrag || moveEvent.pointerId !== dragState.pointerId) return;
-
-    const deltaX = moveEvent.clientX - dragState.startX;
-    const deltaY = moveEvent.clientY - dragState.startY;
-    const absX = Math.abs(deltaX);
-    const absY = Math.abs(deltaY);
-    const scrolledBy = Math.abs((wrapEl?.scrollLeft || 0) - dragState.startScrollLeft);
-    const isTouchPointer = dragState.pointerType === "touch";
-    const pointerAgeMs = moveEvent.timeStamp - dragState.startTimeStamp;
-
-    if (!dragState.started) {
-      if (absY > DRAG_START_THRESHOLD_PX && absY > absX) {
-        _finishSessionDrag({ commit: false });
-        return;
-      }
-      if (isTouchPointer && pointerAgeMs < TOUCH_DRAG_HOLD_MS) {
-        if (absX > TOUCH_DRAG_ARM_SLOP_PX && absX > absY) {
-          dragState.touchScrolling = true;
-        }
-        if (dragState.touchScrolling) _applyTouchTabScroll(dragState, deltaX);
-        return;
-      }
-      if (dragState.touchScrolling) {
-        _applyTouchTabScroll(dragState, deltaX);
-        return;
-      }
-      if (scrolledBy > SCROLL_CANCEL_THRESHOLD_PX) {
-        _finishSessionDrag({ commit: false });
-        return;
-      }
-      if (absX < DRAG_START_THRESHOLD_PX || absX <= absY) return;
-
-      dragState.started = true;
-      try { dragState.buttonEl.setPointerCapture?.(dragState.pointerId); } catch { /* noop */ }
-
-      // Freeze tab geometry before any DOM or transform change.
-      const tabs = Array.from(_tabsEl.querySelectorAll(".sessionTab"));
-      dragState.stableOrder = tabs.map((el) => el.dataset.sessionId || "").filter(Boolean);
-      const midpoints = new Map();
-      tabs.forEach((el) => {
-        const rect = el.getBoundingClientRect();
-        const id = el.dataset.sessionId || "";
-        if (id) midpoints.set(id, rect.left + rect.width / 2);
-      });
-      dragState.stableMidpoints = midpoints;
-      dragState.provisionalIndex = dragState.stableOrder.indexOf(sessionId);
-
-      dragState.buttonEl.classList.add("isDragging");
-      _tabsEl.classList.add("isDraggingSessions");
-      document.body?.classList.add("isDraggingSessionTabs");
-    }
-
-    moveEvent.preventDefault();
-    // Only translate the dragged tab — do NOT move it in the DOM.
-    dragState.buttonEl.style.transform = `translateX(${deltaX}px)`;
-    dragState.provisionalIndex = _calcProvisionalIndex(dragState, deltaX);
-  };
-
-  const handlePointerUp = (upEvent) => {
-    if (!_activeDrag || upEvent.pointerId !== dragState.pointerId) return;
-    try { dragState.buttonEl.releasePointerCapture?.(dragState.pointerId); } catch { /* noop */ }
-    _finishSessionDrag({ commit: true });
-  };
-
-  const handlePointerCancel = (cancelEvent) => {
-    if (!_activeDrag || cancelEvent.pointerId !== dragState.pointerId) return;
-    _finishSessionDrag({ commit: false });
-  };
-
-  doc.addEventListener("pointermove", handlePointerMove);
-  doc.addEventListener("pointerup", handlePointerUp);
-  doc.addEventListener("pointercancel", handlePointerCancel);
-  dragState.cleanup = () => {
-    doc.removeEventListener("pointermove", handlePointerMove);
-    doc.removeEventListener("pointerup", handlePointerUp);
-    doc.removeEventListener("pointercancel", handlePointerCancel);
-  };
-
-  _activeDrag = dragState;
 }
 
 function _escapeRegExp(str) {
@@ -381,6 +183,21 @@ export function initSessionsPanel(deps = {}) {
     _wired = true;
   }
 
+  _tabReorder?.destroy?.();
+  _tabReorder = createTabReorder({
+    tabsEl: _tabsEl,
+    wrapEl: _tabsEl.parentElement,
+    tabSelector: ".sessionTab",
+    getTabId: (el) => el.dataset.sessionId || "",
+    onCommit: (newVisibleOrder) => {
+      _saveActiveSessionNotes();
+      const activeSessionId = _state?.tracker?.sessions?.[_state?.tracker?.activeSessionIndex]?.id || "";
+      const orderChanged = _applyVisibleSessionOrder(newVisibleOrder, activeSessionId);
+      if (orderChanged) markDirty();
+      renderSessionTabs();
+    },
+  });
+
   renderSessionTabs();
 }
 
@@ -408,7 +225,6 @@ function renderSessionTabs() {
     btn.type = "button";
     btn.dataset.sessionId = s.id;
     _appendHighlightedText(btn, (s.title || `Session ${idx + 1}`), _state.tracker.sessionSearch || "");
-    btn.addEventListener("pointerdown", (event) => _beginSessionTabDrag(event, btn, s.id));
     btn.addEventListener("click", () => switchSessionById(s.id));
     _tabsEl.appendChild(btn);
   });
@@ -448,13 +264,6 @@ function markDirty() {
 }
 
 function wireHandlers() {
-  document.addEventListener("click", (event) => {
-    if (!_suppressNextSessionTabClick) return;
-    _suppressNextSessionTabClick = false;
-    event.preventDefault();
-    event.stopPropagation();
-  }, true);
-
   // Search
   if (_searchEl) {
     _searchEl.value = _state.tracker.sessionSearch || "";

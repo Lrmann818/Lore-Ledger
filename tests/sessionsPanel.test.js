@@ -80,6 +80,23 @@ function dispatchPointer(target, type, props = {}) {
   return event;
 }
 
+function makeTouch({ identifier = 1, clientX = 0, clientY = 0 } = {}) {
+  return { identifier, clientX, clientY };
+}
+
+function dispatchTouch(target, type, {
+  touches = [],
+  changedTouches = touches,
+  targetTouches = touches,
+} = {}) {
+  const event = new Event(type, { bubbles: true, cancelable: true });
+  Object.defineProperty(event, "touches", { configurable: true, value: touches });
+  Object.defineProperty(event, "changedTouches", { configurable: true, value: changedTouches });
+  Object.defineProperty(event, "targetTouches", { configurable: true, value: targetTouches });
+  target.dispatchEvent(event);
+  return event;
+}
+
 function makeState() {
   return {
     tracker: {
@@ -105,6 +122,7 @@ describe("initSessionsPanel", () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.restoreAllMocks();
     document.body.innerHTML = "";
   });
@@ -224,7 +242,7 @@ describe("initSessionsPanel", () => {
     expect(state.tracker.activeSessionIndex).toBe(1);
   });
 
-  it("treats a quick touch swipe as scroll intent instead of starting a reorder", async () => {
+  it("leaves quick touch movement unblocked so scroll intent wins on touch", async () => {
     const { initSessionsPanel } = await loadSessionsPanel();
     const state = makeState();
     const markDirty = vi.fn();
@@ -247,33 +265,17 @@ describe("initSessionsPanel", () => {
     layoutSessionTabs();
 
     const firstTab = document.querySelectorAll("#sessionTabs .sessionTab")[0];
-    dispatchPointer(firstTab, "pointerdown", {
-      pointerType: "touch",
-      clientX: 50,
-      clientY: 16,
-      timeStamp: 0
-    });
-    dispatchPointer(document, "pointermove", {
-      pointerType: "touch",
-      clientX: 18,
-      clientY: 18,
-      timeStamp: 60
-    });
-    dispatchPointer(document, "pointerup", {
-      pointerType: "touch",
-      clientX: 18,
-      clientY: 18,
-      timeStamp: 80
-    });
+    const startTouch = makeTouch({ identifier: 11, clientX: 50, clientY: 16 });
+    const moveTouch = makeTouch({ identifier: 11, clientX: 18, clientY: 18 });
+    dispatchTouch(firstTab, "touchstart", { touches: [startTouch] });
+    const moveEvent = dispatchTouch(document, "touchmove", { touches: [moveTouch] });
+    dispatchTouch(document, "touchend", { touches: [], changedTouches: [moveTouch], targetTouches: [] });
 
     expect(state.tracker.sessions.map((s) => s.id)).toEqual([
       "session_a", "session_b", "session_c"
     ]);
     expect(markDirty).not.toHaveBeenCalled();
-    expect(document.querySelector(".sessionTabsWrap").scrollLeft).toBeGreaterThan(0);
-
-    const releaseClick = new Event("click", { bubbles: true, cancelable: true });
-    expect(firstTab.dispatchEvent(releaseClick)).toBe(false);
+    expect(moveEvent.defaultPrevented).toBe(false);
 
     const secondTab = document.querySelectorAll("#sessionTabs .sessionTab")[1];
     const click = new Event("click", { bubbles: true, cancelable: true });
@@ -281,7 +283,7 @@ describe("initSessionsPanel", () => {
     expect(state.tracker.activeSessionIndex).toBe(1);
   });
 
-  it("still allows intentional touch reorder after a short hold", async () => {
+  it("still allows intentional touch reorder after a long press", async () => {
     const { initSessionsPanel } = await loadSessionsPanel();
     const state = makeState();
     const markDirty = vi.fn();
@@ -303,25 +305,14 @@ describe("initSessionsPanel", () => {
 
     layoutSessionTabs();
 
+    vi.useFakeTimers();
     const firstTab = document.querySelectorAll("#sessionTabs .sessionTab")[0];
-    dispatchPointer(firstTab, "pointerdown", {
-      pointerType: "touch",
-      clientX: 50,
-      clientY: 16,
-      timeStamp: 0
-    });
-    dispatchPointer(document, "pointermove", {
-      pointerType: "touch",
-      clientX: 190,
-      clientY: 16,
-      timeStamp: 220
-    });
-    dispatchPointer(document, "pointerup", {
-      pointerType: "touch",
-      clientX: 190,
-      clientY: 16,
-      timeStamp: 240
-    });
+    const startTouch = makeTouch({ identifier: 13, clientX: 50, clientY: 16 });
+    dispatchTouch(firstTab, "touchstart", { touches: [startTouch] });
+    vi.advanceTimersByTime(430);
+    const moveTouch = makeTouch({ identifier: 13, clientX: 190, clientY: 16 });
+    const moveEvent = dispatchTouch(document, "touchmove", { touches: [moveTouch] });
+    dispatchTouch(document, "touchend", { touches: [], changedTouches: [moveTouch], targetTouches: [] });
 
     expect(state.tracker.sessions.map((s) => s.id)).toEqual([
       "session_b",
@@ -330,6 +321,7 @@ describe("initSessionsPanel", () => {
     ]);
     expect(state.tracker.activeSessionIndex).toBe(1);
     expect(markDirty).toHaveBeenCalledTimes(1);
+    expect(moveEvent.defaultPrevented).toBe(true);
   });
 
   it("drag reorder followed by rename preserves the reordered position via stable id", async () => {

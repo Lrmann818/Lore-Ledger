@@ -2,9 +2,8 @@
 // Stable-midpoint, commit-on-drop, no DOM mutation during drag.
 
 const DRAG_START_THRESHOLD_PX = 14;
-const SCROLL_CANCEL_THRESHOLD_PX = 6;
-const TOUCH_DRAG_HOLD_MS = 180;
-const TOUCH_DRAG_ARM_SLOP_PX = 8;
+const TOUCH_DRAG_HOLD_MS = 420;
+const TOUCH_DRAG_ARM_SLOP_PX = 10;
 
 /**
  * Apply a partial (visible-only) tab reorder back into a full items array.
@@ -42,7 +41,7 @@ export function applyTabReorder(allItems, visibleOrder, getId) {
  *
  * @param {Object} config
  * @param {HTMLElement} config.tabsEl - flex container holding the tab buttons
- * @param {HTMLElement | null} [config.wrapEl] - scroll parent; used for scroll-cancel detection
+ * @param {HTMLElement | null} [config.wrapEl] - scroll parent; kept for existing call sites
  * @param {string} config.tabSelector - CSS selector for draggable buttons (e.g. ".npcTab")
  * @param {(el: HTMLElement) => string} config.getTabId - read stable ID from a tab element
  * @param {(visibleIds: string[]) => void} config.onCommit - called with new visible order after a real drag
@@ -94,15 +93,32 @@ export function createTabReorder({
     return without;
   }
 
-  function applyTouchScroll(dragState, deltaX) {
-    if (!wrapEl) return;
-    wrapEl.scrollLeft = Math.max(0, dragState.startScrollLeft - deltaX);
+  function captureStableLayout(dragState) {
+    const allTabs = /** @type {HTMLElement[]} */ (Array.from(tabsEl.querySelectorAll(tabSelector)));
+    dragState.stableOrder = allTabs.map((el) => getTabId(el)).filter(Boolean);
+    const midpoints = new Map();
+    allTabs.forEach((el) => {
+      const rect = el.getBoundingClientRect();
+      const id = getTabId(el);
+      if (id) midpoints.set(id, rect.left + rect.width / 2);
+    });
+    dragState.stableMidpoints = midpoints;
+    dragState.provisionalIndex = dragState.stableOrder.indexOf(dragState.tabId);
+  }
+
+  function markDragStarted(dragState) {
+    dragState.started = true;
+    captureStableLayout(dragState);
+    dragState.buttonEl.classList.add(draggingClass);
+    tabsEl.classList.add(containerDraggingClass);
+    if (bodyDraggingClass) doc.body?.classList.add(bodyDraggingClass);
   }
 
   function finishDrag({ commit }) {
     const drag = activeDrag;
     if (!drag) return;
 
+    if (drag.armTimer) clearTimeout(drag.armTimer);
     drag.cleanup?.();
     drag.buttonEl.classList.remove(draggingClass);
     drag.buttonEl.style.transform = "";
@@ -111,7 +127,7 @@ export function createTabReorder({
     activeDrag = null;
 
     if (!drag.started) {
-      if (drag.touchScrolling) suppressNextClick = true;
+      if (drag.armed) suppressNextClick = true;
       return;
     }
 
@@ -122,22 +138,22 @@ export function createTabReorder({
     onCommit(finalOrder);
   }
 
-  function beginDrag(event, buttonEl, tabId) {
+  function beginPointerDrag(event, buttonEl, tabId) {
     if (!buttonEl || !tabId) return;
     if (Array.from(tabsEl.querySelectorAll(tabSelector)).length <= 1) return;
+    if ((event.pointerType || "") === "touch") return;
     if (event.pointerType === "mouse" && event.button !== 0) return;
     if (activeDrag) finishDrag({ commit: false });
 
     const dragState = {
+      inputType: "pointer",
       pointerId: event.pointerId,
-      pointerType: event.pointerType || "",
       buttonEl,
       tabId,
       startX: event.clientX,
       startY: event.clientY,
-      startTimeStamp: event.timeStamp,
-      startScrollLeft: wrapEl?.scrollLeft || 0,
-      touchScrolling: false,
+      armTimer: null,
+      armed: false,
       started: false,
       cleanup: null,
       stableOrder: null,
@@ -152,43 +168,13 @@ export function createTabReorder({
       const deltaY = moveEvent.clientY - dragState.startY;
       const absX = Math.abs(deltaX);
       const absY = Math.abs(deltaY);
-      const scrolledBy = Math.abs((wrapEl?.scrollLeft || 0) - dragState.startScrollLeft);
-      const isTouchPointer = dragState.pointerType === "touch";
-      const pointerAgeMs = moveEvent.timeStamp - dragState.startTimeStamp;
 
       if (!dragState.started) {
         if (absY > DRAG_START_THRESHOLD_PX && absY > absX) { finishDrag({ commit: false }); return; }
-        if (isTouchPointer && pointerAgeMs < TOUCH_DRAG_HOLD_MS) {
-          if (absX > TOUCH_DRAG_ARM_SLOP_PX && absX > absY) {
-            dragState.touchScrolling = true;
-          }
-          if (dragState.touchScrolling) applyTouchScroll(dragState, deltaX);
-          return;
-        }
-        if (dragState.touchScrolling) {
-          applyTouchScroll(dragState, deltaX);
-          return;
-        }
-        if (scrolledBy > SCROLL_CANCEL_THRESHOLD_PX) { finishDrag({ commit: false }); return; }
         if (absX < DRAG_START_THRESHOLD_PX || absX <= absY) return;
 
-        dragState.started = true;
+        markDragStarted(dragState);
         try { dragState.buttonEl.setPointerCapture?.(dragState.pointerId); } catch { /* noop */ }
-
-        const allTabs = /** @type {HTMLElement[]} */ (Array.from(tabsEl.querySelectorAll(tabSelector)));
-        dragState.stableOrder = allTabs.map((el) => getTabId(el)).filter(Boolean);
-        const midpoints = new Map();
-        allTabs.forEach((el) => {
-          const rect = el.getBoundingClientRect();
-          const id = getTabId(el);
-          if (id) midpoints.set(id, rect.left + rect.width / 2);
-        });
-        dragState.stableMidpoints = midpoints;
-        dragState.provisionalIndex = dragState.stableOrder.indexOf(tabId);
-
-        buttonEl.classList.add(draggingClass);
-        tabsEl.classList.add(containerDraggingClass);
-        if (bodyDraggingClass) doc.body?.classList.add(bodyDraggingClass);
       }
 
       moveEvent.preventDefault();
@@ -219,20 +205,140 @@ export function createTabReorder({
     activeDrag = dragState;
   }
 
+  function getTouchById(touchList, touchId) {
+    if (!touchList) return null;
+    for (let i = 0; i < touchList.length; i += 1) {
+      if (touchList[i]?.identifier === touchId) return touchList[i];
+    }
+    return null;
+  }
+
+  function beginTouchDrag(event, buttonEl, tabId) {
+    if (!buttonEl || !tabId) return;
+    if (Array.from(tabsEl.querySelectorAll(tabSelector)).length <= 1) return;
+    if ((event.touches?.length || 0) !== 1) return;
+    if (activeDrag) finishDrag({ commit: false });
+
+    const doc = buttonEl.ownerDocument || document;
+    const startTouch = event.changedTouches?.[0];
+    if (!startTouch) return;
+
+    const dragState = {
+      inputType: "touch",
+      touchId: startTouch.identifier,
+      buttonEl,
+      tabId,
+      startX: startTouch.clientX,
+      startY: startTouch.clientY,
+      currentX: startTouch.clientX,
+      currentY: startTouch.clientY,
+      dragOriginX: startTouch.clientX,
+      dragOriginY: startTouch.clientY,
+      armTimer: null,
+      armed: false,
+      started: false,
+      cleanup: null,
+      stableOrder: null,
+      stableMidpoints: null,
+      provisionalIndex: 0,
+    };
+
+    const handleMove = (moveEvent) => {
+      if (!activeDrag || activeDrag !== dragState) return;
+      if ((moveEvent.touches?.length || 0) > 1) {
+        finishDrag({ commit: false });
+        return;
+      }
+
+      const touch = getTouchById(moveEvent.changedTouches, dragState.touchId)
+        || getTouchById(moveEvent.touches, dragState.touchId);
+      if (!touch) return;
+
+      dragState.currentX = touch.clientX;
+      dragState.currentY = touch.clientY;
+
+      if (!dragState.armed) {
+        const armDeltaX = dragState.currentX - dragState.startX;
+        const armDeltaY = dragState.currentY - dragState.startY;
+        if (Math.abs(armDeltaX) > TOUCH_DRAG_ARM_SLOP_PX || Math.abs(armDeltaY) > TOUCH_DRAG_ARM_SLOP_PX) {
+          finishDrag({ commit: false });
+        }
+        return;
+      }
+
+      const deltaX = dragState.currentX - dragState.dragOriginX;
+      const deltaY = dragState.currentY - dragState.dragOriginY;
+      const absX = Math.abs(deltaX);
+      const absY = Math.abs(deltaY);
+
+      if (!dragState.started) {
+        if (absY > DRAG_START_THRESHOLD_PX && absY > absX) {
+          finishDrag({ commit: false });
+          return;
+        }
+        if (absX < DRAG_START_THRESHOLD_PX || absX <= absY) return;
+        markDragStarted(dragState);
+      }
+
+      moveEvent.preventDefault();
+      buttonEl.style.transform = `translateX(${deltaX}px)`;
+      dragState.provisionalIndex = calcProvisionalIndex(dragState, deltaX);
+    };
+
+    const handleEnd = (endEvent) => {
+      if (!activeDrag || activeDrag !== dragState) return;
+      if (!getTouchById(endEvent.changedTouches, dragState.touchId)) return;
+      finishDrag({ commit: true });
+    };
+
+    const handleCancel = (cancelEvent) => {
+      if (!activeDrag || activeDrag !== dragState) return;
+      if (!getTouchById(cancelEvent.changedTouches, dragState.touchId)) return;
+      finishDrag({ commit: false });
+    };
+
+    doc.addEventListener("touchmove", handleMove, { passive: false });
+    doc.addEventListener("touchend", handleEnd);
+    doc.addEventListener("touchcancel", handleCancel);
+    dragState.cleanup = () => {
+      doc.removeEventListener("touchmove", handleMove);
+      doc.removeEventListener("touchend", handleEnd);
+      doc.removeEventListener("touchcancel", handleCancel);
+    };
+    dragState.armTimer = setTimeout(() => {
+      if (!activeDrag || activeDrag !== dragState || dragState.started) return;
+      dragState.armed = true;
+      dragState.dragOriginX = dragState.currentX;
+      dragState.dragOriginY = dragState.currentY;
+    }, TOUCH_DRAG_HOLD_MS);
+
+    activeDrag = dragState;
+  }
+
   const handlePointerDown = (event) => {
     const btn = event.target?.closest?.(tabSelector);
     if (!btn || !tabsEl.contains(btn)) return;
     const tabId = getTabId(btn);
     if (!tabId) return;
-    beginDrag(event, btn, tabId);
+    beginPointerDrag(event, btn, tabId);
+  };
+
+  const handleTouchStart = (event) => {
+    const btn = event.target?.closest?.(tabSelector);
+    if (!btn || !tabsEl.contains(btn)) return;
+    const tabId = getTabId(btn);
+    if (!tabId) return;
+    beginTouchDrag(event, btn, tabId);
   };
 
   tabsEl.addEventListener("pointerdown", handlePointerDown);
+  tabsEl.addEventListener("touchstart", handleTouchStart, { passive: true });
 
   return {
     destroy() {
       doc.removeEventListener("click", clickSuppressor, true);
       tabsEl.removeEventListener("pointerdown", handlePointerDown);
+      tabsEl.removeEventListener("touchstart", handleTouchStart);
       if (activeDrag) {
         activeDrag.cleanup?.();
         activeDrag = null;

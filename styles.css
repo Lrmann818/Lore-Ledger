@@ -4124,8 +4124,10 @@ div.mutedSmall {
   border-radius: 12px;
   padding: 4px;
   margin-bottom: 4px;
-  overflow: auto;
+  overflow-x: auto;
+  overflow-y: hidden;
   max-width: 100%;
+  -webkit-overflow-scrolling: touch;
 }
 
 .sessionTabs {
@@ -4144,7 +4146,7 @@ div.mutedSmall {
   border-radius: 999px;
   cursor: pointer;
   white-space: nowrap;
-  touch-action: pan-y;
+  touch-action: pan-x pan-y;
 }
 
 .sessionTab.isDragging {
@@ -4194,7 +4196,7 @@ body.isDraggingSessionTabs {
   padding: var(--chip-pad-y) var(--chip-pad-x);
   border-radius: 999px;
   cursor: pointer;
-  touch-action: pan-y;
+  touch-action: pan-x pan-y;
 }
 
 .npcTab.active {

@@ -76,8 +76,26 @@ function dispatchPointer(target, type, props = {}) {
   return event;
 }
 
+function makeTouch({ identifier = 1, clientX = 0, clientY = 0 } = {}) {
+  return { identifier, clientX, clientY };
+}
+
+function dispatchTouch(target, type, {
+  touches = [],
+  changedTouches = touches,
+  targetTouches = touches,
+} = {}) {
+  const event = new Event(type, { bubbles: true, cancelable: true });
+  Object.defineProperty(event, "touches", { configurable: true, value: touches });
+  Object.defineProperty(event, "changedTouches", { configurable: true, value: changedTouches });
+  Object.defineProperty(event, "targetTouches", { configurable: true, value: targetTouches });
+  target.dispatchEvent(event);
+  return event;
+}
+
 describe("createTabReorder", () => {
   afterEach(() => {
+    vi.useRealTimers();
     vi.restoreAllMocks();
     document.body.innerHTML = "";
   });
@@ -101,7 +119,7 @@ describe("createTabReorder", () => {
     cleanup.destroy();
   });
 
-  it("lets a quick touch swipe fall through without committing reorder or suppressing clicks", () => {
+  it("leaves quick touch movement unblocked before the long-press gate", () => {
     const { tabsEl, wrapEl, buttons } = setupDom();
     const onCommit = vi.fn();
     const clickSpy = vi.fn();
@@ -114,32 +132,17 @@ describe("createTabReorder", () => {
       onCommit,
     });
 
-    dispatchPointer(buttons[0], "pointerdown", {
-      pointerType: "touch",
-      clientX: 50,
-      clientY: 16,
-      timeStamp: 0,
-    });
-    dispatchPointer(document, "pointermove", {
-      pointerType: "touch",
-      clientX: 18,
-      clientY: 18,
-      timeStamp: 60,
-    });
-    dispatchPointer(document, "pointerup", {
-      pointerType: "touch",
-      clientX: 18,
-      clientY: 18,
-      timeStamp: 80,
-    });
+    const startTouch = makeTouch({ identifier: 7, clientX: 50, clientY: 16 });
+    const moveTouch = makeTouch({ identifier: 7, clientX: 18, clientY: 18 });
+    dispatchTouch(buttons[0], "touchstart", { touches: [startTouch] });
+    const moveEvent = dispatchTouch(document, "touchmove", { touches: [moveTouch] });
+    dispatchTouch(document, "touchend", { touches: [], changedTouches: [moveTouch], targetTouches: [] });
 
     expect(onCommit).not.toHaveBeenCalled();
     expect(buttons[0].classList.contains("isDragging")).toBe(false);
-    expect(wrapEl.scrollLeft).toBeGreaterThan(0);
-
-    const releaseClick = new Event("click", { bubbles: true, cancelable: true });
-    expect(buttons[0].dispatchEvent(releaseClick)).toBe(false);
-    expect(clickSpy).not.toHaveBeenCalled();
+    expect(moveEvent.defaultPrevented).toBe(false);
+    expect(buttons[0].setPointerCapture).not.toHaveBeenCalled();
+    expect(wrapEl.scrollLeft).toBe(0);
 
     const click = new Event("click", { bubbles: true, cancelable: true });
     expect(buttons[1].dispatchEvent(click)).toBe(true);
@@ -148,7 +151,7 @@ describe("createTabReorder", () => {
     cleanup.destroy();
   });
 
-  it("allows deliberate touch reorder after a hold and still suppresses the release click", () => {
+  it("allows deliberate touch reorder only after a long press and then suppresses the release click", () => {
     const { tabsEl, wrapEl, buttons } = setupDom();
     const onCommit = vi.fn();
     const clickSpy = vi.fn();
@@ -161,31 +164,23 @@ describe("createTabReorder", () => {
       onCommit,
     });
 
-    dispatchPointer(buttons[0], "pointerdown", {
-      pointerType: "touch",
-      clientX: 50,
-      clientY: 16,
-      timeStamp: 0,
-    });
-    dispatchPointer(document, "pointermove", {
-      pointerType: "touch",
-      clientX: 190,
-      clientY: 16,
-      timeStamp: 220,
-    });
-    dispatchPointer(document, "pointerup", {
-      pointerType: "touch",
-      clientX: 190,
-      clientY: 16,
-      timeStamp: 240,
-    });
+    vi.useFakeTimers();
+    const startTouch = makeTouch({ identifier: 9, clientX: 50, clientY: 16 });
+    dispatchTouch(buttons[0], "touchstart", { touches: [startTouch] });
+    vi.advanceTimersByTime(430);
+    const moveTouch = makeTouch({ identifier: 9, clientX: 190, clientY: 16 });
+    const moveEvent = dispatchTouch(document, "touchmove", { touches: [moveTouch] });
+    dispatchTouch(document, "touchend", { touches: [], changedTouches: [moveTouch], targetTouches: [] });
 
     expect(onCommit).toHaveBeenCalledWith(["tab_b", "tab_a", "tab_c"]);
+    expect(moveEvent.defaultPrevented).toBe(true);
+    expect(buttons[0].setPointerCapture).not.toHaveBeenCalled();
 
     const releaseClick = new Event("click", { bubbles: true, cancelable: true });
     expect(buttons[0].dispatchEvent(releaseClick)).toBe(false);
     expect(clickSpy).not.toHaveBeenCalled();
 
     cleanup.destroy();
+    vi.useRealTimers();
   });
 });
