@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Restored mobile usability of the number spinner/stepper controls. On touch/coarse-pointer devices the ▲▼ steppers were hidden and non-interactive until the input was focused, so the first tap fell through to the field (popping the keyboard) instead of stepping; they are now always visible and tappable there with slightly larger hit targets, while desktop keeps the hover/focus reveal.
+- Fixed the per-level spell "Reset" button so it refills slots — copying each level's max ("total") into current ("used") — in addition to clearing the per-spell cast flags. Blank/zero max values are mirrored safely (blank clears current, `0` stays `0`); slot-less cantrip levels keep their cast-flag reset only.
 - Restored the previous stable splash-to-app timing by removing the pre-app intro-audio attempt and keeping intro music on the established Hub-open flow.
 - Added an app-layer splash handoff for native launches so the installed iOS app holds the branded splash until both app restore and a controlled minimum duration are complete, instead of depending on Xcode/debugger startup slowness.
 - Simplified the native iOS launch screen to a plain warm/dark bridge background so the branded Lore Ledger splash artwork appears only once in the managed web splash.

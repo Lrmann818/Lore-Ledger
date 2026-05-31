@@ -1221,6 +1221,30 @@ input[type="range"].uiRange::-moz-range-thumb {
   box-shadow: none;
 }
 
+/* Touch / coarse-pointer devices have no real hover, so the steppers would
+   otherwise stay hidden and non-interactive (pointer-events: none) until the
+   field is focused. That made the first tap fall through to the input — popping
+   the keyboard and focusing the field for typing instead of stepping. Keep the
+   steppers always visible and tappable here, with slightly larger hit targets.
+   Desktop (fine pointer) keeps the hover/focus reveal above. Manual typing and
+   keyboard access in the input itself are unaffected. */
+@media (hover: none), (pointer: coarse) {
+  .numWrap {
+    --numWrapPadRight: 20px;
+  }
+
+  .numStepper {
+    opacity: 1;
+    pointer-events: auto;
+    width: 20px;
+    height: 24px;
+  }
+
+  .numStepBtn {
+    opacity: 1;
+  }
+}
+
 .topbar {
   display: flex;
   gap: var(--topbar-gap);
