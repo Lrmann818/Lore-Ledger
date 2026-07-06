@@ -10,14 +10,19 @@ This note records the current local browser smoke layer for Lore Ledger as it ex
 
 ## Current suite
 
-- The current Chromium suite has 33 smoke tests across:
+- The current Chromium suite has 46 smoke tests across:
   - `tests/smoke/app.smoke.js`
   - `tests/smoke/backup.smoke.js`
+  - `tests/smoke/builderWizard.smoke.js`
+  - `tests/smoke/characterMapPolish.smoke.js`
   - `tests/smoke/characterPanelLifecycle.smoke.js`
   - `tests/smoke/combatShell.smoke.js`
   - `tests/smoke/dropdownRegression.smoke.js`
   - `tests/smoke/npcPortrait.smoke.js`
   - `tests/smoke/partyLocationPanels.smoke.js`
+  - `tests/smoke/sessionTabReorder.smoke.js`
+  - `tests/smoke/sessionTabTouch.smoke.js`
+  - `tests/smoke/splash.smoke.js`
   - `tests/smoke/trackerPanelLifecycle.smoke.js`
 - The suite runs through a dedicated Vite server in production mode on the production base path `/`.
 - `npm run test:smoke` runs locally and in CI. Release validation still depends on the manual coverage described in [`docs/testing-guide.md`](./testing-guide.md).
@@ -38,7 +43,12 @@ The suite currently covers:
    - card reorder and collapse incremental patch paths
    - focus restoration after incremental DOM updates
 7. Shared dropdown and popover regressions around enhanced selects, body-ported card menus, keyboard-open behavior, and post-rerender clickability.
-8. Combat Workspace shell, Combat Cards, round controls, HP/temp HP, AC display, status effects, turn undo, tracker HP/status-label writeback exceptions, mobile stacking, and embedded panel selection/reorder/source-panel behavior. Manual QA still covers zero-HP Death Saves replacement, pass/fail checkbox behavior, long-press stabilization, and iPhone portrait/landscape combat-card layout.
+8. Combat Workspace shell, Combat Cards, round controls, HP/temp HP, AC display, status effects, turn undo, tracker HP/status-label writeback exceptions, mobile stacking, and embedded panel selection/reorder/source-panel behavior. Manual QA still covers zero-HP Death Saves replacement, pass/fail checkbox behavior, Stabilize confirmation, editable combat-card AC on touch hardware, and iPhone portrait/landscape combat-card layout.
+9. Session tab drag-to-reorder in a real browser (`sessionTabReorder.smoke.js`): stable-id commit-on-drop ordering, drop-cue rendering, active-drag scroll locking, and reorder persistence across a full page reload.
+10. Touch-pointer session tab behavior (`sessionTabTouch.smoke.js`): quick swipes stay native scrolling; deliberate hold-to-drag reorder still works.
+11. Native-style splash handoff (`splash.smoke.js`): the managed splash holds through the minimum duration and reveals the active campaign shell without leaving the Hub visible.
+12. Character/Map polish breakpoints (`characterMapPolish.smoke.js`): narrow two-column Ability card header spacing, single-column mobile fallback, and Map workspace title/toolbar shell stability at narrow widths.
+13. Builder wizard happy path (`builderWizard.smoke.js`): create a Dragonborn through identity → race choices (Draconic Ancestry) → manual abilities → summary → Finish; verifies the created character is in builder mode, finish-time seeding lands in Features/Traits and Languages, the derived Breath Weapon card renders in Abilities & Features, the Builder Summary panel appears, and the seeded sheet survives a full reload.
 
 ## Manual-only coverage by decision
 

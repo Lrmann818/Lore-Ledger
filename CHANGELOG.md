@@ -43,6 +43,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Promoted the Map workspace title to a proper panel heading so it matches the rest of the app without tightening the toolbar controls.
 - Aligned compact collapse/expand controls with the app’s shared button surface tokens and made touch pill-row reordering require a short intentional hold so iPhone horizontal scrolling still works when a swipe starts directly on a pill.
 
+### Testing
+
+- Captured redacted real save fixtures (`tests/fixtures/saves/`: v5 live site, v7 mobile app, v10 merged) with a fixture-driven `saveCompatibility.test.js` contract suite: any save any shipped build has ever written must migrate to the current schema, round-trip idempotently, materialize the builder fields, and keep freeform characters untouched.
+- Builder wizard Playwright smoke (`tests/smoke/builderWizard.smoke.js`): Dragonborn happy path through all wizard steps, finish-time sheet seeding, derived Breath Weapon card, Builder Summary, and reload persistence.
+
 ### Changed
 
 - Merged the mobile (`develop`) branch into the character-builder branch, unifying the save schema into a single lineage: develop's v6 (stable session ids) and v7 (stable inventory ids) keep their numbers, the builder migrations were renumbered 6/7/8 -> 8/9/10, and `CURRENT_SCHEMA_VERSION` is now 10.

@@ -61,6 +61,8 @@ Focused dev commands:
 Current automated scope is intentionally targeted:
 
 - `tests/state.migrate.test.js` covers supported legacy migration paths, current-schema normalization, malformed or partial payload repair, inventory backfill, active-inventory clamping, and idempotence.
+- `tests/state.migrate.fixtures.test.js` covers targeted cross-lineage migration behavior on the captured real saves in `tests/fixtures/saves/`: a v7 mobile save gains the builder fields while preserving stable session/inventory/participant ids, and a v5 live-site save gains every post-v5 migration.
+- `tests/saveCompatibility.test.js` is the fixture-driven save-compatibility contract: every `tests/fixtures/saves/*.json` file automatically runs through migrate-to-current, sanitize round-trip idempotence, builder-field materialization, stable unique ids, and content-count preservation, plus explicit guards that freeform (`build: null`) characters are untouched by the builder migrations.
 - `tests/state.sanitize.test.js` covers `sanitizeForSave(...)` top-level copy behavior so save/export sanitization does not mutate the live tracker/character buckets.
 - `tests/stateActions.test.js` covers `createStateActions(...)`, including queue-save semantics, tracker-card type aliases, and prototype-pollution/path-hardening guards.
 - `tests/storage.persistence.test.js` covers `saveAllLocal(...)` sanitized writes plus `loadAll(...)` behavior for missing storage, corrupt storage, stale-bucket replacement, legacy `imgDataUrl` migration, default-map repair, hit-die alias save/load compatibility, and a representative save/load round trip.
