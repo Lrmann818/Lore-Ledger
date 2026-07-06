@@ -877,7 +877,7 @@ function createCharacterPageDeps(Popovers) {
       characters: {
         activeId: "char_a",
         entries: [
-          { id: "char_a", name: "Ada", classLevel: "Wizard 5", hpCur: 7, hpMax: 20, status: "Poisoned", imgBlobId: "blob_ada" },
+          { id: "char_a", name: "Ada", classLevel: "Wizard 5", hpCur: 7, hpMax: 20, ac: 15, status: "Poisoned", imgBlobId: "blob_ada" },
           { id: "char_b", name: "Bram" },
         ],
       },
@@ -1158,6 +1158,7 @@ describe("character page selector", () => {
       className: "Wizard 5",
       hpCurrent: 7,
       hpMax: 20,
+      ac: 15,
       status: "Poisoned",
       imgBlobId: "blob_ada"
     });
@@ -1168,6 +1169,7 @@ describe("character page selector", () => {
       className: "Wizard 5",
       hpCurrent: 7,
       hpMax: 20,
+      ac: 15,
       status: "Poisoned",
       imgBlobId: "blob_ada"
     });
@@ -4190,6 +4192,7 @@ describe("character page selector", () => {
       className: "Wizard 5",
       hpCurrent: 7,
       hpMax: 20,
+      ac: 15,
       status: "Poisoned",
       imgBlobId: "blob_ada",
       notes: "NPC note"
@@ -4200,6 +4203,7 @@ describe("character page selector", () => {
       className: "Wizard 5",
       hpCurrent: 7,
       hpMax: 20,
+      ac: 15,
       status: "Poisoned",
       imgBlobId: "blob_ada",
       notes: "Party note"

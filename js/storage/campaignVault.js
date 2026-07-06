@@ -1,6 +1,12 @@
 // @ts-check
 // js/storage/campaignVault.js — multi-campaign vault helpers
 
+import {
+  normalizeThemeChoice,
+  resolveThemeChoiceFromStoredData,
+  syncThemeChoiceIntoState
+} from "../ui/themeState.js";
+
 /** @typedef {typeof import("../state.js").state} AppState */
 /** @typedef {ReturnType<typeof import("../state.js").sanitizeForSave>} SanitizedState */
 
@@ -173,12 +179,24 @@ export function normalizeVaultApp(migrateState, sanitizeForSave, rawApp) {
 export function extractCampaignDoc(source, sanitizeForSave) {
   const sanitized = sanitizeForSave(source);
   const campaignName = getCanonicalCampaignName(sanitized.tracker?.campaignTitle);
+  const trackerUi = (
+    sanitized.tracker?.ui &&
+    typeof sanitized.tracker.ui === "object" &&
+    !Array.isArray(sanitized.tracker.ui)
+  )
+    ? sanitized.tracker.ui
+    : { textareaHeights: {} };
+  const campaignTheme = normalizeThemeChoice(trackerUi.theme ?? sanitized.ui?.theme);
 
   return {
     schemaVersion: sanitized.schemaVersion,
     tracker: /** @type {CampaignDoc["tracker"]} */ (clone({
       ...(sanitized.tracker || {}),
-      campaignTitle: campaignName
+      campaignTitle: campaignName,
+      ui: {
+        ...trackerUi,
+        theme: campaignTheme
+      }
     })),
     characters: /** @type {CampaignDoc["characters"]} */ (clone(sanitized.characters || { activeId: null, entries: [] })),
     map: /** @type {CampaignDoc["map"]} */ (clone(sanitized.map || { activeMapId: null, maps: [] })),
@@ -493,6 +511,7 @@ export function projectActiveCampaignState(vault, migrateState) {
     base.appShell = { activeCampaignId: null };
     base.map.undo = [];
     base.map.redo = [];
+    syncThemeChoiceIntoState(base, resolveThemeChoiceFromStoredData(vault));
     return base;
   }
 
@@ -511,6 +530,7 @@ export function projectActiveCampaignState(vault, migrateState) {
   runtime.map.undo = [];
   runtime.map.redo = [];
   runtime.tracker.campaignTitle = getCanonicalCampaignName(entry?.name || runtime.tracker.campaignTitle);
+  syncThemeChoiceIntoState(runtime, resolveThemeChoiceFromStoredData(vault));
   return runtime;
 }
 

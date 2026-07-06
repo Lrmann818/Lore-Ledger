@@ -35,7 +35,7 @@ That direction is visible in the current structure:
 ## 3. Feature overview
 
 - Campaign Hub for creating campaigns, switching the active campaign, renaming campaigns, and deleting campaigns
-- Tracker page for campaign title, session tabs and notes, NPC cards, party cards, location cards, and loose notes
+- Tracker page for campaign title, reorderable session tabs and notes, NPC cards, party cards, location cards, and loose notes
 - Sectioned tracker collections with add/rename/delete controls, search inputs, and portrait/image support for cards
 - Combat Workspace with participant cards sourced from tracker entries, HP/temp HP actions, role/order controls, status effects, round timing, undo for turn advances, and embedded Vitals, Spells, Weapons / Attacks, Equipment, and Abilities / Skills panels that are live views of the canonical active character
 - Character page with multi-character selection, `...` actions for New/Rename/Delete Character, New Builder Character, Add to NPCs/Party, Export/Import Character, an empty-state "Create your first character" prompt, portrait, identity fields, vitals, resources, abilities and skills, proficiencies, weapons, spells, equipment, inventory tabs, money, and personality notes
@@ -194,7 +194,7 @@ Run one suite directly:
 npm run test:run -- tests/state.migrate.test.js
 ```
 
-`npm run test:smoke` runs the current 33-test Playwright suite against a controlled Vite server started in production mode on the repo's GitHub Pages base path. GitHub Pages CI now installs Playwright Chromium and runs this smoke suite after `npm run verify`; preview-based PWA/offline validation remains manual, and broader browser/PWA automation is roadmap hardening rather than unresolved release debt.
+`npm run test:smoke` runs the current Playwright smoke suite against a controlled Vite server started in production mode on the repo's GitHub Pages base path. GitHub Pages CI now installs Playwright Chromium and runs this smoke suite after `npm run verify`; preview-based PWA/offline validation remains manual, and broader browser/PWA automation is roadmap hardening rather than unresolved release debt.
 
 This is intentionally targeted coverage, not full-app automation. Automation now covers migration, `sanitizeForSave(...)`, `createStateActions(...)`, safe asset replacement ordering, local save/load, a representative structured save/load round trip, save-manager behavior, backup/import logic, basic browser boot, Campaign Hub first-run/layout/rename/delete paths, one reload-persistence path, a file-based backup round trip into a fresh browser context, tracker-page re-init safety, character-page re-init safety, Step 1 multi-character fresh-campaign behavior, targeted NPC/Party/Location panel regression paths, Combat Workspace card/round/status/embedded-panel paths, and shared dropdown/popover regressions. `Reset Everything`, broader Character-page coverage beyond the current lifecycle smoke, map drawing/touch behavior, and PWA/offline behavior remain manual release checks today; broader automation for those areas is roadmap work, while broader automated cross-browser coverage remains out of scope for this version.
 

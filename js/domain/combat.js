@@ -6,6 +6,12 @@
 /** @typedef {"none" | "rounds" | "time"} StatusDurationMode */
 /**
  * @typedef {{
+ *   successes: number,
+ *   failures: number
+ * }} CombatDeathSaves
+ */
+/**
+ * @typedef {{
  *   id: string,
  *   label: string,
  *   durationMode: StatusDurationMode,
@@ -33,6 +39,7 @@
  *   hpMax: number | null,
  *   ac: number | null,
  *   tempHp: number,
+ *   deathSaves: CombatDeathSaves,
  *   statusEffects: CombatStatusEffect[],
  *   [key: string]: unknown
  * }} CombatParticipant
@@ -93,6 +100,11 @@ export const STATUS_DURATION_MODES = Object.freeze({
 
 export const DEFAULT_SECONDS_PER_TURN = 6;
 
+export const DEFAULT_COMBAT_DEATH_SAVES = Object.freeze({
+  successes: 0,
+  failures: 0
+});
+
 /** @type {Readonly<Record<CombatSourceType, CombatSourceListKey>>} */
 const SOURCE_LIST_BY_TYPE = Object.freeze({
   party: "party",
@@ -149,6 +161,28 @@ function nonNegativeNumberOrNull(value) {
   const n = Number(value);
   if (!Number.isFinite(n)) return null;
   return Math.max(0, Math.trunc(n));
+}
+
+/**
+ * @param {unknown} value
+ * @returns {number}
+ */
+function deathSaveCount(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(0, Math.min(3, Math.trunc(n)));
+}
+
+/**
+ * @param {unknown} value
+ * @returns {CombatDeathSaves}
+ */
+export function normalizeCombatDeathSaves(value) {
+  const src = isPlainObject(value) ? value : {};
+  return {
+    successes: deathSaveCount(src.successes),
+    failures: deathSaveCount(src.failures)
+  };
 }
 
 /**
@@ -630,6 +664,7 @@ export function createCombatParticipantFromSource(source, options = {}) {
     hpMax: hp.hpMax,
     ac,
     tempHp: hp.tempHp,
+    deathSaves: normalizeCombatDeathSaves(src.deathSaves),
     statusEffects: normalizeStatusEffects(options.statusEffects ?? src.statusEffects, {
       fallbackStatusText: src.status
     })
@@ -662,6 +697,7 @@ function normalizeCombatParticipant(participant) {
     hpMax: nonNegativeNumberOrNull(participant.hpMax),
     ac: nonNegativeNumberOrNull(participant.ac),
     tempHp: nonNegativeNumber(participant.tempHp),
+    deathSaves: normalizeCombatDeathSaves(participant.deathSaves),
     statusEffects: normalizeStatusEffects(participant.statusEffects)
   };
 }

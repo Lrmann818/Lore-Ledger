@@ -91,15 +91,35 @@ export function createFilePicker(defaults = {}) {
     });
   }
 
+  /** @returns {Promise<File[]>} */
   async function pick(opts = {}) {
     tail = tail.then(() => _pickOnce(opts)).catch(() => []);
-    return tail;
+    return /** @type {Promise<File[]>} */ (/** @type {unknown} */ (tail));
   }
 
+  /** @returns {Promise<File | null>} */
   async function pickOne(opts = {}) {
     const files = await pick(opts);
     return files[0] || null;
   }
 
   return { pick, pickOne };
+}
+
+/**
+ * Image file picker. Delegates to {@link createFilePicker} with image/* defaults.
+ *
+ * On iOS the system presents its native action sheet (Photo Library / Take Photo /
+ * Files) directly when the file input is triggered — no in-app source chooser is
+ * shown. Take Photo via the WKWebView file-input path is subject to a known iOS
+ * freeze bug; a dedicated Capacitor native-camera bridge would be needed to resolve
+ * it without reintroducing an in-app modal.
+ *
+ * @param {{
+ *   accept?: string,
+ *   multiple?: boolean
+ * }} [defaults]
+ */
+export function createImagePicker(defaults = {}) {
+  return createFilePicker({ accept: "image/*", ...defaults });
 }

@@ -73,7 +73,7 @@ Each `campaignDocs[id]` entry stores one campaign document:
 - `map`
 - `combat`
 
-At runtime, the active campaign document is projected back into `state.tracker`, `state.characters`, `state.map`, and `state.combat` so existing page modules can operate against one active campaign. App-level UI such as theme and active tab is stored under `appShell.ui`.
+At runtime, the active campaign document is projected back into `state.tracker`, `state.characters`, `state.map`, and `state.combat` so existing page modules can operate against one active campaign. Campaign theme is stored per campaign at `campaignDocs[id].tracker.ui.theme`. The runtime root `state.ui.theme` mirrors the currently active theme so shared UI and DOM application stay in sync, while `appShell.ui` keeps the shell/root UI snapshot used for Hub and no-active-campaign flows.
 
 Current character state uses:
 
@@ -108,7 +108,7 @@ The separate UI key is `localCampaignTracker_activeTab`.
 
 That key is written immediately by [`js/ui/navigation.js`](../js/ui/navigation.js) when the top tab changes. It does not mark the full save dirty.
 
-`boot.js` also reads `localCampaignTracker_v1` directly on startup to apply the saved theme as early as possible. It reads the vault-era `appShell.ui.theme` path and falls back to the legacy root `ui.theme` path.
+`boot.js` also reads `localCampaignTracker_v1` directly on startup to apply the saved theme as early as possible. If an active campaign exists, boot resolves theme from `campaignDocs[activeCampaignId].tracker.ui.theme` first. Otherwise it falls back to the vault-era `appShell.ui.theme` path, then the legacy root `ui.theme` path for older saves.
 
 ## 4. IndexedDB responsibilities
 
@@ -255,7 +255,11 @@ Current flow:
    - `state: sanitizeForSave(...)`
    - `blobs`
    - `texts`
-7. Serialize to JSON and trigger a download named `campaign-backup-YYYY-MM-DD.json`.
+7. Serialize to JSON and deliver `campaign-backup-YYYY-MM-DD.json` through an explicit runtime strategy:
+   - `native-document-export` for native Apple runtimes inside Capacitor/TestFlight, using the local `NativeBackupExport` bridge to write a temporary `.json` file and present `UIDocumentPickerViewController(forExporting:asCopy:)`
+   - `file-system-save-picker` for desktop browsers or installed PWAs when `window.showSaveFilePicker()` exists, so the user gets a real Save dialog with the suggested filename
+   - `direct-download` for desktop/web when the File System Access API is unavailable, using a blob URL plus a temporary anchor download
+   - `unsupported/error` only when neither the native Apple export bridge nor the desktop/web save paths are available
 
 Combat Workspace Slice 1 has no blob or text references. Its `workspace` and `encounter` buckets are preserved through the structured `sanitizeForSave(...)` payload.
 
@@ -264,7 +268,15 @@ Export safety behavior:
 - unreadable blobs are skipped with `console.warn(...)`
 - export does not abort when one blob read fails
 - unreadable text records are skipped with `console.warn(...)`
-- if the download click fails, the user gets an alert
+- native Apple/TestFlight export does not use `navigator.share`; it stages the backup into the app sandbox and hands off to the native document export picker so the user chooses a real destination in Files/Finder
+- if the native document export path fails or is missing in a native Apple runtime, Lore Ledger shows an `Export failed` dialog and does not silently fall back to `navigator.share`
+- desktop/PWA export prefers `showSaveFilePicker()` when available so the user chooses the destination folder and filename in a native Save dialog
+- desktop/PWA fallback uses a temporary object URL plus `download` anchor so Finder/Downloads still receives an actual `.json` backup file when the save picker is unavailable
+- desktop/macOS export does not silently fall back from save-picker or direct-download attempts into `navigator.share`
+- canceling the save picker is treated as a clean user cancel, not an export error
+- export failures surface an in-app `Export failed` dialog instead of failing silently
+- if the save picker or download path fails, the user gets an alert
+- maintainers can enable export-path diagnostics with `localStorage.setItem("loreledger:debug-backup-export", "1")` or `?debugBackupExport=1`; the console log includes platform, user agent, touch points, display-mode/PWA signals, `showSaveFilePicker` availability, `navigator.share` availability, Capacitor presence/platform/native flags, native-plugin availability, the selected strategy, and which delivery path was attempted
 
 Compatibility note:
 

@@ -4,6 +4,7 @@
 import { enhanceSelectDropdown } from "../../../ui/selectDropdown.js";
 import { attachSearchHighlightOverlay } from "../../../ui/searchHighlightOverlay.js";
 import { renderSectionTabs, wireSectionCrud } from "./cards/shared/cardsShared.js";
+import { createTabReorder, applyTabReorder } from "../../../ui/tabReorder.js";
 import { pickAndStorePortrait } from "./cards/shared/cardPortraitShared.js";
 import { deleteTrackerCardWithBlobCleanup } from "./cards/shared/cardDeletionShared.js";
 import { makeFieldSearchMatcher } from "./cards/shared/cardSearchShared.js";
@@ -226,8 +227,9 @@ function createNpcCardsController(deps = {}) {
     });
   }
 
-  function patchLinkedCardVitalsInputs() {
+  function patchLinkedCardHpInputs() {
     if (!cardsEl) return;
+    let needsRerender = false;
     Array.from(cardsEl.querySelectorAll(".trackerCard")).forEach((cardEl) => {
       const cardId = cardEl.dataset.cardId;
       if (!cardId) return;
@@ -237,17 +239,22 @@ function createNpcCardsController(deps = {}) {
       if (!display.isLinked) return;
       const hpCurEl = cardEl.querySelector("[data-linked-field='hpCurrent']");
       const hpMaxEl = cardEl.querySelector("[data-linked-field='hpMax']");
-      const acEl = cardEl.querySelector("[data-linked-field='ac']");
       if (hpCurEl instanceof HTMLInputElement && document.activeElement !== hpCurEl) {
         hpCurEl.value = display.hpCurrent != null ? String(display.hpCurrent) : "";
       }
       if (hpMaxEl instanceof HTMLInputElement && document.activeElement !== hpMaxEl) {
         hpMaxEl.value = display.hpMax != null ? String(display.hpMax) : "";
       }
-      if (acEl instanceof HTMLInputElement && document.activeElement !== acEl) {
+      const acEl = cardEl.querySelector("[data-linked-field='ac']");
+      if (!(acEl instanceof HTMLInputElement)) {
+        needsRerender = true;
+        return;
+      }
+      if (document.activeElement !== acEl) {
         acEl.value = display.ac != null ? String(display.ac) : "";
       }
     });
+    if (needsRerender) renderNpcCards();
   }
 
   function setNpcPortraitHidden(id, hidden) {
@@ -530,14 +537,17 @@ function createNpcCardsController(deps = {}) {
     hpRow.appendChild(hpWrap);
 
     const acRow = document.createElement("div");
-    acRow.className = "npcRowBlock";
+    acRow.className = "npcRowBlock npcAcRow";
 
     const acLabel = document.createElement("div");
     acLabel.className = "npcMiniLabel";
     acLabel.textContent = "AC";
 
+    const acWrap = document.createElement("div");
+    acWrap.className = "npcAcWrap";
+
     const acInput = document.createElement("input");
-    acInput.className = "npcField npcHpInput";
+    acInput.className = "npcField npcAcInput";
     acInput.classList.add("num-lg");
     acInput.classList.add("autosize");
     acInput.type = "number";
@@ -550,8 +560,8 @@ function createNpcCardsController(deps = {}) {
       updateNpcLinkedField(npc, "ac", numberOrNull(acInput.value), false);
     });
 
-    acRow.appendChild(acLabel);
-    acRow.appendChild(acInput);
+    acWrap.appendChild(acInput);
+    acRow.append(acLabel, acWrap);
 
     const statusBlock = document.createElement("div");
     statusBlock.className = "npcRowBlock";
@@ -725,12 +735,33 @@ function createNpcCardsController(deps = {}) {
       listenerSignal,
     });
 
+    const npcTabReorder = createTabReorder({
+      tabsEl,
+      wrapEl: tabsEl.parentElement,
+      tabSelector: ".npcTab",
+      getTabId: (el) => el.dataset.tabId || "",
+      onCommit: (newVisibleOrder) => {
+        mutateTracker((tracker) => {
+          const { items, changed } = applyTabReorder(
+            tracker.npcSections || [],
+            newVisibleOrder,
+            (sec) => sec.id
+          );
+          if (!changed) return false;
+          tracker.npcSections = items;
+          return true;
+        });
+        renderNpcTabs();
+      },
+    });
+    addDestroy(() => npcTabReorder.destroy());
+
     renderNpcTabs();
     renderNpcCards();
 
     addDestroy(subscribePanelDataChanged("vitals", (detail) => {
       if (detail.source === npcControllerSource) return;
-      patchLinkedCardVitalsInputs();
+      patchLinkedCardHpInputs();
     }));
 
     addDestroy(subscribePanelDataChanged("character-fields", (detail) => {

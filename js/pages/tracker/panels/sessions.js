@@ -3,6 +3,7 @@
 
 import { attachSearchHighlightOverlay } from "../../../ui/searchHighlightOverlay.js";
 import { safeAsync } from "../../../ui/safeAsync.js";
+import { createTabReorder, applyTabReorder } from "../../../ui/tabReorder.js";
 import { requireMany, getNoopDestroyApi } from "../../../utils/domGuards.js";
 
 let _tabsEl = null;
@@ -12,6 +13,7 @@ let _addBtn = null;
 let _renameBtn = null;
 let _deleteBtn = null;
 let _notesHl = null;
+let _tabReorder = null;
 
 // Injected services from page-level wiring.
 let _SaveManager = null;
@@ -22,6 +24,57 @@ let _state = null;
 let _setStatus = null;
 
 let _wired = false;
+
+function _newSessionId() {
+  return `session_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function _normalizeSessions(input) {
+  if (!Array.isArray(input) || input.length === 0) {
+    return [{ id: _newSessionId(), title: "Session 1", notes: "" }];
+  }
+
+  const seenIds = new Set();
+  return input.map((entry, index) => {
+    const source = entry && typeof entry === "object" && !Array.isArray(entry)
+      ? entry
+      : {};
+    let id = typeof source.id === "string" ? source.id.trim() : "";
+    if (!id || seenIds.has(id)) id = _newSessionId();
+    seenIds.add(id);
+    return {
+      ...source,
+      id,
+      title: typeof source.title === "string" ? source.title : `Session ${index + 1}`,
+      notes: typeof source.notes === "string" ? source.notes : ""
+    };
+  });
+}
+
+function _getSessionIndexById(sessionId) {
+  if (!sessionId) return -1;
+  return (_state?.tracker?.sessions || []).findIndex((session) => session?.id === sessionId);
+}
+
+function _saveActiveSessionNotes() {
+  const cur = _state?.tracker?.sessions?.[_state?.tracker?.activeSessionIndex];
+  if (cur && _notesBox) cur.notes = _notesBox.value;
+}
+
+function _applyVisibleSessionOrder(visibleIds, activeSessionId) {
+  const sessions = Array.isArray(_state?.tracker?.sessions) ? _state.tracker.sessions : [];
+  const { items: nextSessions, changed } = applyTabReorder(
+    sessions,
+    visibleIds,
+    (session) => session.id
+  );
+  if (!changed) return false;
+
+  _state.tracker.sessions = nextSessions;
+  const nextActiveIndex = _getSessionIndexById(activeSessionId);
+  _state.tracker.activeSessionIndex = nextActiveIndex >= 0 ? nextActiveIndex : 0;
+  return true;
+}
 
 function _escapeRegExp(str) {
   return String(str).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -130,6 +183,21 @@ export function initSessionsPanel(deps = {}) {
     _wired = true;
   }
 
+  _tabReorder?.destroy?.();
+  _tabReorder = createTabReorder({
+    tabsEl: _tabsEl,
+    wrapEl: _tabsEl.parentElement,
+    tabSelector: ".sessionTab",
+    getTabId: (el) => el.dataset.sessionId || "",
+    onCommit: (newVisibleOrder) => {
+      _saveActiveSessionNotes();
+      const activeSessionId = _state?.tracker?.sessions?.[_state?.tracker?.activeSessionIndex]?.id || "";
+      const orderChanged = _applyVisibleSessionOrder(newVisibleOrder, activeSessionId);
+      if (orderChanged) markDirty();
+      renderSessionTabs();
+    },
+  });
+
   renderSessionTabs();
 }
 
@@ -139,6 +207,7 @@ function renderSessionTabs() {
   _tabsEl.replaceChildren();
 
   const query = (_state.tracker.sessionSearch || "").trim().toLowerCase();
+  const activeSessionId = _state.tracker.sessions?.[_state.tracker.activeSessionIndex]?.id || "";
 
   // Decide which sessions to show in the tab strip
   const sessionsToShow = (_state.tracker.sessions || [])
@@ -152,10 +221,11 @@ function renderSessionTabs() {
 
   sessionsToShow.forEach(({ s, idx }) => {
     const btn = document.createElement("button");
-    btn.className = "sessionTab" + (idx === _state.tracker.activeSessionIndex ? " active" : "");
+    btn.className = "sessionTab" + (s.id === activeSessionId ? " active" : "");
     btn.type = "button";
+    btn.dataset.sessionId = s.id;
     _appendHighlightedText(btn, (s.title || `Session ${idx + 1}`), _state.tracker.sessionSearch || "");
-    btn.addEventListener("click", () => switchSession(idx));
+    btn.addEventListener("click", () => switchSessionById(s.id));
     _tabsEl.appendChild(btn);
   });
 
@@ -175,9 +245,7 @@ function renderSessionTabs() {
 }
 
 function ensureSessionDefaults() {
-  if (!Array.isArray(_state.tracker.sessions) || _state.tracker.sessions.length === 0) {
-    _state.tracker.sessions = [{ title: "Session 1", notes: "" }];
-  }
+  _state.tracker.sessions = _normalizeSessions(_state.tracker.sessions);
   if (typeof _state.tracker.activeSessionIndex !== "number") {
     _state.tracker.activeSessionIndex = 0;
   }
@@ -217,11 +285,10 @@ function wireHandlers() {
   // Add session
   _addBtn?.addEventListener("click", () => {
     // Save current first
-    const cur = _state.tracker.sessions?.[_state.tracker.activeSessionIndex];
-    if (cur) cur.notes = _notesBox.value;
+    _saveActiveSessionNotes();
 
     const nextNum = (_state.tracker.sessions?.length || 0) + 1;
-    _state.tracker.sessions.push({ title: `Session ${nextNum}`, notes: "" });
+    _state.tracker.sessions.push({ id: _newSessionId(), title: `Session ${nextNum}`, notes: "" });
     _state.tracker.activeSessionIndex = _state.tracker.sessions.length - 1;
 
     markDirty();
@@ -283,11 +350,11 @@ function wireHandlers() {
   );
 }
 
-function switchSession(newIndex) {
-  // Save current notes before switching
-  const cur = _state.tracker.sessions?.[_state.tracker.activeSessionIndex];
-  if (cur) cur.notes = _notesBox.value;
+function switchSessionById(sessionId) {
+  const newIndex = _getSessionIndexById(sessionId);
+  if (newIndex < 0 || newIndex === _state.tracker.activeSessionIndex) return;
 
+  _saveActiveSessionNotes();
   _state.tracker.activeSessionIndex = newIndex;
   markDirty();
   renderSessionTabs();

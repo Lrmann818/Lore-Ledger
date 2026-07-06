@@ -10,7 +10,7 @@ export const STORAGE_KEY = "localCampaignTracker_v1";
 export const ACTIVE_TAB_KEY = "localCampaignTracker_activeTab";
 
 // Save schema versioning
-export const CURRENT_SCHEMA_VERSION = 8;
+export const CURRENT_SCHEMA_VERSION = 10;
 
 /** @typedef {import("./domain/factories.js").NpcCard & PortraitRef} NpcCard */
 /** @typedef {import("./domain/factories.js").PartyMemberCard & PortraitRef} PartyMemberCard */
@@ -56,18 +56,28 @@ export const SCHEMA_MIGRATION_HISTORY = Object.freeze([
   },
   {
     version: 6,
-    date: "2026-04-16",
-    changes: "Added Step 3 rules-engine foundation fields on character entries: build and overrides."
+    date: "2026-05-29",
+    changes: "Added stable tracker session ids so session tab order can persist independently of titles."
   },
   {
     version: 7,
-    date: "2026-04-29",
-    changes: "Added manual Abilities & Features card storage on character entries."
+    date: "2026-05-29",
+    changes: "Added stable inventory item ids so equipment tab order can persist independently of titles."
   },
   {
     version: 8,
+    date: "2026-04-16",
+    changes: "Added Step 3 rules-engine foundation fields on character entries: build and overrides. (Renumbered from v6 during the develop merge.)"
+  },
+  {
+    version: 9,
+    date: "2026-04-29",
+    changes: "Added manual Abilities & Features card storage on character entries. (Renumbered from v7 during the develop merge.)"
+  },
+  {
+    version: 10,
     date: "2026-04-30",
-    changes: "Added character-owned derived feature-use storage on character entries."
+    changes: "Added character-owned derived feature-use storage on character entries. (Renumbered from v8 during the develop merge.)"
   }
 ]);
 
@@ -83,6 +93,18 @@ export const SCHEMA_MIGRATION_HISTORY = Object.freeze([
  *   notes: string,
  *   [key: string]: unknown
  * }} NotesEntry
+ */
+
+/**
+ * @typedef {NotesEntry & {
+ *   id: string
+ * }} SessionEntry
+ */
+
+/**
+ * @typedef {NotesEntry & {
+ *   id: string
+ * }} InventoryEntry
  */
 
 /**
@@ -264,7 +286,7 @@ export const SCHEMA_MIGRATION_HISTORY = Object.freeze([
 /**
  * @typedef {{
  *   campaignTitle: string,
- *   sessions: NotesEntry[],
+ *   sessions: SessionEntry[],
  *   sessionSearch: string,
  *   activeSessionIndex: number,
  *   npcs: NpcCard[],
@@ -287,6 +309,89 @@ export const SCHEMA_MIGRATION_HISTORY = Object.freeze([
  *   [key: string]: unknown
  * }} TrackerState
  */
+
+function newSessionId() {
+  return `session_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function newInventoryId() {
+  return `inv_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+/**
+ * Ensure every inventory item has a stable id. Items that already have a valid
+ * unique id keep it; others receive a freshly generated one. Returns a new
+ * array so callers can detect whether anything changed by reference.
+ * @param {unknown} input
+ * @returns {InventoryEntry[]}
+ */
+export function normalizeInventoryItems(input) {
+  if (!Array.isArray(input) || input.length === 0) {
+    return [{ id: newInventoryId(), title: "Inventory", notes: "" }];
+  }
+
+  const seenIds = new Set();
+  /** @type {InventoryEntry[]} */
+  const normalized = [];
+
+  for (let index = 0; index < input.length; index += 1) {
+    const raw = input[index];
+    const source = raw && typeof raw === "object" && !Array.isArray(raw)
+      ? /** @type {Record<string, unknown>} */ (raw)
+      : {};
+
+    let id = typeof source.id === "string" ? source.id.trim() : "";
+    if (!id || seenIds.has(id)) id = newInventoryId();
+    seenIds.add(id);
+
+    normalized.push({
+      ...source,
+      id,
+      title: typeof source.title === "string" ? source.title : `Item ${index + 1}`,
+      notes: typeof source.notes === "string" ? source.notes : ""
+    });
+  }
+
+  return normalized.length > 0
+    ? normalized
+    : [{ id: newInventoryId(), title: "Inventory", notes: "" }];
+}
+
+/**
+ * @param {unknown} input
+ * @returns {SessionEntry[]}
+ */
+function normalizeTrackerSessions(input) {
+  if (!Array.isArray(input) || input.length === 0) {
+    return [{ id: newSessionId(), title: "Session 1", notes: "" }];
+  }
+
+  const seenIds = new Set();
+  /** @type {SessionEntry[]} */
+  const normalized = [];
+
+  for (let index = 0; index < input.length; index += 1) {
+    const raw = input[index];
+    const source = raw && typeof raw === "object" && !Array.isArray(raw)
+      ? /** @type {Record<string, unknown>} */ (raw)
+      : {};
+
+    let id = typeof source.id === "string" ? source.id.trim() : "";
+    if (!id || seenIds.has(id)) id = newSessionId();
+    seenIds.add(id);
+
+    normalized.push({
+      ...source,
+      id,
+      title: typeof source.title === "string" ? source.title : `Session ${index + 1}`,
+      notes: typeof source.notes === "string" ? source.notes : ""
+    });
+  }
+
+  return normalized.length > 0
+    ? normalized
+    : [{ id: newSessionId(), title: "Session 1", notes: "" }];
+}
 
 /**
  * @typedef {{
@@ -415,7 +520,7 @@ export const SCHEMA_MIGRATION_HISTORY = Object.freeze([
  *   languages: string,
  *   attacks: AttackEntry[],
  *   spells: CharacterSpells,
- *   inventoryItems: NotesEntry[],
+ *   inventoryItems: InventoryEntry[],
  *   activeInventoryIndex: number,
  *   inventorySearch: string,
  *   equipment: string,
@@ -572,7 +677,7 @@ export const state = {
   schemaVersion: CURRENT_SCHEMA_VERSION,
   tracker: {
     campaignTitle: "My Campaign",
-    sessions: [{ title: "Session 1", notes: "" }],
+    sessions: [{ id: newSessionId(), title: "Session 1", notes: "" }],
     sessionSearch: "",
     activeSessionIndex: 0,
     npcs: [],                 // array of npc objects
@@ -1004,7 +1109,7 @@ export function migrateState(raw) {
       t.ui.textareaHeights = t.ui.textareaHeigts;
     }
     ensureObj(t.ui, "textareaHeights");
-    if (!Array.isArray(t.sessions)) t.sessions = [{ title: "Session 1", notes: "" }];
+    t.sessions = normalizeTrackerSessions(t.sessions);
     if (!Array.isArray(t.npcs)) t.npcs = [];
     if (!Array.isArray(t.party)) t.party = [];
     if (!Array.isArray(t.locationsList)) t.locationsList = [];
@@ -1026,7 +1131,7 @@ export function migrateState(raw) {
     ensureObj(c, "skills");
     ensureObj(c, "ui");
     ensureObj(c.ui, "textareaHeights");
-    c.inventoryItems = /** @type {NotesEntry[]} */ (
+    c.inventoryItems = normalizeInventoryItems(
       backfillInventoryItemsFromLegacyEquipment(c.inventoryItems, c.equipment)
     );
 
@@ -1134,7 +1239,7 @@ export function migrateState(raw) {
       data.character = /** @type {Partial<CharacterState> & Record<string, unknown>} */ ({});
     }
     const c = /** @type {Partial<CharacterState> & Record<string, unknown>} */ (data.character);
-    c.inventoryItems = /** @type {NotesEntry[]} */ (
+    c.inventoryItems = normalizeInventoryItems(
       backfillInventoryItemsFromLegacyEquipment(c.inventoryItems, c.equipment)
     );
   }
@@ -1311,6 +1416,36 @@ export function migrateState(raw) {
   }
 
   function migrateToV6() {
+    const tracker = ensureObj(data, "tracker");
+    const sessions = normalizeTrackerSessions(tracker.sessions);
+    tracker.sessions = sessions;
+
+    let activeSessionIndex = typeof tracker.activeSessionIndex === "number" ? tracker.activeSessionIndex : 0;
+    if (activeSessionIndex < 0) activeSessionIndex = 0;
+    if (activeSessionIndex >= sessions.length) activeSessionIndex = sessions.length - 1;
+    tracker.activeSessionIndex = activeSessionIndex;
+  }
+
+  function migrateToV7() {
+    const chars = data.characters && typeof data.characters === "object" && !Array.isArray(data.characters)
+      ? /** @type {CharactersCollection & Record<string, unknown>} */ (data.characters)
+      : null;
+    const entries = Array.isArray(chars?.entries) ? chars.entries : [];
+    entries.forEach((c) => {
+      if (!c || typeof c !== "object" || Array.isArray(c)) return;
+      const entry = /** @type {Record<string, unknown>} */ (c);
+      entry.inventoryItems = normalizeInventoryItems(entry.inventoryItems);
+      const items = /** @type {InventoryEntry[]} */ (entry.inventoryItems);
+      if (typeof entry.activeInventoryIndex !== "number") entry.activeInventoryIndex = 0;
+      if (/** @type {number} */ (entry.activeInventoryIndex) < 0) entry.activeInventoryIndex = 0;
+      if (/** @type {number} */ (entry.activeInventoryIndex) >= items.length) {
+        entry.activeInventoryIndex = items.length - 1;
+      }
+    });
+  }
+
+  // Renumbered from v6 during the develop merge: builder foundation fields.
+  function migrateToV8() {
     const characters = data.characters && typeof data.characters === "object" && !Array.isArray(data.characters)
       ? /** @type {CharactersCollection & Record<string, unknown>} */ (data.characters)
       : null;
@@ -1331,7 +1466,8 @@ export function migrateState(raw) {
     }
   }
 
-  function migrateToV7() {
+  // Renumbered from v7 during the develop merge: manual Abilities & Features cards.
+  function migrateToV9() {
     const characters = data.characters && typeof data.characters === "object" && !Array.isArray(data.characters)
       ? /** @type {CharactersCollection & Record<string, unknown>} */ (data.characters)
       : null;
@@ -1345,7 +1481,8 @@ export function migrateState(raw) {
     }
   }
 
-  function migrateToV8() {
+  // Renumbered from v8 during the develop merge: derived feature-use storage.
+  function migrateToV10() {
     const characters = data.characters && typeof data.characters === "object" && !Array.isArray(data.characters)
       ? /** @type {CharactersCollection & Record<string, unknown>} */ (data.characters)
       : null;
@@ -1365,7 +1502,9 @@ export function migrateState(raw) {
     4: migrateToV5,
     5: migrateToV6,
     6: migrateToV7,
-    7: migrateToV8
+    7: migrateToV8,
+    8: migrateToV9,
+    9: migrateToV10
   });
 
   function applyMigrationStep(version) {
@@ -1397,6 +1536,8 @@ export function migrateState(raw) {
   migrateToV6();
   migrateToV7();
   migrateToV8();
+  migrateToV9();
+  migrateToV10();
 
   data.schemaVersion = CURRENT_SCHEMA_VERSION;
   return normalizeState(/** @type {State} */ (data));

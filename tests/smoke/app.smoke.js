@@ -265,8 +265,8 @@ test("hub shell stays within the viewport and keeps a dark root background on de
     expect(state.pageBackgroundImage).toContain("linear-gradient");
     expect(state.backdropZIndex).toBe("0");
     expect(state.shellScrollWidth).toBe(state.shellClientWidth);
-    expect(state.htmlBgColor).toBe("rgb(9, 7, 5)");
-    expect(state.bodyBgColor).toBe("rgb(9, 7, 5)");
+    expect(state.htmlBgColor).toBe("rgb(9, 8, 7)");
+    expect(state.bodyBgColor).toBe("rgb(9, 8, 7)");
     expect(state.mainBgColor).toBe("rgba(0, 0, 0, 0)");
     expect(state.mainZIndex).toBe("2");
     expect(state.offenders).toEqual([]);

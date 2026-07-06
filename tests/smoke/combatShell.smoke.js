@@ -283,7 +283,7 @@ test("combat cards support turn, role, order (↑/↓ buttons), remove, undo, an
   await expectNoFatalSignals(page, fatalSignals);
 });
 
-test("HP modal applies heal and temp HP correctly", async ({ page }) => {
+test("HP modal applies temp HP and death-saves mode correctly", async ({ page }) => {
   const fatalSignals = await openSmokeApp(page, { campaignName: "Combat HP Modal Smoke" });
 
   await page.locator("#addNpcBtn").click();
@@ -319,24 +319,15 @@ test("HP modal applies heal and temp HP correctly", async ({ page }) => {
   await expect.poll(() => card.locator(".combatHpValue").evaluate((el) => getComputedStyle(el).color))
     .toBe(normalHpColor);
 
-  // Zero HP — the same single HP value turns red via a zero-state class
+  // Zero HP swaps the normal HP/AC/status area for Death Saves.
   await card.locator(".combatHpBtn").click();
   await page.locator("#combatHpModal .combatHpModalInput").fill("3");
   await page.locator("#combatHpModal [data-combat-hp-action='damage']").click();
-  await expect(card.locator(".combatHpValue")).toHaveText("0");
-  await expect(card.locator(".combatHpBtn")).toHaveClass(/isZeroHp/);
+  await expect(card.locator(".combatDeathSaves")).toBeVisible();
+  await expect(card.locator(".combatHpBtn")).toHaveCount(0);
+  await expect(card.locator(".combatAcValue")).toHaveCount(0);
 
-  // Heal
-  await card.locator(".combatHpBtn").click();
-  await page.locator("#combatHpModal .combatHpModalInput").fill("5");
-  await page.locator("#combatHpModal [data-combat-hp-action='heal']").click();
-  await expect(card.locator(".combatHpValue")).toHaveText("5");
-
-  // Cancel closes without change
-  await card.locator(".combatHpBtn").click();
-  await page.locator("#combatHpModal [data-combat-hp-close]").first().click();
-  await expect(page.locator("#combatHpModal")).not.toBeVisible();
-  await expect(card.locator(".combatHpValue")).toHaveText("5");
+  await expect(card.locator(".combatDeathSaveInput")).toHaveCount(6);
 
   await expectNoFatalSignals(page, fatalSignals);
 });

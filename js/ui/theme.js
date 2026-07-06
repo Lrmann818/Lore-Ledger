@@ -2,6 +2,12 @@
 // js/ui/theme.js
 // Theme manager (system/light/dark + named themes) with a safe system listener.
 
+import {
+  ALLOWED_THEMES,
+  syncResolvedThemeChoiceIntoState,
+  syncThemeChoiceIntoState
+} from "./themeState.js";
+
 /** @typedef {import("../state.js").State} State */
 /**
  * @typedef {typeof ALLOWED_THEMES[number]} ThemeChoice
@@ -26,15 +32,6 @@
  *   removeListener?: (listener: (event: MediaQueryListEvent) => void) => void
  * }} LegacyThemeMediaQueryList
  */
-
-const ALLOWED_THEMES = /** @type {const} */ ([
-  "system", "dark", "light",
-  "purple", "teal", "green", "blue", "red", "red-gold", "rose", "beige",
-  "slate", "forest", "ember", "sepia", "arcane", "arcane-gold"
-]);
-
-/** @type {Set<string>} */
-const ALLOWED_THEME_SET = new Set(ALLOWED_THEMES);
 
 /**
  * @param {ThemeManagerDeps} [deps]
@@ -97,15 +94,7 @@ export function createThemeManager(deps) {
    * @returns {void}
    */
   function applyTheme(theme) {
-    const t = /** @type {ThemeChoice} */ (ALLOWED_THEME_SET.has(theme) ? theme : "system");
-    if (!state.ui) {
-      state.ui = {
-        theme: "system",
-        textareaHeights: {},
-        panelCollapsed: {}
-      };
-    }
-    state.ui.theme = t;
+    const t = /** @type {ThemeChoice} */ (syncThemeChoiceIntoState(state, theme));
 
     const resolved = (t === "system") ? resolveSystemTheme() : t;
     document.documentElement.dataset.theme = resolved;
@@ -120,7 +109,7 @@ export function createThemeManager(deps) {
    * @returns {void}
    */
   function initFromState() {
-    applyTheme(state?.ui?.theme || "system");
+    applyTheme(syncResolvedThemeChoiceIntoState(state));
   }
 
   return { applyTheme, initFromState, startSystemThemeListener, stopSystemThemeListener };

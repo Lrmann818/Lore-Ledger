@@ -83,6 +83,7 @@ export function renderSectionTabs({
     btn.className = `${tabClass}${sec.id === activeId ? " active" : ""}`;
     btn.setAttribute("role", "tab");
     btn.setAttribute("aria-selected", sec.id === activeId ? "true" : "false");
+    btn.dataset.tabId = sec.id;
     appendHighlightedText(btn, sec.name || "Section", query);
     btn.addEventListener("click", () => onSelect(sec.id));
     tabsEl.appendChild(btn);

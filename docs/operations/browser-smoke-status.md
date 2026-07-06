@@ -38,7 +38,7 @@ The suite currently covers:
    - card reorder and collapse incremental patch paths
    - focus restoration after incremental DOM updates
 7. Shared dropdown and popover regressions around enhanced selects, body-ported card menus, keyboard-open behavior, and post-rerender clickability.
-8. Combat Workspace shell, Combat Cards, round controls, HP/temp HP, status effects, turn undo, tracker HP/status-label writeback exceptions, mobile stacking, and embedded panel selection/reorder/source-panel behavior.
+8. Combat Workspace shell, Combat Cards, round controls, HP/temp HP, AC display, status effects, turn undo, tracker HP/status-label writeback exceptions, mobile stacking, and embedded panel selection/reorder/source-panel behavior. Manual QA still covers zero-HP Death Saves replacement, pass/fail checkbox behavior, long-press stabilization, and iPhone portrait/landscape combat-card layout.
 
 ## Manual-only coverage by decision
 

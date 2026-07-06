@@ -20,6 +20,7 @@ import { initPwaUpdates } from "../pwa/updates.js";
 import { showUpdateBanner } from "../pwa/updateBanner.js";
 import { getStorageDiagnostics } from "../storage/diagnostics.js";
 import { normalizeAppState } from "../state.js";
+import { resolveThemeChoiceFromState } from "./themeState.js";
 
 /** @typedef {import("../state.js").State} State */
 /** @typedef {ReturnType<typeof import("../ui/popovers.js").createPopoverManager>} PopoversApi */
@@ -269,12 +270,7 @@ export function initDataPanel(deps) {
     overlay.setAttribute("aria-hidden", "false");
     // Sync theme select
     if (themeSelect) {
-      const current = (state?.tracker?.ui && typeof state.tracker.ui.theme === "string")
-        ? state.tracker.ui.theme
-        : (state?.ui && typeof state.ui.theme === "string")
-          ? state.ui.theme
-          : "system";
-      themeSelect.value = current;
+      themeSelect.value = resolveThemeChoiceFromState(state);
       // Sync enhanced dropdown label without firing the real change handler.
       try { themeSelect.dispatchEvent(new Event("selectDropdown:sync")); } catch { }
     }
@@ -352,11 +348,6 @@ export function initDataPanel(deps) {
     addListener("settings", themeSelect, "change", () => {
       const val = themeSelect.value || "system";
       applyTheme(val);
-      // Preserve whichever UI bucket exists (legacy tracker.ui or root ui).
-      if (state?.tracker?.ui) state.tracker.ui.theme = val;
-      else {
-        ensureRootUiState(state).theme = val;
-      }
       markDirty();
     });
   }

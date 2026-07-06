@@ -12,6 +12,11 @@ import { createStateActions } from "../../../domain/stateActions.js";
 import { requireMany, getNoopDestroyApi } from "../../../utils/domGuards.js";
 import { numberOrNull } from "../../../utils/number.js";
 import { getActiveCharacter } from "../../../domain/characterHelpers.js";
+import { createTabReorder, applyTabReorder } from "../../../ui/tabReorder.js";
+
+function newInventoryId() {
+  return `inv_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+}
 
 function notifyStatus(setStatus, message) {
   if (typeof setStatus === "function") {
@@ -142,21 +147,30 @@ export function initEquipmentPanel(deps = {}) {
     mutateCharacter((character) => {
       if (!Array.isArray(character.inventoryItems)) {
         const legacy = typeof character.equipment === "string" ? character.equipment : "";
-        character.inventoryItems = [{ title: "Inventory", notes: legacy || "" }];
+        character.inventoryItems = [{ id: newInventoryId(), title: "Inventory", notes: legacy || "" }];
       } else {
         const legacy = typeof character.equipment === "string" ? character.equipment : "";
         const hasAnyNotes = character.inventoryItems.some((item) => item && typeof item.notes === "string" && item.notes.trim());
         if (!hasAnyNotes && legacy && String(legacy).trim()) {
-          if (!character.inventoryItems[0]) character.inventoryItems[0] = { title: "Inventory", notes: "" };
+          if (!character.inventoryItems[0]) character.inventoryItems[0] = { id: newInventoryId(), title: "Inventory", notes: "" };
           if (!character.inventoryItems[0].notes || !String(character.inventoryItems[0].notes).trim()) {
             character.inventoryItems[0].notes = legacy;
           }
           if (!character.inventoryItems[0].title) character.inventoryItems[0].title = "Inventory";
         }
+        // Backfill any items that arrived without a stable id (e.g. older saves not yet through v7 migration).
+        const seenIds = new Set();
+        character.inventoryItems.forEach((item) => {
+          if (!item || typeof item !== "object") return;
+          if (!item.id || typeof item.id !== "string" || seenIds.has(item.id)) {
+            item.id = newInventoryId();
+          }
+          seenIds.add(item.id);
+        });
       }
 
       if (character.inventoryItems.length === 0) {
-        character.inventoryItems.push({ title: "Inventory", notes: "" });
+        character.inventoryItems.push({ id: newInventoryId(), title: "Inventory", notes: "" });
       }
       if (typeof character.activeInventoryIndex !== "number") character.activeInventoryIndex = 0;
       if (character.activeInventoryIndex < 0) character.activeInventoryIndex = 0;
@@ -196,10 +210,12 @@ export function initEquipmentPanel(deps = {}) {
         return title.includes(query) || notes.includes(query);
       });
 
+    const activeId = items[currentCharacter.activeInventoryIndex]?.id || "";
     itemsToShow.forEach(({ item, idx }) => {
       const btn = document.createElement("button");
-      btn.className = "sessionTab" + (idx === currentCharacter.activeInventoryIndex ? " active" : "");
+      btn.className = "sessionTab" + (item.id === activeId ? " active" : "");
       btn.type = "button";
+      if (item.id) btn.dataset.inventoryId = item.id;
       appendHighlightedText(btn, item.title || `Item ${idx + 1}`, currentCharacter.inventorySearch || "");
       btn.addEventListener("click", () => switchInventoryItem(idx));
       tabsEl.appendChild(btn);
@@ -269,6 +285,33 @@ export function initEquipmentPanel(deps = {}) {
   );
   addDestroy(() => notesHighlight.destroy());
 
+  const invTabReorder = createTabReorder({
+    tabsEl,
+    wrapEl: tabsEl.parentElement,
+    tabSelector: ".sessionTab",
+    getTabId: (el) => el.dataset.inventoryId || "",
+    onCommit: (newVisibleOrder) => {
+      const character = getCurrentCharacter();
+      if (!character) return;
+      const activeItemId = character.inventoryItems?.[character.activeInventoryIndex]?.id || "";
+      mutateCharacter((c) => {
+        const { items, changed } = applyTabReorder(
+          c.inventoryItems || [],
+          newVisibleOrder,
+          (item) => item.id || ""
+        );
+        if (!changed) return false;
+        c.inventoryItems = items;
+        const newActiveIdx = c.inventoryItems.findIndex((item) => item.id === activeItemId);
+        c.activeInventoryIndex = newActiveIdx >= 0 ? newActiveIdx : 0;
+        return true;
+      }, { queueSave: false });
+      markDirty();
+      renderInventoryTabs();
+    },
+  });
+  addDestroy(() => invTabReorder.destroy());
+
   addListener(searchEl, "input", () => {
     updateCharacterField("inventorySearch", searchEl.value, { queueSave: false });
     markDirty();
@@ -311,6 +354,7 @@ export function initEquipmentPanel(deps = {}) {
 
       mutateCharacter((character) => {
         character.inventoryItems.push({
+          id: newInventoryId(),
           title: finalTitle,
           notes: ""
         });

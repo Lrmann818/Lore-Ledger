@@ -29,6 +29,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Phase 3J: Builder Summary and Builder Abilities copy now clarifies that Builder Summary remains temporary review/scaffolding, normal panels are the play surface, live-derived values stay synchronized, and seeded text is user-owned after creation.
 - Combat card vitals polish: combat participant cards now show compact HP and manually editable AC beside each other; AC follows the existing linked-card source pattern without adding AC derivation, armor/equipment automation, or builder AC automation.
 
+### Fixed
+
+- Restored mobile usability of the number spinner/stepper controls. On touch/coarse-pointer devices the ▲▼ steppers were hidden and non-interactive until the input was focused, so the first tap fell through to the field (popping the keyboard) instead of stepping; they are now always visible and tappable there with slightly larger hit targets, while desktop keeps the hover/focus reveal.
+- Fixed the per-level spell "Reset" button so it refills slots — copying each level's max ("total") into current ("used") — in addition to clearing the per-spell cast flags. Blank/zero max values are mirrored safely (blank clears current, `0` stays `0`); slot-less cantrip levels keep their cast-flag reset only.
+- Restored the previous stable splash-to-app timing by removing the pre-app intro-audio attempt and keeping intro music on the established Hub-open flow.
+- Added an app-layer splash handoff for native launches so the installed iOS app holds the branded splash until both app restore and a controlled minimum duration are complete, instead of depending on Xcode/debugger startup slowness.
+- Simplified the native iOS launch screen to a plain warm/dark bridge background so the branded Lore Ledger splash artwork appears only once in the managed web splash.
+- Kept the earliest native, bridge, and source-HTML backgrounds aligned to the managed splash background to reduce black seams during iPhone native-to-web handoff.
+- Hardened backup export for iOS/native contexts by preferring the system share sheet when direct blob downloads are unreliable.
+- Unified the desktop/native topbar control height so Tracker, Character, Map, combat, calculator, dice, and settings buttons share the same visual height through a topbar-scoped CSS token.
+- Lowered the Ability card `Mod` / `Save` row so the save proficiency bubble no longer crowds the move controls at the narrow two-column Character layout.
+- Promoted the Map workspace title to a proper panel heading so it matches the rest of the app without tightening the toolbar controls.
+- Aligned compact collapse/expand controls with the app’s shared button surface tokens and made touch pill-row reordering require a short intentional hold so iPhone horizontal scrolling still works when a swipe starts directly on a pill.
+
+### Changed
+
+- Merged the mobile (`develop`) branch into the character-builder branch, unifying the save schema into a single lineage: develop's v6 (stable session ids) and v7 (stable inventory ids) keep their numbers, the builder migrations were renumbered 6/7/8 -> 8/9/10, and `CURRENT_SCHEMA_VERSION` is now 10.
+- Combat participant cards keep the editable AC input (writing back to the linked character/tracker card) inside the mobile card body alongside death saves and the Stabilize flow.
+
 ### Not Shipped Yet
 
 - Class/background choice pickers, generalized wizard seeding beyond the narrow Dragonborn passive-traits/languages proof, equipment, level-up flow, field locking/override UI, fuller Abilities & Features menu keyboard accessibility, possible `damageEffect` / `effectText` cleanup, partial regain behavior, shared resource pool automation such as Sorcery Points/Ki/Metamagic/Flexible Casting, attack/damage calculation, spell slot recovery, combat/linked-character rest behavior, specialized shared-resource-linked feature cards, AC derivation or equipment-based AC automation, broad derived feature-use automation, and broader HP/AC/saves/skills/spells or linked-card automation are still future Step 3 work. Derived builder values are not persisted back into flat character fields by default.

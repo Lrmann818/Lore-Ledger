@@ -1,12 +1,12 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-app-boot="loading" data-shell-mode="hub">
 
 <head>
   <meta charset="utf-8" />
   <meta http-equiv="Content-Security-Policy" content="
   default-src 'self';
   script-src 'self';
-  style-src 'self';
+  style-src 'self' 'nonce-app-splash-critical';
   style-src-attr 'unsafe-inline';
   img-src 'self' data: blob:;
   font-src 'self';
@@ -50,6 +50,37 @@
   />
   <meta name="twitter:image" content="https://lore-ledger.com/social-preview.jpg" />
 
+  <style nonce="app-splash-critical">
+    html,
+    body {
+      min-height: 100%;
+      margin: 0;
+      background: #090807;
+    }
+
+    body {
+      color: #f0f0f0;
+    }
+
+    #appSplash {
+      position: fixed;
+      inset: 0;
+      z-index: 2147483647;
+      overflow: hidden;
+      background-color: #090807;
+      background-image: url("./splash.png");
+      background-repeat: no-repeat;
+      background-position: center center;
+      background-size: cover;
+    }
+
+    @media (orientation: landscape) {
+      #appSplash {
+        background-image: url("./landscape-splash.png");
+        background-size: cover;
+      }
+    }
+  </style>
   <script type="module" src="./boot.js"></script>
   <link rel="stylesheet" href="./styles.css" />
   <link rel="manifest" href="./manifest.webmanifest">
@@ -61,13 +92,19 @@
   <link rel="apple-touch-icon" sizes="180x180" href="./icons/apple-touch-icon.png">
 
   <meta name="mobile-web-app-capable" content="yes">
-  <meta name="theme-color" content="#111111">
+  <meta name="theme-color" content="#090807">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Lore Ledger">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 </head>
 
-<body>
+<body data-app-boot="loading" data-shell-mode="hub">
+  <div
+    id="appSplash"
+    class="appSplash"
+    aria-hidden="true"
+  >
+  </div>
   <!-- TOPBAR - Calculator & Dice Roller -->
   <header class="topbar">
     <div class="titlewrap">
@@ -769,7 +806,9 @@
               <!-- STRENGTH -->
               <div class="abilityBlock" data-ability="str">
                 <div class="abilityHeader">
-                  <div class="abilityTitle">Strength</div>
+                  <div class="abilityHeaderTop">
+                    <div class="abilityTitle">Strength</div>
+                  </div>
 
                   <div class="abilityStats">
                     <input type="number" class="abilityScore" data-stat="score" />
@@ -792,7 +831,9 @@
               <!-- DEXTERITY -->
               <div class="abilityBlock" data-ability="dex">
                 <div class="abilityHeader">
-                  <div class="abilityTitle">Dexterity</div>
+                  <div class="abilityHeaderTop">
+                    <div class="abilityTitle">Dexterity</div>
+                  </div>
 
                   <div class="abilityStats">
                     <input type="number" class="abilityScore" data-stat="score" />
@@ -818,7 +859,9 @@
               <!-- CONSTITUTION -->
               <div class="abilityBlock" data-ability="con">
                 <div class="abilityHeader">
-                  <div class="abilityTitle">Constitution</div>
+                  <div class="abilityHeaderTop">
+                    <div class="abilityTitle">Constitution</div>
+                  </div>
                   <div class="abilityStats">
                     <input type="number" class="abilityScore" data-stat="score" />
                     <div class="abilityStat">Mod <span data-stat="mod">+0</span></div>
@@ -837,7 +880,9 @@
               <!-- INTELLIGENCE -->
               <div class="abilityBlock" data-ability="int">
                 <div class="abilityHeader">
-                  <div class="abilityTitle">Intelligence</div>
+                  <div class="abilityHeaderTop">
+                    <div class="abilityTitle">Intelligence</div>
+                  </div>
                   <div class="abilityStats">
                     <input type="number" class="abilityScore" data-stat="score" />
                     <div class="abilityStat">Mod <span data-stat="mod">+0</span></div>
@@ -866,7 +911,9 @@
               <!-- WISDOM -->
               <div class="abilityBlock" data-ability="wis">
                 <div class="abilityHeader">
-                  <div class="abilityTitle">Wisdom</div>
+                  <div class="abilityHeaderTop">
+                    <div class="abilityTitle">Wisdom</div>
+                  </div>
                   <div class="abilityStats">
                     <input type="number" class="abilityScore" data-stat="score" />
                     <div class="abilityStat">Mod <span data-stat="mod">+0</span></div>
@@ -895,7 +942,9 @@
               <!-- CHARISMA -->
               <div class="abilityBlock" data-ability="cha">
                 <div class="abilityHeader">
-                  <div class="abilityTitle">Charisma</div>
+                  <div class="abilityHeaderTop">
+                    <div class="abilityTitle">Charisma</div>
+                  </div>
                   <div class="abilityStats">
                     <input type="number" class="abilityScore" data-stat="score" />
                     <div class="abilityStat">Mod <span data-stat="mod">+0</span></div>
@@ -1080,10 +1129,14 @@
 
     <!-- MAP PAGE -->
     <section class="page" id="page-map">
-      <section class="mapPanel">
+      <section class="mapPanel" aria-labelledby="mapPanelTitle">
+        <div class="panelHeader mapPanelHeader">
+          <h2 class="m0" id="mapPanelTitle">Map</h2>
+        </div>
         <div class="mapbar">
           <div class="maptools">
-            <label class="mapSelectLabel">Map
+            <label class="mapSelectLabel">
+              <span class="visuallyHidden">Choose map</span>
               <select id="mapSelect" class="mapSelect" title="Choose a map"></select>
             </label>
             <button id="addMapBtn" title="Add a new map">+ Map</button>
@@ -1467,6 +1520,7 @@
             <button id="dataCopyDebugInfoBtn" class="settingsItem" type="button">Copy Debug Info</button>
             <button id="dataStorageInfoBtn" class="settingsItem" type="button">Storage Info</button>
             <button id="dataAboutBtn" class="settingsItem" type="button">About</button>
+            <a href="/privacy.html" class="settingsItem">Privacy Policy</a>
           </div>
         </div>
 

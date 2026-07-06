@@ -5,15 +5,31 @@
 // without creating circular imports.
 
 import { uiAlert, uiConfirm } from "../ui/dialogs.js";
+import {
+  collectCapacitorRuntimeSnapshot,
+  exportBackupNative,
+  NativeBackupExportError
+} from "./nativeBackupExport.js";
 import { deleteText, getTextRecord, textKey_spellNotes } from "./texts-idb.js";
 
 const MAX_BACKUP_BYTES = 15 * 1024 * 1024; // 15 MB
 const MAX_BLOBS = 200;
+const BACKUP_MIME_TYPE = "application/json";
+const BACKUP_EXPORT_DEBUG_FLAG = "loreledger:debug-backup-export";
+const BACKUP_EXPORT_FILE_DESCRIPTION = "Lore Ledger Backup";
 
 /** @typedef {typeof import("../state.js").state} AppState */
 /** @typedef {ReturnType<typeof import("../state.js").sanitizeForSave>} SanitizedState */
 /** @typedef {Partial<SanitizedState> & Record<string, unknown>} BackupStateLike */
 /** @typedef {Record<string, string>} BackupAssetMap */
+
+/**
+ * @typedef {"native-document-export" | "file-system-save-picker" | "direct-download" | "unsupported/error"} BackupExportStrategy
+ */
+
+/**
+ * @typedef {"saved" | "cancelled" | "failed"} FileSystemSaveResult
+ */
 
 /**
  * @typedef {{
@@ -108,6 +124,277 @@ function isSafeImageDataUrl(s) {
  */
 function cleanString(value) {
   return typeof value === "string" ? value.trim() : "";
+}
+
+/**
+ * @param {Date} [date]
+ * @returns {string}
+ */
+function buildBackupFilename(date = new Date()) {
+  return `campaign-backup-${date.toISOString().slice(0, 10)}.json`;
+}
+
+/**
+ * @returns {Navigator | null}
+ */
+function getNavigatorTarget() {
+  return typeof navigator === "undefined" ? null : navigator;
+}
+
+/**
+ * @returns {((options: {
+ *   suggestedName?: string,
+ *   types?: Array<{
+ *     description?: string,
+ *     accept?: Record<string, string[]>
+ *   }>
+ * }) => Promise<{
+ *   createWritable: () => Promise<{
+ *     write: (data: Blob | string) => Promise<void> | void,
+ *     close: () => Promise<void> | void
+ *   }>
+ * }>) | null}
+ */
+function getShowSaveFilePickerTarget() {
+  if (typeof globalThis.window !== "object" || !globalThis.window) return null;
+  const picker = Reflect.get(globalThis.window, "showSaveFilePicker");
+  return typeof picker === "function"
+    ? /** @type {ReturnType<typeof getShowSaveFilePickerTarget>} */ (picker)
+    : null;
+}
+
+/**
+ * @param {string} query
+ * @returns {boolean}
+ */
+function matchesDisplayModeQuery(query) {
+  try {
+    return !!globalThis.window?.matchMedia?.(query)?.matches;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * @returns {boolean}
+ */
+function shouldLogBackupExportDiagnostics() {
+  try {
+    const storedFlag = globalThis.localStorage?.getItem?.(BACKUP_EXPORT_DEBUG_FLAG);
+    if (storedFlag === "1" || storedFlag === "true") return true;
+  } catch {
+    // Ignore storage access failures in constrained contexts.
+  }
+
+  const search = typeof location === "undefined" ? "" : String(location.search || "");
+  return /(?:\?|&)debugBackupExport=(?:1|true)(?:&|$)/i.test(search);
+}
+
+/**
+ * @returns {{
+ *   protocol: string,
+ *   platform: string,
+ *   userAgent: string,
+ *   maxTouchPoints: number,
+ *   navigatorStandalone: boolean,
+ *   displayModeStandalone: boolean,
+ *   displayModeWindowControlsOverlay: boolean,
+ *   displayModeFullscreen: boolean,
+ *   displayModeMinimalUi: boolean,
+ *   runtimeContext: "browser-tab" | "installed-pwa" | "standalone-window" | "fullscreen" | "minimal-ui",
+ *   hasShowSaveFilePicker: boolean,
+ *   hasNavigatorShare: boolean,
+ *   hasNavigatorCanShare: boolean,
+ *   hasCapacitor: boolean,
+ *   capacitorNativePlatform: boolean,
+ *   capacitorPlatform: string,
+ *   nativeBackupExportAvailable: boolean,
+ *   isCapacitor: boolean,
+ *   isIOSFamily: boolean,
+ *   isIPadDesktopMode: boolean,
+ *   isCapacitorNativeApple: boolean
+ * }}
+ */
+function collectBackupExportRuntimeSnapshot() {
+  const currentLocation = typeof location === "undefined" ? null : location;
+  const nav = getNavigatorTarget();
+  const capacitor = collectCapacitorRuntimeSnapshot();
+  const userAgent = String(nav?.userAgent || "");
+  const platform = String(nav?.platform || "");
+  const maxTouchPoints = typeof nav?.maxTouchPoints === "number" ? nav.maxTouchPoints : 0;
+  const displayModeWindowControlsOverlay = matchesDisplayModeQuery("(display-mode: window-controls-overlay)");
+  const displayModeFullscreen = matchesDisplayModeQuery("(display-mode: fullscreen)");
+  const displayModeMinimalUi = matchesDisplayModeQuery("(display-mode: minimal-ui)");
+  const displayModeStandalone = matchesDisplayModeQuery("(display-mode: standalone)");
+  const navigatorStandalone = nav && typeof nav === "object" && Reflect.get(nav, "standalone") === true;
+  const isIPadDesktopMode = platform === "MacIntel" && maxTouchPoints > 1 && /\bMobile\b/i.test(userAgent);
+  const isIOSFamily = /\b(iPad|iPhone|iPod)\b/i.test(userAgent) || isIPadDesktopMode;
+
+  /** @type {"browser-tab" | "installed-pwa" | "standalone-window" | "fullscreen" | "minimal-ui"} */
+  let runtimeContext = "browser-tab";
+  if (displayModeWindowControlsOverlay) runtimeContext = "standalone-window";
+  else if (displayModeFullscreen) runtimeContext = "fullscreen";
+  else if (displayModeMinimalUi) runtimeContext = "minimal-ui";
+  else if (displayModeStandalone || navigatorStandalone) runtimeContext = "installed-pwa";
+
+  const isCapacitor = currentLocation?.protocol === "capacitor:" || capacitor.isNativePlatform;
+  const isCapacitorNativeApple = isCapacitor
+    && (
+      capacitor.platform === "ios"
+      || /\b(iPad|iPhone|iPod)\b/i.test(userAgent)
+      || /\bMacintosh\b/i.test(userAgent)
+      || isIPadDesktopMode
+    );
+
+  return {
+    protocol: String(currentLocation?.protocol || ""),
+    platform,
+    userAgent,
+    maxTouchPoints,
+    navigatorStandalone,
+    displayModeStandalone,
+    displayModeWindowControlsOverlay,
+    displayModeFullscreen,
+    displayModeMinimalUi,
+    runtimeContext,
+    hasShowSaveFilePicker: typeof getShowSaveFilePickerTarget() === "function",
+    hasNavigatorShare: typeof nav?.share === "function",
+    hasNavigatorCanShare: typeof nav?.canShare === "function",
+    hasCapacitor: capacitor.hasCapacitor,
+    capacitorNativePlatform: capacitor.isNativePlatform,
+    capacitorPlatform: capacitor.platform,
+    nativeBackupExportAvailable: capacitor.pluginAvailable,
+    isCapacitor,
+    isIOSFamily,
+    isIPadDesktopMode,
+    isCapacitorNativeApple
+  };
+}
+
+/**
+ * @returns {boolean}
+ */
+function canDirectDownloadBackup() {
+  return typeof URL !== "undefined"
+    && typeof URL.createObjectURL === "function"
+    && typeof document !== "undefined"
+    && typeof document.createElement === "function";
+}
+
+/**
+ * @param {{
+ *   runtime: ReturnType<typeof collectBackupExportRuntimeSnapshot>,
+ *   canDirectDownload: boolean
+ * }} options
+ * @returns {BackupExportStrategy}
+ */
+function selectBackupExportStrategy({ runtime, canDirectDownload }) {
+  if (runtime.isCapacitorNativeApple) {
+    return runtime.nativeBackupExportAvailable ? "native-document-export" : "unsupported/error";
+  }
+  if (runtime.hasShowSaveFilePicker) return "file-system-save-picker";
+  return canDirectDownload ? "direct-download" : "unsupported/error";
+}
+
+/**
+ * @param {Record<string, unknown>} details
+ * @returns {void}
+ */
+function logBackupExportDiagnostics(details) {
+  if (!shouldLogBackupExportDiagnostics()) return;
+  console.info("[backup-export]", details);
+}
+
+/**
+ * @param {Blob} fileBlob
+ * @param {string} filename
+ * @returns {Promise<FileSystemSaveResult>}
+ */
+async function saveBackupWithFileSystemPicker(fileBlob, filename) {
+  const picker = getShowSaveFilePickerTarget();
+  if (typeof picker !== "function") return "failed";
+
+  try {
+    const fileHandle = await picker({
+      suggestedName: filename,
+      types: [
+        {
+          description: BACKUP_EXPORT_FILE_DESCRIPTION,
+          accept: {
+            [BACKUP_MIME_TYPE]: [".json"]
+          }
+        }
+      ]
+    });
+    const writable = await fileHandle.createWritable();
+    await writable.write(fileBlob);
+    await writable.close();
+    return "saved";
+  } catch (err) {
+    const errorName = err && typeof err === "object" && "name" in err ? String(err.name) : "";
+    if (errorName === "AbortError") return "cancelled";
+
+    console.error("Export save-picker failed:", err);
+    await uiAlert("Export failed. Try again, or use a different browser.", { title: "Export failed" });
+    return "failed";
+  }
+}
+
+/**
+ * @param {Blob} fileBlob
+ * @param {string} filename
+ * @returns {Promise<boolean>}
+ */
+async function downloadBackupFile(fileBlob, filename) {
+  const url = URL.createObjectURL(fileBlob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.rel = "noopener";
+
+  let appended = false;
+  try {
+    if (document.body && typeof document.body.appendChild === "function") {
+      document.body.appendChild(anchor);
+      appended = true;
+    }
+    anchor.click();
+    return true;
+  } catch (err) {
+    console.error("Export download failed:", err);
+    await uiAlert("Export failed. Try again, or use a different browser.", { title: "Export failed" });
+    return false;
+  } finally {
+    if (appended && typeof anchor.remove === "function") {
+      anchor.remove();
+    }
+    setTimeout(() => {
+      try {
+        URL.revokeObjectURL(url);
+      } catch (_) {
+        // Best-effort cleanup only.
+      }
+    }, 1000);
+  }
+}
+
+/**
+ * @returns {Promise<void>}
+ */
+async function reportUnsupportedBackupExport() {
+  await uiAlert("Export failed. This device couldn't save the backup file.", { title: "Export failed" });
+}
+
+/**
+ * @param {NativeBackupExportError | unknown} err
+ * @returns {Promise<void>}
+ */
+async function reportNativeBackupExportFailure(err) {
+  console.error("Export native-document-export failed:", err);
+  const message = err instanceof Error && err.message
+    ? `Export failed. ${err.message}`
+    : "Export failed. This device couldn't complete the native backup export.";
+  await uiAlert(message, { title: "Export failed" });
 }
 
 /**
@@ -561,19 +848,135 @@ export async function exportBackup(deps) {
     texts
   });
 
-  const fileBlob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
-  const url = URL.createObjectURL(fileBlob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `campaign-backup-${new Date().toISOString().slice(0, 10)}.json`;
-  try {
-    a.click();
-  } catch (err) {
-    console.error("Export download failed:", err);
-    await uiAlert("Export failed. Try again, or use a different browser.", { title: "Export failed" });
-  } finally {
-    URL.revokeObjectURL(url);
+  const filename = buildBackupFilename(new Date(backup.exportedAt));
+  const serializedBackup = JSON.stringify(backup, null, 2);
+  const fileBlob = new Blob([serializedBackup], { type: BACKUP_MIME_TYPE });
+
+  const runtime = collectBackupExportRuntimeSnapshot();
+  const canDirectDownload = canDirectDownloadBackup();
+  const strategy = selectBackupExportStrategy({
+    runtime,
+    canDirectDownload
+  });
+
+  logBackupExportDiagnostics({
+    stage: "decision",
+    filename,
+    platform: runtime.platform,
+    userAgent: runtime.userAgent,
+    maxTouchPoints: runtime.maxTouchPoints,
+    protocol: runtime.protocol,
+    runtimeContext: runtime.runtimeContext,
+    navigatorStandalone: runtime.navigatorStandalone,
+    displayModeStandalone: runtime.displayModeStandalone,
+    displayModeWindowControlsOverlay: runtime.displayModeWindowControlsOverlay,
+    displayModeFullscreen: runtime.displayModeFullscreen,
+    displayModeMinimalUi: runtime.displayModeMinimalUi,
+    isCapacitor: runtime.isCapacitor,
+    isIOSFamily: runtime.isIOSFamily,
+    isIPadDesktopMode: runtime.isIPadDesktopMode,
+    hasShowSaveFilePicker: runtime.hasShowSaveFilePicker,
+    hasNavigatorShare: runtime.hasNavigatorShare,
+    hasNavigatorCanShare: runtime.hasNavigatorCanShare,
+    hasCapacitor: runtime.hasCapacitor,
+    capacitorNativePlatform: runtime.capacitorNativePlatform,
+    capacitorPlatform: runtime.capacitorPlatform,
+    nativeBackupExportAvailable: runtime.nativeBackupExportAvailable,
+    canDirectDownload,
+    selectedStrategy: strategy,
+    nativeExportAttempted: false,
+    savePickerAttempted: false,
+    directDownloadAttempted: false
+  });
+
+  if (strategy === "native-document-export") {
+    logBackupExportDiagnostics({
+      stage: "native-export-attempt",
+      filename,
+      selectedStrategy: strategy,
+      nativeExportAttempted: true,
+      savePickerAttempted: false,
+      directDownloadAttempted: false
+    });
+    try {
+      const nativeResult = await exportBackupNative({ filename, json: serializedBackup });
+      logBackupExportDiagnostics({
+        stage: "native-export-result",
+        filename,
+        selectedStrategy: strategy,
+        nativeResult,
+        nativeExportAttempted: true,
+        savePickerAttempted: false,
+        directDownloadAttempted: false
+      });
+    } catch (err) {
+      logBackupExportDiagnostics({
+        stage: "native-export-result",
+        filename,
+        selectedStrategy: strategy,
+        nativeExportAttempted: true,
+        savePickerAttempted: false,
+        directDownloadAttempted: false,
+        nativeExportError: err instanceof Error ? err.message : String(err || "")
+      });
+      await reportNativeBackupExportFailure(err);
+    }
+    return;
   }
+
+  if (strategy === "file-system-save-picker") {
+    logBackupExportDiagnostics({
+      stage: "save-picker-attempt",
+      filename,
+      selectedStrategy: strategy,
+      nativeExportAttempted: false,
+      savePickerAttempted: true,
+      directDownloadAttempted: false
+    });
+    const saveResult = await saveBackupWithFileSystemPicker(fileBlob, filename);
+    logBackupExportDiagnostics({
+      stage: "save-picker-result",
+      filename,
+      selectedStrategy: strategy,
+      saveResult,
+      nativeExportAttempted: false,
+      savePickerAttempted: true,
+      directDownloadAttempted: false
+    });
+    return;
+  }
+
+  if (strategy === "unsupported/error") {
+    logBackupExportDiagnostics({
+      stage: "unsupported",
+      filename,
+      selectedStrategy: strategy,
+      nativeExportAttempted: false,
+      savePickerAttempted: false,
+      directDownloadAttempted: false
+    });
+    await reportUnsupportedBackupExport();
+    return;
+  }
+
+  logBackupExportDiagnostics({
+    stage: "download-attempt",
+    filename,
+    selectedStrategy: strategy,
+    nativeExportAttempted: false,
+    savePickerAttempted: false,
+    directDownloadAttempted: true
+  });
+  const downloadSucceeded = await downloadBackupFile(fileBlob, filename);
+  logBackupExportDiagnostics({
+    stage: "download-result",
+    filename,
+    selectedStrategy: strategy,
+    downloadSucceeded,
+    nativeExportAttempted: false,
+    savePickerAttempted: false,
+    directDownloadAttempted: true
+  });
 }
 
 /**

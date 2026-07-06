@@ -11,13 +11,24 @@
     "test:run": "vitest run",
     "typecheck": "tsc -p tsconfig.checkjs.json --pretty false",
     "test:smoke": "playwright test",
-    "verify": "npm run test:run && npm run typecheck && npm run build"
+    "verify": "npm run test:run && npm run typecheck && npm run build",
+    "cap:sync:ios": "npm run build && npx cap sync ios && ruby scripts/patch-pods.rb",
+    "cap:open:ios": "npx cap open ios",
+    "ios:fix-pods": "ruby scripts/patch-pods.rb",
+    "ios:verify-pods": "ruby scripts/patch-pods.rb --verify-only",
+    "ios:prep-archive": "npm run cap:sync:ios"
   },
   "devDependencies": {
     "@playwright/test": "^1.59.1",
+    "jsdom": "^29.1.1",
     "typescript": "5.9.3",
     "vite": "^5.4.0",
     "vite-plugin-pwa": "^0.20.5",
     "vitest": "^1.6.0"
+  },
+  "dependencies": {
+    "@capacitor/cli": "7.6.5",
+    "@capacitor/core": "7.6.5",
+    "@capacitor/ios": "7.6.5"
   }
 }

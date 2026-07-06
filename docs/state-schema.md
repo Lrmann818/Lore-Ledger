@@ -13,7 +13,7 @@ The source of truth is the code, primarily:
 
 This is intentionally a maintainer-focused document. It describes the state as it exists today, including a few legacy or duplicated fields that still appear because the app preserves backward compatibility.
 
-Current structured schema version: `6`
+Current structured schema version: `10`
 
 ## 2. Schema versioning policy
 
@@ -34,9 +34,16 @@ Current history:
 - `3`: added campaign-scoped Combat Workspace state with separate workspace and encounter buckets
 - `4`: migrated the legacy singleton character object to the multi-character collection `{ activeId, entries[] }`
 - `5`: added character-linked NPC/Party card references and the character `status` field
-- `6`: added Step 3 rules-engine / character-builder foundation fields on character entries: `build` and `overrides`
-- `7`: added manual Abilities & Features card storage on character entries
-- `8`: added character-owned derived feature-use storage on character entries
+- `6`: added stable tracker session ids so session tab order persists independently of titles
+- `7`: added stable inventory item ids so equipment tab order persists independently of titles
+- `8`: added Step 3 rules-engine / character-builder foundation fields on character entries: `build` and `overrides` (renumbered from v6 during the develop merge)
+- `9`: added manual Abilities & Features card storage on character entries (renumbered from v7)
+- `10`: added character-owned derived feature-use storage on character entries (renumbered from v8)
+
+Schema numbering note: the builder branch originally claimed versions 6-8 in
+parallel with the mobile branch's 6-7. The develop numbering wins; builder
+migrations were renumbered to 8-10 while only schema v5 saves existed in the
+wild. New schema versions are assigned on `develop` only.
 
 Important implementation detail:
 
@@ -105,7 +112,7 @@ The main `localStorage["localCampaignTracker_v1"]` value is now a campaign vault
 }
 ```
 
-`campaignDocs[id]` owns campaign data. `appShell.ui` owns app-level UI preferences such as theme and active tab. Startup projects only the selected active campaign document into the runtime `state.tracker`, `state.characters`, `state.map`, and `state.combat` buckets.
+`campaignDocs[id]` owns campaign data. Campaign theme is stored per campaign in `campaignDocs[id].tracker.ui.theme`. `appShell.ui` keeps the shell/root UI snapshot such as active tab and the last root theme value used when no campaign is open. Startup projects only the selected active campaign document into the runtime `state.tracker`, `state.characters`, `state.map`, and `state.combat` buckets, then mirrors that active campaign theme into runtime `state.ui.theme` before applying the DOM theme.
 
 The app also uses companion persisted stores:
 
@@ -123,7 +130,7 @@ State only stores references such as `imgBlobId`, `bgBlobId`, `drawingBlobId`, a
 ### Core fields
 
 - `campaignTitle: string`
-- `sessions: Array<{ title: string, notes: string }>`
+- `sessions: Array<{ id: string, title: string, notes: string }>`
 - `sessionSearch: string`
 - `activeSessionIndex: number`
 - `npcs: NpcCard[]`
@@ -143,16 +150,17 @@ State only stores references such as `imgBlobId`, `bgBlobId`, `drawingBlobId`, a
 
 ### Sessions
 
-Sessions are index-based, not ID-based:
+Sessions use stable IDs and persist in rendered order:
 
 ```js
-{ title: string, notes: string }
+{ id: string, title: string, notes: string }
 ```
 
 Notes:
 
 - `activeSessionIndex` must always be clamped to the array bounds.
-- There is no stable session ID today, so migrations that reorder or split sessions must preserve index semantics carefully.
+- Session tab drag reorder persists by rewriting the `sessions` array order itself.
+- `id` is the stable identity for reordering and rename-safe persistence; visible titles are not the ordering key.
 
 ### NPCs
 
@@ -169,6 +177,7 @@ Current NPC record shape comes from `makeNpc(...)`:
   className: string,
   hpMax: number | null,
   hpCurrent: number | null,
+  ac: number | null,
   imgBlobId: string | null,
   portraitHidden: boolean,
   collapsed: boolean
@@ -179,6 +188,7 @@ Notes:
 
 - `sectionId` is the current grouping field.
 - `group` is retained for backward compatibility with older fixed-group NPC saves.
+- `ac` is optional fallback tracker-card AC. Linked cards derive it from canonical character data; unlinked/orphaned cards may retain the last known snapshot.
 - `imgBlobId` points to the IndexedDB blob store.
 
 NPC section metadata is created lazily by the NPC panel if missing:
@@ -202,11 +212,16 @@ Current party member shape comes from `makePartyMember(...)`:
   className: string,
   hpMax: number | null,
   hpCurrent: number | null,
+  ac: number | null,
   imgBlobId: string | null,
   portraitHidden: boolean,
   collapsed: boolean
 }
 ```
+
+Notes:
+
+- `ac` is optional fallback tracker-card AC. Linked cards derive it from canonical character data; unlinked/orphaned cards may retain the last known snapshot.
 
 Party section metadata is also lazy-created:
 
@@ -344,7 +359,7 @@ Notes:
 - Abilities & Features Phase 3G extends manual/custom cards with an optional nested `limitedUse` object for feature-specific counters only; broad shared resource pools remain `resources[]` / Vitals work.
 - Abilities & Features Phase 3H added schema v8 `featureUses` for character-owned mutable use state on derived feature-specific counters. The first shipped entry is `featureUses["dragonborn-breath-weapon"].current`; max uses, recovery, label, DC, area, damage, damage type, ancestry, feature text, and generated SRD data remain derived from build/rules data.
 - Phase 3I did not change the schema version or add new fields. Dragonborn wizard Finish seeds existing editable text fields only: selected Draconic Ancestry and Damage Resistance text into `features`, and fixed Common/Draconic language text into `languages`. Seeded text becomes user-owned sheet content after creation and is not silently synchronized with registry/rules text. Breath Weapon remains live-derived in Vitals and Abilities & Features and is not copied into `features`, `manualFeatureCards[]`, `resources[]`, or a new top-level field.
-- Builtin SRD content is code-shipped under `js/domain/rules/`; custom content persistence is intentionally not part of schema v6.
+- Builtin SRD content is code-shipped under `js/domain/rules/`; custom content persistence is intentionally not part of the builder schema versions (v8-v10).
 - Step 3 Phase 2A and Phase 2B do not persist `abilityMethod`. Ability-score entry method (manual, standard array, point buy, roll) is wizard-local draft state — only `build.abilities.base` scores are written to the persisted build on Finish, because derivation and sheet-editing paths consume the scores rather than the entry method.
 
 ### Resources
@@ -529,7 +544,7 @@ Notes:
 
 ### Inventory, equipment, and money
 
-- `inventoryItems: Array<{ title: string, notes: string }>`
+- `inventoryItems: Array<{ id: string, title: string, notes: string }>`
 - `activeInventoryIndex: number`
 - `inventorySearch: string`
 - `equipment: string`
@@ -716,7 +731,7 @@ Current structured shape:
   - Defaults to `6`.
 - `participants: unknown[]`
   - Current entries are Combat participants normalized by `js/domain/combat.js`.
-  - Each participant stores an encounter-local `id`, display `name`, `role`, `source` reference, `hpCurrent`, `hpMax`, `tempHp`, and structured `statusEffects`.
+  - Each participant stores an encounter-local `id`, display `name`, `role`, `source` reference, `hpCurrent`, `hpMax`, `tempHp`, `deathSaves`, and structured `statusEffects`.
   - Multiple participants may point at the same tracker source card.
 - `undoStack: unknown[]`
   - Current entries are turn-advance undo records.
@@ -727,6 +742,7 @@ Notes:
 - Combat is stored in each campaign document, not in app-shell UI.
 - Combat participants are encounter-local. Role, order, active participant, timer state, duplicate participant entries, and status timing do not write back to tracker cards.
 - Direct Combat HP/temp HP actions intentionally write `hpCurrent` and `tempHp` back to the source tracker card when the source still exists.
+- `deathSaves` is encounter-local manual tracking only: `{ successes: 0..3, failures: 0..3 }`.
 - Direct Combat status edits intentionally mirror visible status labels back to the source tracker card's text status field for NPC and party sources; duration timing remains encounter-local.
 - Embedded Combat panels host the canonical Character page Vitals, Spells, and Weapons / Attacks panel modules as live alternate views of the active character. They resolve `getActiveCharacter(state)`, read/write canonical `state.characters.entries[]` data, and update through active-character change events plus panel invalidation/rebinding rather than copied data, duplicate state, or a sync store.
 - Older campaign docs without `combat` migrate to the default split shape.
@@ -739,7 +755,8 @@ Root `state.ui` is the canonical shared UI bucket for app-wide preferences.
 Current fields:
 
 - `theme: string`
-  - Canonical theme ID.
+  - Runtime theme ID currently applied to the visible app shell.
+  - When a campaign is open, this mirrors that campaign's stored `tracker.ui.theme`.
   - Current allowed values are:
     - `system`
     - `dark`
@@ -811,6 +828,7 @@ These are currently part of saved state, even though they are not clean canonica
 - `character.equipment`
 - `tracker.npcActiveGroup`
 - `tracker.ui.theme`
+  - Campaign-scoped stored theme ID.
 - `tracker.ui.textareaHeights`
 - `character.ui.textareaHeights`
 - duplicated brush size state across `map.ui.brushSize` and `map.maps[*].brushSize`
@@ -850,18 +868,29 @@ Current structural migrations:
   - ensure campaign-scoped `combat.encounter` exists
   - repair malformed Combat Workspace fields to safe defaults without touching unrelated campaign data
 - `3 -> 4`
-  - migrate the legacy singleton `character` into `characters: { activeId, entries[] }`
-  - repair malformed character collection IDs and active selection
-  - remove stale singleton `character` once the collection exists
+  - migrate legacy singleton `state.character` into `state.characters` collection (`{ activeId, entries: [...] }`)
+  - skip migration when `characters` already exists; remove stale `character` key
+  - repair dangling or invalid `activeId` references; repair missing or duplicate entry `id` fields
 - `4 -> 5`
-  - add `characterId: null` to NPC and Party cards when missing
-  - add `status: ""` to character entries when missing or malformed
+  - add `characterId: null` to NPC and Party tracker cards that are missing it
+  - add `status: ""` to character entries that are missing it
   - do not add character links to Location cards
 - `5 -> 6`
+  - assign stable `id` fields to all tracker sessions
+  - clamp `activeSessionIndex` to a valid range after normalization
+- `6 -> 7`
+  - assign stable `id` fields to all `inventoryItems` entries on every character
+  - repair missing, non-string, or duplicate inventory item IDs
+  - clamp `activeInventoryIndex` to a valid range after ID normalization
+- `7 -> 8`
   - add `build: null` to character entries when missing or malformed
   - normalize `overrides` to the Step 3 foundation shape
   - preserve existing flat freeform character fields exactly
   - do not materialize derived values or infer builder state during migration
+- `8 -> 9`
+  - normalize `manualFeatureCards` storage on character entries (defaults to `[]`)
+- `9 -> 10`
+  - normalize character-owned `featureUses` storage on character entries
 
 ### Automated migration coverage
 

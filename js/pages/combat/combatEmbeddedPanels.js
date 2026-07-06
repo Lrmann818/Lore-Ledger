@@ -572,7 +572,9 @@ export function renderAbilitiesEmbeddedContent(container) {
     <div class="abilityGrid">
       <div class="abilityBlock" data-ability="str">
         <div class="abilityHeader">
-          <div class="abilityTitle">Strength</div>
+          <div class="abilityHeaderTop">
+            <div class="abilityTitle">Strength</div>
+          </div>
           <div class="abilityStats">
             <input type="number" class="abilityScore" data-stat="score" />
             <div class="abilityStat">Mod <span data-stat="mod">+0</span></div>
@@ -585,7 +587,9 @@ export function renderAbilitiesEmbeddedContent(container) {
       </div>
       <div class="abilityBlock" data-ability="dex">
         <div class="abilityHeader">
-          <div class="abilityTitle">Dexterity</div>
+          <div class="abilityHeaderTop">
+            <div class="abilityTitle">Dexterity</div>
+          </div>
           <div class="abilityStats">
             <input type="number" class="abilityScore" data-stat="score" />
             <div class="abilityStat">Mod <span data-stat="mod">+0</span></div>
@@ -600,7 +604,9 @@ export function renderAbilitiesEmbeddedContent(container) {
       </div>
       <div class="abilityBlock" data-ability="con">
         <div class="abilityHeader">
-          <div class="abilityTitle">Constitution</div>
+          <div class="abilityHeaderTop">
+            <div class="abilityTitle">Constitution</div>
+          </div>
           <div class="abilityStats">
             <input type="number" class="abilityScore" data-stat="score" />
             <div class="abilityStat">Mod <span data-stat="mod">+0</span></div>
@@ -613,7 +619,9 @@ export function renderAbilitiesEmbeddedContent(container) {
       </div>
       <div class="abilityBlock" data-ability="int">
         <div class="abilityHeader">
-          <div class="abilityTitle">Intelligence</div>
+          <div class="abilityHeaderTop">
+            <div class="abilityTitle">Intelligence</div>
+          </div>
           <div class="abilityStats">
             <input type="number" class="abilityScore" data-stat="score" />
             <div class="abilityStat">Mod <span data-stat="mod">+0</span></div>
@@ -630,7 +638,9 @@ export function renderAbilitiesEmbeddedContent(container) {
       </div>
       <div class="abilityBlock" data-ability="wis">
         <div class="abilityHeader">
-          <div class="abilityTitle">Wisdom</div>
+          <div class="abilityHeaderTop">
+            <div class="abilityTitle">Wisdom</div>
+          </div>
           <div class="abilityStats">
             <input type="number" class="abilityScore" data-stat="score" />
             <div class="abilityStat">Mod <span data-stat="mod">+0</span></div>
@@ -647,7 +657,9 @@ export function renderAbilitiesEmbeddedContent(container) {
       </div>
       <div class="abilityBlock" data-ability="cha">
         <div class="abilityHeader">
-          <div class="abilityTitle">Charisma</div>
+          <div class="abilityHeaderTop">
+            <div class="abilityTitle">Charisma</div>
+          </div>
           <div class="abilityStats">
             <input type="number" class="abilityScore" data-stat="score" />
             <div class="abilityStat">Mod <span data-stat="mod">+0</span></div>

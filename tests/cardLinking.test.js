@@ -172,13 +172,19 @@ describe("cardLinking", () => {
       target: "card",
       written: true
     });
+    expect(writeCardLinkedField(orphaned, "ac", 17, state)).toEqual({
+      target: "card",
+      written: true
+    });
     expect(writeCardLinkedField(orphaned, "status", "Prone", state)).toEqual({
       target: "card",
       written: true
     });
     expect(standalone.hpCurrent).toBe(9);
+    expect(orphaned.ac).toBe(17);
     expect(orphaned.status).toBe("Prone");
     expect(state.characters.entries[0].hpCur).toBe(7);
+    expect(state.characters.entries[0].ac).toBe(15);
     expect(state.characters.entries[0].status).toBe("Poisoned");
   });
 

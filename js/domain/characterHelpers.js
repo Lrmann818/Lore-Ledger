@@ -201,6 +201,7 @@ export function getCharacterById(state, id) {
  */
 export function makeDefaultCharacterEntry(name = "New Character") {
   const id = `char_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+  const inventoryId = `inv_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
   return {
     id,
     build: null,
@@ -252,7 +253,7 @@ export function makeDefaultCharacterEntry(name = "New Character") {
       levels: []
     },
 
-    inventoryItems: [{ title: "Inventory", notes: "" }],
+    inventoryItems: [{ id: inventoryId, title: "Inventory", notes: "" }],
     activeInventoryIndex: 0,
     inventorySearch: "",
     equipment: "",

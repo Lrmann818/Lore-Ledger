@@ -65,7 +65,7 @@ import {
 } from "./js/features/autosize.js";
 
 import { cropImageModal, getPortraitAspect } from "./js/features/imageCropper.js";
-import { createFilePicker } from "./js/features/imagePicker.js";
+import { createImagePicker } from "./js/features/imagePicker.js";
 import { pickCropStorePortrait } from "./js/features/portraitFlow.js";
 
 import { enhanceNumberSteppers } from "./js/features/numberSteppers.js";
@@ -77,6 +77,7 @@ import { showSaveBanner, hideSaveBanner } from "./js/ui/saveBanner.js";
 import { getNoopDestroyApi } from "./js/utils/domGuards.js";
 
 import { initDialogs, uiAlert, uiConfirm, uiPrompt } from "./js/ui/dialogs.js";
+import { createAppSplashController } from "./js/ui/appSplash.js";
 import { initTopTabsNavigation } from "./js/ui/navigation.js";
 import { createPopoverManager } from "./js/ui/popovers.js";
 import { initTopbarUI } from "./js/ui/topbar/topbar.js";
@@ -162,7 +163,7 @@ const VaultRuntime = { current: null };
 
 /************************ Shared file picker ************************/
 // One hidden <input type="file"> for the whole app.
-const ImagePicker = createFilePicker({ accept: "image/*" });
+const ImagePicker = createImagePicker({ accept: "image/*" });
 
 // Local persistence (kept as a tiny wrapper for SaveManager + autosize integration)
 function saveAll() {
@@ -308,6 +309,8 @@ const Theme = createThemeManager({
 
 /** @type {((el: HTMLTextAreaElement | null | undefined) => void) | undefined} */
 let applyTextareaSize;
+
+const AppSplash = createAppSplashController();
 
 // Disable autocomplete globally (prevent password managers from hijacking our custom dialogs)
 /**
@@ -470,24 +473,25 @@ const NOOP_HUB_PAGE_API = {
   if (!appState) throw new Error("app bootstrap: state is required");
   if (!SaveManager) throw new Error("app bootstrap: SaveManager is required");
 
-  const Status = createStatus({ statusEl: document.getElementById("statusText") });
-  StatusApi.setStatus = Status.setStatus;
-  StatusApi.setSaveStatus = Status.setSaveStatus;
-  StatusApi.installGlobalErrorHandlers = Status.installGlobalErrorHandlers;
-  StatusApi.installGlobalErrorHandlers();
+  try {
+    const Status = createStatus({ statusEl: document.getElementById("statusText") });
+    StatusApi.setStatus = Status.setStatus;
+    StatusApi.setSaveStatus = Status.setSaveStatus;
+    StatusApi.installGlobalErrorHandlers = Status.installGlobalErrorHandlers;
+    StatusApi.installGlobalErrorHandlers();
 
-  /**
-   * @param {string} moduleName
-   * @param {unknown} err
-   * @returns {void}
-   */
-  const _reportModuleInitError = (moduleName, err) => {
-    console.error(`[app] ${moduleName} init failed:`, err);
-    const message = DEV_MODE
-      ? `${moduleName} failed in DEV mode. Check console for details.`
-      : `${moduleName} failed to initialize. Check console for details.`;
-    StatusApi.setStatus(message, { stickyMs: 5000 });
-  };
+    /**
+     * @param {string} moduleName
+     * @param {unknown} err
+     * @returns {void}
+     */
+    const _reportModuleInitError = (moduleName, err) => {
+      console.error(`[app] ${moduleName} init failed:`, err);
+      const message = DEV_MODE
+        ? `${moduleName} failed in DEV mode. Check console for details.`
+        : `${moduleName} failed to initialize. Check console for details.`;
+      StatusApi.setStatus(message, { stickyMs: 5000 });
+    };
 
   /**
    * @param {string} moduleName
@@ -513,281 +517,287 @@ const NOOP_HUB_PAGE_API = {
     return result;
   };
 
-  /** @type {ModuleInitResult | ModuleInitPromise} */
-  let trackerPageApi = getNoopDestroyApi();
-  /** @type {ModuleInitResult | ModuleInitPromise} */
-  let combatPageApi = getNoopDestroyApi();
-  /** @type {ModuleInitResult | ModuleInitPromise} */
-  let mapPageApi = getNoopDestroyApi();
-  /** @type {TopTabsNavigationApi} */
-  let topTabsApi = NOOP_TOP_TABS_API;
-  /** @type {CampaignHubPageApi} */
-  let campaignHubPageApi = NOOP_HUB_PAGE_API;
+    /** @type {ModuleInitResult | ModuleInitPromise} */
+    let trackerPageApi = getNoopDestroyApi();
+    /** @type {ModuleInitResult | ModuleInitPromise} */
+    let combatPageApi = getNoopDestroyApi();
+    /** @type {ModuleInitResult | ModuleInitPromise} */
+    let mapPageApi = getNoopDestroyApi();
+    /** @type {TopTabsNavigationApi} */
+    let topTabsApi = NOOP_TOP_TABS_API;
+    /** @type {CampaignHubPageApi} */
+    let campaignHubPageApi = NOOP_HUB_PAGE_API;
 
-  const hasActiveCampaign = () => !!appState.appShell?.activeCampaignId;
-  const isCampaignContentTab = (tabName) => ["tracker", "combat", "character", "map"].includes(tabName);
-  const canActivateTab = (tabName) => {
-    if (tabName === "hub") return !hasActiveCampaign();
-    return !isCampaignContentTab(tabName) || hasActiveCampaign();
-  };
-  const getDefaultLandingTab = () => (hasActiveCampaign() ? "tracker" : "hub");
-  const HubOpenSound = createHubOpenSoundController({
-    getState: () => appState,
-    isHubVisible: () => {
-      const hubPage = document.getElementById("page-hub");
-      return !!hubPage && !hubPage.hidden && hubPage.classList.contains("active");
-    }
-  });
+    const hasActiveCampaign = () => !!appState.appShell?.activeCampaignId;
+    const isCampaignContentTab = (tabName) => ["tracker", "combat", "character", "map"].includes(tabName);
+    const canActivateTab = (tabName) => {
+      if (tabName === "hub") return !hasActiveCampaign();
+      return !isCampaignContentTab(tabName) || hasActiveCampaign();
+    };
+    const getDefaultLandingTab = () => (hasActiveCampaign() ? "tracker" : "hub");
+    const HubOpenSound = createHubOpenSoundController({
+      getState: () => appState,
+      isHubVisible: () => {
+        const hubPage = document.getElementById("page-hub");
+        return !!hubPage && !hubPage.hidden && hubPage.classList.contains("active");
+      }
+    });
 
-  const ensureVaultRuntime = () => {
-    if (!VaultRuntime.current) {
-      VaultRuntime.current = normalizeCampaignVault(null, { migrateState, sanitizeForSave }).vault;
-    }
-    return VaultRuntime.current;
-  };
+    const ensureVaultRuntime = () => {
+      if (!VaultRuntime.current) {
+        VaultRuntime.current = normalizeCampaignVault(null, { migrateState, sanitizeForSave }).vault;
+      }
+      return VaultRuntime.current;
+    };
 
-  const getActiveCampaignName = () => {
-    const activeCampaignId = appState.appShell?.activeCampaignId ?? null;
-    if (!activeCampaignId) return "Lore Ledger";
-    const canonicalName = VaultRuntime.current?.campaignIndex?.entries?.[activeCampaignId]?.name;
-    return getCanonicalCampaignName(canonicalName || appState.tracker?.campaignTitle);
-  };
+    const getActiveCampaignName = () => {
+      const activeCampaignId = appState.appShell?.activeCampaignId ?? null;
+      if (!activeCampaignId) return "Lore Ledger";
+      const canonicalName = VaultRuntime.current?.campaignIndex?.entries?.[activeCampaignId]?.name;
+      return getCanonicalCampaignName(canonicalName || appState.tracker?.campaignTitle);
+    };
 
-  const syncShellMode = () => {
-    const shellMode = hasActiveCampaign() ? "campaign" : "hub";
-    document.documentElement.dataset.shellMode = shellMode;
-    document.body.dataset.shellMode = shellMode;
-    const topbarEl = document.querySelector(".topbar");
-    topbarEl?.toggleAttribute("hidden", !hasActiveCampaign());
-    const campaignTabsEl = document.getElementById("campaignTabs");
-    campaignTabsEl?.toggleAttribute("hidden", !hasActiveCampaign());
-  };
+    const syncShellMode = () => {
+      const shellMode = hasActiveCampaign() ? "campaign" : "hub";
+      document.documentElement.dataset.shellMode = shellMode;
+      document.body.dataset.shellMode = shellMode;
+      const topbarEl = document.querySelector(".topbar");
+      topbarEl?.toggleAttribute("hidden", !hasActiveCampaign());
+      const campaignTabsEl = document.getElementById("campaignTabs");
+      campaignTabsEl?.toggleAttribute("hidden", !hasActiveCampaign());
+    };
 
   /**
    * @param {boolean} showHub
    * @returns {void}
    */
-  const syncHubPageVisibility = (showHub) => {
-    const hubPage = document.getElementById("page-hub");
-    if (!hubPage) return;
-    hubPage.classList.toggle("active", showHub);
-    hubPage.toggleAttribute("hidden", !showHub);
-  };
+    const syncHubPageVisibility = (showHub) => {
+      const hubPage = document.getElementById("page-hub");
+      if (!hubPage) return;
+      hubPage.classList.toggle("active", showHub);
+      hubPage.toggleAttribute("hidden", !showHub);
+    };
 
-  const syncAppShellTitle = () => {
-    const campaignTitleEl = document.getElementById("campaignTitle");
-    if (!campaignTitleEl) return;
+    const syncAppShellTitle = () => {
+      const campaignTitleEl = document.getElementById("campaignTitle");
+      if (!campaignTitleEl) return;
 
-    if (hasActiveCampaign()) {
-      campaignTitleEl.textContent = getActiveCampaignName();
-      campaignTitleEl.setAttribute("contenteditable", "true");
-      campaignTitleEl.setAttribute("aria-label", "Campaign title");
-      return;
-    }
+      if (hasActiveCampaign()) {
+        campaignTitleEl.textContent = getActiveCampaignName();
+        campaignTitleEl.setAttribute("contenteditable", "true");
+        campaignTitleEl.setAttribute("aria-label", "Campaign title");
+        return;
+      }
 
-    campaignTitleEl.textContent = "Lore Ledger";
-    campaignTitleEl.setAttribute("contenteditable", "false");
-    campaignTitleEl.setAttribute("aria-label", "Lore Ledger");
-  };
+      campaignTitleEl.textContent = "Lore Ledger";
+      campaignTitleEl.setAttribute("contenteditable", "false");
+      campaignTitleEl.setAttribute("aria-label", "Lore Ledger");
+    };
 
   /**
    * @param {{ targetTab?: string | null }} [opts]
    * @returns {void}
    */
-  const refreshShellUi = ({ targetTab = null } = {}) => {
-    syncShellMode();
-    syncAppShellTitle();
-    if (hasActiveCampaign()) {
-      syncHubPageVisibility(false);
-      if (targetTab) topTabsApi.applyActiveTab(targetTab, { markDirty: false });
-      else topTabsApi.refresh();
-    } else {
-      syncHubPageVisibility(true);
-      topTabsApi.refresh();
-    }
-    campaignHubPageApi.render();
-  };
+    const refreshShellUi = ({ targetTab = null } = {}) => {
+      syncShellMode();
+      syncAppShellTitle();
+      if (hasActiveCampaign()) {
+        syncHubPageVisibility(false);
+        if (targetTab) topTabsApi.applyActiveTab(targetTab, { markDirty: false });
+        else topTabsApi.refresh();
+      } else {
+        syncHubPageVisibility(true);
+        topTabsApi.refresh();
+      }
+      campaignHubPageApi.render();
+    };
 
-  const destroyCampaignModules = () => {
-    if (
-      trackerPageApi &&
-      typeof trackerPageApi === "object" &&
-      "destroy" in trackerPageApi &&
-      typeof trackerPageApi.destroy === "function"
-    ) {
-      trackerPageApi.destroy();
-    }
-    if (
-      combatPageApi &&
-      typeof combatPageApi === "object" &&
-      "destroy" in combatPageApi &&
-      typeof combatPageApi.destroy === "function"
-    ) {
-      combatPageApi.destroy();
-    }
-    if (
-      mapPageApi &&
-      typeof mapPageApi === "object" &&
-      "destroy" in mapPageApi &&
-      typeof mapPageApi.destroy === "function"
-    ) {
-      mapPageApi.destroy();
-    }
-    trackerPageApi = getNoopDestroyApi();
-    combatPageApi = getNoopDestroyApi();
-    mapPageApi = getNoopDestroyApi();
-  };
+    const destroyCampaignModules = () => {
+      if (
+        trackerPageApi &&
+        typeof trackerPageApi === "object" &&
+        "destroy" in trackerPageApi &&
+        typeof trackerPageApi.destroy === "function"
+      ) {
+        trackerPageApi.destroy();
+      }
+      if (
+        combatPageApi &&
+        typeof combatPageApi === "object" &&
+        "destroy" in combatPageApi &&
+        typeof combatPageApi.destroy === "function"
+      ) {
+        combatPageApi.destroy();
+      }
+      if (
+        mapPageApi &&
+        typeof mapPageApi === "object" &&
+        "destroy" in mapPageApi &&
+        typeof mapPageApi.destroy === "function"
+      ) {
+        mapPageApi.destroy();
+      }
+      trackerPageApi = getNoopDestroyApi();
+      combatPageApi = getNoopDestroyApi();
+      mapPageApi = getNoopDestroyApi();
+    };
 
-  const initCampaignModules = () => {
-    if (!hasActiveCampaign()) return;
-    trackerPageApi = runModuleInit("Tracker page", () => initTrackerPage(createTrackerPageDeps()));
-    combatPageApi = runModuleInit("Combat page", () => initCombatPage(createCombatPageDeps()));
-    mapPageApi = runModuleInit("Map page", () => setupMapPage(createMapPageDeps()));
-  };
+    const initCampaignModules = () => {
+      if (!hasActiveCampaign()) return;
+      trackerPageApi = runModuleInit("Tracker page", () => initTrackerPage(createTrackerPageDeps()));
+      combatPageApi = runModuleInit("Combat page", () => initCombatPage(createCombatPageDeps()));
+      mapPageApi = runModuleInit("Map page", () => setupMapPage(createMapPageDeps()));
+    };
 
   /**
    * @param {string | null} campaignId
    * @param {{ targetTab?: string | null }} [opts]
    * @returns {Promise<void>}
    */
-  async function switchActiveCampaign(campaignId, { targetTab = null } = {}) {
-    const normalizedCampaignId = typeof campaignId === "string" ? campaignId.trim() || null : null;
-    if (normalizedCampaignId === (appState.appShell?.activeCampaignId ?? null)) {
-      refreshShellUi({ targetTab });
-      return;
-    }
+    async function switchActiveCampaign(campaignId, { targetTab = null } = {}) {
+      const normalizedCampaignId = typeof campaignId === "string" ? campaignId.trim() || null : null;
+      if (normalizedCampaignId === (appState.appShell?.activeCampaignId ?? null)) {
+        refreshShellUi({ targetTab });
+        return;
+      }
 
-    await SaveManager.flush();
-    await withAllowedStateMutationAsync(async () => {
-      switchCampaignPersist(createSwitchCampaignDeps(normalizedCampaignId));
-      destroyCampaignModules();
-      if (hasActiveCampaign()) initCampaignModules();
-      refreshShellUi({ targetTab });
-      SaveManager.markDirty();
       await SaveManager.flush();
-    });
-  }
+      await withAllowedStateMutationAsync(async () => {
+        switchCampaignPersist(createSwitchCampaignDeps(normalizedCampaignId));
+        Theme.initFromState();
+        destroyCampaignModules();
+        if (hasActiveCampaign()) initCampaignModules();
+        refreshShellUi({ targetTab });
+        SaveManager.markDirty();
+        await SaveManager.flush();
+      });
+    }
 
   /**
    * @param {string} name
    * @returns {Promise<void>}
    */
-  async function createCampaign(name) {
-    await SaveManager.flush();
-    await withAllowedStateMutationAsync(async () => {
-      const created = createCampaignInVault(ensureVaultRuntime(), {
-        migrateState,
-        sanitizeForSave,
-        name
-      });
-      VaultRuntime.current = created.vault;
-      switchCampaignPersist(createSwitchCampaignDeps(created.campaignId));
-      destroyCampaignModules();
-      initCampaignModules();
-      refreshShellUi({ targetTab: "tracker" });
-      SaveManager.markDirty();
+    async function createCampaign(name) {
       await SaveManager.flush();
-    });
-  }
+      await withAllowedStateMutationAsync(async () => {
+        const created = createCampaignInVault(ensureVaultRuntime(), {
+          migrateState,
+          sanitizeForSave,
+          name
+        });
+        VaultRuntime.current = created.vault;
+        switchCampaignPersist(createSwitchCampaignDeps(created.campaignId));
+        Theme.initFromState();
+        destroyCampaignModules();
+        initCampaignModules();
+        refreshShellUi({ targetTab: "tracker" });
+        SaveManager.markDirty();
+        await SaveManager.flush();
+      });
+    }
 
   /**
    * @param {string} campaignId
    * @param {string} nextName
    * @returns {Promise<void>}
    */
-  async function renameCampaign(campaignId, nextName) {
-    await SaveManager.flush();
-    await withAllowedStateMutationAsync(async () => {
-      const nextVault = renameCampaignInVault(ensureVaultRuntime(), campaignId, nextName);
-      VaultRuntime.current = nextVault;
-
-      if (campaignId === (appState.appShell?.activeCampaignId ?? null)) {
-        appState.tracker.campaignTitle = nextVault.campaignIndex.entries[campaignId].name;
-      }
-
-      refreshShellUi();
-      SaveManager.markDirty();
+    async function renameCampaign(campaignId, nextName) {
       await SaveManager.flush();
-    });
-  }
+      await withAllowedStateMutationAsync(async () => {
+        const nextVault = renameCampaignInVault(ensureVaultRuntime(), campaignId, nextName);
+        VaultRuntime.current = nextVault;
+
+        if (campaignId === (appState.appShell?.activeCampaignId ?? null)) {
+          appState.tracker.campaignTitle = nextVault.campaignIndex.entries[campaignId].name;
+        }
+
+        refreshShellUi();
+        SaveManager.markDirty();
+        await SaveManager.flush();
+      });
+    }
 
   /**
    * @param {string} campaignId
    * @returns {Promise<void>}
    */
-  async function deleteCampaign(campaignId) {
-    await SaveManager.flush();
+    async function deleteCampaign(campaignId) {
+      await SaveManager.flush();
+      await withAllowedStateMutationAsync(async () => {
+        const normalizedCampaignId = String(campaignId || "").trim();
+        const deletingActiveCampaign = normalizedCampaignId === (appState.appShell?.activeCampaignId ?? null);
+
+        if (deletingActiveCampaign) {
+          switchCampaignPersist(createSwitchCampaignDeps(null));
+          Theme.initFromState();
+          destroyCampaignModules();
+        }
+
+        VaultRuntime.current = deleteCampaignFromVault(ensureVaultRuntime(), normalizedCampaignId);
+        refreshShellUi();
+        SaveManager.markDirty();
+        await SaveManager.flush();
+      });
+    }
+
     await withAllowedStateMutationAsync(async () => {
-      const normalizedCampaignId = String(campaignId || "").trim();
-      const deletingActiveCampaign = normalizedCampaignId === (appState.appShell?.activeCampaignId ?? null);
-
-      if (deletingActiveCampaign) {
-        switchCampaignPersist(createSwitchCampaignDeps(null));
-        destroyCampaignModules();
+      await loadAllPersist(createLoadAllDeps());
+      void HubOpenSound.requestLaunchSound();
+      // Wire CSP-safe modal dialogs (replaces window.confirm/prompt)
+      runModuleInit("Dialogs", () => initDialogs());
+      runModuleInit("Theme", () => Theme.initFromState());
+      try {
+        topTabsApi = initTopTabsNavigation({
+          state: appState,
+          markDirty: () => SaveManager.markDirty(),
+          setStatus: StatusApi.setStatus,
+          activeTabStorageKey: ACTIVE_TAB_KEY,
+          defaultTab: getDefaultLandingTab(),
+          canActivateTab,
+          onHubEntry: () => {
+            void HubOpenSound.requestHubEntrySound();
+          }
+        });
+      } catch (err) {
+        _reportModuleInitError("Top navigation", err);
+        topTabsApi = NOOP_TOP_TABS_API;
       }
-
-      VaultRuntime.current = deleteCampaignFromVault(ensureVaultRuntime(), normalizedCampaignId);
+      try {
+        campaignHubPageApi = initCampaignHubPage({
+          state: appState,
+          vaultRuntime: VaultRuntime,
+          uiPrompt,
+          uiAlert,
+          setStatus: StatusApi.setStatus,
+          createCampaign,
+          openCampaign: (campaignId) => switchActiveCampaign(campaignId, { targetTab: "tracker" }),
+          renameCampaign,
+          deleteCampaign
+        });
+      } catch (err) {
+        _reportModuleInitError("Campaign Hub", err);
+        campaignHubPageApi = NOOP_HUB_PAGE_API;
+      }
+      runModuleInit("Settings panel", () => setupSettingsPanel(
+        createSettingsPanelDeps({ openCampaignHub: () => switchActiveCampaign(null) })
+      ));
+      runModuleInit(
+        "Topbar",
+        () => initTopbarUI({ state: appState, SaveManager, Popovers, positionMenuOnScreen, setStatus: StatusApi.setStatus })
+      );
+      runModuleInit("Autosize numbers", () => autosizeAllNumbers());
+      runModuleInit("Textarea sizing", () => {
+        const api = setupTextareaSizing(createTextareaSizingDeps());
+        applyTextareaSize = api.applyTextareaSize;
+      });
+      if (hasActiveCampaign()) initCampaignModules();
       refreshShellUi();
-      SaveManager.markDirty();
+      // If migrations or initial setup changed state, persist once, then show clean status.
       await SaveManager.flush();
     });
+    void switchActiveCampaign;
+    SaveManager.init();
+  } finally {
+    void AppSplash.markAppReady();
   }
-
-  await withAllowedStateMutationAsync(async () => {
-    await loadAllPersist(createLoadAllDeps());
-    void HubOpenSound.requestLaunchSound();
-    // Wire CSP-safe modal dialogs (replaces window.confirm/prompt)
-    runModuleInit("Dialogs", () => initDialogs());
-    runModuleInit("Theme", () => Theme.initFromState());
-    try {
-      topTabsApi = initTopTabsNavigation({
-        state: appState,
-        markDirty: () => SaveManager.markDirty(),
-        setStatus: StatusApi.setStatus,
-        activeTabStorageKey: ACTIVE_TAB_KEY,
-        defaultTab: getDefaultLandingTab(),
-        canActivateTab,
-        onHubEntry: () => {
-          void HubOpenSound.requestHubEntrySound();
-        }
-      });
-    } catch (err) {
-      _reportModuleInitError("Top navigation", err);
-      topTabsApi = NOOP_TOP_TABS_API;
-    }
-    try {
-      campaignHubPageApi = initCampaignHubPage({
-        state: appState,
-        vaultRuntime: VaultRuntime,
-        uiPrompt,
-        uiAlert,
-        setStatus: StatusApi.setStatus,
-        createCampaign,
-        openCampaign: (campaignId) => switchActiveCampaign(campaignId, { targetTab: "tracker" }),
-        renameCampaign,
-        deleteCampaign
-      });
-    } catch (err) {
-      _reportModuleInitError("Campaign Hub", err);
-      campaignHubPageApi = NOOP_HUB_PAGE_API;
-    }
-    runModuleInit("Settings panel", () => setupSettingsPanel(
-      createSettingsPanelDeps({ openCampaignHub: () => switchActiveCampaign(null) })
-    ));
-    runModuleInit(
-      "Topbar",
-      () => initTopbarUI({ state: appState, SaveManager, Popovers, positionMenuOnScreen, setStatus: StatusApi.setStatus })
-    );
-    runModuleInit("Autosize numbers", () => autosizeAllNumbers());
-    runModuleInit("Textarea sizing", () => {
-      const api = setupTextareaSizing(createTextareaSizingDeps());
-      applyTextareaSize = api.applyTextareaSize;
-    });
-    if (hasActiveCampaign()) initCampaignModules();
-    refreshShellUi();
-    // If migrations or initial setup changed state, persist once, then show clean status.
-    await SaveManager.flush();
-  });
-  void switchActiveCampaign;
-  SaveManager.init();
 })();

@@ -1,5 +1,32 @@
+import { syncNativeAppClass } from "./js/utils/runtime.js";
+import { resolveThemeChoiceFromStoredData } from "./js/ui/themeState.js";
+
 // boot.js - module loaded before app.js so theme is set as early as possible.
 try {
+  const bootStartedAt =
+    typeof performance !== "undefined" && typeof performance.now === "function"
+      ? performance.now()
+      : Date.now();
+  window.__APP_BOOT_STARTED_AT__ = bootStartedAt;
+  document.documentElement.dataset.appBoot = "loading";
+  const isNativeAppRuntime = syncNativeAppClass({
+    documentElement: document.documentElement,
+    body: document.body ?? null
+  });
+  if (!document.body) {
+    document.addEventListener(
+      "DOMContentLoaded",
+      () => {
+        syncNativeAppClass({
+          documentElement: document.documentElement,
+          body: document.body ?? null,
+          enabled: isNativeAppRuntime
+        });
+      },
+      { once: true }
+    );
+  }
+
   // Expose app version/build metadata early so UI can display it (e.g., Settings -> About).
   const viteVersion =
     (typeof __APP_VERSION__ !== "undefined" && __APP_VERSION__)
@@ -17,7 +44,7 @@ try {
 
   const raw = localStorage.getItem("localCampaignTracker_v1");
   const data = raw ? JSON.parse(raw) : null;
-  const theme = data?.appShell?.ui?.theme || data?.ui?.theme || "system";
+  const theme = resolveThemeChoiceFromStoredData(data);
 
   const prefersDark =
     window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;

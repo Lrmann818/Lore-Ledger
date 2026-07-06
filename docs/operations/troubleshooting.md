@@ -28,7 +28,8 @@ Common symptoms:
 Current behavior:
 
 - `boot.js` applies the saved theme early from `localStorage["localCampaignTracker_v1"]`
-- the current theme is stored in root `ui.theme`
+- when a campaign is open, the visible theme comes from that campaign's saved `tracker.ui.theme`
+- runtime `ui.theme` mirrors the currently applied theme so shared UI and DOM state stay in sync
 - choosing `System` follows the browser/OS `prefers-color-scheme` setting
 
 Recovery:
@@ -250,6 +251,34 @@ Recovery:
 2. If the issue is persistence-, layout-, or CSP-related, retry in the latest Firefox desktop build.
 3. If the issue is touch, image-picker, or install related, retry on a real iOS Safari or Android Chrome device.
 4. If the issue only happens in private browsing or a temporary profile, retry in a normal persistent profile before assuming the app data is corrupted.
+
+## Xcode Archive fails with CapacitorCordova quoted-include or module-verifier errors
+
+Common symptoms:
+
+- `double-quoted include "CDVViewController.h" in framework header, expected angle-bracketed instead`
+- `double-quoted include "CDVPlugin.h" in framework header, expected angle-bracketed instead`
+- `module 'Cordova' not found`
+- `could not build module 'Capacitor'`
+
+Current behavior:
+
+- `ios/App/Podfile` sets both `ENABLE_MODULE_VERIFIER = NO` and `CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = NO` for all pod targets during `post_install`
+- CocoaPods can still rewrite `ENABLE_MODULE_VERIFIER = YES` later in the generated `ios/App/Pods/Pods.xcodeproj/project.pbxproj`
+- `scripts/patch-pods.rb` is the durable post-install fix and `npm run ios:verify-pods` is the read-only verification check
+
+Recovery:
+
+1. Quit Xcode completely if it was open during `pod install`, `cap sync ios`, or `npm run ios:fix-pods`.
+2. Run `npm run ios:prep-archive`.
+3. Run `npm run ios:verify-pods`.
+4. If verification reports any `remaining_yes`, run `npm run ios:fix-pods` again and re-run `npm run ios:verify-pods`.
+5. Delete the repo's DerivedData entry if Xcode still shows the old errors.
+6. Reopen `ios/App/App.xcworkspace`, not `ios/App/App.xcodeproj`.
+7. Confirm the active scheme is `App` and the Archive action is using `Release`.
+8. Retry `Product -> Archive`.
+
+If the CLI archive path succeeds but the GUI still fails, the next thing to inspect is whether Xcode reloaded the patched `Pods.xcodeproj`. If needed, compare `ios/App/Pods/Pods.xcodeproj/project.pbxproj` against the values reported by `npm run ios:verify-pods` and clear DerivedData before retrying.
 
 ## Support and debug info
 

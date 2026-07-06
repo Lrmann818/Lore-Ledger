@@ -31,6 +31,11 @@ temp/
 
 # Private personal notes
 docs/#personal/
+docs/\#personal/
 
-# Markdownlint config gile
+# Markdownlint config file
 .markdownlint.json
+
+# Capacitor native iOS project is tracked (ios/.gitignore handles inner exclusions)
+# Android project is not yet added
+android/

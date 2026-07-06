@@ -88,10 +88,9 @@ describe("combat page shell helpers", () => {
     const css = readFileSync(resolve(process.cwd(), "styles.css"), "utf8");
     const hpBlock = css.match(/\.combatHpBtn\s*\{[^}]*\}/)?.[0] || "";
 
-    expect(source).toContain('vitalsRow.className = "combatVitalsRow"');
-    expect(source.indexOf('hpBtn.className = "combatHpBtn"')).toBeLessThan(source.indexOf('acField.className = "combatAcField"'));
-    expect(css).toMatch(/\.combatVitalsRow\s*\{[\s\S]*display:\s*flex;[\s\S]*flex-wrap:\s*wrap;/);
-    expect(hpBlock).toContain("flex: 0 0 auto;");
+    expect(source).toContain('vitalsRow.className = "combatCardVitals"');
+    expect(source.indexOf('hpBtn.className = "combatHpBtn')).toBeLessThan(source.indexOf('acField.className = "combatAcField'));
+    expect(css).toMatch(/\.combatCardVitals\s*\{[\s\S]*display:\s*flex;[\s\S]*flex-wrap:\s*wrap;/);
     expect(css).toMatch(/\.combatAcInput\s*\{[\s\S]*width:\s*4ch;/);
     expect(hpBlock).not.toContain("width: 100%");
   });
@@ -257,6 +256,7 @@ describe("combat page shell helpers", () => {
         hpMaxLabel: "10",
         hpDisplayLabel: "7",
         acLabel: "16",
+        hasAc: true,
         hasTempHp: false,
         portraitBlobId: "blob_arlen",
         statusEffects: []
@@ -272,6 +272,7 @@ describe("combat page shell helpers", () => {
         hpMaxLabel: "11",
         hpDisplayLabel: "9",
         acLabel: "12",
+        hasAc: true,
         tempHp: 4,
         hasTempHp: true,
         portraitBlobId: null,
@@ -369,7 +370,8 @@ describe("combat page shell helpers", () => {
       portraitBlobId: "char-portrait",
       hpMaxLabel: "20",
       hpCurrentLabel: "14",
-      acLabel: "18"
+      acLabel: "18",
+      hasAc: true
     });
   });
 
@@ -525,12 +527,47 @@ describe("combat page shell helpers", () => {
     expect(cards[0]).toMatchObject({
       hpDisplayLabel: "0",
       hpState: "zero",
-      hasTempHp: false
+      hasTempHp: false,
+      showsDeathSaves: true
     });
     expect(cards[1]).toMatchObject({
       hpDisplayLabel: "3",
       hpState: "temp",
-      hasTempHp: true
+      hasTempHp: true,
+      showsDeathSaves: true
+    });
+  });
+
+  it("normalizes death saves and AC labels for zero-hp combat cards", () => {
+    const cards = getCombatCardViewModels({
+      tracker: {
+        npcs: [{ id: "npc_1", name: "Bandit", hpCurrent: 0, hpMax: 10, ac: 14 }]
+      },
+      combat: {
+        encounter: {
+          participants: [{
+            id: "cmb_1",
+            name: "Bandit",
+            role: "enemy",
+            source: { type: "npc", id: "npc_1", sectionId: "", group: "" },
+            hpCurrent: 0,
+            hpMax: 10,
+            tempHp: 0,
+            deathSaves: { successes: 7, failures: -2 },
+            statusEffects: []
+          }]
+        }
+      }
+    });
+
+    expect(cards[0]).toMatchObject({
+      showsDeathSaves: true,
+      acLabel: "14",
+      hasAc: true,
+      deathSaves: {
+        successes: 3,
+        failures: 0
+      }
     });
   });
 

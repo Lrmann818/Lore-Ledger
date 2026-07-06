@@ -10,6 +10,7 @@ describe("tracker add-to-combat actions", () => {
       sectionId: "sec_foe",
       hpCurrent: 7,
       hpMax: 11,
+      ac: 12,
       status: "Poisoned"
     };
     const state = {
@@ -65,7 +66,10 @@ describe("tracker add-to-combat actions", () => {
       name: "Bandit",
       role: "enemy",
       hpCurrent: 7,
-      hpMax: 11
+      hpMax: 11,
+      // Participants snapshot AC from their source card at add time so the
+      // combat-card AC input has a per-participant fallback value.
+      ac: 12
     });
 
     state.combat.encounter.participants[0].hpCurrent = 1;

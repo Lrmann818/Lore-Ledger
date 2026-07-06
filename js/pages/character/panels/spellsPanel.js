@@ -405,12 +405,18 @@ export function initSpellsPanel(deps = {}) {
 
     const resetExpBtn = document.createElement("button");
     resetExpBtn.type = "button";
-    resetExpBtn.textContent = "Reset Cast";
-    resetExpBtn.title = "Clear expended/cast flags for this level";
+    resetExpBtn.textContent = "Reset";
+    resetExpBtn.title = "Reset slots to full and clear cast flags for this level";
     resetExpBtn.addEventListener("click", () => {
       const updated = mutateSpellLevel(levelId, levelIndex, (currentLevel) => {
+        // Refill spell slots: copy the max ("total") into current ("used").
+        // Mirrors blank/zero max safely — null stays null, 0 stays 0 — so a
+        // blank max simply clears current rather than producing NaN.
+        if (currentLevel.hasSlots) {
+          currentLevel.used = currentLevel.total ?? null;
+        }
         const currentSpells = Array.isArray(currentLevel.spells) ? currentLevel.spells : [];
-        currentSpells.forEach((spell) => spell.expended = false);
+        currentSpells.forEach((spell) => { spell.expended = false; });
       });
       if (!updated) return;
       markSpellsChanged({ renderSource: true });
