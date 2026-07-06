@@ -1,0 +1,1263 @@
+{
+  "schemaVersion": 5,
+  "tracker": {
+    "campaignTitle": "Redacted campaignTitle 1",
+    "sessions": [
+      {
+        "title": "Redacted title 1",
+        "notes": "Redacted notes 1",
+        "id": "sess_1_qjvox6ypah",
+        "notesTextId": "session_sess_1_qjvox6ypah_notes"
+      },
+      {
+        "title": "Redacted title 2",
+        "notes": "Redacted notes 2",
+        "id": "sess_2_1nptsqskapv",
+        "notesTextId": "session_sess_2_1nptsqskapv_notes"
+      },
+      {
+        "title": "Redacted title 3",
+        "notes": "Redacted notes 3",
+        "id": "sess_3_9c1he4zwivh",
+        "notesTextId": "session_sess_3_9c1he4zwivh_notes"
+      },
+      {
+        "title": "Redacted title 4",
+        "notes": "Redacted notes 4",
+        "id": "sess_4_8ameztzq3oo",
+        "notesTextId": "session_sess_4_8ameztzq3oo_notes"
+      },
+      {
+        "title": "Redacted title 5",
+        "notes": "Redacted notes 5",
+        "id": "sess_5_fsn9eve2cb",
+        "notesTextId": "session_sess_5_fsn9eve2cb_notes"
+      },
+      {
+        "title": "Redacted title 6",
+        "notes": "Redacted notes 6",
+        "id": "sess_6_5pt9bhbn5ve",
+        "notesTextId": "session_sess_6_5pt9bhbn5ve_notes"
+      }
+    ],
+    "sessionSearch": "",
+    "activeSessionIndex": 1,
+    "npcs": [
+      {
+        "id": "npc_82onufo7imkmwlfus",
+        "group": "undecided",
+        "name": "Redacted name 1",
+        "className": "",
+        "hpCurrent": null,
+        "hpMax": null,
+        "status": "",
+        "notes": "Redacted notes 7",
+        "imgBlobId": "blob_esbc0y3xt3s_mlu51knt",
+        "collapsed": true,
+        "sectionId": "npcsec_wwbytldzohsml6t7glb",
+        "characterId": null
+      },
+      {
+        "id": "npc_dmg9uywqtx6mkmvc3ky",
+        "group": "friendly",
+        "name": "Redacted name 2",
+        "className": "",
+        "hpCurrent": null,
+        "hpMax": null,
+        "status": "",
+        "notes": "Redacted notes 8",
+        "imgBlobId": "blob_9yld07i9ldc_mlu51knw",
+        "collapsed": true,
+        "sectionId": "npcsec_ox0g7k4hiiml6t7glb",
+        "characterId": null
+      },
+      {
+        "id": "npc_4z3oc0ykvelmkmuoc7s",
+        "group": "friendly",
+        "name": "Redacted name 3",
+        "className": "",
+        "hpCurrent": null,
+        "hpMax": null,
+        "status": "",
+        "notes": "Redacted notes 9",
+        "imgBlobId": "blob_81cqprf4g1v_mlu51knz",
+        "collapsed": true,
+        "sectionId": "npcsec_ox0g7k4hiiml6t7glb",
+        "characterId": null
+      },
+      {
+        "id": "npc_o8q8edwup7mkmum6qp",
+        "group": "friendly",
+        "name": "Redacted name 4",
+        "className": "",
+        "hpCurrent": null,
+        "hpMax": null,
+        "status": "",
+        "notes": "",
+        "imgBlobId": "blob_9wj0mu616t_mlu51ko0",
+        "collapsed": true,
+        "sectionId": "npcsec_ox0g7k4hiiml6t7glb",
+        "characterId": null
+      },
+      {
+        "id": "npc_xlruu6xb2mkmu32pk",
+        "group": "friendly",
+        "name": "Redacted name 5",
+        "className": "",
+        "hpCurrent": null,
+        "hpMax": null,
+        "status": "",
+        "notes": "Redacted notes 10",
+        "imgBlobId": "blob_t4sievxci9_mlu51ko2",
+        "collapsed": true,
+        "sectionId": "npcsec_ox0g7k4hiiml6t7glb",
+        "characterId": null
+      },
+      {
+        "id": "npc_bpzfuyv90jbmkmtpvcs",
+        "group": "foe",
+        "name": "Redacted name 6",
+        "className": "",
+        "hpCurrent": null,
+        "hpMax": null,
+        "status": "",
+        "notes": "Redacted notes 11",
+        "imgBlobId": "blob_ps6eijroqv_mlu51ko4",
+        "collapsed": false,
+        "sectionId": "npcsec_d6b82rdk83hml6t7glb",
+        "characterId": null
+      },
+      {
+        "id": "npc_0u36drjnydwkmkmte2so",
+        "group": "friendly",
+        "name": "Redacted name 7",
+        "className": "",
+        "hpCurrent": null,
+        "hpMax": null,
+        "status": "",
+        "notes": "Redacted notes 12",
+        "imgBlobId": "blob_podh9hbj07_mlu51ko6",
+        "collapsed": true,
+        "sectionId": "npcsec_ox0g7k4hiiml6t7glb",
+        "characterId": null
+      },
+      {
+        "id": "npc_3ijthkkb2hpmkmpl7if",
+        "group": "friendly",
+        "name": "Redacted name 8",
+        "className": "",
+        "hpCurrent": null,
+        "hpMax": null,
+        "status": "",
+        "notes": "Redacted notes 13",
+        "imgBlobId": "blob_ubhzd1mufng_mlu51ko8",
+        "collapsed": true,
+        "sectionId": "npcsec_ox0g7k4hiiml6t7glb",
+        "characterId": null
+      },
+      {
+        "id": "npc_hnk5yi9v1mcmkmpkvf4",
+        "group": "friendly",
+        "name": "Redacted name 9",
+        "className": "",
+        "hpCurrent": null,
+        "hpMax": null,
+        "status": "",
+        "notes": "Redacted notes 14",
+        "imgBlobId": "blob_aqy9npdjsu_mlu51koa",
+        "collapsed": true,
+        "sectionId": "npcsec_ox0g7k4hiiml6t7glb",
+        "characterId": null
+      },
+      {
+        "id": "npc_rjxoyjop5ximkmpk7a6",
+        "group": "friendly",
+        "name": "Redacted name 10",
+        "className": "",
+        "hpCurrent": null,
+        "hpMax": null,
+        "status": "",
+        "notes": "Redacted notes 15",
+        "imgBlobId": "blob_0h5059ns00p5_mlu51koc",
+        "collapsed": true,
+        "sectionId": "npcsec_ox0g7k4hiiml6t7glb",
+        "characterId": null
+      },
+      {
+        "id": "npc_jzx5vgz2ehcmkmpjtsx",
+        "group": "friendly",
+        "name": "Redacted name 11",
+        "className": "",
+        "hpCurrent": null,
+        "hpMax": null,
+        "status": "",
+        "notes": "Redacted notes 16",
+        "imgBlobId": "blob_jv1t3g7c5hg_mlu51kod",
+        "collapsed": true,
+        "sectionId": "npcsec_ox0g7k4hiiml6t7glb",
+        "characterId": null
+      },
+      {
+        "id": "npc_q0xdfjs2hgdmkmpjiq9",
+        "group": "friendly",
+        "name": "Redacted name 12",
+        "className": "",
+        "hpCurrent": null,
+        "hpMax": null,
+        "status": "",
+        "notes": "Redacted notes 17",
+        "imgBlobId": "blob_0dfeyef502e9_mlu51kof",
+        "collapsed": true,
+        "sectionId": "npcsec_ox0g7k4hiiml6t7glb",
+        "characterId": null
+      },
+      {
+        "id": "npc_164d4vajegvmkmpiqfj",
+        "group": "friendly",
+        "name": "Redacted name 13",
+        "className": "",
+        "hpCurrent": null,
+        "hpMax": null,
+        "status": "",
+        "notes": "Redacted notes 18",
+        "imgBlobId": "blob_0t6axjms8qve_mlu51koh",
+        "collapsed": true,
+        "sectionId": "npcsec_ox0g7k4hiiml6t7glb",
+        "characterId": null
+      },
+      {
+        "id": "npc_2kmv0zno84lmkmpiaqc",
+        "group": "friendly",
+        "name": "Redacted name 14",
+        "className": "",
+        "hpCurrent": null,
+        "hpMax": null,
+        "status": "",
+        "notes": "Redacted notes 19",
+        "imgBlobId": "blob_edj8ddqvyvm_mlu51koi",
+        "collapsed": true,
+        "sectionId": "npcsec_ox0g7k4hiiml6t7glb",
+        "characterId": null
+      },
+      {
+        "id": "npc_98832xsl9qmkmphs4l",
+        "group": "friendly",
+        "name": "Redacted name 15",
+        "className": "",
+        "hpCurrent": null,
+        "hpMax": null,
+        "status": "",
+        "notes": "Redacted notes 20",
+        "imgBlobId": "blob_9p8xjxejj7r_mlu51kok",
+        "collapsed": true,
+        "sectionId": "npcsec_ox0g7k4hiiml6t7glb",
+        "characterId": null
+      },
+      {
+        "id": "npc_2awuz1knrfrmkmph4n7",
+        "group": "friendly",
+        "name": "Redacted name 16",
+        "className": "",
+        "hpCurrent": null,
+        "hpMax": null,
+        "status": "",
+        "notes": "Redacted notes 21",
+        "imgBlobId": "blob_02hisl1jcsib_mlu51kol",
+        "collapsed": true,
+        "sectionId": "npcsec_ox0g7k4hiiml6t7glb",
+        "characterId": null
+      },
+      {
+        "id": "npc_z1zlcj4wpvimkmpfng1",
+        "group": "friendly",
+        "name": "Redacted name 17",
+        "className": "",
+        "hpCurrent": null,
+        "hpMax": null,
+        "status": "",
+        "notes": "Redacted notes 22",
+        "imgBlobId": "blob_hggy8jeb7ls_mlu51kon",
+        "collapsed": true,
+        "sectionId": "npcsec_ox0g7k4hiiml6t7glb",
+        "characterId": null
+      },
+      {
+        "id": "npc_mrx9evewoelmkmpf8r2",
+        "group": "friendly",
+        "name": "Redacted name 18",
+        "className": "",
+        "hpCurrent": null,
+        "hpMax": null,
+        "status": "",
+        "notes": "Redacted notes 23",
+        "imgBlobId": "blob_np2jmfdh15o_mlu51koo",
+        "collapsed": true,
+        "sectionId": "npcsec_ox0g7k4hiiml6t7glb",
+        "characterId": null
+      },
+      {
+        "id": "npc_lgw9y9bpk0dmkmpe2w8",
+        "group": "friendly",
+        "name": "Redacted name 19",
+        "className": "",
+        "hpCurrent": null,
+        "hpMax": null,
+        "status": "",
+        "notes": "Redacted notes 24",
+        "imgBlobId": "blob_4ppmskcq42k_mlu51kop",
+        "collapsed": true,
+        "sectionId": "npcsec_ox0g7k4hiiml6t7glb",
+        "characterId": null
+      },
+      {
+        "id": "npc_y2tkbp06wkkmkmpda5s",
+        "group": "undecided",
+        "name": "Redacted name 20",
+        "className": "",
+        "hpCurrent": null,
+        "hpMax": null,
+        "status": "",
+        "notes": "",
+        "imgBlobId": "blob_dx5kvns0hv5_mlu51kor",
+        "collapsed": true,
+        "sectionId": "npcsec_wwbytldzohsml6t7glb",
+        "characterId": null
+      },
+      {
+        "id": "npc_ut5zq9fqsnmkmpcuxl",
+        "group": "friendly",
+        "name": "Redacted name 21",
+        "className": "",
+        "hpCurrent": null,
+        "hpMax": null,
+        "status": "",
+        "notes": "",
+        "imgBlobId": "blob_x9jf1t61kc_mlu51kos",
+        "collapsed": true,
+        "sectionId": "npcsec_ox0g7k4hiiml6t7glb",
+        "characterId": null
+      },
+      {
+        "id": "npc_5f24jxq55btmkmpcfld",
+        "group": "undecided",
+        "name": "Redacted name 22",
+        "className": "",
+        "hpCurrent": null,
+        "hpMax": null,
+        "status": "",
+        "notes": "",
+        "imgBlobId": "blob_5ow8ujpcog4_mlu51kou",
+        "collapsed": true,
+        "sectionId": "npcsec_wwbytldzohsml6t7glb",
+        "characterId": null
+      },
+      {
+        "id": "npc_0s2eftvk9zgjmkmpbx4q",
+        "group": "friendly",
+        "name": "Redacted name 23",
+        "className": "",
+        "hpCurrent": null,
+        "hpMax": null,
+        "status": "",
+        "notes": "",
+        "imgBlobId": "blob_mch52k18f1_mlu51kov",
+        "collapsed": true,
+        "sectionId": "npcsec_ox0g7k4hiiml6t7glb",
+        "characterId": null
+      },
+      {
+        "id": "npc_sm3co760lwbmkmpbagu",
+        "group": "friendly",
+        "name": "Redacted name 24",
+        "className": "",
+        "hpCurrent": null,
+        "hpMax": null,
+        "status": "",
+        "notes": "",
+        "imgBlobId": "blob_q8a50ysdzfn_mlu51kox",
+        "collapsed": true,
+        "sectionId": "npcsec_ox0g7k4hiiml6t7glb",
+        "characterId": null
+      },
+      {
+        "id": "npc_3kuz2vxw1x8mkmpapi1",
+        "group": "friendly",
+        "name": "Redacted name 25",
+        "className": "",
+        "hpCurrent": null,
+        "hpMax": null,
+        "status": "",
+        "notes": "",
+        "imgBlobId": "blob_u6cyda5u2f9_mlu51koy",
+        "collapsed": true,
+        "sectionId": "npcsec_ox0g7k4hiiml6t7glb",
+        "characterId": null
+      },
+      {
+        "id": "npc_rk55vrxcuemkmpa15y",
+        "group": "friendly",
+        "name": "Redacted name 26",
+        "className": "",
+        "hpCurrent": null,
+        "hpMax": null,
+        "status": "",
+        "notes": "",
+        "imgBlobId": "blob_brqssi0klo_mlu51koz",
+        "collapsed": true,
+        "sectionId": "npcsec_ox0g7k4hiiml6t7glb",
+        "characterId": null
+      },
+      {
+        "id": "npc_vcjp7c11r9mkmp9ggr",
+        "group": "friendly",
+        "name": "Redacted name 27",
+        "className": "",
+        "hpCurrent": null,
+        "hpMax": null,
+        "status": "",
+        "notes": "",
+        "imgBlobId": "blob_imbufmb3ymi_mlu51kp1",
+        "collapsed": true,
+        "sectionId": "npcsec_ox0g7k4hiiml6t7glb",
+        "characterId": null
+      },
+      {
+        "id": "npc_aqvt3bwv6pcmkmp8d7k",
+        "group": "friendly",
+        "name": "Redacted name 28",
+        "className": "",
+        "hpCurrent": null,
+        "hpMax": null,
+        "status": "",
+        "notes": "",
+        "imgBlobId": "blob_ac5e8olszqk_mlu51kp3",
+        "collapsed": true,
+        "sectionId": "npcsec_ox0g7k4hiiml6t7glb",
+        "characterId": null
+      },
+      {
+        "id": "npc_clwg8oyyh58mkmp2edl",
+        "group": "foe",
+        "name": "Redacted name 29",
+        "className": "",
+        "hpCurrent": null,
+        "hpMax": null,
+        "status": "",
+        "notes": "",
+        "imgBlobId": null,
+        "collapsed": true,
+        "sectionId": "npcsec_d6b82rdk83hml6t7glb",
+        "characterId": null
+      },
+      {
+        "id": "npc_5zjlh467cjqmkmp1sxn",
+        "group": "undecided",
+        "name": "Redacted name 30",
+        "className": "",
+        "hpCurrent": null,
+        "hpMax": null,
+        "status": "",
+        "notes": "Redacted notes 25",
+        "imgBlobId": "blob_cp8s2dlqc2l_mlu51kp4",
+        "collapsed": true,
+        "sectionId": "npcsec_wwbytldzohsml6t7glb",
+        "characterId": null
+      },
+      {
+        "id": "npc_2ijzf90v5emkmp096f",
+        "group": "friendly",
+        "name": "Redacted name 31",
+        "className": "",
+        "hpCurrent": null,
+        "hpMax": null,
+        "status": "",
+        "notes": "",
+        "imgBlobId": "blob_tto3nkt30ms_mlu51kp5",
+        "collapsed": true,
+        "sectionId": "npcsec_ox0g7k4hiiml6t7glb",
+        "characterId": null
+      },
+      {
+        "id": "npc_51falnvh6bmkmozirg",
+        "group": "friendly",
+        "name": "Redacted name 32",
+        "className": "",
+        "hpCurrent": null,
+        "hpMax": null,
+        "status": "",
+        "notes": "Redacted notes 26",
+        "imgBlobId": "blob_yrygzlzgd3_mlu51kp7",
+        "collapsed": true,
+        "sectionId": "npcsec_ox0g7k4hiiml6t7glb",
+        "characterId": null
+      },
+      {
+        "id": "npc_yija6g90dwpmkmoxp5b",
+        "group": "friendly",
+        "name": "Redacted name 33",
+        "className": "",
+        "hpCurrent": null,
+        "hpMax": null,
+        "status": "",
+        "notes": "",
+        "imgBlobId": "blob_tdhew4auci_mlu51kp8",
+        "collapsed": true,
+        "sectionId": "npcsec_ox0g7k4hiiml6t7glb",
+        "characterId": null
+      },
+      {
+        "id": "npc_ph3iwiovwsmkfixmi8",
+        "group": "friendly",
+        "name": "Redacted name 34",
+        "className": "",
+        "hpCurrent": null,
+        "hpMax": null,
+        "status": "",
+        "notes": "",
+        "imgBlobId": "blob_qxlett3xaqb_mlu51kpa",
+        "collapsed": true,
+        "sectionId": "npcsec_ox0g7k4hiiml6t7glb",
+        "characterId": null
+      }
+    ],
+    "npcActiveGroup": "friendly",
+    "npcSearch": "",
+    "party": [
+      {
+        "id": "party_mo0hj6ib_s0o10w",
+        "sectionId": "partysec_m747eiwtphgmkx9p6ml",
+        "characterId": "char_67dakuxe06i_mo03mxj6",
+        "name": "Redacted name 35",
+        "notes": "",
+        "status": "",
+        "className": "Redacted className 1",
+        "hpMax": 35,
+        "hpCurrent": 35,
+        "imgBlobId": "blob_39o267bw0mp_mlu52iem",
+        "portraitHidden": false,
+        "collapsed": true
+      },
+      {
+        "id": "party_q353uqlmkp7mkelx5bc",
+        "name": "Redacted name 36",
+        "className": "Redacted className 2",
+        "hpCurrent": null,
+        "hpMax": null,
+        "status": "",
+        "notes": "Redacted notes 27",
+        "imgDataUrl": null,
+        "imgBlobId": "blob_qir7n9kzyg_mlu51kpb",
+        "collapsed": true,
+        "sectionId": "partysec_m747eiwtphgmkx9p6ml",
+        "characterId": null
+      },
+      {
+        "id": "party_e7es6xbybymkejzoyj",
+        "name": "Redacted name 37",
+        "className": "Redacted className 3",
+        "hpCurrent": null,
+        "hpMax": null,
+        "status": "",
+        "notes": "Redacted notes 28",
+        "imgBlobId": "blob_pghwwfe6ipc_mlu51kpc",
+        "collapsed": true,
+        "sectionId": "partysec_m747eiwtphgmkx9p6ml",
+        "characterId": null
+      },
+      {
+        "id": "party_rr6asno587emkd8rerw",
+        "name": "Redacted name 38",
+        "className": "Redacted className 4",
+        "hpCurrent": null,
+        "hpMax": 0,
+        "status": "",
+        "notes": "Redacted notes 29",
+        "imgBlobId": "blob_7lof6z4vkj5_mlu51kpe",
+        "collapsed": true,
+        "sectionId": "partysec_m747eiwtphgmkx9p6ml",
+        "characterId": null
+      },
+      {
+        "id": "party_mrz73ags9ndmkfn04tj",
+        "name": "Redacted name 39",
+        "className": "",
+        "hpCurrent": null,
+        "hpMax": null,
+        "status": "",
+        "notes": "",
+        "imgBlobId": "blob_fmo39yobawg_mlu51kpf",
+        "collapsed": true,
+        "sectionId": "partysec_m747eiwtphgmkx9p6ml",
+        "characterId": null
+      },
+      {
+        "id": "party_k36g3e0uw2pmkfmyyhn",
+        "name": "Redacted name 40",
+        "className": "",
+        "hpCurrent": null,
+        "hpMax": null,
+        "status": "",
+        "notes": "",
+        "imgBlobId": "blob_gye2bfjwjuc_mlu51kph",
+        "collapsed": true,
+        "sectionId": "partysec_m747eiwtphgmkx9p6ml",
+        "characterId": null
+      },
+      {
+        "id": "party_ef9a3nem0f9mkejv1oi",
+        "name": "Redacted name 41",
+        "className": "Redacted className 5",
+        "hpCurrent": null,
+        "hpMax": null,
+        "status": "",
+        "notes": "Redacted notes 30",
+        "imgBlobId": "blob_sijjjt98cnp_mlu51kpi",
+        "collapsed": true,
+        "sectionId": "partysec_m747eiwtphgmkx9p6ml",
+        "characterId": null
+      }
+    ],
+    "partySearch": "",
+    "locationsList": [
+      {
+        "id": "loc_lr4gkccc47mkmxo2xp",
+        "title": "Redacted title 7",
+        "notes": "Redacted notes 31",
+        "type": "town",
+        "imgBlobId": "blob_v0izdwon1k9_mlu51kpk",
+        "collapsed": true,
+        "sectionId": "locsec_o19ur0xfy8ml6t7glz"
+      },
+      {
+        "id": "loc_fwyc35ojqcpmkmtdugg",
+        "title": "Redacted title 8",
+        "notes": "",
+        "type": "town",
+        "imgBlobId": null,
+        "collapsed": true,
+        "sectionId": "locsec_o19ur0xfy8ml6t7glz"
+      },
+      {
+        "id": "loc_utbsivbrk5mkmp4wsw",
+        "title": "Redacted title 9",
+        "notes": "",
+        "type": "other",
+        "imgBlobId": "blob_74mlcqa6uqj_mlu51kpm",
+        "collapsed": true,
+        "sectionId": "locsec_o19ur0xfy8ml6t7glz"
+      },
+      {
+        "id": "loc_ztbd1jk0fhdmkmp4dn8",
+        "title": "Redacted title 10",
+        "notes": "",
+        "type": "region",
+        "imgBlobId": "blob_y0lmm56w7v_mlu51kpn",
+        "collapsed": true,
+        "sectionId": "locsec_o19ur0xfy8ml6t7glz"
+      },
+      {
+        "id": "loc_uyqmen9ev5mkmp3uiw",
+        "title": "Redacted title 11",
+        "notes": "",
+        "type": "region",
+        "imgBlobId": "blob_ynq03v2djjq_mlu51kpp",
+        "collapsed": true,
+        "sectionId": "locsec_o19ur0xfy8ml6t7glz"
+      },
+      {
+        "id": "loc_drpehpr6a3emkmp2ruw",
+        "title": "Redacted title 12",
+        "notes": "",
+        "type": "region",
+        "imgBlobId": "blob_xcsfpv0x0fr_mlu51kpr",
+        "collapsed": true,
+        "sectionId": "locsec_o19ur0xfy8ml6t7glz"
+      },
+      {
+        "id": "loc_9nohus4x93mkesdx02",
+        "title": "Redacted title 13",
+        "notes": "Redacted notes 32",
+        "type": "town",
+        "imgBlobId": "blob_c8am49s6zb_mlu51kps",
+        "collapsed": true,
+        "sectionId": "locsec_o19ur0xfy8ml6t7glz"
+      }
+    ],
+    "locSearch": "",
+    "locFilter": "all",
+    "misc": "Redacted misc 1",
+    "ui": {
+      "textareaHeigts": {},
+      "textareaHeights": {
+        "sessionNotesBox": 0,
+        "misc": 0,
+        "charFeatures": 1212,
+        "charEquipment": 0,
+        "charArmorProf": 0,
+        "charWeaponProf": 0,
+        "charToolProf": 0,
+        "charLanguages": 0,
+        "charTraits": 0,
+        "charIdeals": 0,
+        "charBonds": 0,
+        "charFlaws": 0,
+        "charCharNotes": 0,
+        "spellNotes_spell_pncrx1tsp5_mkh2rwh8": 409
+      },
+      "panelOrder": [
+        "sessionPanel",
+        "npcPanel",
+        "partyPanel",
+        "locationsPanel",
+        "miscPanel"
+      ],
+      "sectionOrder": [
+        "sessionPanel",
+        "miscPanel",
+        "partyPanel",
+        "npcPanel",
+        "locationsPanel"
+      ],
+      "theme": "red-gold"
+    },
+    "npcSections": [
+      {
+        "id": "npcsec_ox0g7k4hiiml6t7glb",
+        "name": "Redacted name 42"
+      },
+      {
+        "id": "npcsec_wwbytldzohsml6t7glb",
+        "name": "Redacted name 43"
+      },
+      {
+        "id": "npcsec_d6b82rdk83hml6t7glb",
+        "name": "Redacted name 44"
+      }
+    ],
+    "npcActiveSectionId": "npcsec_ox0g7k4hiiml6t7glb",
+    "partySections": [
+      {
+        "id": "partysec_m747eiwtphgmkx9p6ml",
+        "name": "Redacted name 45"
+      },
+      {
+        "id": "partysec_xioghpuxe8nmo0hjdil",
+        "name": "Redacted name 46"
+      }
+    ],
+    "partyActiveSectionId": "partysec_m747eiwtphgmkx9p6ml",
+    "locSections": [
+      {
+        "id": "locsec_o19ur0xfy8ml6t7glz",
+        "name": "Redacted name 47"
+      }
+    ],
+    "locActiveSectionId": "locsec_o19ur0xfy8ml6t7glz",
+    "miscTextId": "tracker_misc"
+  },
+  "characters": {
+    "activeId": "char_67dakuxe06i_mo03mxj6",
+    "entries": [
+      {
+        "id": "char_67dakuxe06i_mo03mxj6",
+        "imgBlobId": "blob_39o267bw0mp_mlu52iem",
+        "name": "Redacted name 48",
+        "classLevel": "Redacted classLevel 1",
+        "race": "Redacted race 1",
+        "background": "Redacted background 1",
+        "alignment": "Redacted alignment 1",
+        "experience": 0,
+        "features": "Redacted features 1",
+        "hpCur": 35,
+        "hpMax": 35,
+        "hitDieAmt": 6,
+        "hitDieSize": 6,
+        "ac": 15,
+        "initiative": 2,
+        "speed": 35,
+        "proficiency": 3,
+        "spellAttack": 7,
+        "spellDC": 16,
+        "resources": [
+          {
+            "id": "res_w080nldpdd_mkg3u0ul",
+            "name": "Redacted name 49",
+            "cur": 7,
+            "max": 7
+          },
+          {
+            "id": "res_tsgakpeq8nl_mkmoa2hj",
+            "name": "Redacted name 50",
+            "cur": 3,
+            "max": 3
+          },
+          {
+            "id": "res_ygoum85rz1_mkmoagrp",
+            "name": "Redacted name 51",
+            "cur": 1,
+            "max": 19
+          },
+          {
+            "id": "res_xngl7zk3tvp_mkmqcnrn",
+            "name": "Redacted name 52",
+            "cur": 4,
+            "max": 4
+          }
+        ],
+        "abilities": {
+          "str": {
+            "score": 12,
+            "saveProf": false
+          },
+          "dex": {
+            "score": 14,
+            "saveProf": false
+          },
+          "con": {
+            "score": 12,
+            "saveProf": true
+          },
+          "int": {
+            "score": 14,
+            "saveProf": false
+          },
+          "wis": {
+            "score": 12,
+            "saveProf": false
+          },
+          "cha": {
+            "score": 19,
+            "saveProf": true
+          }
+        },
+        "skills": {
+          "athletics": {
+            "level": "none",
+            "misc": 0,
+            "value": 1
+          },
+          "acrobatics": {
+            "level": "none",
+            "misc": 0,
+            "value": 2
+          },
+          "sleight": {
+            "level": "none",
+            "misc": 0,
+            "value": 2
+          },
+          "stealth": {
+            "level": "none",
+            "misc": 0,
+            "value": 2
+          },
+          "arcana": {
+            "level": "prof",
+            "misc": 0,
+            "value": 5
+          },
+          "history": {
+            "level": "none",
+            "misc": 0,
+            "value": 2
+          },
+          "investigation": {
+            "level": "prof",
+            "misc": 0,
+            "value": 5
+          },
+          "nature": {
+            "level": "none",
+            "misc": 0,
+            "value": 2
+          },
+          "religion": {
+            "level": "none",
+            "misc": 0,
+            "value": 2
+          },
+          "animal": {
+            "level": "none",
+            "misc": 0,
+            "value": 1
+          },
+          "insight": {
+            "level": "prof",
+            "misc": 0,
+            "value": 4
+          },
+          "medicine": {
+            "level": "none",
+            "misc": 0,
+            "value": 1
+          },
+          "perception": {
+            "level": "prof",
+            "misc": 0,
+            "value": 4
+          },
+          "survival": {
+            "level": "none",
+            "misc": 0,
+            "value": 1
+          },
+          "deception": {
+            "level": "none",
+            "misc": 0,
+            "value": 4
+          },
+          "intimidation": {
+            "level": "prof",
+            "misc": 0,
+            "value": 7
+          },
+          "performance": {
+            "level": "none",
+            "misc": 0,
+            "value": 4
+          },
+          "persuasion": {
+            "level": "prof",
+            "misc": 0,
+            "value": 7
+          }
+        },
+        "skillsNotes": "",
+        "armorProf": "Redacted armorProf 1",
+        "weaponProf": "Redacted weaponProf 1",
+        "toolProf": "",
+        "languages": "Redacted languages 1",
+        "attacks": [
+          {
+            "id": "atk_gjoxgraswjemkmo8c5a",
+            "name": "Redacted name 53",
+            "notes": "",
+            "bonus": "+5",
+            "damage": "1d6 + 2",
+            "range": "80 / 320",
+            "type": "Piercing"
+          },
+          {
+            "id": "atk_2kwdrcxkrgzmkmo7h8s",
+            "name": "Redacted name 54",
+            "notes": "",
+            "bonus": "+4",
+            "damage": "1d4 + 1",
+            "range": "Touch",
+            "type": "Piercing"
+          },
+          {
+            "id": "atk_s3ec2fe109mkd8sgmp",
+            "name": "Redacted name 55",
+            "bonus": "+4",
+            "damage": "1d4 + 2",
+            "range": "20/60",
+            "type": "Piercing",
+            "notes": ""
+          }
+        ],
+        "spells": {
+          "levels": [
+            {
+              "id": "spellLevel_7fsfzmpz1wi_mkh2n3fl",
+              "label": "Redacted label 1",
+              "hasSlots": false,
+              "used": null,
+              "total": null,
+              "collapsed": true,
+              "spells": [
+                {
+                  "id": "spell_pncrx1tsp5_mkh2rwh8",
+                  "name": "Redacted name 56",
+                  "notesCollapsed": true,
+                  "known": false,
+                  "expended": false
+                },
+                {
+                  "id": "spell_fu0ba1omlk5_mkh2s8b8",
+                  "name": "Redacted name 57",
+                  "notesCollapsed": true,
+                  "expended": false
+                },
+                {
+                  "id": "spell_0nus0rjl4qr_mkh2s8kr",
+                  "name": "Redacted name 58",
+                  "notesCollapsed": true,
+                  "prepared": false,
+                  "known": true,
+                  "expended": false
+                },
+                {
+                  "id": "spell_8ocfiuibvuq_mkmoc2y8",
+                  "name": "Redacted name 59",
+                  "notesCollapsed": true,
+                  "known": true,
+                  "prepared": false,
+                  "expended": false
+                }
+              ]
+            },
+            {
+              "id": "spellLevel_rfjkzpxf73g_mkh2n3fl",
+              "label": "Redacted label 2",
+              "hasSlots": true,
+              "used": 4,
+              "total": 4,
+              "collapsed": true,
+              "spells": [
+                {
+                  "id": "spell_r7gub943r7s_mkh7f8ao",
+                  "name": "Redacted name 60",
+                  "notesCollapsed": true,
+                  "known": true,
+                  "prepared": false,
+                  "expended": false
+                },
+                {
+                  "id": "spell_3v017i4neqr_mkmocil3",
+                  "name": "Redacted name 61",
+                  "notesCollapsed": true,
+                  "known": true,
+                  "prepared": false,
+                  "expended": false
+                },
+                {
+                  "id": "spell_rx9llob6a2b_mkmocmu6",
+                  "name": "Redacted name 62",
+                  "notesCollapsed": true,
+                  "known": true,
+                  "prepared": false,
+                  "expended": false
+                }
+              ]
+            },
+            {
+              "id": "spellLevel_sfae7v7spsl_mkh2n3fl",
+              "label": "Redacted label 3",
+              "hasSlots": true,
+              "used": 3,
+              "total": 3,
+              "collapsed": true,
+              "spells": [
+                {
+                  "id": "spell_0ji8oqihjfa9_mkmod6zp",
+                  "name": "Redacted name 63",
+                  "notesCollapsed": true,
+                  "known": true,
+                  "prepared": false,
+                  "expended": false
+                },
+                {
+                  "id": "spell_yf82nbrq9wi_mkmodbfn",
+                  "name": "Redacted name 64",
+                  "notesCollapsed": true,
+                  "known": true,
+                  "prepared": false,
+                  "expended": false
+                },
+                {
+                  "id": "spell_0htd8dtwqcvp_mkmodfyb",
+                  "name": "Redacted name 65",
+                  "notesCollapsed": true,
+                  "known": true,
+                  "prepared": false,
+                  "expended": false
+                }
+              ]
+            },
+            {
+              "id": "spellLevel_aay7a126e2e_mkh2n3fl",
+              "label": "Redacted label 4",
+              "hasSlots": true,
+              "used": 2,
+              "total": 2,
+              "collapsed": true,
+              "spells": [
+                {
+                  "id": "spell_m29a9ug5tm_mkmodsgq",
+                  "name": "Redacted name 66",
+                  "notesCollapsed": true,
+                  "known": true,
+                  "prepared": false,
+                  "expended": false
+                }
+              ]
+            }
+          ]
+        },
+        "inventoryItems": [
+          {
+            "title": "Redacted title 14",
+            "notes": "Redacted notes 33"
+          },
+          {
+            "title": "Redacted title 15",
+            "notes": "Redacted notes 34"
+          },
+          {
+            "title": "Redacted title 16",
+            "notes": "Redacted notes 35"
+          }
+        ],
+        "activeInventoryIndex": 0,
+        "inventorySearch": "",
+        "equipment": "Redacted equipment 1",
+        "money": {
+          "pp": 0,
+          "gp": 955,
+          "ep": 0,
+          "sp": 500,
+          "cp": 100
+        },
+        "personality": {
+          "traitsTextId": "personality_traits",
+          "traits": "Redacted traits 1",
+          "idealsTextId": "personality_ideals",
+          "ideals": "Redacted ideals 1",
+          "bondsTextId": "personality_bonds",
+          "bonds": "Redacted bonds 1",
+          "flawsTextId": "personality_flaws",
+          "flaws": "Redacted flaws 1",
+          "notesTextId": "personality_notes",
+          "notes": "Redacted notes 36"
+        },
+        "ui": {
+          "sectionOrder": [
+            "charBasicsPanel",
+            "charEquipmentPanel",
+            "charVitalsPanel",
+            "charAbilitiesPanel",
+            "charAttacksPanel",
+            "charSpellsPanel",
+            "charProfPanel",
+            "charPersonalityPanel"
+          ],
+          "abilityOrder": [
+            "int",
+            "wis",
+            "cha",
+            "dex",
+            "str",
+            "con"
+          ],
+          "vitalsOrder": [
+            "hp",
+            "hitDie",
+            "ac",
+            "spellDC",
+            "spellAtk",
+            "speed",
+            "init",
+            "prof",
+            "status",
+            "res:res_w080nldpdd_mkg3u0ul",
+            "res:res_tsgakpeq8nl_mkmoa2hj",
+            "res:res_ygoum85rz1_mkmoagrp",
+            "res:res_xngl7zk3tvp_mkmqcnrn"
+          ],
+          "abilityCollapse": {
+            "int": true,
+            "wis": true,
+            "cha": true,
+            "dex": true,
+            "str": true,
+            "con": true
+          },
+          "textareaHeights": {
+            "spellNotes_spell_pncrx1tsp5_mkh2rwh8": 404,
+            "spellNotes_spell_fu0ba1omlk5_mkh2s8b8": 403,
+            "spellNotes_spell_0nus0rjl4qr_mkh2s8kr": 271,
+            "spellNotes_spell_8ocfiuibvuq_mkmoc2y8": 272,
+            "spellNotes_spell_r7gub943r7s_mkh7f8ao": 269,
+            "spellNotes_spell_3v017i4neqr_mkmocil3": 211,
+            "spellNotes_spell_rx9llob6a2b_mkmocmu6": 308,
+            "spellNotes_spell_0ji8oqihjfa9_mkmod6zp": 348,
+            "spellNotes_spell_yf82nbrq9wi_mkmodbfn": 198,
+            "spellNotes_spell_0htd8dtwqcvp_mkmodfyb": 195,
+            "spellNotes_spell_m29a9ug5tm_mkmodsgq": 312
+          },
+          "textareaCollapse": {
+            "charEquipment": true,
+            "charFeatures": true,
+            "charArmorProf": true,
+            "charWeaponProf": true,
+            "charToolProf": true,
+            "charLanguages": true,
+            "charTraits": true,
+            "charIdeals": true,
+            "charBonds": true,
+            "charCharNotes": true,
+            "charFlaws": true
+          }
+        },
+        "saveOptions": {
+          "misc": {
+            "str": 0,
+            "dex": 1,
+            "con": 0,
+            "int": 0,
+            "wis": 0,
+            "cha": 0
+          },
+          "modToAll": ""
+        },
+        "featuresTextId": "char_features",
+        "armorProfTextId": "char_armorProf",
+        "weaponProfTextId": "char_weaponProf",
+        "toolProfTextId": "char_toolProf",
+        "languagesTextId": "char_languages",
+        "equipmentTextId": "char_equipment",
+        "status": ""
+      }
+    ]
+  },
+  "map": {
+    "activeMapId": "map_o5rmizlo53_mkhff6r2",
+    "maps": [
+      {
+        "id": "map_o5rmizlo53_mkhff6r2",
+        "name": "Redacted name 67",
+        "bgBlobId": "blob_zfd1jmx4yd_mlu51kpw",
+        "drawingBlobId": "blob_tswyjbx3mgl_mlu51kpz",
+        "brushSize": 6,
+        "colorKey": "red"
+      },
+      {
+        "id": "map_feltsoq11z8_mkid9wlg",
+        "name": "Redacted name 68",
+        "bgBlobId": "blob_dkd7wwfpj7o_mlu51kq0",
+        "drawingBlobId": "blob_omon8xlvh2_mlu51kq4",
+        "brushSize": 6,
+        "colorKey": "green"
+      }
+    ],
+    "ui": {
+      "activeTool": "brush",
+      "brushSize": 6,
+      "viewScale": 1
+    },
+    "brushSize": 6,
+    "colorKey": "blue"
+  },
+  "combat": {
+    "workspace": {
+      "panelOrder": [
+        "combatCardsPanel",
+        "combatRoundPanel"
+      ],
+      "embeddedPanels": [],
+      "panelCollapsed": {}
+    },
+    "encounter": {
+      "id": null,
+      "createdAt": null,
+      "updatedAt": null,
+      "round": 1,
+      "activeParticipantId": null,
+      "elapsedSeconds": 0,
+      "secondsPerTurn": 6,
+      "participants": [],
+      "undoStack": []
+    }
+  }
+}
