@@ -147,7 +147,17 @@ export default defineConfig(({ mode }) => {
       })
     ],
     build: {
-      outDir: "dist"
+      outDir: "dist",
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            // Keep the bundled SRD registry data in its own chunk so the
+            // app chunk stays well under Workbox's 2 MB precache limit as
+            // data grows. Static imports still load it eagerly.
+            if (id.includes("game-data/srd/")) return "srd-data";
+          }
+        }
+      }
     }
   };
 });
