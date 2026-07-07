@@ -2101,11 +2101,12 @@ describe("character page selector", () => {
 
     const created = deps.state.characters.entries[2];
     expect(created.build.choicesByLevel["1"]["dragonborn-ancestry"]).toBe("red");
-    expect(created.features).toBe([
+    expect(created.features.startsWith([
       "Dragonborn Traits",
       "Draconic Ancestry: Red",
       "Damage Resistance: You have resistance to fire damage."
-    ].join("\n"));
+    ].join("\n"))).toBe(true);
+    expect(created.features).toContain("Second Wind (Fighter 1)");
     expect(created.languages).toBe("Common\nDraconic");
     expect(created.features).not.toContain("Breath Weapon");
     expect(created.manualFeatureCards).toEqual([]);
@@ -2137,8 +2138,9 @@ describe("character page selector", () => {
     const created = deps.state.characters.entries[2];
     expect(created.build.raceId).toBe("human");
     expect(created.build.choicesByLevel["1"]?.["dragonborn-ancestry"]).toBeUndefined();
-    expect(created.features).toBe("");
-    expect(created.languages).toBe("");
+    expect(created.features).toContain("Second Wind (Fighter 1)");
+    expect(created.features).not.toContain("Draconic Ancestry");
+    expect(created.languages).toBe("Common");
     expect(document.getElementById("builderWizardStepRaceChoices").hidden).toBe(true);
 
     controller.destroy();

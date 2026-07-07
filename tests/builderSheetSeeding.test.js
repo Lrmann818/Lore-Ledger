@@ -6,8 +6,8 @@ import { makeDefaultBuilderCharacterEntry, makeDefaultCharacterEntry } from "../
 function makeDragonbornBuilder({ ancestryId = "red", features = "", languages = "" } = {}) {
   const character = makeDefaultBuilderCharacterEntry("Dragon Mira");
   character.build.raceId = "dragonborn";
-  character.build.classId = "class_fighter";
-  character.build.backgroundId = "background_soldier";
+  character.build.levels = [{ classId: "fighter", hp: null }];
+  character.build.backgroundId = "acolyte";
   character.build.choicesByLevel = {
     "1": {
       "dragonborn-ancestry": ancestryId
@@ -22,11 +22,13 @@ describe("builder finish sheet seeding", () => {
   it("seeds Dragonborn passive trait text and fixed languages", () => {
     const patch = getBuilderFinishSheetSeedPatch(makeDragonbornBuilder({ ancestryId: "red" }));
 
-    expect(patch.features).toBe([
+    // The Dragonborn slice leads the seeded text; class features follow.
+    expect(patch.features.startsWith([
       "Dragonborn Traits",
       "Draconic Ancestry: Red",
       "Damage Resistance: You have resistance to fire damage."
-    ].join("\n"));
+    ].join("\n"))).toBe(true);
+    expect(patch.features).toContain("Second Wind (Fighter 1)");
     expect(patch.languages).toBe("Common\nDraconic");
   });
 
@@ -42,7 +44,7 @@ describe("builder finish sheet seeding", () => {
     const existing = "Custom note  \nDraconic Ancestry: Ruby\nDamage Resistance: House rule";
     const patch = getBuilderFinishSheetSeedPatch(makeDragonbornBuilder({ features: existing }));
 
-    expect(patch.features).toBe(`${existing}\nDragonborn Traits`);
+    expect(patch.features.startsWith(`${existing}\nDragonborn Traits`)).toBe(true);
     expect(patch.features.match(/Draconic Ancestry:/g)).toHaveLength(1);
     expect(patch.features.match(/Damage Resistance:/g)).toHaveLength(1);
   });
@@ -55,11 +57,13 @@ describe("builder finish sheet seeding", () => {
     expect(patch.languages).toBeUndefined();
   });
 
-  it("does not seed non-Dragonborn or freeform characters", () => {
+  it("seeds race languages for non-Dragonborn builders and skips freeform characters", () => {
     const builder = makeDefaultBuilderCharacterEntry("Human Mira");
     builder.build.raceId = "race_human";
 
-    expect(getBuilderFinishSheetSeedPatch(builder)).toEqual({});
+    const patch = getBuilderFinishSheetSeedPatch(builder);
+    expect(patch.languages).toBe("Common");
+    expect(patch.features).toBeUndefined();
     expect(getBuilderFinishSheetSeedPatch(makeDefaultCharacterEntry("Freeform Mira"))).toEqual({});
   });
 });
