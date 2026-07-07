@@ -1312,21 +1312,21 @@
     "subfeatureOptions": {
       "choose": 1,
       "from": [
-        "dragon-ancestor-black---acid-damage",
-        "dragon-ancestor-blue---lightning-damage",
-        "dragon-ancestor-brass---fire-damage",
-        "dragon-ancestor-bronze---lightning-damage",
-        "dragon-ancestor-copper---acid-damage",
-        "dragon-ancestor-gold---fire-damage",
-        "dragon-ancestor-green---poison-damage",
-        "dragon-ancestor-red---fire-damage",
-        "dragon-ancestor-silver---cold-damage",
-        "dragon-ancestor-white---cold-damage"
+        "dragon-ancestor-black-acid-damage",
+        "dragon-ancestor-blue-lightning-damage",
+        "dragon-ancestor-brass-fire-damage",
+        "dragon-ancestor-bronze-lightning-damage",
+        "dragon-ancestor-copper-acid-damage",
+        "dragon-ancestor-gold-fire-damage",
+        "dragon-ancestor-green-poison-damage",
+        "dragon-ancestor-red-fire-damage",
+        "dragon-ancestor-silver-cold-damage",
+        "dragon-ancestor-white-cold-damage"
       ]
     }
   },
   {
-    "id": "dragon-ancestor-black---acid-damage",
+    "id": "dragon-ancestor-black-acid-damage",
     "kind": "feature",
     "name": "Dragon Ancestor: Black - Acid Damage",
     "source": "srd-5.1",
@@ -1338,7 +1338,7 @@
     "subfeatureOptions": null
   },
   {
-    "id": "dragon-ancestor-blue---lightning-damage",
+    "id": "dragon-ancestor-blue-lightning-damage",
     "kind": "feature",
     "name": "Dragon Ancestor: Blue - Lightning Damage",
     "source": "srd-5.1",
@@ -1350,7 +1350,7 @@
     "subfeatureOptions": null
   },
   {
-    "id": "dragon-ancestor-brass---fire-damage",
+    "id": "dragon-ancestor-brass-fire-damage",
     "kind": "feature",
     "name": "Dragon Ancestor: Brass - Fire Damage",
     "source": "srd-5.1",
@@ -1362,7 +1362,7 @@
     "subfeatureOptions": null
   },
   {
-    "id": "dragon-ancestor-bronze---lightning-damage",
+    "id": "dragon-ancestor-bronze-lightning-damage",
     "kind": "feature",
     "name": "Dragon Ancestor: Bronze - Lightning Damage",
     "source": "srd-5.1",
@@ -1374,7 +1374,7 @@
     "subfeatureOptions": null
   },
   {
-    "id": "dragon-ancestor-copper---acid-damage",
+    "id": "dragon-ancestor-copper-acid-damage",
     "kind": "feature",
     "name": "Dragon Ancestor: Copper - Acid Damage",
     "source": "srd-5.1",
@@ -1386,7 +1386,7 @@
     "subfeatureOptions": null
   },
   {
-    "id": "dragon-ancestor-gold---fire-damage",
+    "id": "dragon-ancestor-gold-fire-damage",
     "kind": "feature",
     "name": "Dragon Ancestor: Gold - Fire Damage",
     "source": "srd-5.1",
@@ -1398,7 +1398,7 @@
     "subfeatureOptions": null
   },
   {
-    "id": "dragon-ancestor-green---poison-damage",
+    "id": "dragon-ancestor-green-poison-damage",
     "kind": "feature",
     "name": "Dragon Ancestor: Green - Poison Damage",
     "source": "srd-5.1",
@@ -1410,7 +1410,7 @@
     "subfeatureOptions": null
   },
   {
-    "id": "dragon-ancestor-red---fire-damage",
+    "id": "dragon-ancestor-red-fire-damage",
     "kind": "feature",
     "name": "Dragon Ancestor: Red - Fire Damage",
     "source": "srd-5.1",
@@ -1422,7 +1422,7 @@
     "subfeatureOptions": null
   },
   {
-    "id": "dragon-ancestor-silver---cold-damage",
+    "id": "dragon-ancestor-silver-cold-damage",
     "kind": "feature",
     "name": "Dragon Ancestor: Silver - Cold Damage",
     "source": "srd-5.1",
@@ -1434,7 +1434,7 @@
     "subfeatureOptions": null
   },
   {
-    "id": "dragon-ancestor-white---cold-damage",
+    "id": "dragon-ancestor-white-cold-damage",
     "kind": "feature",
     "name": "Dragon Ancestor: White - Cold Damage",
     "source": "srd-5.1",

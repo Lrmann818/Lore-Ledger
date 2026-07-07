@@ -606,6 +606,8 @@ export function computeArmorClass(input) {
     }
   }
 
+  // Unarmored-defense-style formulas are optional: the plain 10 + Dex
+  // (+ shield) calculation competes and wins when it is higher.
   const featureSet = new Set(featureIds);
   /** @type {{ base: number, addAbilities: readonly string[], allowShield: boolean } | null} */
   let best = null;
@@ -626,7 +628,8 @@ export function computeArmorClass(input) {
       bestValue = withShield;
     }
   }
-  if (best && bestValue != null) {
+  const baseValue = dex != null ? 10 + dex + shieldBonus : null;
+  if (best && bestValue != null && (baseValue == null || bestValue >= baseValue)) {
     const parts = [`${best.base}`, ...best.addAbilities.map((a) => a.toUpperCase())];
     let formula = parts.join(" + ");
     if (best.allowShield && shieldBonus) formula += ` + Shield ${shieldBonus}`;
@@ -634,11 +637,11 @@ export function computeArmorClass(input) {
     return { value: bestValue + acBonus, formula };
   }
 
-  if (dex == null) return { value: null, formula: "" };
+  if (baseValue == null) return { value: null, formula: "" };
   let formula = "10 + Dex";
   if (shieldBonus) formula += ` + Shield ${shieldBonus}`;
   if (acBonus) formula += ` + Bonus ${acBonus}`;
-  return { value: 10 + dex + shieldBonus + acBonus, formula };
+  return { value: baseValue + acBonus, formula };
 }
 
 /**

@@ -58,8 +58,16 @@ export async function apiFetchAll(paths, concurrency = 12) {
  */
 export function normalizeRegistryId(value) {
   if (typeof value !== "string") return null;
-  const normalized = value.trim().toLowerCase().replace(/[_\s]+/g, "-");
-  return /^[a-z0-9-]+$/.test(normalized) ? normalized : null;
+  const normalized = value
+    .trim()
+    .toLowerCase()
+    .replace(/[_\s]+/g, "-")
+    // Some API indexes contain runs of hyphens (e.g.
+    // "dragon-ancestor-black---acid-damage"); the registry id charset is
+    // single-hyphen-separated.
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+  return /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(normalized) ? normalized : null;
 }
 
 /**
