@@ -8646,6 +8646,63 @@ section.combatPanel[data-collapsed="true"]> :not([data-panel-header]) {
   font-weight: 600;
 }
 
+/* Ordered per-character-level editor (preserves multiclass level order). */
+#builderWizardPanel .builderLevelList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+#builderWizardPanel .builderLevelRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--border, rgba(128, 128, 128, 0.35));
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+#builderWizardPanel .builderLevelRowLabel {
+  flex: 1 1 130px;
+  min-width: 0;
+  font-weight: 600;
+}
+
+#builderWizardPanel .builderLevelRow select {
+  flex: 1 1 150px;
+  min-width: 0;
+}
+
+#builderWizardPanel .builderLevelHpInput {
+  width: 72px;
+  flex: 0 0 auto;
+}
+
+#builderWizardPanel .builderLevelRemoveBtn {
+  flex: 0 0 auto;
+}
+
+#builderWizardPanel .builderAddLevelWrap {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+#builderWizardPanel .builderAddLevelWrap select {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+#builderWizardPanel .builderSubclassSection {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+
 #builderWizardPanel .builderClassBlock {
   border: 1px solid var(--border, rgba(128, 128, 128, 0.35));
   border-radius: 8px;
@@ -8857,5 +8914,18 @@ section.combatPanel[data-collapsed="true"]> :not([data-panel-header]) {
 
   #builderWizardPanel .builderClassLevelControls {
     justify-content: space-between;
+  }
+
+  #builderWizardPanel .builderLevelRow {
+    align-items: stretch;
+  }
+
+  #builderWizardPanel .builderLevelRowLabel {
+    flex-basis: 100%;
+  }
+
+  #builderWizardPanel .builderLevelHpInput {
+    flex: 1 1 auto;
+    width: auto;
   }
 }

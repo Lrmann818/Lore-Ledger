@@ -59,6 +59,7 @@ import {
 } from "../js/domain/characterPortability.js";
 import {
   isBuilderCharacter,
+  makeDefaultBuilderCharacterEntry,
   makeDefaultCharacterBuild
 } from "../js/domain/characterHelpers.js";
 import {
@@ -413,6 +414,7 @@ function installCharacterSelectorDom() {
   [
     ["charActionNewBtn", "new", "New Character"],
     ["charActionNewBuilderBtn", "new-builder", "Create with Builder"],
+    ["charActionEditBuilderBtn", "edit-builder", "Edit in Builder"],
     ["charActionRenameBtn", "rename", "Rename Character"],
     ["charActionAddNpcBtn", "add-npc", "Add to NPCs"],
     ["charActionAddPartyBtn", "add-party", "Add to Party"],
@@ -1157,6 +1159,7 @@ describe("character page selector", () => {
     expect(actionItems.map((button) => button.textContent)).toEqual([
       "New Character",
       "Create with Builder",
+      "Edit in Builder",
       "Rename Character",
       "Add to NPCs",
       "Add to Party",
@@ -4249,6 +4252,141 @@ describe("character page selector", () => {
       imgBlobId: "blob_ada",
       notes: "Party note"
     });
+
+    controller.destroy();
+  });
+});
+
+describe("builder wizard preserves interleaved multiclass level order", () => {
+  // Concrete interleaved edit-mode fixture: Fighter 1 → Wizard 1 → Fighter 2.
+  function makeInterleavedBuilder(id = "char_a") {
+    const entry = makeDefaultBuilderCharacterEntry("Interleaved Mira");
+    entry.id = id;
+    entry.build.raceId = "dwarf";
+    entry.build.backgroundId = "acolyte";
+    entry.build.levels = [
+      { classId: "fighter", hp: null },
+      { classId: "wizard", hp: 4 },
+      { classId: "fighter", hp: 7 }
+    ];
+    entry.build.abilities.base = { str: 15, dex: 14, con: 13, int: 12, wis: 10, cha: 8 };
+    return entry;
+  }
+
+  function openWizardEdit(document, actionMenuButton) {
+    actionMenuButton.dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    document.getElementById("charActionEditBuilderBtn").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+  }
+
+  async function finishFromSummary() {
+    advanceBuilderWizardToStep("builderWizardStepSummary");
+    document.getElementById("builderWizardFinish").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    await flushPromises();
+  }
+
+  function setupEditMode(builder) {
+    const { document, actionMenuButton } = installCharacterSelectorDom();
+    installBuilderWizardDom(document);
+    const Popovers = createFakePopovers();
+    const deps = createCharacterPageDeps(Popovers);
+    deps.state.characters.entries[0] = builder;
+    deps.state.characters.activeId = builder.id;
+    const controller = initCharacterPageUI(deps);
+    openWizardEdit(document, actionMenuButton);
+    expect(document.getElementById("builderWizardPanel").hidden).toBe(false);
+    return { document, deps, controller };
+  }
+
+  it("preserves Fighter 1 → Wizard 1 → Fighter 2 after opening and finishing with no changes", async () => {
+    const { deps, controller } = setupEditMode(makeInterleavedBuilder("char_a"));
+
+    await finishFromSummary();
+
+    const updated = deps.state.characters.entries.find((e) => e.id === "char_a");
+    expect(updated.build.levels).toEqual([
+      { classId: "fighter", hp: null },
+      { classId: "wizard", hp: 4 },
+      { classId: "fighter", hp: 7 }
+    ]);
+
+    controller.destroy();
+  });
+
+  it("preserves the order and HP-to-level association after editing HP", async () => {
+    const { document, deps, controller } = setupEditMode(makeInterleavedBuilder("char_a"));
+
+    advanceBuilderWizardToStep("builderWizardStepClasses");
+    const body = document.getElementById("builderWizardClassesBody");
+    const hpInputs = body.querySelectorAll(".builderLevelHpInput");
+    // Two HP inputs: level 2 (Wizard) and level 3 (Fighter). Edit level 3's.
+    expect(hpInputs).toHaveLength(2);
+    hpInputs[1].value = "9";
+    hpInputs[1].dispatchEvent(new Event("input", { bubbles: true, cancelable: true }));
+
+    await finishFromSummary();
+
+    const updated = deps.state.characters.entries.find((e) => e.id === "char_a");
+    // Order intact; the new roll landed on the level-3 Fighter, not the Wizard.
+    expect(updated.build.levels).toEqual([
+      { classId: "fighter", hp: null },
+      { classId: "wizard", hp: 4 },
+      { classId: "fighter", hp: 9 }
+    ]);
+
+    controller.destroy();
+  });
+
+  it("preserves the order after adding a new level", async () => {
+    const { document, deps, controller } = setupEditMode(makeInterleavedBuilder("char_a"));
+
+    advanceBuilderWizardToStep("builderWizardStepClasses");
+    const body = document.getElementById("builderWizardClassesBody");
+    const addBtn = body.querySelector(".builderAddLevelBtn");
+    expect(addBtn).not.toBeNull();
+    addBtn.dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+
+    await finishFromSummary();
+
+    const updated = deps.state.characters.entries.find((e) => e.id === "char_a");
+    // The added level appends at the end (defaults to the most recent class);
+    // the interleaved history ahead of it is untouched.
+    expect(updated.build.levels).toEqual([
+      { classId: "fighter", hp: null },
+      { classId: "wizard", hp: 4 },
+      { classId: "fighter", hp: 7 },
+      { classId: "fighter", hp: null }
+    ]);
+
+    controller.destroy();
+  });
+
+  it("preserves ASI/feat choice ids when the level order is unchanged", async () => {
+    // Fighter reaches its first ASI at Fighter level 4. Interleave so that
+    // is character level 5, and stash a feat choice there.
+    const builder = makeDefaultBuilderCharacterEntry("ASI Mira");
+    builder.id = "char_a";
+    builder.build.raceId = "dwarf";
+    builder.build.backgroundId = "acolyte";
+    builder.build.levels = [
+      { classId: "fighter", hp: null },
+      { classId: "wizard", hp: null },
+      { classId: "fighter", hp: null },
+      { classId: "fighter", hp: null },
+      { classId: "fighter", hp: null }
+    ];
+    builder.build.abilities.base = { str: 15, dex: 14, con: 13, int: 12, wis: 10, cha: 8 };
+    builder.build.choicesByLevel = { "5": { "asi-5": { type: "feat", featId: "grappler" } } };
+
+    const { deps, controller } = setupEditMode(builder);
+
+    await finishFromSummary();
+
+    const updated = deps.state.characters.entries.find((e) => e.id === "char_a");
+    expect(updated.build.levels.map((row) => row.classId))
+      .toEqual(["fighter", "wizard", "fighter", "fighter", "fighter"]);
+    // The ASI/feat choice id survived (order unchanged → not pruned/moved).
+    expect(updated.build.choicesByLevel["5"]["asi-5"]).toEqual({ type: "feat", featId: "grappler" });
+    expect(deriveCharacter(updated).featIds).toContain("grappler");
 
     controller.destroy();
   });

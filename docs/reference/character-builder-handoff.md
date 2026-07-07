@@ -244,7 +244,9 @@ data is a separate `srd-data` chunk via `vite.config.js` `manualChunks`).
    already computed), spell detail popovers from bundled `desc`. UI-only.
 
 High value but *not* low risk (do after the above): a guided level-up flow
-from the sheet, and exact-interleaving support in the wizard (see §9).
+from the sheet. (Exact multiclass level order in the wizard is done — see
+§9; a drag-to-reorder affordance for existing levels is the only remaining
+polish there.)
 
 ## 8. Traps — do not casually rewrite
 
@@ -283,9 +285,11 @@ from the sheet, and exact-interleaving support in the wizard (see §9).
   currently active — if you add a new choice family, register it in
   `collectActiveChoiceIds` or it will be pruned on the next wizard sync.
 
-## 9. The level-interleaving limitation, precisely
+## 9. Multiclass level order (FIXED 2026-07-07)
 
-**The data model preserves exact level order; the wizard UI does not.**
+**Both the data model and the editing UI now preserve exact level order.**
+The earlier contiguous-class-blocks editor that collapsed interleaved order
+has been replaced; this section documents the current behavior.
 
 `build.levels[]` is an ordered array — `Fighter 1 → Wizard 1 → Fighter 2`
 is representable exactly as:
@@ -297,36 +301,65 @@ is representable exactly as:
 ```
 
 Derivation is fully order-faithful: `getClassLevelAtEachCharacterLevel`,
-`getAsiSlots`, `getBuildFeatures`, and `computeMaxHp` all walk the array in
+`getAsiSlots`, `getBuildFeatures`, and `computeMaxHp` walk the array in
 order, so feature/ASI *character-level* timing and the per-level HP
 breakdown (which die, and which recorded roll, at which character level)
-respect interleaving. Migration (`normalizeCharacterBuild`) also preserves
-the array verbatim.
+respect interleaving. Migration (`normalizeCharacterBuild`) preserves the
+array verbatim.
 
-The wizard, however, edits through a **contiguous class-blocks view**:
-`getClassBlocks()` groups the array by class in acquisition order —
-`[fighter, wizard, fighter]` becomes blocks `[Fighter ×2, Wizard ×1]` —
-and `setClassBlocks()` writes the expansion back contiguously as
-`[fighter, fighter, wizard]`.
+**Editing now goes through ordered level operations** in
+`js/domain/rules/progression.js`, which mutate `build.levels[]` in place and
+never reorder:
 
-What concretely happens with `[fighter, wizard, fighter]`:
+- `materializeLevels(build)` — resolves the array (expands any legacy
+  `classId`+`level` fallback, clears the legacy scalars) for in-place edits.
+- `appendLevel`, `setLevelClassAt`, `setLevelHpAt`, `removeLevelAt` — the
+  primitive ordered edits. Each mutates exactly one position (or appends).
+- `setSingleClassId`, `setSingleClassTotalLevel` — single-class conveniences
+  for the sheet-side panel (order is trivial for one class).
+- `pruneOrphanedClassData` — drops subclass/spell selections for classes no
+  longer present, after any level edit.
 
-- **Open in edit mode and Finish without touching class structure or HP:**
-  the array survives unchanged (`setClassBlocks` only runs on an actual
-  class/level/HP mutation).
-- **Any class-structure edit** — level +/−, add/remove class, changing the
-  starting class on Identity, any per-level HP input, or the sheet-side
-  Builder Identity panel's class/level controls — rewrites `levels` to
-  `[fighter, fighter, wizard]`.
-- **Mechanical effect of that collapse:** class totals, saves, skills,
-  spell slots, and (for average HP) the HP total are identical — only the
-  *timing labels* move (Action Surge shows as gained at character level 2
-  instead of 3, Arcane Recovery at 3 instead of 2), positional `hp` rolls
-  reattach to different character levels/dice, and `asi-<characterLevel>`
-  choice ids can shift and be pruned at higher levels where ASIs exist.
+Where they're used:
 
-Fixing this means giving the wizard a per-level (rather than per-block)
-editor, or a reorder affordance on the HP list — the derivation layer
-needs no changes. Until then, treat the block view as the supported
-editing model and interleaved arrays as valid, derivable, but fragile
-under wizard edits.
+- **Wizard "Classes & Levels" step** (`renderClassesStep` in
+  `builderWizardSteps.js`) is a per-character-level editor: one row per
+  entry of `build.levels[]`, in order, each with a class picker, an HP input
+  (level 2+), and a remove button (level 2+), plus an "add next level"
+  control and per-distinct-class subclass selects. HP edits attach to that
+  exact character-level index and never re-render (focus stays put).
+- **Identity "Starting Class"** edits `levels[0]` only (via
+  `setLevelClassAt(build, 0, …)` / `appendLevel`); `onDraftChanged` keeps the
+  Identity select display in step with `levels[0]` so navigation can't read a
+  stale value and revert level 1.
+- **Sheet-side Builder Identity panel** (`builderIdentityPanel.js`) is a
+  single-class editor: for multiclass builds it **disables** the class/level
+  controls and shows `#charBuilderMulticlassHint` ("edit in the builder"),
+  so it can't collapse interleaving. Race/subrace/background stay editable.
+
+What concretely happens now with `[fighter, wizard, fighter]`:
+
+- Open in edit mode and Finish with no changes → array unchanged.
+- Edit the level-3 HP → `levels[2].hp` updates; order and the Wizard's
+  level-2 HP are untouched (the roll stays on the d10 Fighter level, not the
+  d6 Wizard level).
+- Add a level → appended at the end (defaults to the most recent class);
+  the interleaved history ahead of it is untouched.
+- ASI/feat choice ids (`asi-<characterLevel>`) stay valid because character
+  levels don't shift; `pruneStaleChoices` keeps them.
+
+`setClassBlocks` is retained only for backward compatibility and is marked
+DEPRECATED for editing — do **not** reintroduce it into any edit path
+(it rewrites contiguously and collapses order). `getClassBlocks` is still
+fine for read-only grouping (e.g. multiclass detection).
+
+Regression coverage: `tests/progressionRules.test.js` ("ordered level
+operations preserve exact multiclass order") for the domain ops, and
+`tests/characterPage.test.js` ("builder wizard preserves interleaved
+multiclass level order") for the wizard edit-mode flows (open+finish, HP
+edit, add level, ASI-id preservation). The smoke test exercises the new
+per-level Classes step.
+
+Remaining polish (not a correctness gap): the wizard has no drag-to-reorder
+for existing levels — you change order by editing each row's class or
+removing/re-adding. Adding a level always appends at the end.

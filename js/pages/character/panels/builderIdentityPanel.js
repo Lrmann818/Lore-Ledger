@@ -17,7 +17,8 @@ import {
   getClassBlocks,
   getTotalLevel,
   normalizeBuildLevels,
-  setClassBlocks
+  setSingleClassId,
+  setSingleClassTotalLevel
 } from "../../../domain/rules/progression.js";
 import { createStateActions } from "../../../domain/stateActions.js";
 import { notifyPanelDataChanged, subscribePanelDataChanged } from "../../../ui/panelInvalidation.js";
@@ -191,6 +192,9 @@ export function initBuilderIdentityPanel(deps = {}) {
   const classSelect = /** @type {HTMLSelectElement} */ (guard.els.class);
   const backgroundSelect = /** @type {HTMLSelectElement} */ (guard.els.background);
   const levelInput = /** @type {HTMLInputElement} */ (guard.els.level);
+  const multiclassHintEl = /** @type {HTMLElement | null} */ (
+    root.querySelector?.("#charBuilderMulticlassHint") ?? null
+  );
   const { updateCharacterField, mutateCharacter } = createStateActions({ state, SaveManager });
   const destroyFns = [];
   const listenerController = new AbortController();
@@ -209,6 +213,14 @@ export function initBuilderIdentityPanel(deps = {}) {
 
   /**
    * @param {Record<string, unknown>} build
+   * @returns {boolean}
+   */
+  function isMulticlassBuild(build) {
+    return getClassBlocks(build).length > 1;
+  }
+
+  /**
+   * @param {Record<string, unknown>} build
    */
   function syncControls(build) {
     populateContentSelect(raceSelect, "race", build.raceId);
@@ -218,6 +230,16 @@ export function initBuilderIdentityPanel(deps = {}) {
     levelInput.min = String(MIN_LEVEL);
     levelInput.max = String(MAX_LEVEL);
     levelInput.step = "1";
+
+    // Multiclass builds are edited in the wizard so exact level order is
+    // preserved; the single-class-oriented class/level controls here are
+    // disabled to avoid collapsing interleaved level history.
+    const multiclass = isMulticlassBuild(build);
+    classSelect.disabled = multiclass;
+    classSelect.setAttribute("aria-disabled", multiclass.toString());
+    levelInput.disabled = multiclass;
+    levelInput.setAttribute("aria-disabled", multiclass.toString());
+    if (multiclassHintEl) multiclassHintEl.hidden = !multiclass;
   }
 
   function showPanel() {
@@ -298,13 +320,14 @@ export function initBuilderIdentityPanel(deps = {}) {
   }
 
   /**
-   * Updates the starting (first) class in the level plan. Clearing the class
-   * clears the plan; multiclass blocks beyond the first are preserved.
+   * Sets the class for a single-class build (all levels share one class).
+   * Clearing empties the plan. Multiclass builds are read-only here (the
+   * control is disabled), so this never collapses interleaved order.
    * @param {unknown} rawValue
    */
   function updateStartingClass(rawValue) {
     const build = getEditableBuild(getActiveCharacter(state));
-    if (!build) {
+    if (!build || isMulticlassBuild(build)) {
       refresh();
       return;
     }
@@ -315,28 +338,11 @@ export function initBuilderIdentityPanel(deps = {}) {
     }
     const updated = mutateCharacter((character) => {
       const target = getEditableBuild(character);
-      if (!target) return false;
-      const blocks = getClassBlocks(target);
-      if (nextValue === null) {
-        if (!blocks.length) return false;
-        // Keep the level for later re-selection, drop the legacy classId so
-        // the empty plan is not resurrected by the v1 fallback.
-        target.level = getDisplayLevel(target);
-        setClassBlocks(/** @type {import("../../../state.js").CharacterBuildState} */ (target), blocks.slice(1));
-        delete target.classId;
-        return true;
-      }
-      if (blocks.some((block, index) => index > 0 && block.classId === nextValue)) return false;
-      if (!blocks.length) {
-        setClassBlocks(/** @type {import("../../../state.js").CharacterBuildState} */ (target), [{ classId: nextValue, level: getDisplayLevel(target), hp: [] }]);
-      } else {
-        if (blocks[0].classId === nextValue) return false;
-        blocks[0].classId = nextValue;
-        setClassBlocks(/** @type {import("../../../state.js").CharacterBuildState} */ (target), blocks);
-      }
-      delete target.classId;
-      delete target.level;
-      return true;
+      if (!target || isMulticlassBuild(target)) return false;
+      return setSingleClassId(
+        /** @type {import("../../../state.js").CharacterBuildState} */ (target),
+        nextValue ?? ""
+      );
     }, { queueSave: false });
     if (!updated) {
       refresh();
@@ -349,13 +355,13 @@ export function initBuilderIdentityPanel(deps = {}) {
   }
 
   /**
-   * Adjusts the total level by resizing the first class block (multiclass
-   * blocks keep their levels; the total never drops below their sum + 1).
+   * Resizes a single-class build's total level (append/truncate at the end,
+   * order-preserving). Multiclass builds are read-only here.
    * @param {unknown} rawValue
    */
   function updateLevel(rawValue) {
     const build = getEditableBuild(getActiveCharacter(state));
-    if (!build) {
+    if (!build || isMulticlassBuild(build)) {
       refresh();
       return;
     }
@@ -368,24 +374,20 @@ export function initBuilderIdentityPanel(deps = {}) {
 
     const updated = mutateCharacter((character) => {
       const target = getEditableBuild(character);
-      if (!target) return false;
-      const blocks = getClassBlocks(target);
-      if (!blocks.length) {
-        // Legacy build with no class yet: keep the legacy level field.
+      if (!target || isMulticlassBuild(target)) return false;
+      const startingClassId = getStartingClassId(target);
+      if (!startingClassId) {
+        // No class chosen yet: keep the legacy scalar level field so the
+        // display stays in sync until a class is picked.
         if (normalizeLevel(target.level) === nextLevel) return false;
         target.level = nextLevel;
         return true;
       }
-      const otherLevels = blocks.slice(1).reduce((sum, block) => sum + block.level, 0);
-      const firstLevel = Math.max(1, nextLevel - otherLevels);
-      if (blocks[0].level === firstLevel && Array.isArray(target.levels) && target.levels.length) return false;
-      blocks[0].level = firstLevel;
-      blocks[0].hp.length = Math.min(blocks[0].hp.length, firstLevel);
-      while (blocks[0].hp.length < firstLevel) blocks[0].hp.push(null);
-      setClassBlocks(/** @type {import("../../../state.js").CharacterBuildState} */ (target), blocks);
-      delete target.classId;
-      delete target.level;
-      return true;
+      return setSingleClassTotalLevel(
+        /** @type {import("../../../state.js").CharacterBuildState} */ (target),
+        nextLevel,
+        startingClassId
+      );
     }, { queueSave: false });
     if (!updated) {
       refresh();

@@ -18,7 +18,6 @@ import {
 } from "../../domain/rules/registry.js";
 import {
   collectActiveChoiceIds,
-  getClassBlocks,
   getRequiredAncestryChoice,
   hasClassChoices,
   hasOriginChoices,
@@ -28,9 +27,13 @@ import {
   renderClassesStep,
   renderEquipmentStep,
   renderOriginChoicesStep,
-  renderSpellsStep,
-  setClassBlocks
+  renderSpellsStep
 } from "./builderWizardSteps.js";
+import {
+  appendLevel,
+  normalizeBuildLevels,
+  setLevelClassAt
+} from "../../domain/rules/progression.js";
 import { enhanceSelectDropdown } from "../../ui/selectDropdown.js";
 import { getNoopDestroyApi, requireMany } from "../../utils/domGuards.js";
 
@@ -543,6 +546,7 @@ export function initBuilderWizard(deps = {}) {
     enhanceSelect: enhanceDynamicSelect,
     onDraftChanged: () => {
       updateLevelDisplay();
+      syncStartingClassControl();
     }
   };
 
@@ -795,7 +799,7 @@ export function initBuilderWizard(deps = {}) {
   }
 
   function updateLevelDisplay() {
-    const total = getClassBlocks(draft.build).reduce((sum, block) => sum + block.level, 0);
+    const total = normalizeBuildLevels(draft.build).length;
     levelDisplay.textContent = `Level ${total || 1}`;
   }
 
@@ -1157,23 +1161,32 @@ export function initBuilderWizard(deps = {}) {
     return true;
   }
 
+  // The Identity "Starting Class" select and the Classes step's level-1 row
+  // both edit levels[0].classId — the single source of truth. This applies
+  // the Identity control's value to level 1 only, never touching later
+  // levels, so interleaved multiclass order is preserved.
   function syncStartingClassToDraft() {
     const classId = normalizeContentId(classSelect.value, "class");
-    const blocks = getClassBlocks(draft.build);
     if (!classId) return;
-    if (!blocks.length) {
-      setClassBlocks(draft.build, [{ classId, level: 1, hp: [null] }]);
+    const levels = normalizeBuildLevels(draft.build);
+    if (!levels.length) {
+      appendLevel(draft.build, classId);
       return;
     }
-    if (blocks[0].classId === classId) return;
-    if (blocks.some((block, index) => index > 0 && block.classId === classId)) {
-      // The class is already a multiclass block; keep the current first class.
-      classSelect.value = blocks[0].classId;
+    if (levels[0].classId === classId) return;
+    setLevelClassAt(draft.build, 0, classId);
+  }
+
+  // Keeps the Identity starting-class control in step with levels[0] after
+  // Classes-step edits, so navigation never reads a stale value and
+  // reverts level 1.
+  function syncStartingClassControl() {
+    const levels = normalizeBuildLevels(draft.build);
+    const startingClassId = levels.length ? levels[0].classId : "";
+    if (classSelect.value !== startingClassId) {
+      populateContentSelect(classSelect, "class", startingClassId);
       syncEnhancedSelects();
-      return;
     }
-    blocks[0].classId = classId;
-    setClassBlocks(draft.build, blocks);
   }
 
   function syncDraftFromControls() {
@@ -1208,8 +1221,8 @@ export function initBuilderWizard(deps = {}) {
   function syncControlsFromDraft() {
     nameInput.value = draft.name;
     populateContentSelect(raceSelect, "race", draft.build.raceId);
-    const blocks = getClassBlocks(draft.build);
-    populateContentSelect(classSelect, "class", blocks.length ? blocks[0].classId : "");
+    const orderedLevels = normalizeBuildLevels(draft.build);
+    populateContentSelect(classSelect, "class", orderedLevels.length ? orderedLevels[0].classId : "");
     populateContentSelect(backgroundSelect, "background", draft.build.backgroundId);
     renderSubraceSelect();
     syncEnhancedSelects();

@@ -12,6 +12,7 @@ import {
   listContentByKind
 } from "../../domain/rules/registry.js";
 import {
+  appendLevel,
   asiChoiceId,
   checkMulticlassPrerequisites,
   classSkillChoiceId,
@@ -22,10 +23,13 @@ import {
   getClassBlocks,
   getClassLevelAtEachCharacterLevel,
   getClassLevelTotals,
-  setClassBlocks,
   MAX_CHARACTER_LEVEL,
   multiclassSkillChoiceId,
-  normalizeBuildLevels
+  normalizeBuildLevels,
+  removeLevelAt,
+  setClassBlocks,
+  setLevelClassAt,
+  setLevelHpAt
 } from "../../domain/rules/progression.js";
 
 /** @typedef {import("../../domain/rules/registry.js").ContentRegistry} ContentRegistry */
@@ -452,9 +456,11 @@ function renderAncestryChoice(ctx, container, choice, hooks) {
 export { getClassBlocks, setClassBlocks };
 
 /**
- * Renders the Classes & Levels step: one block per class with level
- * stepper, subclass select when reached, per-level HP inputs, and
- * multiclass prerequisite warnings.
+ * Renders the Classes & Levels step as an ordered, per-character-level
+ * editor. Each row is exactly one entry of `build.levels[]`, in order, so
+ * interleaved multiclass builds (e.g. Fighter 1 → Wizard 1 → Fighter 2) are
+ * represented and edited without being reordered. All mutations go through
+ * the ordered level operations in progression.js — never setClassBlocks.
  *
  * @param {WizardStepContext} ctx
  * @param {HTMLElement} container
@@ -465,8 +471,9 @@ export function renderClassesStep(ctx, container) {
   const build = draft.build;
   clearChildren(container);
 
-  const blocks = getClassBlocks(build);
-  const totalLevel = blocks.reduce((sum, block) => sum + block.level, 0);
+  const levels = normalizeBuildLevels(build);
+  const totalLevel = levels.length;
+  const classLevelAt = getClassLevelAtEachCharacterLevel(levels);
   const classOptions = listContentByKind(registry, "class")
     .map((entry) => ({ value: entry.id, label: entry.name }));
 
@@ -474,24 +481,24 @@ export function renderClassesStep(ctx, container) {
   el(headline, "span", "builderClassesTotal", `Character Level: ${totalLevel || 0} / ${MAX_CHARACTER_LEVEL}`);
 
   const rerender = () => {
-    setClassBlocks(build, blocks);
     ctx.onDraftChanged();
     renderClassesStep(ctx, container);
   };
 
   // Multiclass prerequisite warnings (guided, never blocking).
-  if (blocks.length > 1) {
+  const distinctClasses = getClassLevelTotals(levels);
+  if (distinctClasses.length > 1) {
     const derived = deriveCharacter({ build, overrides: null }, registry);
     /** @type {Record<string, number | null>} */
     const totals = {};
     for (const key of CHARACTER_ABILITY_KEYS) totals[key] = derived.abilities[key]?.total ?? null;
     /** @type {string[]} */
     const problems = [];
-    for (const block of blocks) {
-      const check = checkMulticlassPrerequisites(block.classId, totals, registry);
+    for (const info of distinctClasses) {
+      const check = checkMulticlassPrerequisites(info.classId, totals, registry);
       if (!check.ok) {
-        const classEntry = getContentByKind(registry, "class", block.classId);
-        problems.push(`${classEntry?.name || block.classId} needs ${check.unmet.join(", ")}`);
+        const classEntry = getContentByKind(registry, "class", info.classId);
+        problems.push(`${classEntry?.name || info.classId} needs ${check.unmet.join(", ")}`);
       }
     }
     if (problems.length) {
@@ -500,130 +507,113 @@ export function renderClassesStep(ctx, container) {
     }
   }
 
-  blocks.forEach((block, blockIndex) => {
-    const classEntry = getContentByKind(registry, "class", block.classId);
-    const section = el(container, "section", "builderClassBlock");
-    const head = el(section, "div", "builderClassBlockHead");
+  // One ordered row per character level: class picker, HP (level 2+), and a
+  // remove button (level 2+). Editing a row mutates only that level.
+  const levelsSection = el(container, "section", "builderLevelList");
+  el(levelsSection, "h4", "builderWizardSubTitle", "Levels (in order)");
+  el(levelsSection, "p", "builderAbilityMethodNote",
+    "Each row is one character level, in the order gained. Level 1 uses the maximum hit die; " +
+    "leave a later level's HP blank to use the SRD average (die ÷ 2 + 1), or enter a rolled value.");
 
-    const classSelect = makeSelect(head, classOptions, block.classId, "Choose class");
-    classSelect.setAttribute("aria-label", `Class ${blockIndex + 1}`);
+  levels.forEach((row, index) => {
+    const classEntry = getContentByKind(registry, "class", row.classId);
+    const die = Number(classEntry?.data?.hitDie);
+    const levelRow = el(levelsSection, "div", "builderLevelRow");
+    el(levelRow, "span", "builderLevelRowLabel",
+      `Level ${index + 1}${classEntry ? ` — ${classEntry.name} ${classLevelAt[index]}` : ""}`);
+
+    const classSelect = makeSelect(levelRow, classOptions, row.classId, "Choose class");
+    classSelect.setAttribute("aria-label", `Class for level ${index + 1}`);
     classSelect.addEventListener("change", () => {
       const nextId = cleanString(classSelect.value);
-      if (!nextId || blocks.some((other, i) => i !== blockIndex && other.classId === nextId)) {
-        classSelect.value = block.classId;
+      if (!nextId) {
+        classSelect.value = row.classId;
         return;
       }
-      block.classId = nextId;
-      rerender();
+      if (setLevelClassAt(build, index, nextId)) rerender();
     }, { signal: ctx.signal });
     ctx.enhanceSelect(classSelect);
 
-    const levelWrap = el(head, "div", "builderClassLevelControls");
-    const minusBtn = /** @type {HTMLButtonElement} */ (el(levelWrap, "button", "npcSmallBtn", "−"));
-    minusBtn.type = "button";
-    minusBtn.setAttribute("aria-label", `Remove a ${classEntry?.name || block.classId} level`);
-    el(levelWrap, "span", "builderClassLevelValue", `Level ${block.level}`);
-    const plusBtn = /** @type {HTMLButtonElement} */ (el(levelWrap, "button", "npcSmallBtn", "+"));
-    plusBtn.type = "button";
-    plusBtn.setAttribute("aria-label", `Add a ${classEntry?.name || block.classId} level`);
-    minusBtn.disabled = block.level <= (blocks.length === 1 ? 1 : 0);
-    plusBtn.disabled = totalLevel >= MAX_CHARACTER_LEVEL;
-    minusBtn.addEventListener("click", () => {
-      block.level -= 1;
-      block.hp.length = Math.max(0, block.level);
-      if (block.level <= 0) blocks.splice(blockIndex, 1);
-      rerender();
-    }, { signal: ctx.signal });
-    plusBtn.addEventListener("click", () => {
-      block.level += 1;
-      block.hp.push(null);
-      rerender();
-    }, { signal: ctx.signal });
+    if (index >= 1) {
+      const hpInput = /** @type {HTMLInputElement} */ (document.createElement("input"));
+      hpInput.type = "number";
+      hpInput.className = "builderLevelHpInput";
+      hpInput.min = "1";
+      hpInput.max = Number.isFinite(die) ? String(die) : "20";
+      hpInput.step = "1";
+      hpInput.inputMode = "numeric";
+      hpInput.setAttribute("aria-label", `Hit points rolled at level ${index + 1}`);
+      hpInput.placeholder = Number.isFinite(die) ? `avg ${Math.trunc(die / 2) + 1}` : "avg";
+      hpInput.value = row.hp != null ? String(row.hp) : "";
+      hpInput.addEventListener("input", () => {
+        // HP edits never re-render (keeps focus); they stay attached to this
+        // exact character-level index.
+        if (setLevelHpAt(build, index, hpInput.value)) ctx.onDraftChanged();
+      }, { signal: ctx.signal });
+      levelRow.appendChild(hpInput);
 
-    if (blocks.length > 1) {
-      const removeBtn = /** @type {HTMLButtonElement} */ (el(head, "button", "npcSmallBtn builderClassRemoveBtn", "Remove"));
+      const removeBtn = /** @type {HTMLButtonElement} */ (el(levelRow, "button", "npcSmallBtn builderLevelRemoveBtn", "✕"));
       removeBtn.type = "button";
-      removeBtn.setAttribute("aria-label", `Remove ${classEntry?.name || block.classId} from the build`);
+      removeBtn.setAttribute("aria-label", `Remove level ${index + 1}`);
       removeBtn.addEventListener("click", () => {
-        blocks.splice(blockIndex, 1);
-        rerender();
+        if (removeLevelAt(build, index)) rerender();
       }, { signal: ctx.signal });
     }
+  });
 
-    // Subclass select once the class reaches its subclass level.
+  // Add the next level (defaults to the most recent class for convenience).
+  if (totalLevel < MAX_CHARACTER_LEVEL) {
+    const addWrap = el(levelsSection, "div", "builderAddLevelWrap");
+    const defaultClassId = levels.length ? levels[levels.length - 1].classId : "";
+    const addSelect = makeSelect(addWrap, classOptions, "", "Add next level as…");
+    addSelect.setAttribute("aria-label", "Add the next character level");
+    addSelect.addEventListener("change", () => {
+      const classId = cleanString(addSelect.value) || defaultClassId;
+      if (!classId) return;
+      if (appendLevel(build, classId)) rerender();
+    }, { signal: ctx.signal });
+    ctx.enhanceSelect(addSelect);
+    if (defaultClassId) {
+      const addBtn = /** @type {HTMLButtonElement} */ (el(addWrap, "button", "npcSmallBtn builderAddLevelBtn", "+ Add level"));
+      addBtn.type = "button";
+      const defaultName = getContentByKind(registry, "class", defaultClassId)?.name || defaultClassId;
+      addBtn.setAttribute("aria-label", `Add another ${defaultName} level`);
+      addBtn.addEventListener("click", () => {
+        if (appendLevel(build, defaultClassId)) rerender();
+      }, { signal: ctx.signal });
+    }
+  }
+
+  // Subclass selects: one per distinct class that has reached its subclass
+  // level, keyed by class (multiple levels of a class share one subclass).
+  const subclassClasses = distinctClasses.filter((info) => {
+    const classEntry = getContentByKind(registry, "class", info.classId);
     const subclassLevel = Number(classEntry?.data?.subclassLevel);
     const subclassIds = Array.isArray(classEntry?.data?.subclassIds) ? classEntry.data.subclassIds : [];
-    if (Number.isInteger(subclassLevel) && block.level >= subclassLevel && subclassIds.length) {
+    return Number.isInteger(subclassLevel) && info.level >= subclassLevel && subclassIds.length > 0;
+  });
+  if (subclassClasses.length) {
+    const subclassSection = el(container, "section", "builderSubclassSection");
+    el(subclassSection, "h4", "builderWizardSubTitle", "Subclasses");
+    if (!isPlainObject(build.subclassByClass)) build.subclassByClass = {};
+    for (const info of subclassClasses) {
+      const classEntry = getContentByKind(registry, "class", info.classId);
       const flavor = cleanString(classEntry?.data && /** @type {{subclassFlavor?: unknown}} */ (classEntry.data).subclassFlavor);
-      const subclassField = el(section, "div", "builderIdentityField builderSubclassField");
-      el(subclassField, "span", "", flavor || "Subclass");
+      const subclassField = el(subclassSection, "div", "builderIdentityField builderSubclassField");
+      el(subclassField, "span", "", `${classEntry?.name || info.classId} — ${flavor || "Subclass"}`);
       const subclassOptions = listContentByKind(registry, "subclass")
-        .filter((entry) => cleanString(entry.data?.classId) === block.classId)
+        .filter((entry) => cleanString(entry.data?.classId) === info.classId)
         .map((entry) => ({ value: entry.id, label: entry.name }));
-      if (!isPlainObject(build.subclassByClass)) build.subclassByClass = {};
-      const stored = cleanString(build.subclassByClass[block.classId]);
+      const stored = cleanString(/** @type {Record<string, string>} */ (build.subclassByClass)[info.classId]);
       const subclassSelect = makeSelect(subclassField, subclassOptions, stored, "Choose subclass");
       subclassSelect.addEventListener("change", () => {
         const value = cleanString(subclassSelect.value);
-        if (value) /** @type {Record<string, string>} */ (build.subclassByClass)[block.classId] = value;
-        else delete /** @type {Record<string, string>} */ (build.subclassByClass)[block.classId];
+        if (value) /** @type {Record<string, string>} */ (build.subclassByClass)[info.classId] = value;
+        else delete /** @type {Record<string, string>} */ (build.subclassByClass)[info.classId];
         ctx.onDraftChanged();
       }, { signal: ctx.signal });
       ctx.enhanceSelect(subclassSelect);
     }
-  });
-
-  const addWrap = el(container, "div", "builderAddClassWrap");
-  const usedClassIds = new Set(blocks.map((block) => block.classId));
-  const remainingOptions = classOptions.filter((option) => !usedClassIds.has(option.value));
-  if (remainingOptions.length && totalLevel < MAX_CHARACTER_LEVEL && blocks.length) {
-    const addSelect = makeSelect(addWrap, remainingOptions, "", "Add a class (multiclass)…");
-    addSelect.setAttribute("aria-label", "Add a multiclass class");
-    addSelect.addEventListener("change", () => {
-      const classId = cleanString(addSelect.value);
-      if (!classId) return;
-      blocks.push({ classId, level: 1, hp: [null] });
-      rerender();
-    }, { signal: ctx.signal });
-    ctx.enhanceSelect(addSelect);
-  }
-
-  // Per-level HP entry (level 1 is always the first class's max hit die).
-  if (totalLevel > 1) {
-    const hpSection = el(container, "section", "builderHpSection");
-    el(hpSection, "h4", "builderWizardSubTitle", "Hit Points per Level");
-    el(hpSection, "p", "builderAbilityMethodNote",
-      "Level 1 uses the maximum hit die. Leave a level blank to use the SRD average (die ÷ 2 + 1); enter a value to record a roll.");
-    const grid = el(hpSection, "div", "builderHpGrid");
-    let characterLevel = 0;
-    blocks.forEach((block) => {
-      const blockEntry = getContentByKind(registry, "class", block.classId);
-      const die = Number(blockEntry?.data?.hitDie);
-      for (let i = 0; i < block.level; i += 1) {
-        characterLevel += 1;
-        if (characterLevel === 1) continue;
-        const field = el(grid, "label", "builderHpField");
-        el(field, "span", "", `Lv ${characterLevel} (${blockEntry?.name || block.classId}${Number.isFinite(die) ? ` d${die}` : ""})`);
-        const input = /** @type {HTMLInputElement} */ (document.createElement("input"));
-        input.type = "number";
-        input.min = "1";
-        input.max = Number.isFinite(die) ? String(die) : "20";
-        input.step = "1";
-        input.inputMode = "numeric";
-        input.placeholder = Number.isFinite(die) ? String(Math.trunc(die / 2) + 1) : "avg";
-        input.value = block.hp[i] != null ? String(block.hp[i]) : "";
-        const levelIndex = i;
-        input.addEventListener("input", () => {
-          const value = Number(input.value);
-          block.hp[levelIndex] = input.value.trim() !== "" && Number.isFinite(value) && value >= 1
-            ? Math.trunc(value)
-            : null;
-          setClassBlocks(build, blocks);
-          ctx.onDraftChanged();
-        }, { signal: ctx.signal });
-        field.appendChild(input);
-      }
-    });
   }
 }
 

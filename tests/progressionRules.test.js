@@ -3,17 +3,25 @@ import { describe, expect, it } from "vitest";
 import { makeDefaultBuilderCharacterEntry } from "../js/domain/characterHelpers.js";
 import { deriveCharacter } from "../js/domain/rules/deriveCharacter.js";
 import {
+  appendLevel,
   checkMulticlassPrerequisites,
   collectAsiChoices,
   collectFeatEffects,
   computeArmorClass,
   computeMaxHp,
   getAsiSlots,
+  getBuildFeatures,
   getClassLevelTotals,
   getCombinedSpellSlots,
   getSavingThrowProficiencies,
   getSpellcastingClasses,
-  normalizeBuildLevels
+  materializeLevels,
+  normalizeBuildLevels,
+  removeLevelAt,
+  setLevelClassAt,
+  setLevelHpAt,
+  setSingleClassId,
+  setSingleClassTotalLevel
 } from "../js/domain/rules/progression.js";
 import { BUILTIN_CONTENT_REGISTRY } from "../js/domain/rules/registry.js";
 
@@ -351,5 +359,144 @@ describe("subclass features and granted spells", () => {
     expect(grantedIds).toContain("bless");
     expect(grantedIds).toContain("cure-wounds");
     expect(grantedIds).toContain("lesser-restoration");
+  });
+});
+
+describe("ordered level operations preserve exact multiclass order", () => {
+  // Concrete interleaved build: Fighter 1 → Wizard 1 → Fighter 2.
+  function interleaved() {
+    return {
+      version: 2,
+      ruleset: "srd-5.1",
+      raceId: "human",
+      backgroundId: "acolyte",
+      levels: [
+        { classId: "fighter", hp: null },
+        { classId: "wizard", hp: 4 },
+        { classId: "fighter", hp: 7 }
+      ],
+      subclassByClass: {},
+      spellcasting: {},
+      choicesByLevel: {}
+    };
+  }
+
+  it("appendLevel keeps the interleaved order and appends at the end", () => {
+    const build = interleaved();
+    expect(appendLevel(build, "wizard")).toBe(true);
+    expect(build.levels.map((row) => row.classId)).toEqual(["fighter", "wizard", "fighter", "wizard"]);
+    // Existing HP rolls stay attached to their original character levels.
+    expect(build.levels[1].hp).toBe(4);
+    expect(build.levels[2].hp).toBe(7);
+    expect(build.levels[3].hp).toBeNull();
+  });
+
+  it("setLevelHpAt updates one level in place without reordering", () => {
+    const build = interleaved();
+    expect(setLevelHpAt(build, 2, 9)).toBe(true);
+    expect(build.levels.map((row) => row.classId)).toEqual(["fighter", "wizard", "fighter"]);
+    expect(build.levels[2].hp).toBe(9);
+    expect(build.levels[1].hp).toBe(4);
+    // Blank clears back to average.
+    expect(setLevelHpAt(build, 2, "")).toBe(true);
+    expect(build.levels[2].hp).toBeNull();
+  });
+
+  it("setLevelClassAt changes only the targeted level", () => {
+    const build = interleaved();
+    expect(setLevelClassAt(build, 1, "rogue")).toBe(true);
+    expect(build.levels.map((row) => row.classId)).toEqual(["fighter", "rogue", "fighter"]);
+    // No-op when unchanged.
+    expect(setLevelClassAt(build, 0, "fighter")).toBe(false);
+  });
+
+  it("removeLevelAt removes one level and preserves the order of the rest", () => {
+    const build = interleaved();
+    expect(removeLevelAt(build, 1)).toBe(true);
+    expect(build.levels.map((row) => row.classId)).toEqual(["fighter", "fighter"]);
+    expect(build.levels[1].hp).toBe(7);
+  });
+
+  it("keeps HP dice associated with the correct character level under interleaving", () => {
+    // Level 3 is the SECOND Fighter level (d10), not a Wizard level (d6).
+    const build = interleaved();
+    setLevelHpAt(build, 2, 9); // record a d10-range roll at character level 3
+    const levels = normalizeBuildLevels(build);
+    const result = computeMaxHp(levels, 0, registry);
+    // Breakdown walks in order: F(max 10), W(roll 4), F(roll 9).
+    expect(result.breakdown.map((row) => row.die)).toEqual([10, 6, 10]);
+    expect(result.breakdown.map((row) => row.value)).toEqual([10, 4, 9]);
+    expect(result.max).toBe(10 + 4 + 9);
+  });
+
+  it("derives feature timing from the interleaved order, not a collapsed order", () => {
+    const build = interleaved();
+    const levels = normalizeBuildLevels(build);
+    const features = getBuildFeatures(levels, {}, registry);
+    // Wizard's Arcane Recovery (wizard class level 1) lands at character level 2.
+    const arcaneRecovery = features.find((f) => f.featureId === "arcane-recovery");
+    expect(arcaneRecovery?.characterLevel).toBe(2);
+    // Fighter's Action Surge (fighter class level 2) lands at character level 3
+    // (the second Fighter level), because order is preserved.
+    const actionSurge = features.find((f) => f.featureId === "action-surge-1-use");
+    expect(actionSurge?.characterLevel).toBe(3);
+  });
+
+  it("keeps ASI slots at their true character level under interleaving", () => {
+    // Fighter 1 → Wizard 1 → Fighter 2 → Fighter 3 → Fighter 4: the 4th
+    // Fighter level (its ASI) is character level 5.
+    const build = {
+      version: 2, ruleset: "srd-5.1", levels: [
+        { classId: "fighter", hp: null },
+        { classId: "wizard", hp: null },
+        { classId: "fighter", hp: null },
+        { classId: "fighter", hp: null },
+        { classId: "fighter", hp: null }
+      ], subclassByClass: {}, spellcasting: {}, choicesByLevel: {}
+    };
+    const slots = getAsiSlots(normalizeBuildLevels(build), registry);
+    expect(slots.map((s) => s.characterLevel)).toEqual([5]);
+    expect(slots[0]).toMatchObject({ classId: "fighter", classLevel: 4 });
+  });
+
+  it("materializeLevels expands a legacy build and clears scalar fields", () => {
+    const build = { version: 1, ruleset: "srd-5.1", classId: "fighter", level: 3 };
+    const levels = materializeLevels(build);
+    expect(levels.map((row) => row.classId)).toEqual(["fighter", "fighter", "fighter"]);
+    expect(build.classId).toBeUndefined();
+    expect(build.level).toBeUndefined();
+    expect(build.levels).toBe(levels);
+  });
+
+  it("prunes subclass/spell selections for removed classes only", () => {
+    const build = {
+      version: 2, ruleset: "srd-5.1", levels: [
+        { classId: "fighter", hp: null },
+        { classId: "wizard", hp: null }
+      ],
+      subclassByClass: { fighter: "champion", wizard: "evocation" },
+      spellcasting: { wizard: { cantripIds: ["fire-bolt"], knownIds: [], preparedIds: [] } },
+      choicesByLevel: {}
+    };
+    // Remove the only Wizard level → wizard subclass/spells pruned, fighter kept.
+    removeLevelAt(build, 1);
+    expect(build.subclassByClass).toEqual({ fighter: "champion" });
+    expect(build.spellcasting).toEqual({});
+  });
+
+  it("setSingleClassId and setSingleClassTotalLevel keep single-class order trivially", () => {
+    const build = { version: 2, ruleset: "srd-5.1", levels: [], subclassByClass: {}, spellcasting: {}, choicesByLevel: {} };
+    expect(setSingleClassTotalLevel(build, 3, "fighter")).toBe(true);
+    expect(build.levels.map((row) => row.classId)).toEqual(["fighter", "fighter", "fighter"]);
+    expect(setSingleClassId(build, "wizard")).toBe(true);
+    expect(build.levels.map((row) => row.classId)).toEqual(["wizard", "wizard", "wizard"]);
+    // Truncate keeps the leading levels (order preserved).
+    build.levels[1].hp = 5;
+    expect(setSingleClassTotalLevel(build, 2, "wizard")).toBe(true);
+    expect(build.levels).toHaveLength(2);
+    expect(build.levels[1].hp).toBe(5);
+    // Clear empties the plan.
+    expect(setSingleClassId(build, "")).toBe(true);
+    expect(build.levels).toEqual([]);
   });
 });

@@ -152,9 +152,13 @@ export function getClassBlocks(build) {
 }
 
 /**
- * Writes class blocks back to the levels array (expanded per level, blocks
- * in acquisition order) and drops subclass/spell selections for classes no
- * longer present.
+ * DEPRECATED for editing — collapses interleaved multiclass order because it
+ * rewrites levels contiguously by block. Use the ordered level operations
+ * below (materializeLevels, appendLevel, setLevelClassAt, setLevelHpAt,
+ * removeLevelAt, setSingleClassId, setSingleClassTotalLevel) for any edit
+ * that must preserve exact `build.levels[]` order. Retained only for
+ * backward compatibility; do not reintroduce it into edit paths.
+ *
  * @param {import("../../state.js").CharacterBuildState} build
  * @param {Array<{ classId: string, level: number, hp: Array<number | null> }>} blocks
  */
@@ -170,18 +174,174 @@ export function setClassBlocks(build, blocks) {
     }
   }
   build.levels = levels;
+  pruneOrphanedClassData(build);
+}
+
+/* ------------------------------------------------------------------ */
+/* Ordered level operations (preserve exact build.levels order)        */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Drops subclass and spellcasting selections for classes no longer present
+ * in the level plan.
+ * @param {import("../../state.js").CharacterBuildState} build
+ */
+export function pruneOrphanedClassData(build) {
+  const active = new Set(
+    (Array.isArray(build.levels) ? build.levels : [])
+      .map((row) => (isPlainObject(row) ? cleanString(row.classId) : ""))
+      .filter(Boolean)
+  );
   if (isPlainObject(build.subclassByClass)) {
-    const active = new Set(levels.map((row) => row.classId));
     for (const classId of Object.keys(build.subclassByClass)) {
       if (!active.has(classId)) delete build.subclassByClass[classId];
     }
   }
   if (isPlainObject(build.spellcasting)) {
-    const active = new Set(levels.map((row) => row.classId));
     for (const classId of Object.keys(build.spellcasting)) {
       if (!active.has(classId)) delete build.spellcasting[classId];
     }
   }
+}
+
+/**
+ * Materializes `build.levels` into a clean ordered array (expanding any
+ * legacy `classId`+`level` fallback) and returns it for in-place mutation.
+ * Clears the legacy scalar `classId`/`level` fields once levels is
+ * authoritative, so ordered edits have a single source of truth.
+ *
+ * @param {import("../../state.js").CharacterBuildState} build
+ * @returns {Array<{ classId: string, hp: number | null }>}
+ */
+export function materializeLevels(build) {
+  const levels = normalizeBuildLevels(build);
+  build.levels = levels;
+  if ("classId" in build) delete build.classId;
+  if ("level" in build) delete build.level;
+  // `levels` and `build.levels` are the same array reference; returning the
+  // local keeps the precise element type for callers.
+  return levels;
+}
+
+/**
+ * Appends one character level for `classId` to the end of the plan.
+ * @param {import("../../state.js").CharacterBuildState} build
+ * @param {string} classId
+ * @returns {boolean} whether the build changed
+ */
+export function appendLevel(build, classId) {
+  const id = cleanString(classId);
+  if (!id) return false;
+  const levels = materializeLevels(build);
+  if (levels.length >= MAX_CHARACTER_LEVEL) return false;
+  levels.push({ classId: id, hp: null });
+  pruneOrphanedClassData(build);
+  return true;
+}
+
+/**
+ * Sets the class of a single character level in place (order preserved).
+ * The level's recorded HP is retained.
+ * @param {import("../../state.js").CharacterBuildState} build
+ * @param {number} index zero-based character-level index
+ * @param {string} classId
+ * @returns {boolean} whether the build changed
+ */
+export function setLevelClassAt(build, index, classId) {
+  const id = cleanString(classId);
+  if (!id) return false;
+  const levels = materializeLevels(build);
+  if (index < 0 || index >= levels.length) return false;
+  if (levels[index].classId === id) return false;
+  levels[index] = { classId: id, hp: levels[index].hp };
+  pruneOrphanedClassData(build);
+  return true;
+}
+
+/**
+ * Sets the recorded HP roll of a single character level in place.
+ * A blank/invalid value clears it (falls back to SRD average / max die).
+ * @param {import("../../state.js").CharacterBuildState} build
+ * @param {number} index zero-based character-level index
+ * @param {unknown} hp
+ * @returns {boolean} whether the build changed
+ */
+export function setLevelHpAt(build, index, hp) {
+  const levels = materializeLevels(build);
+  if (index < 0 || index >= levels.length) return false;
+  const next = hp != null && hp !== "" && Number.isFinite(Number(hp)) && Number(hp) >= 1
+    ? Math.trunc(Number(hp))
+    : null;
+  if (levels[index].hp === next) return false;
+  levels[index] = { classId: levels[index].classId, hp: next };
+  return true;
+}
+
+/**
+ * Removes one character level, shifting later levels up (order preserved).
+ * @param {import("../../state.js").CharacterBuildState} build
+ * @param {number} index zero-based character-level index
+ * @returns {boolean} whether the build changed
+ */
+export function removeLevelAt(build, index) {
+  const levels = materializeLevels(build);
+  if (index < 0 || index >= levels.length) return false;
+  levels.splice(index, 1);
+  pruneOrphanedClassData(build);
+  return true;
+}
+
+/**
+ * Single-class convenience: sets every level to `classId` (or clears the
+ * plan when the id is empty). Order is trivially preserved because a
+ * single-class plan has no interleaving. Intended for the sheet-side
+ * identity editor, which only edits single-class builds.
+ * @param {import("../../state.js").CharacterBuildState} build
+ * @param {string} classId
+ * @returns {boolean} whether the build changed
+ */
+export function setSingleClassId(build, classId) {
+  const id = cleanString(classId);
+  const levels = materializeLevels(build);
+  if (!id) {
+    if (!levels.length) return false;
+    build.levels = [];
+    pruneOrphanedClassData(build);
+    return true;
+  }
+  if (!levels.length) {
+    levels.push({ classId: id, hp: null });
+    return true;
+  }
+  let changed = false;
+  for (let i = 0; i < levels.length; i += 1) {
+    if (levels[i].classId !== id) {
+      levels[i] = { classId: id, hp: levels[i].hp };
+      changed = true;
+    }
+  }
+  if (changed) pruneOrphanedClassData(build);
+  return changed;
+}
+
+/**
+ * Single-class convenience: resizes the plan to `total` levels by appending
+ * or truncating at the END (order preserved). No-ops without a class.
+ * @param {import("../../state.js").CharacterBuildState} build
+ * @param {unknown} total
+ * @param {string} [classId] class to append when growing (defaults to level 1's class)
+ * @returns {boolean} whether the build changed
+ */
+export function setSingleClassTotalLevel(build, total, classId) {
+  const levels = materializeLevels(build);
+  const target = Math.max(1, Math.min(MAX_CHARACTER_LEVEL, Math.trunc(Number(total) || 0)));
+  const id = cleanString(classId) || (levels[0] ? levels[0].classId : "");
+  if (!id) return false;
+  let changed = false;
+  while (levels.length > target) { levels.pop(); changed = true; }
+  while (levels.length < target) { levels.push({ classId: id, hp: null }); changed = true; }
+  if (changed) pruneOrphanedClassData(build);
+  return changed;
 }
 
 /**
