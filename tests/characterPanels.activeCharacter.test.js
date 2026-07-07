@@ -863,9 +863,9 @@ describe("character panels active character resolution", () => {
     builder.classLevel = "Persisted Class";
     builder.race = "Persisted Race";
     builder.background = "Persisted Background";
-    builder.build.classId = "class_fighter";
-    builder.build.raceId = "race_elf";
-    builder.build.backgroundId = "background_soldier";
+    builder.build.classId = "fighter";
+    builder.build.raceId = "elf";
+    builder.build.backgroundId = "acolyte";
     builder.build.level = 5;
     const state = { characters: { activeId: "char_builder", entries: [builder] }, combat: { workspace: {} } };
     const deps = makeDeps(state);
@@ -874,7 +874,7 @@ describe("character panels active character resolution", () => {
 
     expect(document.getElementById("charClassLevel").value).toBe("Fighter 5");
     expect(document.getElementById("charRace").value).toBe("Elf");
-    expect(document.getElementById("charBackground").value).toBe("Soldier");
+    expect(document.getElementById("charBackground").value).toBe("Acolyte");
     ["charClassLevel", "charRace", "charBackground"].forEach((id) => {
       const input = document.getElementById(id);
       expect(input.readOnly).toBe(true);
@@ -911,9 +911,9 @@ describe("character panels active character resolution", () => {
     builder.classLevel = "Persisted Class";
     builder.race = "Persisted Race";
     builder.background = "Persisted Background";
-    builder.build.classId = "class_fighter";
-    builder.build.raceId = "race_elf";
-    builder.build.backgroundId = "background_soldier";
+    builder.build.classId = "fighter";
+    builder.build.raceId = "elf";
+    builder.build.backgroundId = "acolyte";
     builder.build.level = 5;
     const state = { characters: { activeId: "char_builder", entries: [builder] }, combat: { workspace: {} } };
     const deps = makeDeps(state);
@@ -924,13 +924,13 @@ describe("character panels active character resolution", () => {
     expect(document.getElementById("charClassLevel").value).toBe("Fighter 5");
 
     const classSelect = document.getElementById("charBuilderClassSelect");
-    classSelect.value = "class_wizard";
+    classSelect.value = "wizard";
     dispatchChange(classSelect);
     const raceSelect = document.getElementById("charBuilderRaceSelect");
-    raceSelect.value = "race_human";
+    raceSelect.value = "human";
     dispatchChange(raceSelect);
     const backgroundSelect = document.getElementById("charBuilderBackgroundSelect");
-    backgroundSelect.value = "background_sage";
+    backgroundSelect.value = "acolyte";
     dispatchChange(backgroundSelect);
     const levelInput = document.getElementById("charBuilderLevelInput");
     levelInput.value = "6";
@@ -938,7 +938,7 @@ describe("character panels active character resolution", () => {
 
     expect(document.getElementById("charClassLevel").value).toBe("Wizard 6");
     expect(document.getElementById("charRace").value).toBe("Human");
-    expect(document.getElementById("charBackground").value).toBe("Sage");
+    expect(document.getElementById("charBackground").value).toBe("Acolyte");
     expect(builder.classLevel).toBe("Persisted Class");
     expect(builder.race).toBe("Persisted Race");
     expect(builder.background).toBe("Persisted Background");
@@ -952,9 +952,9 @@ describe("character panels active character resolution", () => {
     builder.classLevel = "Persisted Class";
     builder.race = "Persisted Race";
     builder.background = "Persisted Background";
-    builder.build.classId = "class_fighter";
-    builder.build.raceId = "race_elf";
-    builder.build.backgroundId = "background_soldier";
+    builder.build.classId = "fighter";
+    builder.build.raceId = "elf";
+    builder.build.backgroundId = "acolyte";
     builder.build.level = 5;
     const state = { characters: { activeId: "char_builder", entries: [builder] }, combat: { workspace: {} } };
     const deps = makeDeps(state);
@@ -970,7 +970,7 @@ describe("character panels active character resolution", () => {
 
     expect(document.getElementById("charClassLevel").value).toBe("Fighter 5");
     expect(document.getElementById("charRace").value).toBe("Elf");
-    expect(document.getElementById("charBackground").value).toBe("Soldier");
+    expect(document.getElementById("charBackground").value).toBe("Acolyte");
     expect(builder.classLevel).toBe("Persisted Class");
     expect(builder.race).toBe("Persisted Race");
     expect(builder.background).toBe("Persisted Background");
@@ -1016,9 +1016,9 @@ describe("character panels active character resolution", () => {
 
   it("restores Basics ownership when switching between builder and freeform characters", () => {
     const builder = makeBuilder("char_builder", { str: 16, dex: 14, con: 13, int: 12, wis: 10, cha: 8 });
-    builder.build.classId = "class_fighter";
-    builder.build.raceId = "race_elf";
-    builder.build.backgroundId = "background_soldier";
+    builder.build.classId = "fighter";
+    builder.build.raceId = "elf";
+    builder.build.backgroundId = "acolyte";
     builder.build.level = 5;
     const freeform = makeCharacter("char_free", "Freeform", {
       build: null,
@@ -1049,7 +1049,7 @@ describe("character panels active character resolution", () => {
     notifyPanelDataChanged("character-fields", { source: {} });
     expect(document.getElementById("charClassLevel").value).toBe("Fighter 5");
     expect(document.getElementById("charRace").value).toBe("Elf");
-    expect(document.getElementById("charBackground").value).toBe("Soldier");
+    expect(document.getElementById("charBackground").value).toBe("Acolyte");
     expect(document.getElementById("charClassLevel").readOnly).toBe(true);
 
     api.destroy();
@@ -1095,8 +1095,8 @@ describe("character panels active character resolution", () => {
 
   it("displays builder-derived Vitals speed and hit dice without materializing stale flat fields", () => {
     const builder = makeBuilder("char_builder", { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 });
-    builder.build.raceId = "race_human";
-    builder.build.classId = "class_fighter";
+    builder.build.raceId = "human";
+    builder.build.classId = "fighter";
     builder.build.level = 5;
     builder.speed = 99;
     builder.hitDieAmt = 99;
@@ -1132,8 +1132,8 @@ describe("character panels active character resolution", () => {
 
   it("ignores attempted builder Vitals speed and hit dice input without mutating or marking dirty", () => {
     const builder = makeBuilder("char_builder", { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 });
-    builder.build.raceId = "race_human";
-    builder.build.classId = "class_fighter";
+    builder.build.raceId = "human";
+    builder.build.classId = "fighter";
     builder.build.level = 5;
     builder.speed = 99;
     builder.hitDieAmt = 99;
@@ -1165,7 +1165,7 @@ describe("character panels active character resolution", () => {
     installBuilderIdentityPanelDom(document);
     const builder = makeBuilder("char_builder", { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 });
     builder.build.raceId = null;
-    builder.build.classId = "class_fighter";
+    builder.build.classId = "fighter";
     builder.build.level = 5;
     builder.speed = 99;
     builder.hitDieAmt = 99;
@@ -1181,17 +1181,17 @@ describe("character panels active character resolution", () => {
     expect(document.getElementById("hitDieSize").value).toBe("10");
 
     const raceSelect = document.getElementById("charBuilderRaceSelect");
-    raceSelect.value = "race_human";
+    raceSelect.value = "human";
     dispatchChange(raceSelect);
     const classSelect = document.getElementById("charBuilderClassSelect");
-    classSelect.value = "class_wizard";
+    classSelect.value = "wizard";
     dispatchChange(classSelect);
     const levelInput = document.getElementById("charBuilderLevelInput");
     levelInput.value = "9";
     dispatchChange(levelInput);
 
-    expect(builder.build.raceId).toBe("race_human");
-    expect(builder.build.classId).toBe("class_wizard");
+    expect(builder.build.raceId).toBe("human");
+    expect(builder.build.classId).toBe("wizard");
     expect(builder.build.level).toBe(9);
     expect(document.getElementById("charSpeed").value).toBe("30");
     expect(document.getElementById("hitDieAmt").value).toBe("9");
@@ -1242,8 +1242,8 @@ describe("character panels active character resolution", () => {
 
   it("restores Vitals speed and hit dice ownership and source when switching builder and freeform characters", () => {
     const builder = makeBuilder("char_builder", { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 });
-    builder.build.raceId = "race_human";
-    builder.build.classId = "class_fighter";
+    builder.build.raceId = "human";
+    builder.build.classId = "fighter";
     builder.build.level = 5;
     builder.speed = 99;
     builder.hitDieAmt = 99;
@@ -1328,8 +1328,8 @@ describe("character panels active character resolution", () => {
 
   it("keeps builder HP and AC manual while speed and hit dice are builder-owned", () => {
     const builder = makeBuilder("char_builder", { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 });
-    builder.build.raceId = "race_human";
-    builder.build.classId = "class_fighter";
+    builder.build.raceId = "human";
+    builder.build.classId = "fighter";
     builder.build.level = 5;
     builder.hpCur = 7;
     builder.hpMax = 11;
@@ -1623,7 +1623,7 @@ describe("character panels active character resolution", () => {
   it("displays Dragonborn Breath Weapon DC in Vitals from derived ancestry mechanics", () => {
     const builder = makeBuilder("char_builder", { str: 10, dex: 10, con: 14, int: 10, wis: 10, cha: 10 });
     builder.build.raceId = "dragonborn";
-    builder.build.classId = "class_fighter";
+    builder.build.classId = "fighter";
     builder.build.level = 5;
     builder.build.choicesByLevel = { "1": { "dragonborn-ancestry": "red" } };
     const state = { characters: { activeId: "char_builder", entries: [builder] }, combat: { workspace: {} } };
@@ -1650,7 +1650,7 @@ describe("character panels active character resolution", () => {
   it("renders Dragonborn Breath Weapon in Abilities & Features from derived ancestry mechanics", () => {
     const builder = makeBuilder("char_builder", { str: 10, dex: 10, con: 14, int: 10, wis: 10, cha: 10 });
     builder.build.raceId = "dragonborn";
-    builder.build.classId = "class_fighter";
+    builder.build.classId = "fighter";
     builder.build.level = 5;
     builder.build.choicesByLevel = { "1": { "dragonborn-ancestry": "blue" } };
     const state = { characters: { activeId: "char_builder", entries: [builder] }, combat: { workspace: {} } };
@@ -1679,7 +1679,7 @@ describe("character panels active character resolution", () => {
   it("derived Dragonborn Breath Weapon card supports card and notes collapse without persistence", () => {
     const builder = makeBuilder("char_builder", { str: 10, dex: 10, con: 14, int: 10, wis: 10, cha: 10 });
     builder.build.raceId = "dragonborn";
-    builder.build.classId = "class_fighter";
+    builder.build.classId = "fighter";
     builder.build.level = 5;
     builder.build.choicesByLevel = { "1": { "dragonborn-ancestry": "blue" } };
     const state = { characters: { activeId: "char_builder", entries: [builder] }, combat: { workspace: {} } };
@@ -1725,7 +1725,7 @@ describe("character panels active character resolution", () => {
 
   it("does not render Dragonborn Breath Weapon in Abilities & Features for non-Dragonborn builders", () => {
     const builder = makeBuilder("char_builder", { str: 10, dex: 10, con: 14, int: 10, wis: 10, cha: 10 });
-    builder.build.raceId = "race_human";
+    builder.build.raceId = "human";
     builder.build.choicesByLevel = { "1": { "dragonborn-ancestry": "blue" } };
     const state = { characters: { activeId: "char_builder", entries: [builder] }, combat: { workspace: {} } };
     const deps = makeDeps(state);
@@ -1800,7 +1800,7 @@ describe("character panels active character resolution", () => {
   it("renders builder manual cards with derived cards while keeping derived cards read-only and unpersisted", () => {
     const builder = makeBuilder("char_builder", { str: 10, dex: 10, con: 14, int: 10, wis: 10, cha: 10 });
     builder.build.raceId = "dragonborn";
-    builder.build.classId = "class_fighter";
+    builder.build.classId = "fighter";
     builder.build.level = 5;
     builder.build.choicesByLevel = { "1": { "dragonborn-ancestry": "blue" } };
     builder.manualFeatureCards = [{
@@ -2273,7 +2273,7 @@ describe("character panels active character resolution", () => {
   it("renders derived Dragonborn Breath Weapon use tracking from character featureUses", () => {
     const builder = makeBuilder("char_builder", { str: 10, dex: 10, con: 14, int: 10, wis: 10, cha: 10 });
     builder.build.raceId = "dragonborn";
-    builder.build.classId = "class_fighter";
+    builder.build.classId = "fighter";
     builder.build.level = 5;
     builder.build.choicesByLevel = { "1": { "dragonborn-ancestry": "blue" } };
     const state = { characters: { activeId: "char_builder", entries: [builder] }, combat: { workspace: {} } };
@@ -2306,7 +2306,7 @@ describe("character panels active character resolution", () => {
   it("derived Dragonborn Breath Weapon use controls clamp and persist only featureUses", () => {
     const builder = makeBuilder("char_builder", { str: 10, dex: 10, con: 14, int: 10, wis: 10, cha: 10 });
     builder.build.raceId = "dragonborn";
-    builder.build.classId = "class_fighter";
+    builder.build.classId = "fighter";
     builder.build.level = 5;
     builder.build.choicesByLevel = { "1": { "dragonborn-ancestry": "blue" } };
     const state = { characters: { activeId: "char_builder", entries: [builder] }, combat: { workspace: {} } };
@@ -2494,7 +2494,7 @@ describe("character panels active character resolution", () => {
 
   it("does not show Breath Weapon DC in Vitals for non-Dragonborn builder characters", () => {
     const builder = makeBuilder("char_builder", { str: 10, dex: 10, con: 14, int: 10, wis: 10, cha: 10 });
-    builder.build.raceId = "race_human";
+    builder.build.raceId = "human";
     builder.build.choicesByLevel = { "1": { "dragonborn-ancestry": "red" } };
     const state = { characters: { activeId: "char_builder", entries: [builder] }, combat: { workspace: {} } };
     const deps = makeDeps(state);
@@ -2656,8 +2656,8 @@ describe("character panels active character resolution", () => {
     const host = append(document.body, "div", { id: "combatVitalsHost" });
     renderVitalsEmbeddedContent(host);
     const builder = makeBuilder("char_builder", { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 });
-    builder.build.raceId = "race_human";
-    builder.build.classId = "class_wizard";
+    builder.build.raceId = "human";
+    builder.build.classId = "wizard";
     builder.build.level = 9;
     builder.speed = 99;
     builder.hitDieAmt = 99;

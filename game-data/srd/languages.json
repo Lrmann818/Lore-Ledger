@@ -1,0 +1,130 @@
+[
+  {
+    "id": "abyssal",
+    "kind": "language",
+    "name": "Abyssal",
+    "source": "srd-5.1",
+    "type": "Exotic",
+    "script": "Infernal"
+  },
+  {
+    "id": "celestial",
+    "kind": "language",
+    "name": "Celestial",
+    "source": "srd-5.1",
+    "type": "Exotic",
+    "script": "Celestial"
+  },
+  {
+    "id": "common",
+    "kind": "language",
+    "name": "Common",
+    "source": "srd-5.1",
+    "type": "Standard",
+    "script": "Common"
+  },
+  {
+    "id": "deep-speech",
+    "kind": "language",
+    "name": "Deep Speech",
+    "source": "srd-5.1",
+    "type": "Exotic",
+    "script": null
+  },
+  {
+    "id": "draconic",
+    "kind": "language",
+    "name": "Draconic",
+    "source": "srd-5.1",
+    "type": "Exotic",
+    "script": "Draconic"
+  },
+  {
+    "id": "dwarvish",
+    "kind": "language",
+    "name": "Dwarvish",
+    "source": "srd-5.1",
+    "type": "Standard",
+    "script": "Dwarvish"
+  },
+  {
+    "id": "elvish",
+    "kind": "language",
+    "name": "Elvish",
+    "source": "srd-5.1",
+    "type": "Standard",
+    "script": "Elvish"
+  },
+  {
+    "id": "giant",
+    "kind": "language",
+    "name": "Giant",
+    "source": "srd-5.1",
+    "type": "Standard",
+    "script": "Dwarvish"
+  },
+  {
+    "id": "gnomish",
+    "kind": "language",
+    "name": "Gnomish",
+    "source": "srd-5.1",
+    "type": "Standard",
+    "script": "Dwarvish"
+  },
+  {
+    "id": "goblin",
+    "kind": "language",
+    "name": "Goblin",
+    "source": "srd-5.1",
+    "type": "Standard",
+    "script": "Dwarvish"
+  },
+  {
+    "id": "halfling",
+    "kind": "language",
+    "name": "Halfling",
+    "source": "srd-5.1",
+    "type": "Standard",
+    "script": "Common"
+  },
+  {
+    "id": "infernal",
+    "kind": "language",
+    "name": "Infernal",
+    "source": "srd-5.1",
+    "type": "Exotic",
+    "script": "Infernal"
+  },
+  {
+    "id": "orc",
+    "kind": "language",
+    "name": "Orc",
+    "source": "srd-5.1",
+    "type": "Standard",
+    "script": "Dwarvish"
+  },
+  {
+    "id": "primordial",
+    "kind": "language",
+    "name": "Primordial",
+    "source": "srd-5.1",
+    "type": "Exotic",
+    "script": "Dwarvish"
+  },
+  {
+    "id": "sylvan",
+    "kind": "language",
+    "name": "Sylvan",
+    "source": "srd-5.1",
+    "type": "Exotic",
+    "script": "Elvish"
+  },
+  {
+    "id": "undercommon",
+    "kind": "language",
+    "name": "Undercommon",
+    "source": "srd-5.1",
+    "type": "Exotic",
+    "script": "Elvish"
+  }
+]

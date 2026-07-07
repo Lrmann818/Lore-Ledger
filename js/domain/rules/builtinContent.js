@@ -1,22 +1,43 @@
 // @ts-check
-// Minimal read-only builtin content for the Step 3 rules foundation.
+// Shipped builtin SRD 5.1 content, loaded from the generated registry files
+// in game-data/srd/. Those files are produced by scripts/fetch-srd-data.js —
+// never hand-edited. See docs/reference/content-registry-plan.md.
 
+import backgrounds from "../../../game-data/srd/backgrounds.json";
+import classes from "../../../game-data/srd/classes.json";
 import draconicAncestries from "../../../game-data/srd/draconic-ancestries.json";
+import armor from "../../../game-data/srd/equipment.armor.json";
+import weapons from "../../../game-data/srd/equipment.weapons.json";
+import feats from "../../../game-data/srd/feats.json";
+import features from "../../../game-data/srd/features.json";
+import languages from "../../../game-data/srd/languages.json";
 import races from "../../../game-data/srd/races.json";
+import skills from "../../../game-data/srd/skills.json";
+import spells from "../../../game-data/srd/spells.json";
+import subclasses from "../../../game-data/srd/subclasses.json";
+import traits from "../../../game-data/srd/traits.json";
 
 /**
- * @typedef {"race" | "class" | "background" | "ancestry"} BuiltinContentKind
+ * @typedef {"race" | "subrace" | "class" | "subclass" | "background" | "feat"
+ *   | "trait" | "ancestry" | "armor" | "weapon" | "spell" | "language"
+ *   | "skill" | "feature"} BuiltinContentKind
  * @typedef {{
  *   id: string,
  *   kind: BuiltinContentKind,
  *   name: string,
- *   source: "builtin" | "srd-5.1",
+ *   source: string,
  *   ruleset: "srd-5.1",
  *   data: Record<string, unknown>
  * }} BuiltinContentEntry
  */
 
 const RULESET = "srd-5.1";
+
+/** @type {ReadonlySet<string>} */
+export const CONTENT_KINDS = new Set([
+  "race", "subrace", "class", "subclass", "background", "feat", "trait",
+  "ancestry", "armor", "weapon", "spell", "language", "skill", "feature"
+]);
 
 /**
  * @param {unknown} value
@@ -27,137 +48,58 @@ function isRecord(value) {
 }
 
 /**
- * @param {unknown} source
- * @returns {BuiltinContentEntry[]}
+ * Wrap a generated registry record into the runtime entry shape.
+ * Records missing required base fields are skipped defensively.
+ * @param {unknown} record
+ * @returns {BuiltinContentEntry | null}
  */
-function makeDragonbornEntries(source) {
-  if (!Array.isArray(source)) return [];
-  const dragonborn = source.find((entry) =>
-    isRecord(entry) && entry.id === "dragonborn" && entry.kind === "race"
-  );
-  if (!isRecord(dragonborn) || typeof dragonborn.name !== "string") return [];
-  return [
-    Object.freeze({
-      id: "dragonborn",
-      kind: "race",
-      name: dragonborn.name,
-      source: "srd-5.1",
-      ruleset: RULESET,
-      data: Object.freeze({ ...dragonborn })
-    })
-  ];
+export function toContentEntry(record) {
+  if (!isRecord(record)) return null;
+  const id = typeof record.id === "string" ? record.id.trim() : "";
+  const kind = typeof record.kind === "string" ? record.kind.trim() : "";
+  const name = typeof record.name === "string" ? record.name.trim() : "";
+  const source = typeof record.source === "string" && record.source.trim()
+    ? record.source.trim()
+    : "srd-5.1";
+  if (!id || !name || !CONTENT_KINDS.has(kind)) return null;
+  return Object.freeze({
+    id,
+    kind: /** @type {BuiltinContentKind} */ (kind),
+    name,
+    source,
+    ruleset: RULESET,
+    data: /** @type {Record<string, unknown>} */ (record)
+  });
 }
 
 /**
- * @param {unknown} source
- * @param {string} id
- * @returns {Record<string, unknown>}
- */
-function findGeneratedRaceData(source, id) {
-  if (!Array.isArray(source)) return {};
-  const race = source.find((entry) =>
-    isRecord(entry) && entry.id === id && entry.kind === "race"
-  );
-  return isRecord(race) ? { ...race } : {};
-}
-
-/**
- * @param {unknown} source
+ * @param {unknown} records
  * @returns {BuiltinContentEntry[]}
  */
-function makeDraconicAncestryEntries(source) {
-  if (!Array.isArray(source)) return [];
-  return source
-    .filter((entry) =>
-      isRecord(entry) &&
-      typeof entry.id === "string" &&
-      entry.kind === "ancestry" &&
-      typeof entry.name === "string"
-    )
-    .map((entry) => Object.freeze({
-      id: /** @type {string} */ (entry.id),
-      kind: "ancestry",
-      name: /** @type {string} */ (entry.name),
-      source: "srd-5.1",
-      ruleset: RULESET,
-      data: Object.freeze({ ...entry })
-    }));
+function toContentEntries(records) {
+  if (!Array.isArray(records)) return [];
+  /** @type {BuiltinContentEntry[]} */
+  const out = [];
+  for (const record of records) {
+    const entry = toContentEntry(record);
+    if (entry) out.push(entry);
+  }
+  return out;
 }
 
 /** @type {readonly BuiltinContentEntry[]} */
 export const BUILTIN_CONTENT = Object.freeze([
-  Object.freeze({
-    id: "race_human",
-    kind: "race",
-    name: "Human",
-    source: "builtin",
-    ruleset: RULESET,
-    data: Object.freeze({ speed: 30, ...findGeneratedRaceData(races, "human") })
-  }),
-  Object.freeze({
-    id: "race_dwarf",
-    kind: "race",
-    name: "Dwarf",
-    source: "builtin",
-    ruleset: RULESET,
-    data: Object.freeze({ speed: 30, ...findGeneratedRaceData(races, "dwarf") })
-  }),
-  Object.freeze({
-    id: "race_elf",
-    kind: "race",
-    name: "Elf",
-    source: "builtin",
-    ruleset: RULESET,
-    data: Object.freeze({ speed: 30, ...findGeneratedRaceData(races, "elf") })
-  }),
-  Object.freeze({
-    id: "class_fighter",
-    kind: "class",
-    name: "Fighter",
-    source: "builtin",
-    ruleset: RULESET,
-    data: Object.freeze({ hitDie: 10, saveProficiencies: Object.freeze(["str", "con"]) })
-  }),
-  Object.freeze({
-    id: "class_cleric",
-    kind: "class",
-    name: "Cleric",
-    source: "builtin",
-    ruleset: RULESET,
-    data: Object.freeze({ hitDie: 8, saveProficiencies: Object.freeze(["wis", "cha"]) })
-  }),
-  Object.freeze({
-    id: "class_wizard",
-    kind: "class",
-    name: "Wizard",
-    source: "builtin",
-    ruleset: RULESET,
-    data: Object.freeze({ hitDie: 6, saveProficiencies: Object.freeze(["int", "wis"]) })
-  }),
-  Object.freeze({
-    id: "background_acolyte",
-    kind: "background",
-    name: "Acolyte",
-    source: "builtin",
-    ruleset: RULESET,
-    data: Object.freeze({})
-  }),
-  Object.freeze({
-    id: "background_sage",
-    kind: "background",
-    name: "Sage",
-    source: "builtin",
-    ruleset: RULESET,
-    data: Object.freeze({})
-  }),
-  Object.freeze({
-    id: "background_soldier",
-    kind: "background",
-    name: "Soldier",
-    source: "builtin",
-    ruleset: RULESET,
-    data: Object.freeze({})
-  }),
-  ...makeDragonbornEntries(races),
-  ...makeDraconicAncestryEntries(draconicAncestries)
+  ...toContentEntries(races),
+  ...toContentEntries(classes),
+  ...toContentEntries(subclasses),
+  ...toContentEntries(backgrounds),
+  ...toContentEntries(feats),
+  ...toContentEntries(traits),
+  ...toContentEntries(draconicAncestries),
+  ...toContentEntries(armor),
+  ...toContentEntries(weapons),
+  ...toContentEntries(spells),
+  ...toContentEntries(languages),
+  ...toContentEntries(skills),
+  ...toContentEntries(features)
 ]);

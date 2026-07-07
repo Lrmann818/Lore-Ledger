@@ -15,8 +15,17 @@
 
 import { writeFile } from "fs/promises";
 import { join } from "path";
+import { buildBackgroundsData } from "./adapters/backgroundsAdapter.js";
+import { buildClassesData } from "./adapters/classesAdapter.js";
 import { buildDraconicAncestriesData } from "./adapters/draconicAncestriesAdapter.js";
+import { buildArmorData, buildWeaponsData } from "./adapters/equipmentAdapter.js";
+import { buildFeatsData } from "./adapters/featsAdapter.js";
+import { buildFeaturesData } from "./adapters/featuresAdapter.js";
+import { buildLanguagesData } from "./adapters/languagesAdapter.js";
 import { buildRacesData } from "./adapters/racesAdapter.js";
+import { buildSkillsData } from "./adapters/skillsAdapter.js";
+import { buildSpellsData } from "./adapters/spellsAdapter.js";
+import { buildSubclassesData } from "./adapters/subclassesAdapter.js";
 import { buildTraitsData } from "./adapters/traitsAdapter.js";
 
 const OUTPUT_DIR = "game-data/srd";
@@ -34,9 +43,46 @@ const ADAPTERS = {
     fn: buildTraitsData,
     file: "traits.json",
   },
-  // Add more adapters here as they are built:
-  // classes: { fn: buildClassesData, file: "classes.json" },
-  // backgrounds: { fn: buildBackgroundsData, file: "backgrounds.json" },
+  classes: {
+    fn: buildClassesData,
+    file: "classes.json",
+  },
+  subclasses: {
+    fn: buildSubclassesData,
+    file: "subclasses.json",
+  },
+  features: {
+    fn: buildFeaturesData,
+    file: "features.json",
+  },
+  backgrounds: {
+    fn: buildBackgroundsData,
+    file: "backgrounds.json",
+  },
+  feats: {
+    fn: buildFeatsData,
+    file: "feats.json",
+  },
+  armor: {
+    fn: buildArmorData,
+    file: "equipment.armor.json",
+  },
+  weapons: {
+    fn: buildWeaponsData,
+    file: "equipment.weapons.json",
+  },
+  spells: {
+    fn: buildSpellsData,
+    file: "spells.json",
+  },
+  languages: {
+    fn: buildLanguagesData,
+    file: "languages.json",
+  },
+  skills: {
+    fn: buildSkillsData,
+    file: "skills.json",
+  },
 };
 
 async function run() {

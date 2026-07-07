@@ -1,0 +1,7281 @@
+[
+  {
+    "id": "barbarian",
+    "kind": "class",
+    "name": "Barbarian",
+    "source": "srd-5.1",
+    "hitDie": 12,
+    "savingThrowProficiencies": [
+      "str",
+      "con"
+    ],
+    "armorProficiencies": [
+      "light",
+      "medium",
+      "shield"
+    ],
+    "weaponProficiencies": [
+      "simple",
+      "martial"
+    ],
+    "toolProficiencies": [],
+    "skillChoices": {
+      "choose": 2,
+      "from": [
+        "animal-handling",
+        "athletics",
+        "intimidation",
+        "nature",
+        "perception",
+        "survival"
+      ]
+    },
+    "subclassIds": [
+      "berserker"
+    ],
+    "subclassLevel": 3,
+    "asiLevels": [
+      4,
+      8,
+      12,
+      16,
+      19
+    ],
+    "featuresByLevel": {
+      "1": [
+        "rage",
+        "barbarian-unarmored-defense"
+      ],
+      "2": [
+        "reckless-attack",
+        "danger-sense"
+      ],
+      "3": [
+        "primal-path"
+      ],
+      "4": [
+        "barbarian-ability-score-improvement-1"
+      ],
+      "5": [
+        "barbarian-extra-attack",
+        "fast-movement"
+      ],
+      "6": [
+        "primal-path-improvement-1"
+      ],
+      "7": [
+        "feral-instinct"
+      ],
+      "8": [
+        "barbarian-ability-score-improvement-2"
+      ],
+      "9": [
+        "brutal-critical-1-die"
+      ],
+      "10": [
+        "primal-path-improvement-2"
+      ],
+      "11": [
+        "relentless-rage"
+      ],
+      "12": [
+        "barbarian-ability-score-improvement-3"
+      ],
+      "13": [
+        "brutal-critical-2-dice"
+      ],
+      "14": [
+        "primal-path-improvement-3"
+      ],
+      "15": [
+        "persistent-rage"
+      ],
+      "16": [
+        "barbarian-ability-score-improvement-4"
+      ],
+      "17": [
+        "brutal-critical-3-dice"
+      ],
+      "18": [
+        "indomitable-might"
+      ],
+      "19": [
+        "barbarian-ability-score-improvement-5"
+      ],
+      "20": [
+        "primal-champion"
+      ]
+    },
+    "classSpecificByLevel": {
+      "1": {
+        "rage_count": 2,
+        "rage_damage_bonus": 2,
+        "brutal_critical_dice": 0
+      },
+      "2": {
+        "rage_count": 2,
+        "rage_damage_bonus": 2,
+        "brutal_critical_dice": 0
+      },
+      "3": {
+        "rage_count": 3,
+        "rage_damage_bonus": 2,
+        "brutal_critical_dice": 0
+      },
+      "4": {
+        "rage_count": 3,
+        "rage_damage_bonus": 2,
+        "brutal_critical_dice": 0
+      },
+      "5": {
+        "rage_count": 3,
+        "rage_damage_bonus": 2,
+        "brutal_critical_dice": 0
+      },
+      "6": {
+        "rage_count": 4,
+        "rage_damage_bonus": 2,
+        "brutal_critical_dice": 0
+      },
+      "7": {
+        "rage_count": 4,
+        "rage_damage_bonus": 2,
+        "brutal_critical_dice": 0
+      },
+      "8": {
+        "rage_count": 4,
+        "rage_damage_bonus": 2,
+        "brutal_critical_dice": 0
+      },
+      "9": {
+        "rage_count": 4,
+        "rage_damage_bonus": 3,
+        "brutal_critical_dice": 1
+      },
+      "10": {
+        "rage_count": 4,
+        "rage_damage_bonus": 3,
+        "brutal_critical_dice": 1
+      },
+      "11": {
+        "rage_count": 4,
+        "rage_damage_bonus": 3,
+        "brutal_critical_dice": 1
+      },
+      "12": {
+        "rage_count": 5,
+        "rage_damage_bonus": 3,
+        "brutal_critical_dice": 1
+      },
+      "13": {
+        "rage_count": 5,
+        "rage_damage_bonus": 3,
+        "brutal_critical_dice": 2
+      },
+      "14": {
+        "rage_count": 5,
+        "rage_damage_bonus": 3,
+        "brutal_critical_dice": 2
+      },
+      "15": {
+        "rage_count": 5,
+        "rage_damage_bonus": 3,
+        "brutal_critical_dice": 2
+      },
+      "16": {
+        "rage_count": 5,
+        "rage_damage_bonus": 4,
+        "brutal_critical_dice": 2
+      },
+      "17": {
+        "rage_count": 6,
+        "rage_damage_bonus": 4,
+        "brutal_critical_dice": 3
+      },
+      "18": {
+        "rage_count": 6,
+        "rage_damage_bonus": 4,
+        "brutal_critical_dice": 3
+      },
+      "19": {
+        "rage_count": 6,
+        "rage_damage_bonus": 4,
+        "brutal_critical_dice": 3
+      },
+      "20": {
+        "rage_count": 9999,
+        "rage_damage_bonus": 4,
+        "brutal_critical_dice": 3
+      }
+    },
+    "spellcasting": null,
+    "multiclassing": {
+      "prerequisites": [
+        {
+          "ability": "str",
+          "minimum": 13
+        }
+      ],
+      "prerequisiteOptions": [],
+      "proficiencies": {
+        "armor": [
+          "shield"
+        ],
+        "weapons": [
+          "simple",
+          "martial"
+        ],
+        "tools": []
+      },
+      "skillChoices": null
+    },
+    "startingEquipment": [
+      {
+        "itemId": "explorers-pack",
+        "name": "Explorer's Pack",
+        "quantity": 1
+      },
+      {
+        "itemId": "javelin",
+        "name": "Javelin",
+        "quantity": 4
+      }
+    ],
+    "startingEquipmentOptions": [
+      {
+        "desc": "(a) a greataxe or (b) any martial melee weapon",
+        "choose": 1,
+        "options": [
+          {
+            "itemId": "greataxe",
+            "name": "Greataxe",
+            "quantity": 1
+          },
+          {
+            "categoryId": "martial-melee-weapons",
+            "categoryName": "Martial Melee Weapons",
+            "itemOptions": [
+              {
+                "itemId": "battleaxe",
+                "name": "Battleaxe"
+              },
+              {
+                "itemId": "flail",
+                "name": "Flail"
+              },
+              {
+                "itemId": "glaive",
+                "name": "Glaive"
+              },
+              {
+                "itemId": "greataxe",
+                "name": "Greataxe"
+              },
+              {
+                "itemId": "greatsword",
+                "name": "Greatsword"
+              },
+              {
+                "itemId": "halberd",
+                "name": "Halberd"
+              },
+              {
+                "itemId": "lance",
+                "name": "Lance"
+              },
+              {
+                "itemId": "longsword",
+                "name": "Longsword"
+              },
+              {
+                "itemId": "maul",
+                "name": "Maul"
+              },
+              {
+                "itemId": "morningstar",
+                "name": "Morningstar"
+              },
+              {
+                "itemId": "pike",
+                "name": "Pike"
+              },
+              {
+                "itemId": "rapier",
+                "name": "Rapier"
+              },
+              {
+                "itemId": "scimitar",
+                "name": "Scimitar"
+              },
+              {
+                "itemId": "shortsword",
+                "name": "Shortsword"
+              },
+              {
+                "itemId": "trident",
+                "name": "Trident"
+              },
+              {
+                "itemId": "war-pick",
+                "name": "War pick"
+              },
+              {
+                "itemId": "warhammer",
+                "name": "Warhammer"
+              },
+              {
+                "itemId": "whip",
+                "name": "Whip"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "desc": "(a) two handaxes or (b) any simple weapon",
+        "choose": 1,
+        "options": [
+          {
+            "itemId": "handaxe",
+            "name": "Handaxe",
+            "quantity": 2
+          },
+          {
+            "categoryId": "simple-weapons",
+            "categoryName": "Simple Weapons",
+            "itemOptions": [
+              {
+                "itemId": "club",
+                "name": "Club"
+              },
+              {
+                "itemId": "dagger",
+                "name": "Dagger"
+              },
+              {
+                "itemId": "greatclub",
+                "name": "Greatclub"
+              },
+              {
+                "itemId": "handaxe",
+                "name": "Handaxe"
+              },
+              {
+                "itemId": "javelin",
+                "name": "Javelin"
+              },
+              {
+                "itemId": "light-hammer",
+                "name": "Light hammer"
+              },
+              {
+                "itemId": "mace",
+                "name": "Mace"
+              },
+              {
+                "itemId": "quarterstaff",
+                "name": "Quarterstaff"
+              },
+              {
+                "itemId": "sickle",
+                "name": "Sickle"
+              },
+              {
+                "itemId": "spear",
+                "name": "Spear"
+              },
+              {
+                "itemId": "crossbow-light",
+                "name": "Crossbow, light"
+              },
+              {
+                "itemId": "dart",
+                "name": "Dart"
+              },
+              {
+                "itemId": "shortbow",
+                "name": "Shortbow"
+              },
+              {
+                "itemId": "sling",
+                "name": "Sling"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "bard",
+    "kind": "class",
+    "name": "Bard",
+    "source": "srd-5.1",
+    "hitDie": 8,
+    "savingThrowProficiencies": [
+      "dex",
+      "cha"
+    ],
+    "armorProficiencies": [
+      "light"
+    ],
+    "weaponProficiencies": [
+      "simple",
+      "longswords",
+      "rapiers",
+      "shortswords"
+    ],
+    "toolProficiencies": [
+      "hand-crossbows"
+    ],
+    "skillChoices": {
+      "choose": 3,
+      "from": [
+        "acrobatics",
+        "animal-handling",
+        "arcana",
+        "athletics",
+        "deception",
+        "history",
+        "insight",
+        "intimidation",
+        "investigation",
+        "medicine",
+        "nature",
+        "perception",
+        "performance",
+        "persuasion",
+        "religion",
+        "sleight-of-hand",
+        "stealth",
+        "survival"
+      ]
+    },
+    "subclassIds": [
+      "lore"
+    ],
+    "subclassLevel": 3,
+    "asiLevels": [
+      4,
+      8,
+      12,
+      16,
+      19
+    ],
+    "featuresByLevel": {
+      "1": [
+        "spellcasting-bard",
+        "bardic-inspiration-d6"
+      ],
+      "2": [
+        "jack-of-all-trades",
+        "song-of-rest-d6"
+      ],
+      "3": [
+        "bard-expertise-1",
+        "bard-college"
+      ],
+      "4": [
+        "bard-ability-score-improvement-1"
+      ],
+      "5": [
+        "bardic-inspiration-d8",
+        "font-of-inspiration"
+      ],
+      "6": [
+        "countercharm",
+        "bard-college-improvement-1"
+      ],
+      "8": [
+        "bard-ability-score-improvement-2"
+      ],
+      "9": [
+        "song-of-rest-d8"
+      ],
+      "10": [
+        "bard-expertise-2",
+        "bardic-inspiration-d10",
+        "magical-secrets-1"
+      ],
+      "12": [
+        "bard-ability-score-improvement-3"
+      ],
+      "13": [
+        "song-of-rest-d10"
+      ],
+      "14": [
+        "magical-secrets-2",
+        "bard-college-improvement-2"
+      ],
+      "15": [
+        "bardic-inspiration-d12"
+      ],
+      "16": [
+        "bard-ability-score-improvement-4"
+      ],
+      "17": [
+        "song-of-rest-d12"
+      ],
+      "18": [
+        "magical-secrets-3"
+      ],
+      "19": [
+        "bard-ability-score-improvement-5"
+      ],
+      "20": [
+        "superior-inspiration"
+      ]
+    },
+    "classSpecificByLevel": {
+      "1": {
+        "bardic_inspiration_die": 6,
+        "song_of_rest_die": 0,
+        "magical_secrets_max_5": 0,
+        "magical_secrets_max_7": 0,
+        "magical_secrets_max_9": 0
+      },
+      "2": {
+        "bardic_inspiration_die": 6,
+        "song_of_rest_die": 6,
+        "magical_secrets_max_5": 0,
+        "magical_secrets_max_7": 0,
+        "magical_secrets_max_9": 0
+      },
+      "3": {
+        "bardic_inspiration_die": 6,
+        "song_of_rest_die": 6,
+        "magical_secrets_max_5": 0,
+        "magical_secrets_max_7": 0,
+        "magical_secrets_max_9": 0
+      },
+      "4": {
+        "bardic_inspiration_die": 6,
+        "song_of_rest_die": 6,
+        "magical_secrets_max_5": 0,
+        "magical_secrets_max_7": 0,
+        "magical_secrets_max_9": 0
+      },
+      "5": {
+        "bardic_inspiration_die": 8,
+        "song_of_rest_die": 6,
+        "magical_secrets_max_5": 0,
+        "magical_secrets_max_7": 0,
+        "magical_secrets_max_9": 0
+      },
+      "6": {
+        "bardic_inspiration_die": 8,
+        "song_of_rest_die": 6,
+        "magical_secrets_max_5": 0,
+        "magical_secrets_max_7": 0,
+        "magical_secrets_max_9": 0
+      },
+      "7": {
+        "bardic_inspiration_die": 8,
+        "song_of_rest_die": 6,
+        "magical_secrets_max_5": 0,
+        "magical_secrets_max_7": 0,
+        "magical_secrets_max_9": 0
+      },
+      "8": {
+        "bardic_inspiration_die": 8,
+        "song_of_rest_die": 6,
+        "magical_secrets_max_5": 0,
+        "magical_secrets_max_7": 0,
+        "magical_secrets_max_9": 0
+      },
+      "9": {
+        "bardic_inspiration_die": 8,
+        "song_of_rest_die": 8,
+        "magical_secrets_max_5": 0,
+        "magical_secrets_max_7": 0,
+        "magical_secrets_max_9": 0
+      },
+      "10": {
+        "bardic_inspiration_die": 10,
+        "song_of_rest_die": 8,
+        "magical_secrets_max_5": 2,
+        "magical_secrets_max_7": 0,
+        "magical_secrets_max_9": 0
+      },
+      "11": {
+        "bardic_inspiration_die": 10,
+        "song_of_rest_die": 8,
+        "magical_secrets_max_5": 2,
+        "magical_secrets_max_7": 0,
+        "magical_secrets_max_9": 0
+      },
+      "12": {
+        "bardic_inspiration_die": 10,
+        "song_of_rest_die": 8,
+        "magical_secrets_max_5": 2,
+        "magical_secrets_max_7": 0,
+        "magical_secrets_max_9": 0
+      },
+      "13": {
+        "bardic_inspiration_die": 10,
+        "song_of_rest_die": 10,
+        "magical_secrets_max_5": 2,
+        "magical_secrets_max_7": 0,
+        "magical_secrets_max_9": 0
+      },
+      "14": {
+        "bardic_inspiration_die": 10,
+        "song_of_rest_die": 10,
+        "magical_secrets_max_5": 2,
+        "magical_secrets_max_7": 2,
+        "magical_secrets_max_9": 0
+      },
+      "15": {
+        "bardic_inspiration_die": 12,
+        "song_of_rest_die": 10,
+        "magical_secrets_max_5": 2,
+        "magical_secrets_max_7": 2,
+        "magical_secrets_max_9": 0
+      },
+      "16": {
+        "bardic_inspiration_die": 12,
+        "song_of_rest_die": 10,
+        "magical_secrets_max_5": 2,
+        "magical_secrets_max_7": 2,
+        "magical_secrets_max_9": 0
+      },
+      "17": {
+        "bardic_inspiration_die": 12,
+        "song_of_rest_die": 12,
+        "magical_secrets_max_5": 2,
+        "magical_secrets_max_7": 2,
+        "magical_secrets_max_9": 0
+      },
+      "18": {
+        "bardic_inspiration_die": 12,
+        "song_of_rest_die": 12,
+        "magical_secrets_max_5": 2,
+        "magical_secrets_max_7": 2,
+        "magical_secrets_max_9": 2
+      },
+      "19": {
+        "bardic_inspiration_die": 12,
+        "song_of_rest_die": 12,
+        "magical_secrets_max_5": 2,
+        "magical_secrets_max_7": 2,
+        "magical_secrets_max_9": 2
+      },
+      "20": {
+        "bardic_inspiration_die": 12,
+        "song_of_rest_die": 12,
+        "magical_secrets_max_5": 2,
+        "magical_secrets_max_7": 2,
+        "magical_secrets_max_9": 2
+      }
+    },
+    "spellcasting": {
+      "ability": "cha",
+      "startLevel": 1,
+      "preparationMode": "known",
+      "progression": "full",
+      "ritualCasting": true,
+      "cantripsKnownByLevel": [
+        2,
+        2,
+        2,
+        3,
+        3,
+        3,
+        3,
+        3,
+        3,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4
+      ],
+      "spellsKnownByLevel": [
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        14,
+        15,
+        15,
+        16,
+        18,
+        19,
+        19,
+        20,
+        22,
+        22,
+        22
+      ],
+      "slotsByLevel": [
+        [
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          3,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          1,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          1,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          1,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          1,
+          1,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          1,
+          1,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          1,
+          1,
+          1,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          1,
+          1,
+          1,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          3,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          3,
+          2,
+          1,
+          1,
+          1
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          3,
+          2,
+          2,
+          1,
+          1
+        ]
+      ]
+    },
+    "multiclassing": {
+      "prerequisites": [
+        {
+          "ability": "cha",
+          "minimum": 13
+        }
+      ],
+      "prerequisiteOptions": [],
+      "proficiencies": {
+        "armor": [
+          "light"
+        ],
+        "weapons": [],
+        "tools": []
+      },
+      "skillChoices": {
+        "choose": 1,
+        "from": [
+          "acrobatics",
+          "animal-handling",
+          "arcana",
+          "athletics",
+          "deception",
+          "history",
+          "insight",
+          "intimidation",
+          "investigation",
+          "medicine",
+          "nature",
+          "perception",
+          "performance",
+          "persuasion",
+          "religion",
+          "sleight-of-hand",
+          "stealth",
+          "survival"
+        ]
+      }
+    },
+    "startingEquipment": [
+      {
+        "itemId": "leather-armor",
+        "name": "Leather Armor",
+        "quantity": 1
+      },
+      {
+        "itemId": "dagger",
+        "name": "Dagger",
+        "quantity": 1
+      }
+    ],
+    "startingEquipmentOptions": [
+      {
+        "desc": "(a) a rapier, (b) a longsword, or (c) any simple weapon",
+        "choose": 1,
+        "options": [
+          {
+            "itemId": "rapier",
+            "name": "Rapier",
+            "quantity": 1
+          },
+          {
+            "itemId": "longsword",
+            "name": "Longsword",
+            "quantity": 1
+          },
+          {
+            "categoryId": "simple-weapons",
+            "categoryName": "Simple Weapons",
+            "itemOptions": [
+              {
+                "itemId": "club",
+                "name": "Club"
+              },
+              {
+                "itemId": "dagger",
+                "name": "Dagger"
+              },
+              {
+                "itemId": "greatclub",
+                "name": "Greatclub"
+              },
+              {
+                "itemId": "handaxe",
+                "name": "Handaxe"
+              },
+              {
+                "itemId": "javelin",
+                "name": "Javelin"
+              },
+              {
+                "itemId": "light-hammer",
+                "name": "Light hammer"
+              },
+              {
+                "itemId": "mace",
+                "name": "Mace"
+              },
+              {
+                "itemId": "quarterstaff",
+                "name": "Quarterstaff"
+              },
+              {
+                "itemId": "sickle",
+                "name": "Sickle"
+              },
+              {
+                "itemId": "spear",
+                "name": "Spear"
+              },
+              {
+                "itemId": "crossbow-light",
+                "name": "Crossbow, light"
+              },
+              {
+                "itemId": "dart",
+                "name": "Dart"
+              },
+              {
+                "itemId": "shortbow",
+                "name": "Shortbow"
+              },
+              {
+                "itemId": "sling",
+                "name": "Sling"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "desc": "(a) a diplomat’s pack or (b) an entertainer’s pack",
+        "choose": 1,
+        "options": [
+          {
+            "itemId": "diplomats-pack",
+            "name": "Diplomat's Pack",
+            "quantity": 1
+          },
+          {
+            "itemId": "entertainers-pack",
+            "name": "Entertainer's Pack",
+            "quantity": 1
+          }
+        ]
+      },
+      {
+        "desc": "(a) a lute or (b) any other musical instrument",
+        "choose": 1,
+        "options": [
+          {
+            "itemId": "lute",
+            "name": "Lute",
+            "quantity": 1
+          },
+          {
+            "categoryId": "musical-instruments",
+            "categoryName": "Musical Instruments",
+            "itemOptions": [
+              {
+                "itemId": "bagpipes",
+                "name": "Bagpipes"
+              },
+              {
+                "itemId": "drum",
+                "name": "Drum"
+              },
+              {
+                "itemId": "dulcimer",
+                "name": "Dulcimer"
+              },
+              {
+                "itemId": "flute",
+                "name": "Flute"
+              },
+              {
+                "itemId": "lute",
+                "name": "Lute"
+              },
+              {
+                "itemId": "lyre",
+                "name": "Lyre"
+              },
+              {
+                "itemId": "horn",
+                "name": "Horn"
+              },
+              {
+                "itemId": "pan-flute",
+                "name": "Pan flute"
+              },
+              {
+                "itemId": "shawm",
+                "name": "Shawm"
+              },
+              {
+                "itemId": "viol",
+                "name": "Viol"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "cleric",
+    "kind": "class",
+    "name": "Cleric",
+    "source": "srd-5.1",
+    "hitDie": 8,
+    "savingThrowProficiencies": [
+      "wis",
+      "cha"
+    ],
+    "armorProficiencies": [
+      "light",
+      "medium",
+      "shield"
+    ],
+    "weaponProficiencies": [
+      "simple"
+    ],
+    "toolProficiencies": [],
+    "skillChoices": {
+      "choose": 2,
+      "from": [
+        "history",
+        "insight",
+        "medicine",
+        "persuasion",
+        "religion"
+      ]
+    },
+    "subclassIds": [
+      "life"
+    ],
+    "subclassLevel": 1,
+    "asiLevels": [
+      4,
+      8,
+      12,
+      16,
+      19
+    ],
+    "featuresByLevel": {
+      "1": [
+        "spellcasting-cleric",
+        "divine-domain",
+        "domain-spells-1"
+      ],
+      "2": [
+        "channel-divinity-1-rest",
+        "channel-divinity-turn-undead",
+        "divine-domain-improvement-1"
+      ],
+      "3": [
+        "domain-spells-2"
+      ],
+      "4": [
+        "cleric-ability-score-improvement-1"
+      ],
+      "5": [
+        "domain-spells-3",
+        "destroy-undead-cr-1-2-or-below"
+      ],
+      "6": [
+        "channel-divinity-2-rest",
+        "divine-domain-improvement-2"
+      ],
+      "7": [
+        "domain-spells-4"
+      ],
+      "8": [
+        "cleric-ability-score-improvement-2",
+        "destroy-undead-cr-1-or-below",
+        "divine-domain-improvement-3"
+      ],
+      "9": [
+        "domain-spells-5"
+      ],
+      "10": [
+        "divine-intervention"
+      ],
+      "11": [
+        "destroy-undead-cr-2-or-below"
+      ],
+      "12": [
+        "cleric-ability-score-improvement-3"
+      ],
+      "14": [
+        "destroy-undead-cr-3-or-below"
+      ],
+      "16": [
+        "cleric-ability-score-improvement-4"
+      ],
+      "17": [
+        "destroy-undead-cr-4-or-below",
+        "divine-domain-improvement-4"
+      ],
+      "18": [
+        "channel-divinity-3-rest"
+      ],
+      "19": [
+        "cleric-ability-score-improvement-5"
+      ],
+      "20": [
+        "divine-intervention-improvement"
+      ]
+    },
+    "classSpecificByLevel": {
+      "1": {
+        "channel_divinity_charges": 0,
+        "destroy_undead_cr": 0
+      },
+      "2": {
+        "channel_divinity_charges": 1,
+        "destroy_undead_cr": 0
+      },
+      "3": {
+        "channel_divinity_charges": 1,
+        "destroy_undead_cr": 0
+      },
+      "4": {
+        "channel_divinity_charges": 1,
+        "destroy_undead_cr": 0
+      },
+      "5": {
+        "channel_divinity_charges": 1,
+        "destroy_undead_cr": 0.5
+      },
+      "6": {
+        "channel_divinity_charges": 2,
+        "destroy_undead_cr": 0.5
+      },
+      "7": {
+        "channel_divinity_charges": 2,
+        "destroy_undead_cr": 0.5
+      },
+      "8": {
+        "channel_divinity_charges": 2,
+        "destroy_undead_cr": 1
+      },
+      "9": {
+        "channel_divinity_charges": 2,
+        "destroy_undead_cr": 1
+      },
+      "10": {
+        "channel_divinity_charges": 2,
+        "destroy_undead_cr": 1
+      },
+      "11": {
+        "channel_divinity_charges": 2,
+        "destroy_undead_cr": 2
+      },
+      "12": {
+        "channel_divinity_charges": 2,
+        "destroy_undead_cr": 2
+      },
+      "13": {
+        "channel_divinity_charges": 2,
+        "destroy_undead_cr": 2
+      },
+      "14": {
+        "channel_divinity_charges": 2,
+        "destroy_undead_cr": 3
+      },
+      "15": {
+        "channel_divinity_charges": 2,
+        "destroy_undead_cr": 3
+      },
+      "16": {
+        "channel_divinity_charges": 2,
+        "destroy_undead_cr": 3
+      },
+      "17": {
+        "channel_divinity_charges": 2,
+        "destroy_undead_cr": 4
+      },
+      "18": {
+        "channel_divinity_charges": 3,
+        "destroy_undead_cr": 4
+      },
+      "19": {
+        "channel_divinity_charges": 3,
+        "destroy_undead_cr": 4
+      },
+      "20": {
+        "channel_divinity_charges": 3,
+        "destroy_undead_cr": 4
+      }
+    },
+    "spellcasting": {
+      "ability": "wis",
+      "startLevel": 1,
+      "preparationMode": "prepared",
+      "progression": "full",
+      "ritualCasting": true,
+      "cantripsKnownByLevel": [
+        3,
+        3,
+        3,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        5,
+        5,
+        5,
+        5,
+        5,
+        5,
+        5,
+        5,
+        5,
+        5,
+        5
+      ],
+      "spellsKnownByLevel": null,
+      "slotsByLevel": [
+        [
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          3,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          1,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          1,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          1,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          1,
+          1,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          1,
+          1,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          1,
+          1,
+          1,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          1,
+          1,
+          1,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          3,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          3,
+          2,
+          1,
+          1,
+          1
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          3,
+          2,
+          2,
+          1,
+          1
+        ]
+      ]
+    },
+    "multiclassing": {
+      "prerequisites": [
+        {
+          "ability": "wis",
+          "minimum": 13
+        }
+      ],
+      "prerequisiteOptions": [],
+      "proficiencies": {
+        "armor": [
+          "light",
+          "medium",
+          "shield"
+        ],
+        "weapons": [],
+        "tools": []
+      },
+      "skillChoices": null
+    },
+    "startingEquipment": [
+      {
+        "itemId": "shield",
+        "name": "Shield",
+        "quantity": 1
+      }
+    ],
+    "startingEquipmentOptions": [
+      {
+        "desc": "(a) a mace or (b) a warhammer (if proficient)",
+        "choose": 1,
+        "options": [
+          {
+            "itemId": "mace",
+            "name": "Mace",
+            "quantity": 1
+          },
+          {
+            "itemId": "warhammer",
+            "name": "Warhammer",
+            "quantity": 1
+          }
+        ]
+      },
+      {
+        "desc": "(a) scale mail, (b) leather armor, or (c) chain mail (if proficient)",
+        "choose": 1,
+        "options": [
+          {
+            "itemId": "scale-mail",
+            "name": "Scale Mail",
+            "quantity": 1
+          },
+          {
+            "itemId": "leather-armor",
+            "name": "Leather Armor",
+            "quantity": 1
+          },
+          {
+            "itemId": "chain-mail",
+            "name": "Chain Mail",
+            "quantity": 1
+          }
+        ]
+      },
+      {
+        "desc": "(a) a light crossbow and 20 bolts or (b) any simple weapon",
+        "choose": 1,
+        "options": [
+          {
+            "items": [
+              {
+                "itemId": "crossbow-light",
+                "name": "Crossbow, light",
+                "quantity": 1
+              },
+              {
+                "itemId": "crossbow-bolt",
+                "name": "Crossbow bolt",
+                "quantity": 20
+              }
+            ]
+          },
+          {
+            "categoryId": "simple-weapons",
+            "categoryName": "Simple Weapons",
+            "itemOptions": [
+              {
+                "itemId": "club",
+                "name": "Club"
+              },
+              {
+                "itemId": "dagger",
+                "name": "Dagger"
+              },
+              {
+                "itemId": "greatclub",
+                "name": "Greatclub"
+              },
+              {
+                "itemId": "handaxe",
+                "name": "Handaxe"
+              },
+              {
+                "itemId": "javelin",
+                "name": "Javelin"
+              },
+              {
+                "itemId": "light-hammer",
+                "name": "Light hammer"
+              },
+              {
+                "itemId": "mace",
+                "name": "Mace"
+              },
+              {
+                "itemId": "quarterstaff",
+                "name": "Quarterstaff"
+              },
+              {
+                "itemId": "sickle",
+                "name": "Sickle"
+              },
+              {
+                "itemId": "spear",
+                "name": "Spear"
+              },
+              {
+                "itemId": "crossbow-light",
+                "name": "Crossbow, light"
+              },
+              {
+                "itemId": "dart",
+                "name": "Dart"
+              },
+              {
+                "itemId": "shortbow",
+                "name": "Shortbow"
+              },
+              {
+                "itemId": "sling",
+                "name": "Sling"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "desc": "(a) a priest’s pack or (b) an explorer’s pack",
+        "choose": 1,
+        "options": [
+          {
+            "itemId": "priests-pack",
+            "name": "Priest's Pack",
+            "quantity": 1
+          },
+          {
+            "itemId": "explorers-pack",
+            "name": "Explorer's Pack",
+            "quantity": 1
+          }
+        ]
+      },
+      {
+        "desc": "holy symbol",
+        "choose": 1,
+        "options": [
+          {
+            "categoryId": "holy-symbols",
+            "categoryName": "Holy Symbols",
+            "itemOptions": [
+              {
+                "itemId": "amulet",
+                "name": "Amulet"
+              },
+              {
+                "itemId": "emblem",
+                "name": "Emblem"
+              },
+              {
+                "itemId": "reliquary",
+                "name": "Reliquary"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "druid",
+    "kind": "class",
+    "name": "Druid",
+    "source": "srd-5.1",
+    "hitDie": 8,
+    "savingThrowProficiencies": [
+      "int",
+      "wis"
+    ],
+    "armorProficiencies": [
+      "light",
+      "medium",
+      "shield"
+    ],
+    "weaponProficiencies": [
+      "clubs",
+      "daggers",
+      "javelins",
+      "maces",
+      "quarterstaffs",
+      "sickles",
+      "spears",
+      "darts",
+      "slings",
+      "scimitars"
+    ],
+    "toolProficiencies": [
+      "herbalism-kit"
+    ],
+    "skillChoices": {
+      "choose": 2,
+      "from": [
+        "arcana",
+        "animal-handling",
+        "insight",
+        "medicine",
+        "nature",
+        "perception",
+        "religion",
+        "survival"
+      ]
+    },
+    "subclassIds": [
+      "land"
+    ],
+    "subclassLevel": 2,
+    "asiLevels": [
+      4,
+      8,
+      12,
+      16,
+      19
+    ],
+    "featuresByLevel": {
+      "1": [
+        "spellcasting-druid",
+        "druidic"
+      ],
+      "2": [
+        "wild-shape-cr-1-4-or-below-no-flying-or-swim-speed",
+        "druid-circle"
+      ],
+      "4": [
+        "wild-shape-cr-1-2-or-below-no-flying-speed",
+        "druid-ability-score-improvement-1"
+      ],
+      "6": [
+        "druid-circle-improvement-1"
+      ],
+      "8": [
+        "wild-shape-cr-1-or-below",
+        "druid-ability-score-improvement-2"
+      ],
+      "10": [
+        "druid-circle-improvement-2"
+      ],
+      "12": [
+        "druid-ability-score-improvement-3"
+      ],
+      "14": [
+        "druid-circle-improvement-3"
+      ],
+      "16": [
+        "druid-ability-score-improvement-4"
+      ],
+      "18": [
+        "druid-timeless-body",
+        "beast-spells"
+      ],
+      "19": [
+        "druid-ability-score-improvement-5"
+      ],
+      "20": [
+        "archdruid"
+      ]
+    },
+    "classSpecificByLevel": {
+      "1": {
+        "wild_shape_max_cr": 0,
+        "wild_shape_swim": false,
+        "wild_shape_fly": false
+      },
+      "2": {
+        "wild_shape_max_cr": 0.25,
+        "wild_shape_swim": false,
+        "wild_shape_fly": false
+      },
+      "3": {
+        "wild_shape_max_cr": 0.25,
+        "wild_shape_swim": false,
+        "wild_shape_fly": false
+      },
+      "4": {
+        "wild_shape_max_cr": 0.5,
+        "wild_shape_swim": true,
+        "wild_shape_fly": false
+      },
+      "5": {
+        "wild_shape_max_cr": 0.5,
+        "wild_shape_swim": true,
+        "wild_shape_fly": false
+      },
+      "6": {
+        "wild_shape_max_cr": 0.5,
+        "wild_shape_swim": true,
+        "wild_shape_fly": false
+      },
+      "7": {
+        "wild_shape_max_cr": 1,
+        "wild_shape_swim": true,
+        "wild_shape_fly": false
+      },
+      "8": {
+        "wild_shape_max_cr": 1,
+        "wild_shape_swim": true,
+        "wild_shape_fly": true
+      },
+      "9": {
+        "wild_shape_max_cr": 1,
+        "wild_shape_swim": true,
+        "wild_shape_fly": true
+      },
+      "10": {
+        "wild_shape_max_cr": 1,
+        "wild_shape_swim": true,
+        "wild_shape_fly": true
+      },
+      "11": {
+        "wild_shape_max_cr": 1,
+        "wild_shape_swim": true,
+        "wild_shape_fly": true
+      },
+      "12": {
+        "wild_shape_max_cr": 1,
+        "wild_shape_swim": true,
+        "wild_shape_fly": true
+      },
+      "13": {
+        "wild_shape_max_cr": 1,
+        "wild_shape_swim": true,
+        "wild_shape_fly": true
+      },
+      "14": {
+        "wild_shape_max_cr": 1,
+        "wild_shape_swim": true,
+        "wild_shape_fly": true
+      },
+      "15": {
+        "wild_shape_max_cr": 1,
+        "wild_shape_swim": true,
+        "wild_shape_fly": true
+      },
+      "16": {
+        "wild_shape_max_cr": 1,
+        "wild_shape_swim": true,
+        "wild_shape_fly": true
+      },
+      "17": {
+        "wild_shape_max_cr": 1,
+        "wild_shape_swim": true,
+        "wild_shape_fly": true
+      },
+      "18": {
+        "wild_shape_max_cr": 1,
+        "wild_shape_swim": true,
+        "wild_shape_fly": true
+      },
+      "19": {
+        "wild_shape_max_cr": 1,
+        "wild_shape_swim": true,
+        "wild_shape_fly": true
+      },
+      "20": {
+        "wild_shape_max_cr": 1,
+        "wild_shape_swim": true,
+        "wild_shape_fly": true
+      }
+    },
+    "spellcasting": {
+      "ability": "wis",
+      "startLevel": 1,
+      "preparationMode": "prepared",
+      "progression": "full",
+      "ritualCasting": true,
+      "cantripsKnownByLevel": [
+        2,
+        2,
+        2,
+        3,
+        3,
+        3,
+        3,
+        3,
+        3,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4
+      ],
+      "spellsKnownByLevel": null,
+      "slotsByLevel": [
+        [
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          3,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          1,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          1,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          1,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          1,
+          1,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          1,
+          1,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          1,
+          1,
+          1,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          1,
+          1,
+          1,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          3,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          3,
+          2,
+          1,
+          1,
+          1
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          3,
+          2,
+          2,
+          1,
+          1
+        ]
+      ]
+    },
+    "multiclassing": {
+      "prerequisites": [
+        {
+          "ability": "wis",
+          "minimum": 13
+        }
+      ],
+      "prerequisiteOptions": [],
+      "proficiencies": {
+        "armor": [
+          "light",
+          "medium",
+          "shield"
+        ],
+        "weapons": [],
+        "tools": []
+      },
+      "skillChoices": null
+    },
+    "startingEquipment": [
+      {
+        "itemId": "leather-armor",
+        "name": "Leather Armor",
+        "quantity": 1
+      },
+      {
+        "itemId": "explorers-pack",
+        "name": "Explorer's Pack",
+        "quantity": 1
+      }
+    ],
+    "startingEquipmentOptions": [
+      {
+        "desc": "(a) a wooden shield or (b) any simple weapon",
+        "choose": 1,
+        "options": [
+          {
+            "itemId": "shield",
+            "name": "Shield",
+            "quantity": 1
+          },
+          {
+            "categoryId": "simple-weapons",
+            "categoryName": "Simple Weapons",
+            "itemOptions": [
+              {
+                "itemId": "club",
+                "name": "Club"
+              },
+              {
+                "itemId": "dagger",
+                "name": "Dagger"
+              },
+              {
+                "itemId": "greatclub",
+                "name": "Greatclub"
+              },
+              {
+                "itemId": "handaxe",
+                "name": "Handaxe"
+              },
+              {
+                "itemId": "javelin",
+                "name": "Javelin"
+              },
+              {
+                "itemId": "light-hammer",
+                "name": "Light hammer"
+              },
+              {
+                "itemId": "mace",
+                "name": "Mace"
+              },
+              {
+                "itemId": "quarterstaff",
+                "name": "Quarterstaff"
+              },
+              {
+                "itemId": "sickle",
+                "name": "Sickle"
+              },
+              {
+                "itemId": "spear",
+                "name": "Spear"
+              },
+              {
+                "itemId": "crossbow-light",
+                "name": "Crossbow, light"
+              },
+              {
+                "itemId": "dart",
+                "name": "Dart"
+              },
+              {
+                "itemId": "shortbow",
+                "name": "Shortbow"
+              },
+              {
+                "itemId": "sling",
+                "name": "Sling"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "desc": "(a) a scimitar or (b) any simple melee weapon",
+        "choose": 1,
+        "options": [
+          {
+            "itemId": "scimitar",
+            "name": "Scimitar",
+            "quantity": 1
+          },
+          {
+            "categoryId": "simple-melee-weapons",
+            "categoryName": "Simple Melee Weapons",
+            "itemOptions": [
+              {
+                "itemId": "club",
+                "name": "Club"
+              },
+              {
+                "itemId": "dagger",
+                "name": "Dagger"
+              },
+              {
+                "itemId": "greatclub",
+                "name": "Greatclub"
+              },
+              {
+                "itemId": "handaxe",
+                "name": "Handaxe"
+              },
+              {
+                "itemId": "javelin",
+                "name": "Javelin"
+              },
+              {
+                "itemId": "light-hammer",
+                "name": "Light hammer"
+              },
+              {
+                "itemId": "mace",
+                "name": "Mace"
+              },
+              {
+                "itemId": "quarterstaff",
+                "name": "Quarterstaff"
+              },
+              {
+                "itemId": "sickle",
+                "name": "Sickle"
+              },
+              {
+                "itemId": "spear",
+                "name": "Spear"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "desc": "druidic focus",
+        "choose": 1,
+        "options": [
+          {
+            "categoryId": "druidic-foci",
+            "categoryName": "Druidic Foci",
+            "itemOptions": [
+              {
+                "itemId": "sprig-of-mistletoe",
+                "name": "Sprig of mistletoe"
+              },
+              {
+                "itemId": "totem",
+                "name": "Totem"
+              },
+              {
+                "itemId": "wooden-staff",
+                "name": "Wooden staff"
+              },
+              {
+                "itemId": "yew-wand",
+                "name": "Yew wand"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "fighter",
+    "kind": "class",
+    "name": "Fighter",
+    "source": "srd-5.1",
+    "hitDie": 10,
+    "savingThrowProficiencies": [
+      "str",
+      "con"
+    ],
+    "armorProficiencies": [
+      "light",
+      "medium",
+      "heavy",
+      "shield"
+    ],
+    "weaponProficiencies": [
+      "simple",
+      "martial"
+    ],
+    "toolProficiencies": [],
+    "skillChoices": {
+      "choose": 2,
+      "from": [
+        "acrobatics",
+        "animal-handling",
+        "athletics",
+        "history",
+        "insight",
+        "intimidation",
+        "perception",
+        "survival"
+      ]
+    },
+    "subclassIds": [
+      "champion"
+    ],
+    "subclassLevel": 3,
+    "asiLevels": [
+      4,
+      6,
+      8,
+      12,
+      14,
+      16,
+      19
+    ],
+    "featuresByLevel": {
+      "1": [
+        "fighter-fighting-style",
+        "second-wind"
+      ],
+      "2": [
+        "action-surge-1-use"
+      ],
+      "3": [
+        "martial-archetype"
+      ],
+      "4": [
+        "fighter-ability-score-improvement-1"
+      ],
+      "5": [
+        "extra-attack-1"
+      ],
+      "6": [
+        "fighter-ability-score-improvement-2"
+      ],
+      "7": [
+        "martial-archetype-improvement-1"
+      ],
+      "8": [
+        "fighter-ability-score-improvement-3"
+      ],
+      "9": [
+        "indomitable-1-use"
+      ],
+      "10": [
+        "martial-archetype-improvement-2"
+      ],
+      "11": [
+        "extra-attack-2"
+      ],
+      "12": [
+        "fighter-ability-score-improvement-4"
+      ],
+      "13": [
+        "indomitable-2-uses"
+      ],
+      "14": [
+        "fighter-ability-score-improvement-5"
+      ],
+      "15": [
+        "martial-archetype-improvement-3"
+      ],
+      "16": [
+        "fighter-ability-score-improvement-6"
+      ],
+      "17": [
+        "action-surge-2-uses",
+        "indomitable-3-uses"
+      ],
+      "18": [
+        "martial-archetype-improvement-4"
+      ],
+      "19": [
+        "fighter-ability-score-improvement-7"
+      ],
+      "20": [
+        "extra-attack-3"
+      ]
+    },
+    "classSpecificByLevel": {
+      "1": {
+        "action_surges": 0,
+        "indomitable_uses": 0,
+        "extra_attacks": 0
+      },
+      "2": {
+        "action_surges": 1,
+        "indomitable_uses": 0,
+        "extra_attacks": 0
+      },
+      "3": {
+        "action_surges": 1,
+        "indomitable_uses": 0,
+        "extra_attacks": 0
+      },
+      "4": {
+        "action_surges": 1,
+        "indomitable_uses": 0,
+        "extra_attacks": 0
+      },
+      "5": {
+        "action_surges": 1,
+        "indomitable_uses": 0,
+        "extra_attacks": 1
+      },
+      "6": {
+        "action_surges": 1,
+        "indomitable_uses": 0,
+        "extra_attacks": 1
+      },
+      "7": {
+        "action_surges": 1,
+        "indomitable_uses": 0,
+        "extra_attacks": 1
+      },
+      "8": {
+        "action_surges": 1,
+        "indomitable_uses": 0,
+        "extra_attacks": 1
+      },
+      "9": {
+        "action_surges": 1,
+        "indomitable_uses": 1,
+        "extra_attacks": 1
+      },
+      "10": {
+        "action_surges": 1,
+        "indomitable_uses": 1,
+        "extra_attacks": 1
+      },
+      "11": {
+        "action_surges": 1,
+        "indomitable_uses": 1,
+        "extra_attacks": 2
+      },
+      "12": {
+        "action_surges": 1,
+        "indomitable_uses": 1,
+        "extra_attacks": 2
+      },
+      "13": {
+        "action_surges": 1,
+        "indomitable_uses": 2,
+        "extra_attacks": 2
+      },
+      "14": {
+        "action_surges": 1,
+        "indomitable_uses": 2,
+        "extra_attacks": 2
+      },
+      "15": {
+        "action_surges": 1,
+        "indomitable_uses": 2,
+        "extra_attacks": 2
+      },
+      "16": {
+        "action_surges": 1,
+        "indomitable_uses": 2,
+        "extra_attacks": 2
+      },
+      "17": {
+        "action_surges": 2,
+        "indomitable_uses": 3,
+        "extra_attacks": 2
+      },
+      "18": {
+        "action_surges": 2,
+        "indomitable_uses": 3,
+        "extra_attacks": 2
+      },
+      "19": {
+        "action_surges": 2,
+        "indomitable_uses": 3,
+        "extra_attacks": 2
+      },
+      "20": {
+        "action_surges": 2,
+        "indomitable_uses": 3,
+        "extra_attacks": 3
+      }
+    },
+    "spellcasting": null,
+    "multiclassing": {
+      "prerequisites": [],
+      "prerequisiteOptions": [
+        {
+          "ability": "str",
+          "minimum": 13
+        },
+        {
+          "ability": "dex",
+          "minimum": 13
+        }
+      ],
+      "proficiencies": {
+        "armor": [
+          "light",
+          "medium",
+          "shield"
+        ],
+        "weapons": [
+          "simple",
+          "martial"
+        ],
+        "tools": []
+      },
+      "skillChoices": null
+    },
+    "startingEquipment": [],
+    "startingEquipmentOptions": [
+      {
+        "desc": "(a) chain mail or (b) leather armor, longbow, and 20 arrows",
+        "choose": 1,
+        "options": [
+          {
+            "itemId": "chain-mail",
+            "name": "Chain Mail",
+            "quantity": 1
+          },
+          {
+            "items": [
+              {
+                "itemId": "leather-armor",
+                "name": "Leather Armor",
+                "quantity": 1
+              },
+              {
+                "itemId": "longbow",
+                "name": "Longbow",
+                "quantity": 1
+              },
+              {
+                "itemId": "arrow",
+                "name": "Arrow",
+                "quantity": 20
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "desc": "(a) a martial weapon and a shield or (b) two martial weapons",
+        "choose": 1,
+        "options": [
+          {
+            "items": [
+              {
+                "categoryId": "martial-weapons",
+                "categoryName": "Martial Weapons",
+                "itemOptions": [
+                  {
+                    "itemId": "battleaxe",
+                    "name": "Battleaxe"
+                  },
+                  {
+                    "itemId": "flail",
+                    "name": "Flail"
+                  },
+                  {
+                    "itemId": "glaive",
+                    "name": "Glaive"
+                  },
+                  {
+                    "itemId": "greataxe",
+                    "name": "Greataxe"
+                  },
+                  {
+                    "itemId": "greatsword",
+                    "name": "Greatsword"
+                  },
+                  {
+                    "itemId": "halberd",
+                    "name": "Halberd"
+                  },
+                  {
+                    "itemId": "lance",
+                    "name": "Lance"
+                  },
+                  {
+                    "itemId": "longsword",
+                    "name": "Longsword"
+                  },
+                  {
+                    "itemId": "maul",
+                    "name": "Maul"
+                  },
+                  {
+                    "itemId": "morningstar",
+                    "name": "Morningstar"
+                  },
+                  {
+                    "itemId": "pike",
+                    "name": "Pike"
+                  },
+                  {
+                    "itemId": "rapier",
+                    "name": "Rapier"
+                  },
+                  {
+                    "itemId": "scimitar",
+                    "name": "Scimitar"
+                  },
+                  {
+                    "itemId": "shortsword",
+                    "name": "Shortsword"
+                  },
+                  {
+                    "itemId": "trident",
+                    "name": "Trident"
+                  },
+                  {
+                    "itemId": "war-pick",
+                    "name": "War pick"
+                  },
+                  {
+                    "itemId": "warhammer",
+                    "name": "Warhammer"
+                  },
+                  {
+                    "itemId": "whip",
+                    "name": "Whip"
+                  },
+                  {
+                    "itemId": "blowgun",
+                    "name": "Blowgun"
+                  },
+                  {
+                    "itemId": "crossbow-hand",
+                    "name": "Crossbow, hand"
+                  },
+                  {
+                    "itemId": "crossbow-heavy",
+                    "name": "Crossbow, heavy"
+                  },
+                  {
+                    "itemId": "longbow",
+                    "name": "Longbow"
+                  },
+                  {
+                    "itemId": "net",
+                    "name": "Net"
+                  }
+                ]
+              },
+              {
+                "itemId": "shield",
+                "name": "Shield",
+                "quantity": 1
+              }
+            ]
+          },
+          {
+            "categoryId": "martial-weapons",
+            "categoryName": "Martial Weapons",
+            "itemOptions": [
+              {
+                "itemId": "battleaxe",
+                "name": "Battleaxe"
+              },
+              {
+                "itemId": "flail",
+                "name": "Flail"
+              },
+              {
+                "itemId": "glaive",
+                "name": "Glaive"
+              },
+              {
+                "itemId": "greataxe",
+                "name": "Greataxe"
+              },
+              {
+                "itemId": "greatsword",
+                "name": "Greatsword"
+              },
+              {
+                "itemId": "halberd",
+                "name": "Halberd"
+              },
+              {
+                "itemId": "lance",
+                "name": "Lance"
+              },
+              {
+                "itemId": "longsword",
+                "name": "Longsword"
+              },
+              {
+                "itemId": "maul",
+                "name": "Maul"
+              },
+              {
+                "itemId": "morningstar",
+                "name": "Morningstar"
+              },
+              {
+                "itemId": "pike",
+                "name": "Pike"
+              },
+              {
+                "itemId": "rapier",
+                "name": "Rapier"
+              },
+              {
+                "itemId": "scimitar",
+                "name": "Scimitar"
+              },
+              {
+                "itemId": "shortsword",
+                "name": "Shortsword"
+              },
+              {
+                "itemId": "trident",
+                "name": "Trident"
+              },
+              {
+                "itemId": "war-pick",
+                "name": "War pick"
+              },
+              {
+                "itemId": "warhammer",
+                "name": "Warhammer"
+              },
+              {
+                "itemId": "whip",
+                "name": "Whip"
+              },
+              {
+                "itemId": "blowgun",
+                "name": "Blowgun"
+              },
+              {
+                "itemId": "crossbow-hand",
+                "name": "Crossbow, hand"
+              },
+              {
+                "itemId": "crossbow-heavy",
+                "name": "Crossbow, heavy"
+              },
+              {
+                "itemId": "longbow",
+                "name": "Longbow"
+              },
+              {
+                "itemId": "net",
+                "name": "Net"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "desc": "(a) a light crossbow and 20 bolts or (b) two handaxes",
+        "choose": 1,
+        "options": [
+          {
+            "items": [
+              {
+                "itemId": "crossbow-light",
+                "name": "Crossbow, light",
+                "quantity": 1
+              },
+              {
+                "itemId": "crossbow-bolt",
+                "name": "Crossbow bolt",
+                "quantity": 20
+              }
+            ]
+          },
+          {
+            "itemId": "handaxe",
+            "name": "Handaxe",
+            "quantity": 2
+          }
+        ]
+      },
+      {
+        "desc": "(a) a dungeoneer’s pack or (b) an explorer’s pack",
+        "choose": 1,
+        "options": [
+          {
+            "itemId": "dungeoneers-pack",
+            "name": "Dungeoneer's Pack",
+            "quantity": 1
+          },
+          {
+            "itemId": "explorers-pack",
+            "name": "Explorer's Pack",
+            "quantity": 1
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "monk",
+    "kind": "class",
+    "name": "Monk",
+    "source": "srd-5.1",
+    "hitDie": 8,
+    "savingThrowProficiencies": [
+      "str",
+      "dex"
+    ],
+    "armorProficiencies": [],
+    "weaponProficiencies": [
+      "simple",
+      "shortswords"
+    ],
+    "toolProficiencies": [],
+    "skillChoices": {
+      "choose": 2,
+      "from": [
+        "acrobatics",
+        "athletics",
+        "history",
+        "insight",
+        "religion",
+        "stealth"
+      ]
+    },
+    "subclassIds": [
+      "open-hand"
+    ],
+    "subclassLevel": 3,
+    "asiLevels": [
+      4,
+      8,
+      12,
+      16,
+      19
+    ],
+    "featuresByLevel": {
+      "1": [
+        "monk-unarmored-defense",
+        "martial-arts"
+      ],
+      "2": [
+        "ki",
+        "flurry-of-blows",
+        "patient-defense",
+        "step-of-the-wind",
+        "unarmored-movement-1"
+      ],
+      "3": [
+        "monastic-tradition",
+        "deflect-missiles"
+      ],
+      "4": [
+        "monk-ability-score-improvement-1",
+        "slow-fall"
+      ],
+      "5": [
+        "monk-extra-attack",
+        "stunning-strike"
+      ],
+      "6": [
+        "ki-empowered-strikes",
+        "monastic-tradition-improvement-1"
+      ],
+      "7": [
+        "monk-evasion",
+        "stillness-of-mind"
+      ],
+      "8": [
+        "monk-ability-score-improvement-2"
+      ],
+      "9": [
+        "unarmored-movement-2"
+      ],
+      "10": [
+        "purity-of-body"
+      ],
+      "11": [
+        "monastic-tradition-improvement-2"
+      ],
+      "12": [
+        "monk-ability-score-improvement-3"
+      ],
+      "13": [
+        "tongue-of-the-sun-and-moon"
+      ],
+      "14": [
+        "diamond-soul"
+      ],
+      "15": [
+        "monk-timeless-body"
+      ],
+      "16": [
+        "monk-ability-score-improvement-4"
+      ],
+      "17": [
+        "monastic-tradition-improvement-3"
+      ],
+      "18": [
+        "empty-body"
+      ],
+      "19": [
+        "monk-ability-score-improvement-5"
+      ],
+      "20": [
+        "perfect-self"
+      ]
+    },
+    "classSpecificByLevel": {
+      "1": {
+        "martial_arts": {
+          "dice_count": 1,
+          "dice_value": 4
+        },
+        "ki_points": 0,
+        "unarmored_movement": 0
+      },
+      "2": {
+        "martial_arts": {
+          "dice_count": 1,
+          "dice_value": 4
+        },
+        "ki_points": 2,
+        "unarmored_movement": 10
+      },
+      "3": {
+        "martial_arts": {
+          "dice_count": 1,
+          "dice_value": 4
+        },
+        "ki_points": 3,
+        "unarmored_movement": 10
+      },
+      "4": {
+        "martial_arts": {
+          "dice_count": 1,
+          "dice_value": 4
+        },
+        "ki_points": 4,
+        "unarmored_movement": 10
+      },
+      "5": {
+        "martial_arts": {
+          "dice_count": 1,
+          "dice_value": 6
+        },
+        "ki_points": 5,
+        "unarmored_movement": 10
+      },
+      "6": {
+        "martial_arts": {
+          "dice_count": 1,
+          "dice_value": 6
+        },
+        "ki_points": 6,
+        "unarmored_movement": 15
+      },
+      "7": {
+        "martial_arts": {
+          "dice_count": 1,
+          "dice_value": 6
+        },
+        "ki_points": 7,
+        "unarmored_movement": 15
+      },
+      "8": {
+        "martial_arts": {
+          "dice_count": 1,
+          "dice_value": 6
+        },
+        "ki_points": 8,
+        "unarmored_movement": 15
+      },
+      "9": {
+        "martial_arts": {
+          "dice_count": 1,
+          "dice_value": 6
+        },
+        "ki_points": 9,
+        "unarmored_movement": 15
+      },
+      "10": {
+        "martial_arts": {
+          "dice_count": 1,
+          "dice_value": 6
+        },
+        "ki_points": 10,
+        "unarmored_movement": 20
+      },
+      "11": {
+        "martial_arts": {
+          "dice_count": 1,
+          "dice_value": 8
+        },
+        "ki_points": 11,
+        "unarmored_movement": 20
+      },
+      "12": {
+        "martial_arts": {
+          "dice_count": 1,
+          "dice_value": 8
+        },
+        "ki_points": 12,
+        "unarmored_movement": 20
+      },
+      "13": {
+        "martial_arts": {
+          "dice_count": 1,
+          "dice_value": 8
+        },
+        "ki_points": 13,
+        "unarmored_movement": 20
+      },
+      "14": {
+        "martial_arts": {
+          "dice_count": 1,
+          "dice_value": 8
+        },
+        "ki_points": 14,
+        "unarmored_movement": 25
+      },
+      "15": {
+        "martial_arts": {
+          "dice_count": 1,
+          "dice_value": 8
+        },
+        "ki_points": 15,
+        "unarmored_movement": 25
+      },
+      "16": {
+        "martial_arts": {
+          "dice_count": 1,
+          "dice_value": 8
+        },
+        "ki_points": 16,
+        "unarmored_movement": 25
+      },
+      "17": {
+        "martial_arts": {
+          "dice_count": 1,
+          "dice_value": 10
+        },
+        "ki_points": 17,
+        "unarmored_movement": 25
+      },
+      "18": {
+        "martial_arts": {
+          "dice_count": 1,
+          "dice_value": 10
+        },
+        "ki_points": 18,
+        "unarmored_movement": 30
+      },
+      "19": {
+        "martial_arts": {
+          "dice_count": 1,
+          "dice_value": 10
+        },
+        "ki_points": 19,
+        "unarmored_movement": 30
+      },
+      "20": {
+        "martial_arts": {
+          "dice_count": 1,
+          "dice_value": 10
+        },
+        "ki_points": 20,
+        "unarmored_movement": 30
+      }
+    },
+    "spellcasting": null,
+    "multiclassing": {
+      "prerequisites": [
+        {
+          "ability": "dex",
+          "minimum": 13
+        },
+        {
+          "ability": "wis",
+          "minimum": 13
+        }
+      ],
+      "prerequisiteOptions": [],
+      "proficiencies": {
+        "armor": [],
+        "weapons": [
+          "simple",
+          "shortswords"
+        ],
+        "tools": []
+      },
+      "skillChoices": null
+    },
+    "startingEquipment": [
+      {
+        "itemId": "dart",
+        "name": "Dart",
+        "quantity": 10
+      }
+    ],
+    "startingEquipmentOptions": [
+      {
+        "desc": "(a) a shortsword or (b) any simple weapon",
+        "choose": 1,
+        "options": [
+          {
+            "itemId": "shortsword",
+            "name": "Shortsword",
+            "quantity": 1
+          },
+          {
+            "categoryId": "simple-weapons",
+            "categoryName": "Simple Weapons",
+            "itemOptions": [
+              {
+                "itemId": "club",
+                "name": "Club"
+              },
+              {
+                "itemId": "dagger",
+                "name": "Dagger"
+              },
+              {
+                "itemId": "greatclub",
+                "name": "Greatclub"
+              },
+              {
+                "itemId": "handaxe",
+                "name": "Handaxe"
+              },
+              {
+                "itemId": "javelin",
+                "name": "Javelin"
+              },
+              {
+                "itemId": "light-hammer",
+                "name": "Light hammer"
+              },
+              {
+                "itemId": "mace",
+                "name": "Mace"
+              },
+              {
+                "itemId": "quarterstaff",
+                "name": "Quarterstaff"
+              },
+              {
+                "itemId": "sickle",
+                "name": "Sickle"
+              },
+              {
+                "itemId": "spear",
+                "name": "Spear"
+              },
+              {
+                "itemId": "crossbow-light",
+                "name": "Crossbow, light"
+              },
+              {
+                "itemId": "dart",
+                "name": "Dart"
+              },
+              {
+                "itemId": "shortbow",
+                "name": "Shortbow"
+              },
+              {
+                "itemId": "sling",
+                "name": "Sling"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "desc": "(a) a dungeoneer’s pack or (b) an explorer’s pack",
+        "choose": 1,
+        "options": [
+          {
+            "itemId": "dungeoneers-pack",
+            "name": "Dungeoneer's Pack",
+            "quantity": 1
+          },
+          {
+            "itemId": "explorers-pack",
+            "name": "Explorer's Pack",
+            "quantity": 1
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "paladin",
+    "kind": "class",
+    "name": "Paladin",
+    "source": "srd-5.1",
+    "hitDie": 10,
+    "savingThrowProficiencies": [
+      "wis",
+      "cha"
+    ],
+    "armorProficiencies": [
+      "light",
+      "medium",
+      "heavy",
+      "shield"
+    ],
+    "weaponProficiencies": [
+      "simple",
+      "martial"
+    ],
+    "toolProficiencies": [],
+    "skillChoices": {
+      "choose": 2,
+      "from": [
+        "athletics",
+        "insight",
+        "intimidation",
+        "medicine",
+        "persuasion",
+        "religion"
+      ]
+    },
+    "subclassIds": [
+      "devotion"
+    ],
+    "subclassLevel": 3,
+    "asiLevels": [
+      4,
+      8,
+      12,
+      16,
+      19
+    ],
+    "featuresByLevel": {
+      "1": [
+        "divine-sense",
+        "lay-on-hands"
+      ],
+      "2": [
+        "paladin-fighting-style",
+        "spellcasting-paladin",
+        "divine-smite"
+      ],
+      "3": [
+        "divine-health",
+        "sacred-oath",
+        "oath-spells",
+        "channel-divinity"
+      ],
+      "4": [
+        "paladin-ability-score-improvement-1"
+      ],
+      "5": [
+        "paladin-extra-attack"
+      ],
+      "6": [
+        "aura-of-protection"
+      ],
+      "7": [
+        "sacred-oath-improvement-1"
+      ],
+      "8": [
+        "paladin-ability-score-improvement-2"
+      ],
+      "10": [
+        "aura-of-courage"
+      ],
+      "11": [
+        "improved-divine-smite"
+      ],
+      "12": [
+        "paladin-ability-score-improvement-3"
+      ],
+      "14": [
+        "cleansing-touch"
+      ],
+      "15": [
+        "sacred-oath-improvement-2"
+      ],
+      "16": [
+        "paladin-ability-score-improvement-4"
+      ],
+      "18": [
+        "aura-improvements"
+      ],
+      "19": [
+        "paladin-ability-score-improvement-5"
+      ],
+      "20": [
+        "sacred-oath-improvement-3"
+      ]
+    },
+    "classSpecificByLevel": {
+      "1": {
+        "aura_range": 0
+      },
+      "2": {
+        "aura_range": 0
+      },
+      "3": {
+        "aura_range": 0
+      },
+      "4": {
+        "aura_range": 0
+      },
+      "5": {
+        "aura_range": 0
+      },
+      "6": {
+        "aura_range": 10
+      },
+      "7": {
+        "aura_range": 10
+      },
+      "8": {
+        "aura_range": 10
+      },
+      "9": {
+        "aura_range": 10
+      },
+      "10": {
+        "aura_range": 10
+      },
+      "11": {
+        "aura_range": 10
+      },
+      "12": {
+        "aura_range": 10
+      },
+      "13": {
+        "aura_range": 10
+      },
+      "14": {
+        "aura_range": 10
+      },
+      "15": {
+        "aura_range": 10
+      },
+      "16": {
+        "aura_range": 10
+      },
+      "17": {
+        "aura_range": 10
+      },
+      "18": {
+        "aura_range": 30
+      },
+      "19": {
+        "aura_range": 30
+      },
+      "20": {
+        "aura_range": 30
+      }
+    },
+    "spellcasting": {
+      "ability": "cha",
+      "startLevel": 2,
+      "preparationMode": "prepared",
+      "progression": "half",
+      "ritualCasting": false,
+      "cantripsKnownByLevel": null,
+      "spellsKnownByLevel": null,
+      "slotsByLevel": [
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          3,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          3,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          1,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          1,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          0,
+          0,
+          0,
+          0
+        ]
+      ]
+    },
+    "multiclassing": {
+      "prerequisites": [
+        {
+          "ability": "str",
+          "minimum": 13
+        },
+        {
+          "ability": "cha",
+          "minimum": 13
+        }
+      ],
+      "prerequisiteOptions": [],
+      "proficiencies": {
+        "armor": [
+          "light",
+          "medium",
+          "shield"
+        ],
+        "weapons": [
+          "simple",
+          "martial"
+        ],
+        "tools": []
+      },
+      "skillChoices": null
+    },
+    "startingEquipment": [
+      {
+        "itemId": "chain-mail",
+        "name": "Chain Mail",
+        "quantity": 1
+      }
+    ],
+    "startingEquipmentOptions": [
+      {
+        "desc": "(a) a martial weapon and a shield or (b) two martial weapons",
+        "choose": 1,
+        "options": [
+          {
+            "items": [
+              {
+                "categoryId": "martial-weapons",
+                "categoryName": "Martial Weapons",
+                "itemOptions": [
+                  {
+                    "itemId": "battleaxe",
+                    "name": "Battleaxe"
+                  },
+                  {
+                    "itemId": "flail",
+                    "name": "Flail"
+                  },
+                  {
+                    "itemId": "glaive",
+                    "name": "Glaive"
+                  },
+                  {
+                    "itemId": "greataxe",
+                    "name": "Greataxe"
+                  },
+                  {
+                    "itemId": "greatsword",
+                    "name": "Greatsword"
+                  },
+                  {
+                    "itemId": "halberd",
+                    "name": "Halberd"
+                  },
+                  {
+                    "itemId": "lance",
+                    "name": "Lance"
+                  },
+                  {
+                    "itemId": "longsword",
+                    "name": "Longsword"
+                  },
+                  {
+                    "itemId": "maul",
+                    "name": "Maul"
+                  },
+                  {
+                    "itemId": "morningstar",
+                    "name": "Morningstar"
+                  },
+                  {
+                    "itemId": "pike",
+                    "name": "Pike"
+                  },
+                  {
+                    "itemId": "rapier",
+                    "name": "Rapier"
+                  },
+                  {
+                    "itemId": "scimitar",
+                    "name": "Scimitar"
+                  },
+                  {
+                    "itemId": "shortsword",
+                    "name": "Shortsword"
+                  },
+                  {
+                    "itemId": "trident",
+                    "name": "Trident"
+                  },
+                  {
+                    "itemId": "war-pick",
+                    "name": "War pick"
+                  },
+                  {
+                    "itemId": "warhammer",
+                    "name": "Warhammer"
+                  },
+                  {
+                    "itemId": "whip",
+                    "name": "Whip"
+                  },
+                  {
+                    "itemId": "blowgun",
+                    "name": "Blowgun"
+                  },
+                  {
+                    "itemId": "crossbow-hand",
+                    "name": "Crossbow, hand"
+                  },
+                  {
+                    "itemId": "crossbow-heavy",
+                    "name": "Crossbow, heavy"
+                  },
+                  {
+                    "itemId": "longbow",
+                    "name": "Longbow"
+                  },
+                  {
+                    "itemId": "net",
+                    "name": "Net"
+                  }
+                ]
+              },
+              {
+                "itemId": "shield",
+                "name": "Shield",
+                "quantity": 1
+              }
+            ]
+          },
+          {
+            "categoryId": "martial-weapons",
+            "categoryName": "Martial Weapons",
+            "itemOptions": [
+              {
+                "itemId": "battleaxe",
+                "name": "Battleaxe"
+              },
+              {
+                "itemId": "flail",
+                "name": "Flail"
+              },
+              {
+                "itemId": "glaive",
+                "name": "Glaive"
+              },
+              {
+                "itemId": "greataxe",
+                "name": "Greataxe"
+              },
+              {
+                "itemId": "greatsword",
+                "name": "Greatsword"
+              },
+              {
+                "itemId": "halberd",
+                "name": "Halberd"
+              },
+              {
+                "itemId": "lance",
+                "name": "Lance"
+              },
+              {
+                "itemId": "longsword",
+                "name": "Longsword"
+              },
+              {
+                "itemId": "maul",
+                "name": "Maul"
+              },
+              {
+                "itemId": "morningstar",
+                "name": "Morningstar"
+              },
+              {
+                "itemId": "pike",
+                "name": "Pike"
+              },
+              {
+                "itemId": "rapier",
+                "name": "Rapier"
+              },
+              {
+                "itemId": "scimitar",
+                "name": "Scimitar"
+              },
+              {
+                "itemId": "shortsword",
+                "name": "Shortsword"
+              },
+              {
+                "itemId": "trident",
+                "name": "Trident"
+              },
+              {
+                "itemId": "war-pick",
+                "name": "War pick"
+              },
+              {
+                "itemId": "warhammer",
+                "name": "Warhammer"
+              },
+              {
+                "itemId": "whip",
+                "name": "Whip"
+              },
+              {
+                "itemId": "blowgun",
+                "name": "Blowgun"
+              },
+              {
+                "itemId": "crossbow-hand",
+                "name": "Crossbow, hand"
+              },
+              {
+                "itemId": "crossbow-heavy",
+                "name": "Crossbow, heavy"
+              },
+              {
+                "itemId": "longbow",
+                "name": "Longbow"
+              },
+              {
+                "itemId": "net",
+                "name": "Net"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "desc": "(a) five javelins or (b) any simple melee weapon",
+        "choose": 1,
+        "options": [
+          {
+            "itemId": "javelin",
+            "name": "Javelin",
+            "quantity": 5
+          },
+          {
+            "categoryId": "simple-weapons",
+            "categoryName": "Simple Weapons",
+            "itemOptions": [
+              {
+                "itemId": "club",
+                "name": "Club"
+              },
+              {
+                "itemId": "dagger",
+                "name": "Dagger"
+              },
+              {
+                "itemId": "greatclub",
+                "name": "Greatclub"
+              },
+              {
+                "itemId": "handaxe",
+                "name": "Handaxe"
+              },
+              {
+                "itemId": "javelin",
+                "name": "Javelin"
+              },
+              {
+                "itemId": "light-hammer",
+                "name": "Light hammer"
+              },
+              {
+                "itemId": "mace",
+                "name": "Mace"
+              },
+              {
+                "itemId": "quarterstaff",
+                "name": "Quarterstaff"
+              },
+              {
+                "itemId": "sickle",
+                "name": "Sickle"
+              },
+              {
+                "itemId": "spear",
+                "name": "Spear"
+              },
+              {
+                "itemId": "crossbow-light",
+                "name": "Crossbow, light"
+              },
+              {
+                "itemId": "dart",
+                "name": "Dart"
+              },
+              {
+                "itemId": "shortbow",
+                "name": "Shortbow"
+              },
+              {
+                "itemId": "sling",
+                "name": "Sling"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "desc": "(a) a priest’s pack or (b) an explorer’s pack",
+        "choose": 1,
+        "options": [
+          {
+            "itemId": "priests-pack",
+            "name": "Priest's Pack",
+            "quantity": 1
+          },
+          {
+            "itemId": "explorers-pack",
+            "name": "Explorer's Pack",
+            "quantity": 1
+          }
+        ]
+      },
+      {
+        "desc": "holy symbol",
+        "choose": 1,
+        "options": [
+          {
+            "categoryId": "holy-symbols",
+            "categoryName": "Holy Symbols",
+            "itemOptions": [
+              {
+                "itemId": "amulet",
+                "name": "Amulet"
+              },
+              {
+                "itemId": "emblem",
+                "name": "Emblem"
+              },
+              {
+                "itemId": "reliquary",
+                "name": "Reliquary"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "ranger",
+    "kind": "class",
+    "name": "Ranger",
+    "source": "srd-5.1",
+    "hitDie": 10,
+    "savingThrowProficiencies": [
+      "str",
+      "dex"
+    ],
+    "armorProficiencies": [
+      "light",
+      "medium",
+      "shield"
+    ],
+    "weaponProficiencies": [
+      "simple",
+      "martial"
+    ],
+    "toolProficiencies": [],
+    "skillChoices": {
+      "choose": 3,
+      "from": [
+        "animal-handling",
+        "athletics",
+        "insight",
+        "investigation",
+        "nature",
+        "perception",
+        "stealth",
+        "survival"
+      ]
+    },
+    "subclassIds": [
+      "hunter"
+    ],
+    "subclassLevel": 3,
+    "asiLevels": [
+      4,
+      8,
+      12,
+      16,
+      19
+    ],
+    "featuresByLevel": {
+      "1": [
+        "favored-enemy-1-type",
+        "natural-explorer-1-terrain-type"
+      ],
+      "2": [
+        "ranger-fighting-style",
+        "spellcasting-ranger"
+      ],
+      "3": [
+        "ranger-archetype",
+        "primeval-awareness"
+      ],
+      "4": [
+        "ranger-ability-score-improvement-1"
+      ],
+      "5": [
+        "ranger-extra-attack"
+      ],
+      "6": [
+        "favored-enemy-2-types",
+        "natural-explorer-2-terrain-types"
+      ],
+      "7": [
+        "ranger-archetype-improvement-1"
+      ],
+      "8": [
+        "ranger-ability-score-improvement-2",
+        "ranger-lands-stride"
+      ],
+      "10": [
+        "natural-explorer-3-terrain-types",
+        "hide-in-plain-sight"
+      ],
+      "11": [
+        "ranger-archetype-improvement-2"
+      ],
+      "12": [
+        "ranger-ability-score-improvement-3"
+      ],
+      "14": [
+        "favored-enemy-3-enemies",
+        "vanish"
+      ],
+      "15": [
+        "ranger-archetype-improvement-3"
+      ],
+      "16": [
+        "ranger-ability-score-improvement-4"
+      ],
+      "18": [
+        "feral-senses"
+      ],
+      "19": [
+        "ranger-ability-score-improvement-5"
+      ],
+      "20": [
+        "foe-slayer"
+      ]
+    },
+    "classSpecificByLevel": {
+      "1": {
+        "favored_enemies": 1,
+        "favored_terrain": 1
+      },
+      "2": {
+        "favored_enemies": 1,
+        "favored_terrain": 1
+      },
+      "3": {
+        "favored_enemies": 1,
+        "favored_terrain": 1
+      },
+      "4": {
+        "favored_enemies": 1,
+        "favored_terrain": 1
+      },
+      "5": {
+        "favored_enemies": 1,
+        "favored_terrain": 1
+      },
+      "6": {
+        "favored_enemies": 2,
+        "favored_terrain": 2
+      },
+      "7": {
+        "favored_enemies": 2,
+        "favored_terrain": 2
+      },
+      "8": {
+        "favored_enemies": 2,
+        "favored_terrain": 2
+      },
+      "9": {
+        "favored_enemies": 2,
+        "favored_terrain": 2
+      },
+      "10": {
+        "favored_enemies": 2,
+        "favored_terrain": 3
+      },
+      "11": {
+        "favored_enemies": 2,
+        "favored_terrain": 3
+      },
+      "12": {
+        "favored_enemies": 2,
+        "favored_terrain": 3
+      },
+      "13": {
+        "favored_enemies": 2,
+        "favored_terrain": 3
+      },
+      "14": {
+        "favored_enemies": 3,
+        "favored_terrain": 3
+      },
+      "15": {
+        "favored_enemies": 3,
+        "favored_terrain": 3
+      },
+      "16": {
+        "favored_enemies": 3,
+        "favored_terrain": 3
+      },
+      "17": {
+        "favored_enemies": 3,
+        "favored_terrain": 3
+      },
+      "18": {
+        "favored_enemies": 3,
+        "favored_terrain": 3
+      },
+      "19": {
+        "favored_enemies": 3,
+        "favored_terrain": 3
+      },
+      "20": {
+        "favored_enemies": 3,
+        "favored_terrain": 3
+      }
+    },
+    "spellcasting": {
+      "ability": "wis",
+      "startLevel": 2,
+      "preparationMode": "known",
+      "progression": "half",
+      "ritualCasting": false,
+      "cantripsKnownByLevel": null,
+      "spellsKnownByLevel": [
+        0,
+        2,
+        3,
+        3,
+        4,
+        4,
+        5,
+        5,
+        6,
+        6,
+        7,
+        7,
+        8,
+        8,
+        9,
+        9,
+        10,
+        10,
+        11,
+        11
+      ],
+      "slotsByLevel": [
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          3,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          3,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          1,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          1,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          0,
+          0,
+          0,
+          0
+        ]
+      ]
+    },
+    "multiclassing": {
+      "prerequisites": [
+        {
+          "ability": "dex",
+          "minimum": 13
+        },
+        {
+          "ability": "wis",
+          "minimum": 13
+        }
+      ],
+      "prerequisiteOptions": [],
+      "proficiencies": {
+        "armor": [
+          "light",
+          "medium",
+          "shield"
+        ],
+        "weapons": [
+          "simple",
+          "martial"
+        ],
+        "tools": []
+      },
+      "skillChoices": {
+        "choose": 1,
+        "from": [
+          "animal-handling",
+          "athletics",
+          "insight",
+          "investigation",
+          "nature",
+          "perception",
+          "stealth",
+          "survival"
+        ]
+      }
+    },
+    "startingEquipment": [
+      {
+        "itemId": "longbow",
+        "name": "Longbow",
+        "quantity": 1
+      },
+      {
+        "itemId": "arrow",
+        "name": "Arrow",
+        "quantity": 20
+      }
+    ],
+    "startingEquipmentOptions": [
+      {
+        "desc": "(a) scale mail or (b) leather armor",
+        "choose": 1,
+        "options": [
+          {
+            "itemId": "scale-mail",
+            "name": "Scale Mail",
+            "quantity": 1
+          },
+          {
+            "itemId": "leather-armor",
+            "name": "Leather Armor",
+            "quantity": 1
+          }
+        ]
+      },
+      {
+        "desc": "(a) two shortswords or (b) two simple melee weapons",
+        "choose": 1,
+        "options": [
+          {
+            "itemId": "shortsword",
+            "name": "Shortsword",
+            "quantity": 2
+          },
+          {
+            "categoryId": "simple-melee-weapons",
+            "categoryName": "Simple Melee Weapons",
+            "itemOptions": [
+              {
+                "itemId": "club",
+                "name": "Club"
+              },
+              {
+                "itemId": "dagger",
+                "name": "Dagger"
+              },
+              {
+                "itemId": "greatclub",
+                "name": "Greatclub"
+              },
+              {
+                "itemId": "handaxe",
+                "name": "Handaxe"
+              },
+              {
+                "itemId": "javelin",
+                "name": "Javelin"
+              },
+              {
+                "itemId": "light-hammer",
+                "name": "Light hammer"
+              },
+              {
+                "itemId": "mace",
+                "name": "Mace"
+              },
+              {
+                "itemId": "quarterstaff",
+                "name": "Quarterstaff"
+              },
+              {
+                "itemId": "sickle",
+                "name": "Sickle"
+              },
+              {
+                "itemId": "spear",
+                "name": "Spear"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "desc": "(a) a dungeoneer’s pack or (b) an explorer’s pack",
+        "choose": 1,
+        "options": [
+          {
+            "itemId": "dungeoneers-pack",
+            "name": "Dungeoneer's Pack",
+            "quantity": 1
+          },
+          {
+            "itemId": "explorers-pack",
+            "name": "Explorer's Pack",
+            "quantity": 1
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "rogue",
+    "kind": "class",
+    "name": "Rogue",
+    "source": "srd-5.1",
+    "hitDie": 8,
+    "savingThrowProficiencies": [
+      "dex",
+      "int"
+    ],
+    "armorProficiencies": [
+      "light"
+    ],
+    "weaponProficiencies": [
+      "simple",
+      "longswords",
+      "rapiers",
+      "shortswords"
+    ],
+    "toolProficiencies": [
+      "hand-crossbows",
+      "thieves-tools"
+    ],
+    "skillChoices": {
+      "choose": 4,
+      "from": [
+        "acrobatics",
+        "athletics",
+        "deception",
+        "insight",
+        "intimidation",
+        "investigation",
+        "perception",
+        "performance",
+        "persuasion",
+        "sleight-of-hand",
+        "stealth"
+      ]
+    },
+    "subclassIds": [
+      "thief"
+    ],
+    "subclassLevel": 3,
+    "asiLevels": [
+      4,
+      8,
+      10,
+      12,
+      16,
+      19
+    ],
+    "featuresByLevel": {
+      "1": [
+        "rogue-expertise-1",
+        "sneak-attack",
+        "thieves-cant"
+      ],
+      "2": [
+        "cunning-action"
+      ],
+      "3": [
+        "roguish-archetype"
+      ],
+      "4": [
+        "rogue-ability-score-improvement-1"
+      ],
+      "5": [
+        "uncanny-dodge"
+      ],
+      "6": [
+        "rogue-expertise-2"
+      ],
+      "7": [
+        "rogue-evasion"
+      ],
+      "8": [
+        "rogue-ability-score-improvement-2"
+      ],
+      "9": [
+        "roguish-archetype-improvement-1"
+      ],
+      "10": [
+        "rogue-ability-score-improvement-3"
+      ],
+      "11": [
+        "reliable-talent"
+      ],
+      "12": [
+        "rogue-ability-score-improvement-4"
+      ],
+      "13": [
+        "roguish-archetype-improvement-2"
+      ],
+      "14": [
+        "blindsense"
+      ],
+      "15": [
+        "slippery-mind"
+      ],
+      "16": [
+        "rogue-ability-score-improvement-5"
+      ],
+      "17": [
+        "roguish-archetype-improvement-3"
+      ],
+      "18": [
+        "elusive"
+      ],
+      "19": [
+        "rogue-ability-score-improvement-6"
+      ],
+      "20": [
+        "stroke-of-luck"
+      ]
+    },
+    "classSpecificByLevel": {
+      "1": {
+        "sneak_attack": {
+          "dice_count": 1,
+          "dice_value": 6
+        }
+      },
+      "2": {
+        "sneak_attack": {
+          "dice_count": 1,
+          "dice_value": 6
+        }
+      },
+      "3": {
+        "sneak_attack": {
+          "dice_count": 2,
+          "dice_value": 6
+        }
+      },
+      "4": {
+        "sneak_attack": {
+          "dice_count": 2,
+          "dice_value": 6
+        }
+      },
+      "5": {
+        "sneak_attack": {
+          "dice_count": 3,
+          "dice_value": 6
+        }
+      },
+      "6": {
+        "sneak_attack": {
+          "dice_count": 3,
+          "dice_value": 6
+        }
+      },
+      "7": {
+        "sneak_attack": {
+          "dice_count": 4,
+          "dice_value": 6
+        }
+      },
+      "8": {
+        "sneak_attack": {
+          "dice_count": 4,
+          "dice_value": 6
+        }
+      },
+      "9": {
+        "sneak_attack": {
+          "dice_count": 5,
+          "dice_value": 6
+        }
+      },
+      "10": {
+        "sneak_attack": {
+          "dice_count": 5,
+          "dice_value": 6
+        }
+      },
+      "11": {
+        "sneak_attack": {
+          "dice_count": 6,
+          "dice_value": 6
+        }
+      },
+      "12": {
+        "sneak_attack": {
+          "dice_count": 6,
+          "dice_value": 6
+        }
+      },
+      "13": {
+        "sneak_attack": {
+          "dice_count": 7,
+          "dice_value": 6
+        }
+      },
+      "14": {
+        "sneak_attack": {
+          "dice_count": 7,
+          "dice_value": 6
+        }
+      },
+      "15": {
+        "sneak_attack": {
+          "dice_count": 8,
+          "dice_value": 6
+        }
+      },
+      "16": {
+        "sneak_attack": {
+          "dice_count": 8,
+          "dice_value": 6
+        }
+      },
+      "17": {
+        "sneak_attack": {
+          "dice_count": 9,
+          "dice_value": 6
+        }
+      },
+      "18": {
+        "sneak_attack": {
+          "dice_count": 9,
+          "dice_value": 6
+        }
+      },
+      "19": {
+        "sneak_attack": {
+          "dice_count": 10,
+          "dice_value": 6
+        }
+      },
+      "20": {
+        "sneak_attack": {
+          "dice_count": 10,
+          "dice_value": 6
+        }
+      }
+    },
+    "spellcasting": null,
+    "multiclassing": {
+      "prerequisites": [
+        {
+          "ability": "dex",
+          "minimum": 13
+        }
+      ],
+      "prerequisiteOptions": [],
+      "proficiencies": {
+        "armor": [
+          "light"
+        ],
+        "weapons": [],
+        "tools": [
+          "thieves-tools"
+        ]
+      },
+      "skillChoices": {
+        "choose": 1,
+        "from": [
+          "acrobatics",
+          "athletics",
+          "deception",
+          "insight",
+          "intimidation",
+          "investigation",
+          "perception",
+          "performance",
+          "persuasion",
+          "sleight-of-hand",
+          "stealth"
+        ]
+      }
+    },
+    "startingEquipment": [
+      {
+        "itemId": "leather-armor",
+        "name": "Leather Armor",
+        "quantity": 1
+      },
+      {
+        "itemId": "dagger",
+        "name": "Dagger",
+        "quantity": 2
+      },
+      {
+        "itemId": "thieves-tools",
+        "name": "Thieves' Tools",
+        "quantity": 1
+      }
+    ],
+    "startingEquipmentOptions": [
+      {
+        "desc": "(a) a rapier or (b) a shortsword",
+        "choose": 1,
+        "options": [
+          {
+            "itemId": "rapier",
+            "name": "Rapier",
+            "quantity": 1
+          },
+          {
+            "itemId": "shortsword",
+            "name": "Shortsword",
+            "quantity": 1
+          }
+        ]
+      },
+      {
+        "desc": "(a) a shortbow and quiver of 20 arrows or (b) a shortsword",
+        "choose": 1,
+        "options": [
+          {
+            "items": [
+              {
+                "itemId": "shortbow",
+                "name": "Shortbow",
+                "quantity": 1
+              },
+              {
+                "itemId": "arrow",
+                "name": "Arrow",
+                "quantity": 20
+              }
+            ]
+          },
+          {
+            "itemId": "shortsword",
+            "name": "Shortsword",
+            "quantity": 1
+          }
+        ]
+      },
+      {
+        "desc": "(a) a burglar’s pack, (b) a dungeoneer’s pack, or (c) an explorer’s pack",
+        "choose": 1,
+        "options": [
+          {
+            "itemId": "burglars-pack",
+            "name": "Burglar's Pack",
+            "quantity": 1
+          },
+          {
+            "itemId": "dungeoneers-pack",
+            "name": "Dungeoneer's Pack",
+            "quantity": 1
+          },
+          {
+            "itemId": "explorers-pack",
+            "name": "Explorer's Pack",
+            "quantity": 1
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "sorcerer",
+    "kind": "class",
+    "name": "Sorcerer",
+    "source": "srd-5.1",
+    "hitDie": 6,
+    "savingThrowProficiencies": [
+      "con",
+      "cha"
+    ],
+    "armorProficiencies": [],
+    "weaponProficiencies": [
+      "daggers",
+      "darts",
+      "slings",
+      "quarterstaffs",
+      "crossbows-light"
+    ],
+    "toolProficiencies": [],
+    "skillChoices": {
+      "choose": 2,
+      "from": [
+        "arcana",
+        "deception",
+        "insight",
+        "intimidation",
+        "persuasion",
+        "religion"
+      ]
+    },
+    "subclassIds": [
+      "draconic"
+    ],
+    "subclassLevel": 1,
+    "asiLevels": [
+      4,
+      8,
+      12,
+      16,
+      19
+    ],
+    "featuresByLevel": {
+      "1": [
+        "spellcasting-sorcerer",
+        "sorcerous-origin"
+      ],
+      "2": [
+        "font-of-magic",
+        "flexible-casting-creating-spell-slots",
+        "flexible-casting-converting-spell-slot"
+      ],
+      "3": [
+        "metamagic-1"
+      ],
+      "4": [
+        "sorcerer-ability-score-improvement-1"
+      ],
+      "6": [
+        "sorcerous-origin-improvement-1"
+      ],
+      "8": [
+        "sorcerer-ability-score-improvement-2"
+      ],
+      "10": [
+        "metamagic-2"
+      ],
+      "12": [
+        "sorcerer-ability-score-improvement-3"
+      ],
+      "14": [
+        "sorcerous-origin-improvement-2"
+      ],
+      "16": [
+        "sorcerer-ability-score-improvement-4"
+      ],
+      "17": [
+        "metamagic-3"
+      ],
+      "18": [
+        "sorcerous-origin-improvement-3"
+      ],
+      "19": [
+        "sorcerer-ability-score-improvement-5"
+      ],
+      "20": [
+        "sorcerous-restoration"
+      ]
+    },
+    "classSpecificByLevel": {
+      "1": {
+        "sorcery_points": 0,
+        "metamagic_known": 0,
+        "creating_spell_slots": []
+      },
+      "2": {
+        "sorcery_points": 2,
+        "metamagic_known": 0,
+        "creating_spell_slots": [
+          {
+            "spell_slot_level": 1,
+            "sorcery_point_cost": 2
+          },
+          {
+            "spell_slot_level": 2,
+            "sorcery_point_cost": 3
+          },
+          {
+            "spell_slot_level": 3,
+            "sorcery_point_cost": 5
+          },
+          {
+            "spell_slot_level": 4,
+            "sorcery_point_cost": 6
+          },
+          {
+            "spell_slot_level": 5,
+            "sorcery_point_cost": 7
+          }
+        ]
+      },
+      "3": {
+        "sorcery_points": 3,
+        "metamagic_known": 2,
+        "creating_spell_slots": [
+          {
+            "spell_slot_level": 1,
+            "sorcery_point_cost": 2
+          },
+          {
+            "spell_slot_level": 2,
+            "sorcery_point_cost": 3
+          },
+          {
+            "spell_slot_level": 3,
+            "sorcery_point_cost": 5
+          },
+          {
+            "spell_slot_level": 4,
+            "sorcery_point_cost": 6
+          },
+          {
+            "spell_slot_level": 5,
+            "sorcery_point_cost": 7
+          }
+        ]
+      },
+      "4": {
+        "sorcery_points": 4,
+        "metamagic_known": 2,
+        "creating_spell_slots": [
+          {
+            "spell_slot_level": 1,
+            "sorcery_point_cost": 2
+          },
+          {
+            "spell_slot_level": 2,
+            "sorcery_point_cost": 3
+          },
+          {
+            "spell_slot_level": 3,
+            "sorcery_point_cost": 5
+          },
+          {
+            "spell_slot_level": 4,
+            "sorcery_point_cost": 6
+          },
+          {
+            "spell_slot_level": 5,
+            "sorcery_point_cost": 7
+          }
+        ]
+      },
+      "5": {
+        "sorcery_points": 5,
+        "metamagic_known": 2,
+        "creating_spell_slots": [
+          {
+            "spell_slot_level": 1,
+            "sorcery_point_cost": 2
+          },
+          {
+            "spell_slot_level": 2,
+            "sorcery_point_cost": 3
+          },
+          {
+            "spell_slot_level": 3,
+            "sorcery_point_cost": 5
+          },
+          {
+            "spell_slot_level": 4,
+            "sorcery_point_cost": 6
+          },
+          {
+            "spell_slot_level": 5,
+            "sorcery_point_cost": 7
+          }
+        ]
+      },
+      "6": {
+        "sorcery_points": 6,
+        "metamagic_known": 2,
+        "creating_spell_slots": [
+          {
+            "spell_slot_level": 1,
+            "sorcery_point_cost": 2
+          },
+          {
+            "spell_slot_level": 2,
+            "sorcery_point_cost": 3
+          },
+          {
+            "spell_slot_level": 3,
+            "sorcery_point_cost": 5
+          },
+          {
+            "spell_slot_level": 4,
+            "sorcery_point_cost": 6
+          },
+          {
+            "spell_slot_level": 5,
+            "sorcery_point_cost": 7
+          }
+        ]
+      },
+      "7": {
+        "sorcery_points": 7,
+        "metamagic_known": 2,
+        "creating_spell_slots": [
+          {
+            "spell_slot_level": 1,
+            "sorcery_point_cost": 2
+          },
+          {
+            "spell_slot_level": 2,
+            "sorcery_point_cost": 3
+          },
+          {
+            "spell_slot_level": 3,
+            "sorcery_point_cost": 5
+          },
+          {
+            "spell_slot_level": 4,
+            "sorcery_point_cost": 6
+          },
+          {
+            "spell_slot_level": 5,
+            "sorcery_point_cost": 7
+          }
+        ]
+      },
+      "8": {
+        "sorcery_points": 8,
+        "metamagic_known": 2,
+        "creating_spell_slots": [
+          {
+            "spell_slot_level": 1,
+            "sorcery_point_cost": 2
+          },
+          {
+            "spell_slot_level": 2,
+            "sorcery_point_cost": 3
+          },
+          {
+            "spell_slot_level": 3,
+            "sorcery_point_cost": 5
+          },
+          {
+            "spell_slot_level": 4,
+            "sorcery_point_cost": 6
+          },
+          {
+            "spell_slot_level": 5,
+            "sorcery_point_cost": 7
+          }
+        ]
+      },
+      "9": {
+        "sorcery_points": 9,
+        "metamagic_known": 2,
+        "creating_spell_slots": [
+          {
+            "spell_slot_level": 1,
+            "sorcery_point_cost": 2
+          },
+          {
+            "spell_slot_level": 2,
+            "sorcery_point_cost": 3
+          },
+          {
+            "spell_slot_level": 3,
+            "sorcery_point_cost": 5
+          },
+          {
+            "spell_slot_level": 4,
+            "sorcery_point_cost": 6
+          },
+          {
+            "spell_slot_level": 5,
+            "sorcery_point_cost": 7
+          }
+        ]
+      },
+      "10": {
+        "sorcery_points": 10,
+        "metamagic_known": 3,
+        "creating_spell_slots": [
+          {
+            "spell_slot_level": 1,
+            "sorcery_point_cost": 2
+          },
+          {
+            "spell_slot_level": 2,
+            "sorcery_point_cost": 3
+          },
+          {
+            "spell_slot_level": 3,
+            "sorcery_point_cost": 5
+          },
+          {
+            "spell_slot_level": 4,
+            "sorcery_point_cost": 6
+          },
+          {
+            "spell_slot_level": 5,
+            "sorcery_point_cost": 7
+          }
+        ]
+      },
+      "11": {
+        "sorcery_points": 11,
+        "metamagic_known": 3,
+        "creating_spell_slots": [
+          {
+            "spell_slot_level": 1,
+            "sorcery_point_cost": 2
+          },
+          {
+            "spell_slot_level": 2,
+            "sorcery_point_cost": 3
+          },
+          {
+            "spell_slot_level": 3,
+            "sorcery_point_cost": 5
+          },
+          {
+            "spell_slot_level": 4,
+            "sorcery_point_cost": 6
+          },
+          {
+            "spell_slot_level": 5,
+            "sorcery_point_cost": 7
+          }
+        ]
+      },
+      "12": {
+        "sorcery_points": 12,
+        "metamagic_known": 3,
+        "creating_spell_slots": [
+          {
+            "spell_slot_level": 1,
+            "sorcery_point_cost": 2
+          },
+          {
+            "spell_slot_level": 2,
+            "sorcery_point_cost": 3
+          },
+          {
+            "spell_slot_level": 3,
+            "sorcery_point_cost": 5
+          },
+          {
+            "spell_slot_level": 4,
+            "sorcery_point_cost": 6
+          },
+          {
+            "spell_slot_level": 5,
+            "sorcery_point_cost": 7
+          }
+        ]
+      },
+      "13": {
+        "sorcery_points": 13,
+        "metamagic_known": 3,
+        "creating_spell_slots": [
+          {
+            "spell_slot_level": 1,
+            "sorcery_point_cost": 2
+          },
+          {
+            "spell_slot_level": 2,
+            "sorcery_point_cost": 3
+          },
+          {
+            "spell_slot_level": 3,
+            "sorcery_point_cost": 5
+          },
+          {
+            "spell_slot_level": 4,
+            "sorcery_point_cost": 6
+          },
+          {
+            "spell_slot_level": 5,
+            "sorcery_point_cost": 7
+          }
+        ]
+      },
+      "14": {
+        "sorcery_points": 14,
+        "metamagic_known": 3,
+        "creating_spell_slots": [
+          {
+            "spell_slot_level": 1,
+            "sorcery_point_cost": 2
+          },
+          {
+            "spell_slot_level": 2,
+            "sorcery_point_cost": 3
+          },
+          {
+            "spell_slot_level": 3,
+            "sorcery_point_cost": 5
+          },
+          {
+            "spell_slot_level": 4,
+            "sorcery_point_cost": 6
+          },
+          {
+            "spell_slot_level": 5,
+            "sorcery_point_cost": 7
+          }
+        ]
+      },
+      "15": {
+        "sorcery_points": 15,
+        "metamagic_known": 3,
+        "creating_spell_slots": [
+          {
+            "spell_slot_level": 1,
+            "sorcery_point_cost": 2
+          },
+          {
+            "spell_slot_level": 2,
+            "sorcery_point_cost": 3
+          },
+          {
+            "spell_slot_level": 3,
+            "sorcery_point_cost": 5
+          },
+          {
+            "spell_slot_level": 4,
+            "sorcery_point_cost": 6
+          },
+          {
+            "spell_slot_level": 5,
+            "sorcery_point_cost": 7
+          }
+        ]
+      },
+      "16": {
+        "sorcery_points": 16,
+        "metamagic_known": 4,
+        "creating_spell_slots": [
+          {
+            "spell_slot_level": 1,
+            "sorcery_point_cost": 2
+          },
+          {
+            "spell_slot_level": 2,
+            "sorcery_point_cost": 3
+          },
+          {
+            "spell_slot_level": 3,
+            "sorcery_point_cost": 5
+          },
+          {
+            "spell_slot_level": 4,
+            "sorcery_point_cost": 6
+          },
+          {
+            "spell_slot_level": 5,
+            "sorcery_point_cost": 7
+          }
+        ]
+      },
+      "17": {
+        "sorcery_points": 17,
+        "metamagic_known": 4,
+        "creating_spell_slots": [
+          {
+            "spell_slot_level": 1,
+            "sorcery_point_cost": 2
+          },
+          {
+            "spell_slot_level": 2,
+            "sorcery_point_cost": 3
+          },
+          {
+            "spell_slot_level": 3,
+            "sorcery_point_cost": 5
+          },
+          {
+            "spell_slot_level": 4,
+            "sorcery_point_cost": 6
+          },
+          {
+            "spell_slot_level": 5,
+            "sorcery_point_cost": 7
+          }
+        ]
+      },
+      "18": {
+        "sorcery_points": 18,
+        "metamagic_known": 4,
+        "creating_spell_slots": [
+          {
+            "spell_slot_level": 1,
+            "sorcery_point_cost": 2
+          },
+          {
+            "spell_slot_level": 2,
+            "sorcery_point_cost": 3
+          },
+          {
+            "spell_slot_level": 3,
+            "sorcery_point_cost": 5
+          },
+          {
+            "spell_slot_level": 4,
+            "sorcery_point_cost": 6
+          },
+          {
+            "spell_slot_level": 5,
+            "sorcery_point_cost": 7
+          }
+        ]
+      },
+      "19": {
+        "sorcery_points": 19,
+        "metamagic_known": 4,
+        "creating_spell_slots": [
+          {
+            "spell_slot_level": 1,
+            "sorcery_point_cost": 2
+          },
+          {
+            "spell_slot_level": 2,
+            "sorcery_point_cost": 3
+          },
+          {
+            "spell_slot_level": 3,
+            "sorcery_point_cost": 5
+          },
+          {
+            "spell_slot_level": 4,
+            "sorcery_point_cost": 6
+          },
+          {
+            "spell_slot_level": 5,
+            "sorcery_point_cost": 7
+          }
+        ]
+      },
+      "20": {
+        "sorcery_points": 20,
+        "metamagic_known": 4,
+        "creating_spell_slots": [
+          {
+            "spell_slot_level": 1,
+            "sorcery_point_cost": 2
+          },
+          {
+            "spell_slot_level": 2,
+            "sorcery_point_cost": 3
+          },
+          {
+            "spell_slot_level": 3,
+            "sorcery_point_cost": 5
+          },
+          {
+            "spell_slot_level": 4,
+            "sorcery_point_cost": 6
+          },
+          {
+            "spell_slot_level": 5,
+            "sorcery_point_cost": 7
+          }
+        ]
+      }
+    },
+    "spellcasting": {
+      "ability": "cha",
+      "startLevel": 1,
+      "preparationMode": "known",
+      "progression": "full",
+      "ritualCasting": false,
+      "cantripsKnownByLevel": [
+        4,
+        4,
+        4,
+        5,
+        5,
+        5,
+        5,
+        5,
+        5,
+        6,
+        6,
+        6,
+        6,
+        6,
+        6,
+        6,
+        6,
+        6,
+        6,
+        6
+      ],
+      "spellsKnownByLevel": [
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        12,
+        13,
+        13,
+        14,
+        14,
+        15,
+        15,
+        15,
+        15
+      ],
+      "slotsByLevel": [
+        [
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          3,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          1,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          1,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          1,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          1,
+          1,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          1,
+          1,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          1,
+          1,
+          1,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          1,
+          1,
+          1,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          3,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          3,
+          2,
+          1,
+          1,
+          1
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          3,
+          2,
+          2,
+          1,
+          1
+        ]
+      ]
+    },
+    "multiclassing": {
+      "prerequisites": [
+        {
+          "ability": "cha",
+          "minimum": 13
+        }
+      ],
+      "prerequisiteOptions": [],
+      "proficiencies": {
+        "armor": [],
+        "weapons": [],
+        "tools": []
+      },
+      "skillChoices": null
+    },
+    "startingEquipment": [
+      {
+        "itemId": "dagger",
+        "name": "Dagger",
+        "quantity": 2
+      }
+    ],
+    "startingEquipmentOptions": [
+      {
+        "desc": "(a) a light crossbow and 20 bolts or (b) any simple weapon",
+        "choose": 1,
+        "options": [
+          {
+            "items": [
+              {
+                "itemId": "crossbow-light",
+                "name": "Crossbow, light",
+                "quantity": 1
+              },
+              {
+                "itemId": "crossbow-bolt",
+                "name": "Crossbow bolt",
+                "quantity": 20
+              }
+            ]
+          },
+          {
+            "categoryId": "simple-weapons",
+            "categoryName": "Simple Weapons",
+            "itemOptions": [
+              {
+                "itemId": "club",
+                "name": "Club"
+              },
+              {
+                "itemId": "dagger",
+                "name": "Dagger"
+              },
+              {
+                "itemId": "greatclub",
+                "name": "Greatclub"
+              },
+              {
+                "itemId": "handaxe",
+                "name": "Handaxe"
+              },
+              {
+                "itemId": "javelin",
+                "name": "Javelin"
+              },
+              {
+                "itemId": "light-hammer",
+                "name": "Light hammer"
+              },
+              {
+                "itemId": "mace",
+                "name": "Mace"
+              },
+              {
+                "itemId": "quarterstaff",
+                "name": "Quarterstaff"
+              },
+              {
+                "itemId": "sickle",
+                "name": "Sickle"
+              },
+              {
+                "itemId": "spear",
+                "name": "Spear"
+              },
+              {
+                "itemId": "crossbow-light",
+                "name": "Crossbow, light"
+              },
+              {
+                "itemId": "dart",
+                "name": "Dart"
+              },
+              {
+                "itemId": "shortbow",
+                "name": "Shortbow"
+              },
+              {
+                "itemId": "sling",
+                "name": "Sling"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "desc": "(a) a component pouch or (b) an arcane focus",
+        "choose": 1,
+        "options": [
+          {
+            "itemId": "component-pouch",
+            "name": "Component pouch",
+            "quantity": 1
+          },
+          {
+            "categoryId": "arcane-foci",
+            "categoryName": "Arcane Foci",
+            "itemOptions": [
+              {
+                "itemId": "crystal",
+                "name": "Crystal"
+              },
+              {
+                "itemId": "orb",
+                "name": "Orb"
+              },
+              {
+                "itemId": "rod",
+                "name": "Rod"
+              },
+              {
+                "itemId": "staff",
+                "name": "Staff"
+              },
+              {
+                "itemId": "wand",
+                "name": "Wand"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "desc": "(a) a dungeoneer’s pack or (b) an explorer’s pack",
+        "choose": 1,
+        "options": [
+          {
+            "itemId": "dungeoneers-pack",
+            "name": "Dungeoneer's Pack",
+            "quantity": 1
+          },
+          {
+            "itemId": "explorers-pack",
+            "name": "Explorer's Pack",
+            "quantity": 1
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "warlock",
+    "kind": "class",
+    "name": "Warlock",
+    "source": "srd-5.1",
+    "hitDie": 8,
+    "savingThrowProficiencies": [
+      "wis",
+      "cha"
+    ],
+    "armorProficiencies": [
+      "light"
+    ],
+    "weaponProficiencies": [
+      "simple"
+    ],
+    "toolProficiencies": [],
+    "skillChoices": {
+      "choose": 2,
+      "from": [
+        "arcana",
+        "deception",
+        "history",
+        "intimidation",
+        "investigation",
+        "nature",
+        "religion"
+      ]
+    },
+    "subclassIds": [
+      "fiend"
+    ],
+    "subclassLevel": 1,
+    "asiLevels": [
+      4,
+      8,
+      12,
+      16,
+      19
+    ],
+    "featuresByLevel": {
+      "1": [
+        "otherworldly-patron",
+        "pact-magic"
+      ],
+      "2": [
+        "eldritch-invocations"
+      ],
+      "3": [
+        "pact-boon"
+      ],
+      "4": [
+        "warlock-ability-score-improvement-1"
+      ],
+      "6": [
+        "otherworldly-patron-improvement-1"
+      ],
+      "8": [
+        "warlock-ability-score-improvement-2"
+      ],
+      "10": [
+        "otherworldly-patron-improvement-2"
+      ],
+      "11": [
+        "mystic-arcanum-6th-level"
+      ],
+      "12": [
+        "warlock-ability-score-improvement-3"
+      ],
+      "13": [
+        "mystic-arcanum-7th-level"
+      ],
+      "14": [
+        "otherworldly-patron-improvement-3"
+      ],
+      "15": [
+        "mystic-arcanum-8th-level"
+      ],
+      "16": [
+        "warlock-ability-score-improvement-4"
+      ],
+      "17": [
+        "mystic-arcanum-9th-level"
+      ],
+      "19": [
+        "warlock-ability-score-improvement-5"
+      ],
+      "20": [
+        "eldritch-master"
+      ]
+    },
+    "classSpecificByLevel": {
+      "1": {
+        "invocations_known": 0,
+        "mystic_arcanum_level_6": 0,
+        "mystic_arcanum_level_7": 0,
+        "mystic_arcanum_level_8": 0,
+        "mystic_arcanum_level_9": 0
+      },
+      "2": {
+        "invocations_known": 2,
+        "mystic_arcanum_level_6": 0,
+        "mystic_arcanum_level_7": 0,
+        "mystic_arcanum_level_8": 0,
+        "mystic_arcanum_level_9": 0
+      },
+      "3": {
+        "invocations_known": 2,
+        "mystic_arcanum_level_6": 0,
+        "mystic_arcanum_level_7": 0,
+        "mystic_arcanum_level_8": 0,
+        "mystic_arcanum_level_9": 0
+      },
+      "4": {
+        "invocations_known": 3,
+        "mystic_arcanum_level_6": 0,
+        "mystic_arcanum_level_7": 0,
+        "mystic_arcanum_level_8": 0,
+        "mystic_arcanum_level_9": 0
+      },
+      "5": {
+        "invocations_known": 3,
+        "mystic_arcanum_level_6": 0,
+        "mystic_arcanum_level_7": 0,
+        "mystic_arcanum_level_8": 0,
+        "mystic_arcanum_level_9": 0
+      },
+      "6": {
+        "invocations_known": 4,
+        "mystic_arcanum_level_6": 0,
+        "mystic_arcanum_level_7": 0,
+        "mystic_arcanum_level_8": 0,
+        "mystic_arcanum_level_9": 0
+      },
+      "7": {
+        "invocations_known": 4,
+        "mystic_arcanum_level_6": 0,
+        "mystic_arcanum_level_7": 0,
+        "mystic_arcanum_level_8": 0,
+        "mystic_arcanum_level_9": 0
+      },
+      "8": {
+        "invocations_known": 4,
+        "mystic_arcanum_level_6": 0,
+        "mystic_arcanum_level_7": 0,
+        "mystic_arcanum_level_8": 0,
+        "mystic_arcanum_level_9": 0
+      },
+      "9": {
+        "invocations_known": 5,
+        "mystic_arcanum_level_6": 0,
+        "mystic_arcanum_level_7": 0,
+        "mystic_arcanum_level_8": 0,
+        "mystic_arcanum_level_9": 0
+      },
+      "10": {
+        "invocations_known": 5,
+        "mystic_arcanum_level_6": 0,
+        "mystic_arcanum_level_7": 0,
+        "mystic_arcanum_level_8": 0,
+        "mystic_arcanum_level_9": 0
+      },
+      "11": {
+        "invocations_known": 5,
+        "mystic_arcanum_level_6": 1,
+        "mystic_arcanum_level_7": 0,
+        "mystic_arcanum_level_8": 0,
+        "mystic_arcanum_level_9": 0
+      },
+      "12": {
+        "invocations_known": 6,
+        "mystic_arcanum_level_6": 1,
+        "mystic_arcanum_level_7": 0,
+        "mystic_arcanum_level_8": 0,
+        "mystic_arcanum_level_9": 0
+      },
+      "13": {
+        "invocations_known": 6,
+        "mystic_arcanum_level_6": 1,
+        "mystic_arcanum_level_7": 1,
+        "mystic_arcanum_level_8": 0,
+        "mystic_arcanum_level_9": 0
+      },
+      "14": {
+        "invocations_known": 6,
+        "mystic_arcanum_level_6": 1,
+        "mystic_arcanum_level_7": 1,
+        "mystic_arcanum_level_8": 0,
+        "mystic_arcanum_level_9": 0
+      },
+      "15": {
+        "invocations_known": 7,
+        "mystic_arcanum_level_6": 1,
+        "mystic_arcanum_level_7": 1,
+        "mystic_arcanum_level_8": 1,
+        "mystic_arcanum_level_9": 0
+      },
+      "16": {
+        "invocations_known": 7,
+        "mystic_arcanum_level_6": 1,
+        "mystic_arcanum_level_7": 1,
+        "mystic_arcanum_level_8": 1,
+        "mystic_arcanum_level_9": 0
+      },
+      "17": {
+        "invocations_known": 7,
+        "mystic_arcanum_level_6": 1,
+        "mystic_arcanum_level_7": 1,
+        "mystic_arcanum_level_8": 1,
+        "mystic_arcanum_level_9": 1
+      },
+      "18": {
+        "invocations_known": 8,
+        "mystic_arcanum_level_6": 1,
+        "mystic_arcanum_level_7": 1,
+        "mystic_arcanum_level_8": 1,
+        "mystic_arcanum_level_9": 1
+      },
+      "19": {
+        "invocations_known": 8,
+        "mystic_arcanum_level_6": 1,
+        "mystic_arcanum_level_7": 1,
+        "mystic_arcanum_level_8": 1,
+        "mystic_arcanum_level_9": 1
+      },
+      "20": {
+        "invocations_known": 8,
+        "mystic_arcanum_level_6": 1,
+        "mystic_arcanum_level_7": 1,
+        "mystic_arcanum_level_8": 1,
+        "mystic_arcanum_level_9": 1
+      }
+    },
+    "spellcasting": {
+      "ability": "cha",
+      "startLevel": 1,
+      "preparationMode": "known",
+      "progression": "pact",
+      "ritualCasting": false,
+      "cantripsKnownByLevel": [
+        2,
+        2,
+        2,
+        3,
+        3,
+        3,
+        3,
+        3,
+        3,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4
+      ],
+      "spellsKnownByLevel": [
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        10,
+        11,
+        11,
+        12,
+        12,
+        13,
+        13,
+        14,
+        14,
+        15,
+        15
+      ],
+      "slotsByLevel": [
+        [
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          2,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          2,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          3,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          3,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          3,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          3,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          3,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          3,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          4,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          4,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          4,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          4,
+          0,
+          0,
+          0,
+          0
+        ]
+      ]
+    },
+    "multiclassing": {
+      "prerequisites": [
+        {
+          "ability": "cha",
+          "minimum": 13
+        }
+      ],
+      "prerequisiteOptions": [],
+      "proficiencies": {
+        "armor": [
+          "light"
+        ],
+        "weapons": [
+          "simple"
+        ],
+        "tools": []
+      },
+      "skillChoices": null
+    },
+    "startingEquipment": [
+      {
+        "itemId": "dagger",
+        "name": "Dagger",
+        "quantity": 2
+      },
+      {
+        "itemId": "leather-armor",
+        "name": "Leather Armor",
+        "quantity": 1
+      }
+    ],
+    "startingEquipmentOptions": [
+      {
+        "desc": "(a) a light crossbow and 20 bolts or (b) any simple weapon",
+        "choose": 1,
+        "options": [
+          {
+            "items": [
+              {
+                "itemId": "crossbow-light",
+                "name": "Crossbow, light",
+                "quantity": 1
+              },
+              {
+                "itemId": "crossbow-bolt",
+                "name": "Crossbow bolt",
+                "quantity": 20
+              }
+            ]
+          },
+          {
+            "categoryId": "simple-weapons",
+            "categoryName": "Simple Weapons",
+            "itemOptions": [
+              {
+                "itemId": "club",
+                "name": "Club"
+              },
+              {
+                "itemId": "dagger",
+                "name": "Dagger"
+              },
+              {
+                "itemId": "greatclub",
+                "name": "Greatclub"
+              },
+              {
+                "itemId": "handaxe",
+                "name": "Handaxe"
+              },
+              {
+                "itemId": "javelin",
+                "name": "Javelin"
+              },
+              {
+                "itemId": "light-hammer",
+                "name": "Light hammer"
+              },
+              {
+                "itemId": "mace",
+                "name": "Mace"
+              },
+              {
+                "itemId": "quarterstaff",
+                "name": "Quarterstaff"
+              },
+              {
+                "itemId": "sickle",
+                "name": "Sickle"
+              },
+              {
+                "itemId": "spear",
+                "name": "Spear"
+              },
+              {
+                "itemId": "crossbow-light",
+                "name": "Crossbow, light"
+              },
+              {
+                "itemId": "dart",
+                "name": "Dart"
+              },
+              {
+                "itemId": "shortbow",
+                "name": "Shortbow"
+              },
+              {
+                "itemId": "sling",
+                "name": "Sling"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "desc": "(a) a component pouch or (b) an arcane focus",
+        "choose": 1,
+        "options": [
+          {
+            "itemId": "component-pouch",
+            "name": "Component pouch",
+            "quantity": 1
+          },
+          {
+            "categoryId": "arcane-foci",
+            "categoryName": "Arcane Foci",
+            "itemOptions": [
+              {
+                "itemId": "crystal",
+                "name": "Crystal"
+              },
+              {
+                "itemId": "orb",
+                "name": "Orb"
+              },
+              {
+                "itemId": "rod",
+                "name": "Rod"
+              },
+              {
+                "itemId": "staff",
+                "name": "Staff"
+              },
+              {
+                "itemId": "wand",
+                "name": "Wand"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "desc": "(a) a scholar’s pack or (b) a dungeoneer’s pack",
+        "choose": 1,
+        "options": [
+          {
+            "itemId": "scholars-pack",
+            "name": "Scholar's Pack",
+            "quantity": 1
+          },
+          {
+            "itemId": "dungeoneers-pack",
+            "name": "Dungeoneer's Pack",
+            "quantity": 1
+          }
+        ]
+      },
+      {
+        "desc": "any simple weapon",
+        "choose": 1,
+        "options": [
+          {
+            "categoryId": "simple-weapons",
+            "categoryName": "Simple Weapons",
+            "itemOptions": [
+              {
+                "itemId": "club",
+                "name": "Club"
+              },
+              {
+                "itemId": "dagger",
+                "name": "Dagger"
+              },
+              {
+                "itemId": "greatclub",
+                "name": "Greatclub"
+              },
+              {
+                "itemId": "handaxe",
+                "name": "Handaxe"
+              },
+              {
+                "itemId": "javelin",
+                "name": "Javelin"
+              },
+              {
+                "itemId": "light-hammer",
+                "name": "Light hammer"
+              },
+              {
+                "itemId": "mace",
+                "name": "Mace"
+              },
+              {
+                "itemId": "quarterstaff",
+                "name": "Quarterstaff"
+              },
+              {
+                "itemId": "sickle",
+                "name": "Sickle"
+              },
+              {
+                "itemId": "spear",
+                "name": "Spear"
+              },
+              {
+                "itemId": "crossbow-light",
+                "name": "Crossbow, light"
+              },
+              {
+                "itemId": "dart",
+                "name": "Dart"
+              },
+              {
+                "itemId": "shortbow",
+                "name": "Shortbow"
+              },
+              {
+                "itemId": "sling",
+                "name": "Sling"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "wizard",
+    "kind": "class",
+    "name": "Wizard",
+    "source": "srd-5.1",
+    "hitDie": 6,
+    "savingThrowProficiencies": [
+      "int",
+      "wis"
+    ],
+    "armorProficiencies": [],
+    "weaponProficiencies": [
+      "daggers",
+      "darts",
+      "slings",
+      "quarterstaffs",
+      "crossbows-light"
+    ],
+    "toolProficiencies": [],
+    "skillChoices": {
+      "choose": 2,
+      "from": [
+        "arcana",
+        "history",
+        "insight",
+        "investigation",
+        "medicine",
+        "religion"
+      ]
+    },
+    "subclassIds": [
+      "evocation"
+    ],
+    "subclassLevel": 2,
+    "asiLevels": [
+      4,
+      8,
+      12,
+      16,
+      19
+    ],
+    "featuresByLevel": {
+      "1": [
+        "spellcasting-wizard",
+        "arcane-recovery"
+      ],
+      "2": [
+        "arcane-tradition"
+      ],
+      "4": [
+        "wizard-ability-score-improvement-1"
+      ],
+      "6": [
+        "arcane-tradition-improvement-1"
+      ],
+      "8": [
+        "wizard-ability-score-improvement-2"
+      ],
+      "10": [
+        "arcane-tradition-improvement-2"
+      ],
+      "12": [
+        "wizard-ability-score-improvement-3"
+      ],
+      "14": [
+        "arcane-tradition-improvement-3"
+      ],
+      "16": [
+        "wizard-ability-score-improvement-4"
+      ],
+      "18": [
+        "spell-mastery"
+      ],
+      "19": [
+        "wizard-ability-score-improvement-5"
+      ],
+      "20": [
+        "signature-spell"
+      ]
+    },
+    "classSpecificByLevel": {
+      "1": {
+        "arcane_recovery_levels": 1
+      },
+      "2": {
+        "arcane_recovery_levels": 1
+      },
+      "3": {
+        "arcane_recovery_levels": 2
+      },
+      "4": {
+        "arcane_recovery_levels": 2
+      },
+      "5": {
+        "arcane_recovery_levels": 3
+      },
+      "6": {
+        "arcane_recovery_levels": 3
+      },
+      "7": {
+        "arcane_recovery_levels": 4
+      },
+      "8": {
+        "arcane_recovery_levels": 4
+      },
+      "9": {
+        "arcane_recovery_levels": 5
+      },
+      "10": {
+        "arcane_recovery_levels": 5
+      },
+      "11": {
+        "arcane_recovery_levels": 6
+      },
+      "12": {
+        "arcane_recovery_levels": 6
+      },
+      "13": {
+        "arcane_recovery_levels": 7
+      },
+      "14": {
+        "arcane_recovery_levels": 7
+      },
+      "15": {
+        "arcane_recovery_levels": 8
+      },
+      "16": {
+        "arcane_recovery_levels": 8
+      },
+      "17": {
+        "arcane_recovery_levels": 9
+      },
+      "18": {
+        "arcane_recovery_levels": 9
+      },
+      "19": {
+        "arcane_recovery_levels": 10
+      },
+      "20": {
+        "arcane_recovery_levels": 10
+      }
+    },
+    "spellcasting": {
+      "ability": "int",
+      "startLevel": 1,
+      "preparationMode": "spellbook",
+      "progression": "full",
+      "ritualCasting": true,
+      "cantripsKnownByLevel": [
+        3,
+        3,
+        3,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        5,
+        5,
+        5,
+        5,
+        5,
+        5,
+        5,
+        5,
+        5,
+        5,
+        5
+      ],
+      "spellsKnownByLevel": null,
+      "slotsByLevel": [
+        [
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          3,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          1,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          1,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          1,
+          0,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          1,
+          1,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          1,
+          1,
+          0,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          1,
+          1,
+          1,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          1,
+          1,
+          1,
+          0
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          2,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          3,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          3,
+          2,
+          1,
+          1,
+          1
+        ],
+        [
+          4,
+          3,
+          3,
+          3,
+          3,
+          2,
+          2,
+          1,
+          1
+        ]
+      ]
+    },
+    "multiclassing": {
+      "prerequisites": [
+        {
+          "ability": "int",
+          "minimum": 13
+        }
+      ],
+      "prerequisiteOptions": [],
+      "proficiencies": {
+        "armor": [],
+        "weapons": [],
+        "tools": []
+      },
+      "skillChoices": null
+    },
+    "startingEquipment": [
+      {
+        "itemId": "spellbook",
+        "name": "Spellbook",
+        "quantity": 1
+      }
+    ],
+    "startingEquipmentOptions": [
+      {
+        "desc": "(a) a quarterstaff or (b) a dagger",
+        "choose": 1,
+        "options": [
+          {
+            "itemId": "quarterstaff",
+            "name": "Quarterstaff",
+            "quantity": 1
+          },
+          {
+            "itemId": "dagger",
+            "name": "Dagger",
+            "quantity": 1
+          }
+        ]
+      },
+      {
+        "desc": "(a) a component pouch or (b) an arcane focus",
+        "choose": 1,
+        "options": [
+          {
+            "itemId": "component-pouch",
+            "name": "Component pouch",
+            "quantity": 1
+          },
+          {
+            "categoryId": "arcane-foci",
+            "categoryName": "Arcane Foci",
+            "itemOptions": [
+              {
+                "itemId": "crystal",
+                "name": "Crystal"
+              },
+              {
+                "itemId": "orb",
+                "name": "Orb"
+              },
+              {
+                "itemId": "rod",
+                "name": "Rod"
+              },
+              {
+                "itemId": "staff",
+                "name": "Staff"
+              },
+              {
+                "itemId": "wand",
+                "name": "Wand"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "desc": "(a) a scholar’s pack or (b) an explorer’s pack",
+        "choose": 1,
+        "options": [
+          {
+            "itemId": "scholars-pack",
+            "name": "Scholar's Pack",
+            "quantity": 1
+          },
+          {
+            "itemId": "explorers-pack",
+            "name": "Explorer's Pack",
+            "quantity": 1
+          }
+        ]
+      }
+    ]
+  }
+]

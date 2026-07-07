@@ -721,9 +721,9 @@ function dispatchChange(el) {
 
 async function finishBuilderWizardWith({
   name = "Mira",
-  raceId = "race_human",
-  classId = "class_fighter",
-  backgroundId = "background_soldier",
+  raceId = "human",
+  classId = "fighter",
+  backgroundId = "acolyte",
   ancestryId = "",
   abilities = { Str: 15, Dex: 14, Con: 13, Int: 12, Wis: 10, Cha: 8 }
 } = {}) {
@@ -749,9 +749,9 @@ async function finishBuilderWizardWith({
 
 function completeBuilderIdentity({
   name = "Builder Mira",
-  raceId = "race_human",
-  classId = "class_fighter",
-  backgroundId = "background_soldier"
+  raceId = "human",
+  classId = "fighter",
+  backgroundId = "acolyte"
 } = {}) {
   document.getElementById("builderWizardName").value = name;
   document.getElementById("builderWizardRace").value = raceId;
@@ -926,9 +926,9 @@ function makeImportObject(name = "Mira") {
 function makeBuilderCharacter({
   id = "char_builder",
   name = "Builder",
-  classId = "class_fighter",
-  raceId = "race_elf",
-  backgroundId = "background_soldier",
+  classId = "fighter",
+  raceId = "elf",
+  backgroundId = "acolyte",
   level = 5,
   abilities = { str: 16, dex: 14, con: 13, int: 12, wis: 10, cha: 8 },
   flatFields = {}
@@ -1963,7 +1963,7 @@ describe("character page selector", () => {
     const controller = initCharacterPageUI(deps);
     actionMenuButton.dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
     document.getElementById("charActionNewBuilderBtn").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
-    completeBuilderIdentity({ raceId: "race_human" });
+    completeBuilderIdentity({ raceId: "human" });
     document.getElementById("builderWizardNext").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
 
     expect(document.getElementById("builderWizardRaceAbilityBonusPreview").textContent)
@@ -2017,10 +2017,10 @@ describe("character page selector", () => {
       build: {
         version: 1,
         ruleset: "srd-5.1",
-        raceId: "race_human",
-        classId: "class_fighter",
+        raceId: "human",
+        classId: "fighter",
         subclassId: null,
-        backgroundId: "background_soldier",
+        backgroundId: "acolyte",
         level: 1,
         abilities: {
           base: { str: 15, dex: 14, con: 13, int: 12, wis: 10, cha: 8 }
@@ -2038,7 +2038,7 @@ describe("character page selector", () => {
     expect(derived.labels).toEqual({
       classLevel: "Fighter 1",
       race: "Human",
-      background: "Soldier"
+      background: "Acolyte"
     });
     expect(derived.proficiencyBonus).toBe(2);
     expect(derived.abilities.str).toMatchObject({ base: 15, total: 16, modifier: 3 });
@@ -2090,10 +2090,10 @@ describe("character page selector", () => {
     const controller = initCharacterPageUI(deps);
     actionMenuButton.dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
     document.getElementById("charActionNewBuilderBtn").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
-    await finishBuilderWizardWith({ raceId: "race_human" });
+    await finishBuilderWizardWith({ raceId: "human" });
 
     const created = deps.state.characters.entries[2];
-    expect(created.build.raceId).toBe("race_human");
+    expect(created.build.raceId).toBe("human");
     expect(created.build.choicesByLevel["1"]?.["dragonborn-ancestry"]).toBeUndefined();
     expect(created.features).toBe("");
     expect(created.languages).toBe("");
@@ -2116,7 +2116,7 @@ describe("character page selector", () => {
     document.getElementById("builderWizardDraconicAncestry").value = "red";
     document.getElementById("builderWizardDraconicAncestry").dispatchEvent(new Event("change", { bubbles: true, cancelable: true }));
     document.getElementById("builderWizardBack").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
-    document.getElementById("builderWizardRace").value = "race_human";
+    document.getElementById("builderWizardRace").value = "human";
     document.getElementById("builderWizardRace").dispatchEvent(new Event("change", { bubbles: true, cancelable: true }));
     document.getElementById("builderWizardNext").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
     document.getElementById("builderWizardNext").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
@@ -2124,7 +2124,7 @@ describe("character page selector", () => {
     await flushPromises();
 
     const created = deps.state.characters.entries[2];
-    expect(created.build.raceId).toBe("race_human");
+    expect(created.build.raceId).toBe("human");
     expect(created.build.choicesByLevel["1"]?.["dragonborn-ancestry"]).toBeUndefined();
 
     controller.destroy();
@@ -2144,7 +2144,7 @@ describe("character page selector", () => {
     document.getElementById("builderWizardDraconicAncestry").value = "red";
     document.getElementById("builderWizardDraconicAncestry").dispatchEvent(new Event("change", { bubbles: true, cancelable: true }));
     document.getElementById("builderWizardBack").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
-    document.getElementById("builderWizardRace").value = "race_human";
+    document.getElementById("builderWizardRace").value = "human";
     document.getElementById("builderWizardRace").dispatchEvent(new Event("change", { bubbles: true, cancelable: true }));
     document.getElementById("builderWizardRace").value = "dragonborn";
     document.getElementById("builderWizardRace").dispatchEvent(new Event("change", { bubbles: true, cancelable: true }));
@@ -2189,9 +2189,9 @@ describe("character page selector", () => {
 
     completeBuilderIdentity({
       name: "Preview Mira",
-      raceId: "race_elf",
-      classId: "class_wizard",
-      backgroundId: "background_sage"
+      raceId: "elf",
+      classId: "wizard",
+      backgroundId: "acolyte"
     });
     document.getElementById("builderWizardNext").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
     document.getElementById("builderWizardAbilityInt").value = "16";
@@ -2203,7 +2203,7 @@ describe("character page selector", () => {
     expect(summary).toContain("Preview Mira");
     expect(summary).toContain("Wizard 1");
     expect(summary).toContain("Elf");
-    expect(summary).toContain("Sage");
+    expect(summary).toContain("Acolyte");
     expect(summary).toContain("+2");
     expect(summary).toContain("16 (+3)");
 
@@ -2223,8 +2223,8 @@ describe("character page selector", () => {
     completeBuilderIdentity({
       name: "Dragon Mira",
       raceId: "dragonborn",
-      classId: "class_fighter",
-      backgroundId: "background_soldier"
+      classId: "fighter",
+      backgroundId: "acolyte"
     });
     document.getElementById("builderWizardNext").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
     document.getElementById("builderWizardDraconicAncestry").value = "red";
@@ -3171,9 +3171,9 @@ describe("character page selector", () => {
     expect(panel.getAttribute("aria-hidden")).toBe("false");
     expect(document.getElementById("charBuilderIdentityGrid").hidden).toBe(false);
     expect(document.getElementById("charBuilderIdentityUnavailable").hidden).toBe(true);
-    expect(document.getElementById("charBuilderRaceSelect").value).toBe("race_elf");
-    expect(document.getElementById("charBuilderClassSelect").value).toBe("class_fighter");
-    expect(document.getElementById("charBuilderBackgroundSelect").value).toBe("background_soldier");
+    expect(document.getElementById("charBuilderRaceSelect").value).toBe("elf");
+    expect(document.getElementById("charBuilderClassSelect").value).toBe("fighter");
+    expect(document.getElementById("charBuilderBackgroundSelect").value).toBe("acolyte");
     expect(document.getElementById("charBuilderLevelInput").value).toBe("5");
 
     controller.destroy();
@@ -3234,7 +3234,7 @@ describe("character page selector", () => {
       build: {
         version: 1,
         ruleset: "srd-5.1",
-        classId: "class_fighter",
+        classId: "fighter",
         level: 3,
         abilities: { base: { str: 15 } }
       }
@@ -3332,17 +3332,17 @@ describe("character page selector", () => {
     const deps = createCharacterPageDeps(Popovers);
     deps.state.characters.entries[0] = makeBuilderCharacter({
       id: "char_a",
-      raceId: "race_dwarf",
-      classId: "class_wizard",
-      backgroundId: "background_sage",
+      raceId: "dwarf",
+      classId: "wizard",
+      backgroundId: "acolyte",
       level: 7
     });
 
     const controller = initCharacterPageUI(deps);
 
-    expect(document.getElementById("charBuilderRaceSelect").value).toBe("race_dwarf");
-    expect(document.getElementById("charBuilderClassSelect").value).toBe("class_wizard");
-    expect(document.getElementById("charBuilderBackgroundSelect").value).toBe("background_sage");
+    expect(document.getElementById("charBuilderRaceSelect").value).toBe("dwarf");
+    expect(document.getElementById("charBuilderClassSelect").value).toBe("wizard");
+    expect(document.getElementById("charBuilderBackgroundSelect").value).toBe("acolyte");
     expect(document.getElementById("charBuilderLevelInput").value).toBe("7");
 
     controller.destroy();
@@ -3381,36 +3381,36 @@ describe("character page selector", () => {
     const controller = initCharacterPageUI(deps);
 
     const raceSelect = document.getElementById("charBuilderRaceSelect");
-    raceSelect.value = "race_human";
+    raceSelect.value = "human";
     dispatchChange(raceSelect);
-    expect(builder.build.raceId).toBe("race_human");
-    expect(builder.build.classId).toBe("class_fighter");
-    expect(builder.build.backgroundId).toBe("background_soldier");
+    expect(builder.build.raceId).toBe("human");
+    expect(builder.build.classId).toBe("fighter");
+    expect(builder.build.backgroundId).toBe("acolyte");
     expect(builder.build.level).toBe(5);
 
     const classSelect = document.getElementById("charBuilderClassSelect");
-    classSelect.value = "class_wizard";
+    classSelect.value = "wizard";
     dispatchChange(classSelect);
-    expect(builder.build.classId).toBe("class_wizard");
-    expect(builder.build.raceId).toBe("race_human");
-    expect(builder.build.backgroundId).toBe("background_soldier");
+    expect(builder.build.classId).toBe("wizard");
+    expect(builder.build.raceId).toBe("human");
+    expect(builder.build.backgroundId).toBe("acolyte");
     expect(builder.build.level).toBe(5);
 
     const backgroundSelect = document.getElementById("charBuilderBackgroundSelect");
-    backgroundSelect.value = "background_sage";
+    backgroundSelect.value = "acolyte";
     dispatchChange(backgroundSelect);
-    expect(builder.build.backgroundId).toBe("background_sage");
-    expect(builder.build.raceId).toBe("race_human");
-    expect(builder.build.classId).toBe("class_wizard");
+    expect(builder.build.backgroundId).toBe("acolyte");
+    expect(builder.build.raceId).toBe("human");
+    expect(builder.build.classId).toBe("wizard");
     expect(builder.build.level).toBe(5);
 
     const levelInput = document.getElementById("charBuilderLevelInput");
     levelInput.value = "6";
     dispatchChange(levelInput);
     expect(builder.build.level).toBe(6);
-    expect(builder.build.raceId).toBe("race_human");
-    expect(builder.build.classId).toBe("class_wizard");
-    expect(builder.build.backgroundId).toBe("background_sage");
+    expect(builder.build.raceId).toBe("human");
+    expect(builder.build.classId).toBe("wizard");
+    expect(builder.build.backgroundId).toBe("acolyte");
 
     expect(builder.classLevel).toBe(beforeFlat.classLevel);
     expect(builder.race).toBe(beforeFlat.race);
@@ -3457,8 +3457,8 @@ describe("character page selector", () => {
     const deps = createCharacterPageDeps(Popovers);
     const builder = makeBuilderCharacter({
       id: "char_a",
-      raceId: "race_elf",
-      classId: "class_fighter",
+      raceId: "elf",
+      classId: "fighter",
       backgroundId: null
     });
     deps.state.characters.entries[0] = builder;
@@ -3467,16 +3467,16 @@ describe("character page selector", () => {
     const controller = initCharacterPageUI(deps);
 
     const raceSelect = document.getElementById("charBuilderRaceSelect");
-    raceSelect.value = "class_fighter";
+    raceSelect.value = "fighter";
     dispatchChange(raceSelect);
     expect(builder.build).toEqual(beforeBuild);
-    expect(raceSelect.value).toBe("race_elf");
+    expect(raceSelect.value).toBe("elf");
 
     const classSelect = document.getElementById("charBuilderClassSelect");
     classSelect.value = "class_missing";
     dispatchChange(classSelect);
     expect(builder.build).toEqual(beforeBuild);
-    expect(classSelect.value).toBe("class_fighter");
+    expect(classSelect.value).toBe("fighter");
 
     const backgroundSelect = document.getElementById("charBuilderBackgroundSelect");
     backgroundSelect.value = "background_missing";
@@ -3538,7 +3538,7 @@ describe("character page selector", () => {
     expect(document.getElementById("charBuilderSummaryContent").textContent).toContain("Fighter 5");
 
     const classSelect = document.getElementById("charBuilderClassSelect");
-    classSelect.value = "class_wizard";
+    classSelect.value = "wizard";
     dispatchChange(classSelect);
 
     expect(document.getElementById("charBuilderSummaryContent").textContent).toContain("Wizard 5");
@@ -3573,21 +3573,21 @@ describe("character page selector", () => {
     const Popovers = createFakePopovers();
     const deps = createCharacterPageDeps(Popovers);
     deps.state.characters.entries = [
-      makeBuilderCharacter({ id: "char_a", raceId: "race_elf", classId: "class_fighter", backgroundId: "background_soldier", level: 5 }),
+      makeBuilderCharacter({ id: "char_a", raceId: "elf", classId: "fighter", backgroundId: "acolyte", level: 5 }),
       { id: "char_b", name: "Bram", build: null },
-      makeBuilderCharacter({ id: "char_c", raceId: "race_human", classId: "class_wizard", backgroundId: "background_acolyte", level: 1 })
+      makeBuilderCharacter({ id: "char_c", raceId: "human", classId: "wizard", backgroundId: "acolyte", level: 1 })
     ];
     deps.state.characters.activeId = "char_a";
 
     const controller = initCharacterPageUI(deps);
-    expect(document.getElementById("charBuilderRaceSelect").value).toBe("race_elf");
+    expect(document.getElementById("charBuilderRaceSelect").value).toBe("elf");
 
     deps.state.characters.activeId = "char_c";
     notifyActiveCharacterChanged({ previousId: "char_a", activeId: "char_c" });
     expect(document.getElementById("charBuilderIdentityPanel").hidden).toBe(false);
-    expect(document.getElementById("charBuilderRaceSelect").value).toBe("race_human");
-    expect(document.getElementById("charBuilderClassSelect").value).toBe("class_wizard");
-    expect(document.getElementById("charBuilderBackgroundSelect").value).toBe("background_acolyte");
+    expect(document.getElementById("charBuilderRaceSelect").value).toBe("human");
+    expect(document.getElementById("charBuilderClassSelect").value).toBe("wizard");
+    expect(document.getElementById("charBuilderBackgroundSelect").value).toBe("acolyte");
     expect(document.getElementById("charBuilderLevelInput").value).toBe("1");
 
     deps.state.characters.activeId = "char_b";
@@ -3613,10 +3613,10 @@ describe("character page selector", () => {
     deps.SaveManager.markDirty.mockClear();
 
     const raceSelect = document.getElementById("charBuilderRaceSelect");
-    raceSelect.value = "race_human";
+    raceSelect.value = "human";
     dispatchChange(raceSelect);
 
-    expect(deps.state.characters.entries[0].build.raceId).toBe("race_human");
+    expect(deps.state.characters.entries[0].build.raceId).toBe("human");
     expect(deps.SaveManager.markDirty).toHaveBeenCalledTimes(1);
 
     firstController.destroy();
@@ -3737,7 +3737,7 @@ describe("character page selector", () => {
       build: {
         version: 1,
         ruleset: "srd-5.1",
-        classId: "class_fighter",
+        classId: "fighter",
         level: 3,
         abilities: { base: { str: 15 } }
       }
@@ -3943,7 +3943,7 @@ describe("character page selector", () => {
     expect(content.textContent).not.toContain("not saved into freeform fields");
     expect(content.textContent).toContain("Class / LevelFighter 5");
     expect(content.textContent).toContain("RaceElf");
-    expect(content.textContent).toContain("BackgroundSoldier");
+    expect(content.textContent).toContain("BackgroundAcolyte");
     expect(content.textContent).toContain("Level5");
     expect(content.textContent).toContain("Proficiency Bonus+3");
     expect(content.textContent).toContain("STR16 (+3)");
@@ -3979,7 +3979,7 @@ describe("character page selector", () => {
       build: {
         version: 1,
         ruleset: "srd-5.1",
-        classId: "class_fighter",
+        classId: "fighter",
         level: 3,
         abilities: { base: { str: 15 } }
       }
@@ -4052,7 +4052,7 @@ describe("character page selector", () => {
       makeBuilderCharacter({
         id: "char_c",
         name: "Cora",
-        classId: "class_wizard",
+        classId: "wizard",
         raceId: null,
         backgroundId: null,
         level: 1,

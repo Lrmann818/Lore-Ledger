@@ -11,41 +11,53 @@ import {
   BUILTIN_CONTENT_REGISTRY,
   createContentRegistry,
   getContentById,
+  getContentByKind,
   listContentByKind
 } from "../js/domain/rules/registry.js";
 
 describe("builtin content registry", () => {
   it("looks up builtin content by id", () => {
-    expect(getContentById(BUILTIN_CONTENT_REGISTRY, "class_fighter")).toMatchObject({
-      id: "class_fighter",
+    expect(getContentById(BUILTIN_CONTENT_REGISTRY, "fighter")).toMatchObject({
+      id: "fighter",
       kind: "class",
       name: "Fighter"
     });
   });
 
-  it("lists content by kind", () => {
-    expect(listContentByKind(BUILTIN_CONTENT_REGISTRY, "race").map((entry) => entry.id)).toEqual([
-      "race_human",
-      "race_dwarf",
-      "race_elf",
-      "dragonborn"
-    ]);
-    expect(listContentByKind(BUILTIN_CONTENT_REGISTRY, "class").map((entry) => entry.id)).toEqual([
-      "class_fighter",
-      "class_cleric",
-      "class_wizard"
-    ]);
-    expect(listContentByKind(BUILTIN_CONTENT_REGISTRY, "background").map((entry) => entry.id)).toEqual([
-      "background_acolyte",
-      "background_sage",
-      "background_soldier"
-    ]);
+  it("lists the full generated SRD content by kind", () => {
+    const raceIds = listContentByKind(BUILTIN_CONTENT_REGISTRY, "race").map((entry) => entry.id);
+    expect(raceIds).toEqual(expect.arrayContaining([
+      "dragonborn", "dwarf", "elf", "gnome", "half-elf", "half-orc", "halfling", "human", "tiefling"
+    ]));
+    expect(raceIds).toHaveLength(9);
+
+    const classIds = listContentByKind(BUILTIN_CONTENT_REGISTRY, "class").map((entry) => entry.id);
+    expect(classIds).toEqual(expect.arrayContaining([
+      "barbarian", "bard", "cleric", "druid", "fighter", "monk",
+      "paladin", "ranger", "rogue", "sorcerer", "warlock", "wizard"
+    ]));
+    expect(classIds).toHaveLength(12);
+
+    expect(listContentByKind(BUILTIN_CONTENT_REGISTRY, "background").map((entry) => entry.id)).toEqual(["acolyte"]);
+    expect(listContentByKind(BUILTIN_CONTENT_REGISTRY, "feat").map((entry) => entry.id)).toEqual(["grappler"]);
+    expect(listContentByKind(BUILTIN_CONTENT_REGISTRY, "subclass")).toHaveLength(12);
     expect(listContentByKind(BUILTIN_CONTENT_REGISTRY, "ancestry").map((entry) => entry.id)).toContain("red");
+    expect(listContentByKind(BUILTIN_CONTENT_REGISTRY, "spell").length).toBeGreaterThanOrEqual(300);
+    expect(listContentByKind(BUILTIN_CONTENT_REGISTRY, "skill")).toHaveLength(18);
+    expect(listContentByKind(BUILTIN_CONTENT_REGISTRY, "language")).toHaveLength(16);
+    expect(listContentByKind(BUILTIN_CONTENT_REGISTRY, "armor").length).toBeGreaterThanOrEqual(13);
+    expect(listContentByKind(BUILTIN_CONTENT_REGISTRY, "weapon").length).toBeGreaterThanOrEqual(30);
+  });
+
+  it("resolves kind-scoped ids that collide across kinds", () => {
+    expect(getContentByKind(BUILTIN_CONTENT_REGISTRY, "armor", "shield")).toMatchObject({ kind: "armor" });
+    expect(getContentByKind(BUILTIN_CONTENT_REGISTRY, "spell", "shield")).toMatchObject({ kind: "spell", name: "Shield" });
   });
 
   it("returns null or an empty list for unknown content", () => {
     expect(getContentById(BUILTIN_CONTENT_REGISTRY, "missing")).toBeNull();
-    expect(listContentByKind(BUILTIN_CONTENT_REGISTRY, "feat")).toEqual([]);
+    expect(getContentByKind(BUILTIN_CONTENT_REGISTRY, "class", "missing")).toBeNull();
+    expect(listContentByKind(BUILTIN_CONTENT_REGISTRY, "not-a-kind")).toEqual([]);
   });
 
   it("can create a registry from a caller-provided entry list", () => {
@@ -71,7 +83,7 @@ describe("rules derivation", () => {
         ruleset: "srd-5.1",
         raceId: "race_human",
         classId: "class_fighter",
-        backgroundId: "background_soldier",
+        backgroundId: "acolyte",
         level: 5,
         abilities: {
           base: { str: 15, dex: 14, con: 13, int: 10, wis: 8, cha: 12 }
@@ -95,7 +107,7 @@ describe("rules derivation", () => {
     expect(derived.labels).toEqual({
       classLevel: "Fighter 5",
       race: "Human",
-      background: "Soldier"
+      background: "Acolyte"
     });
     expect(derived.level).toBe(5);
     expect(derived.proficiencyBonus).toBe(3);
@@ -227,9 +239,9 @@ describe("rules derivation", () => {
   it("reports warnings for unknown builder content ids without throwing", () => {
     const derived = deriveCharacter({
       build: {
-        raceId: "race_missing",
-        classId: "class_missing",
-        backgroundId: "background_missing",
+        raceId: "missing-race",
+        classId: "missing-class",
+        backgroundId: "missing-background",
         level: 1
       }
     });
@@ -238,9 +250,9 @@ describe("rules derivation", () => {
     expect(derived.labels).toEqual({ classLevel: "1", race: "", background: "" });
     expect(derived.vitals).toEqual({ speed: null, hitDieAmt: 1, hitDieSize: null });
     expect(derived.warnings).toEqual([
-      "Unknown class content: class_missing",
-      "Unknown race content: race_missing",
-      "Unknown background content: background_missing"
+      "Unknown race content: missing-race",
+      "Unknown background content: missing-background",
+      "Unknown class content: missing-class"
     ]);
   });
 
@@ -290,7 +302,7 @@ describe("rules derivation", () => {
       build: {
         raceId: "race_human",
         classId: "class_fighter",
-        backgroundId: "background_soldier",
+        backgroundId: "acolyte",
         level: 1,
         abilities: { base: { str: 16 } }
       },
@@ -311,7 +323,7 @@ describe("rules derivation", () => {
         ruleset: "srd-5.1",
         raceId: "dragonborn",
         classId: "class_fighter",
-        backgroundId: "background_soldier",
+        backgroundId: "acolyte",
         level: 1,
         abilities: { base: { str: 15, dex: 14, con: 13, int: 12, wis: 10, cha: 8 } },
         choicesByLevel: {}
@@ -333,7 +345,7 @@ describe("rules derivation", () => {
         ruleset: "srd-5.1",
         raceId: "race_human",
         classId: "class_fighter",
-        backgroundId: "background_soldier",
+        backgroundId: "acolyte",
         level: 1,
         abilities: { base: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 } },
         choicesByLevel: {}
@@ -353,7 +365,7 @@ describe("rules derivation", () => {
         ruleset: "srd-5.1",
         raceId: "race_human",
         classId: "class_fighter",
-        backgroundId: "background_soldier",
+        backgroundId: "acolyte",
         level: 1,
         abilities: { base: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 } },
         choicesByLevel: {}
@@ -364,7 +376,7 @@ describe("rules derivation", () => {
     character.build.level = 9;
     character.build.raceId = "race_elf";
     character.build.classId = "class_wizard";
-    character.build.backgroundId = "background_sage";
+    character.build.backgroundId = "acolyte";
     const beforeDerive = structuredClone(character);
 
     const derived = deriveCharacter(character);
@@ -374,7 +386,7 @@ describe("rules derivation", () => {
     expect(derived.labels).toEqual({
       classLevel: "Wizard 9",
       race: "Elf",
-      background: "Sage"
+      background: "Acolyte"
     });
     expect(character).toEqual(beforeDerive);
     expect(beforeDerive).toMatchObject({
@@ -382,7 +394,7 @@ describe("rules derivation", () => {
         level: 9,
         raceId: "race_elf",
         classId: "class_wizard",
-        backgroundId: "background_sage"
+        backgroundId: "acolyte"
       }
     });
     expect(derived).not.toBe(character);
@@ -398,7 +410,7 @@ describe("rules derivation", () => {
       build: {
         raceId: "race_human",
         classId: "class_fighter",
-        backgroundId: "background_soldier",
+        backgroundId: "acolyte",
         level: 1,
         abilities: { base: { str: 16, dex: 14 } }
       },
@@ -413,7 +425,7 @@ describe("rules derivation", () => {
     expect(materialized).toMatchObject({
       classLevel: "Fighter 1",
       race: "Human",
-      background: "Soldier",
+      background: "Acolyte",
       proficiency: 2,
       initiative: 2
     });
@@ -439,7 +451,7 @@ describe("dragonborn ancestry derivation", () => {
         ruleset: "srd-5.1",
         raceId: "dragonborn",
         classId: "class_fighter",
-        backgroundId: "background_soldier",
+        backgroundId: "acolyte",
         level: 1,
         abilities: { base: { str: 10, dex: 10, con: 14, int: 10, wis: 10, cha: 10 } },
         choicesByLevel: { "1": { "dragonborn-ancestry": "red" } },
@@ -577,7 +589,7 @@ describe("dragonborn ancestry derivation", () => {
         ruleset: "srd-5.1",
         raceId: "race_human",
         classId: "class_fighter",
-        backgroundId: "background_soldier",
+        backgroundId: "acolyte",
         level: 1,
         abilities: { base: { str: 10, dex: 10, con: 14, int: 10, wis: 10, cha: 10 } },
         choicesByLevel: {}

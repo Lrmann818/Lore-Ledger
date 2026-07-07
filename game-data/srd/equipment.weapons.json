@@ -1,0 +1,865 @@
+[
+  {
+    "id": "battleaxe",
+    "kind": "weapon",
+    "name": "Battleaxe",
+    "source": "srd-5.1",
+    "weaponCategory": "martial",
+    "attackType": "melee",
+    "damage": "1d8",
+    "damageType": "slashing",
+    "properties": [
+      "versatile"
+    ],
+    "versatileDamage": "1d10",
+    "range": null,
+    "throwRange": null,
+    "weight": 4,
+    "cost": {
+      "quantity": 10,
+      "unit": "gp"
+    }
+  },
+  {
+    "id": "blowgun",
+    "kind": "weapon",
+    "name": "Blowgun",
+    "source": "srd-5.1",
+    "weaponCategory": "martial",
+    "attackType": "ranged",
+    "damage": "1",
+    "damageType": "piercing",
+    "properties": [
+      "ammunition",
+      "loading"
+    ],
+    "versatileDamage": null,
+    "range": {
+      "normal": 25,
+      "long": 100
+    },
+    "throwRange": null,
+    "weight": 1,
+    "cost": {
+      "quantity": 10,
+      "unit": "gp"
+    }
+  },
+  {
+    "id": "club",
+    "kind": "weapon",
+    "name": "Club",
+    "source": "srd-5.1",
+    "weaponCategory": "simple",
+    "attackType": "melee",
+    "damage": "1d4",
+    "damageType": "bludgeoning",
+    "properties": [
+      "light",
+      "monk"
+    ],
+    "versatileDamage": null,
+    "range": null,
+    "throwRange": null,
+    "weight": 2,
+    "cost": {
+      "quantity": 1,
+      "unit": "sp"
+    }
+  },
+  {
+    "id": "crossbow-hand",
+    "kind": "weapon",
+    "name": "Crossbow, hand",
+    "source": "srd-5.1",
+    "weaponCategory": "martial",
+    "attackType": "ranged",
+    "damage": "1d6",
+    "damageType": "piercing",
+    "properties": [
+      "ammunition",
+      "light",
+      "loading"
+    ],
+    "versatileDamage": null,
+    "range": {
+      "normal": 30,
+      "long": 120
+    },
+    "throwRange": null,
+    "weight": 3,
+    "cost": {
+      "quantity": 75,
+      "unit": "gp"
+    }
+  },
+  {
+    "id": "crossbow-heavy",
+    "kind": "weapon",
+    "name": "Crossbow, heavy",
+    "source": "srd-5.1",
+    "weaponCategory": "martial",
+    "attackType": "ranged",
+    "damage": "1d10",
+    "damageType": "piercing",
+    "properties": [
+      "ammunition",
+      "heavy",
+      "loading",
+      "two-handed"
+    ],
+    "versatileDamage": null,
+    "range": {
+      "normal": 100,
+      "long": 400
+    },
+    "throwRange": null,
+    "weight": 18,
+    "cost": {
+      "quantity": 50,
+      "unit": "gp"
+    }
+  },
+  {
+    "id": "crossbow-light",
+    "kind": "weapon",
+    "name": "Crossbow, light",
+    "source": "srd-5.1",
+    "weaponCategory": "simple",
+    "attackType": "ranged",
+    "damage": "1d8",
+    "damageType": "piercing",
+    "properties": [
+      "ammunition",
+      "loading",
+      "two-handed"
+    ],
+    "versatileDamage": null,
+    "range": {
+      "normal": 80,
+      "long": 320
+    },
+    "throwRange": null,
+    "weight": 5,
+    "cost": {
+      "quantity": 25,
+      "unit": "gp"
+    }
+  },
+  {
+    "id": "dagger",
+    "kind": "weapon",
+    "name": "Dagger",
+    "source": "srd-5.1",
+    "weaponCategory": "simple",
+    "attackType": "melee",
+    "damage": "1d4",
+    "damageType": "piercing",
+    "properties": [
+      "finesse",
+      "light",
+      "thrown",
+      "monk"
+    ],
+    "versatileDamage": null,
+    "range": null,
+    "throwRange": {
+      "normal": 20,
+      "long": 60
+    },
+    "weight": 1,
+    "cost": {
+      "quantity": 2,
+      "unit": "gp"
+    }
+  },
+  {
+    "id": "dart",
+    "kind": "weapon",
+    "name": "Dart",
+    "source": "srd-5.1",
+    "weaponCategory": "simple",
+    "attackType": "ranged",
+    "damage": "1d4",
+    "damageType": "piercing",
+    "properties": [
+      "finesse",
+      "thrown"
+    ],
+    "versatileDamage": null,
+    "range": {
+      "normal": 20,
+      "long": 60
+    },
+    "throwRange": {
+      "normal": 20,
+      "long": 60
+    },
+    "weight": 0.25,
+    "cost": {
+      "quantity": 5,
+      "unit": "cp"
+    }
+  },
+  {
+    "id": "flail",
+    "kind": "weapon",
+    "name": "Flail",
+    "source": "srd-5.1",
+    "weaponCategory": "martial",
+    "attackType": "melee",
+    "damage": "1d8",
+    "damageType": "bludgeoning",
+    "properties": [],
+    "versatileDamage": null,
+    "range": null,
+    "throwRange": null,
+    "weight": 2,
+    "cost": {
+      "quantity": 10,
+      "unit": "gp"
+    }
+  },
+  {
+    "id": "glaive",
+    "kind": "weapon",
+    "name": "Glaive",
+    "source": "srd-5.1",
+    "weaponCategory": "martial",
+    "attackType": "melee",
+    "damage": "1d10",
+    "damageType": "slashing",
+    "properties": [
+      "heavy",
+      "reach",
+      "two-handed"
+    ],
+    "versatileDamage": null,
+    "range": null,
+    "throwRange": null,
+    "weight": 6,
+    "cost": {
+      "quantity": 20,
+      "unit": "gp"
+    }
+  },
+  {
+    "id": "greataxe",
+    "kind": "weapon",
+    "name": "Greataxe",
+    "source": "srd-5.1",
+    "weaponCategory": "martial",
+    "attackType": "melee",
+    "damage": "1d12",
+    "damageType": "slashing",
+    "properties": [
+      "heavy",
+      "two-handed"
+    ],
+    "versatileDamage": null,
+    "range": null,
+    "throwRange": null,
+    "weight": 7,
+    "cost": {
+      "quantity": 30,
+      "unit": "gp"
+    }
+  },
+  {
+    "id": "greatclub",
+    "kind": "weapon",
+    "name": "Greatclub",
+    "source": "srd-5.1",
+    "weaponCategory": "simple",
+    "attackType": "melee",
+    "damage": "1d8",
+    "damageType": "bludgeoning",
+    "properties": [
+      "two-handed"
+    ],
+    "versatileDamage": null,
+    "range": null,
+    "throwRange": null,
+    "weight": 10,
+    "cost": {
+      "quantity": 2,
+      "unit": "sp"
+    }
+  },
+  {
+    "id": "greatsword",
+    "kind": "weapon",
+    "name": "Greatsword",
+    "source": "srd-5.1",
+    "weaponCategory": "martial",
+    "attackType": "melee",
+    "damage": "2d6",
+    "damageType": "slashing",
+    "properties": [
+      "heavy",
+      "two-handed"
+    ],
+    "versatileDamage": null,
+    "range": null,
+    "throwRange": null,
+    "weight": 6,
+    "cost": {
+      "quantity": 50,
+      "unit": "gp"
+    }
+  },
+  {
+    "id": "halberd",
+    "kind": "weapon",
+    "name": "Halberd",
+    "source": "srd-5.1",
+    "weaponCategory": "martial",
+    "attackType": "melee",
+    "damage": "1d10",
+    "damageType": "slashing",
+    "properties": [
+      "heavy",
+      "reach",
+      "two-handed"
+    ],
+    "versatileDamage": null,
+    "range": null,
+    "throwRange": null,
+    "weight": 6,
+    "cost": {
+      "quantity": 20,
+      "unit": "gp"
+    }
+  },
+  {
+    "id": "handaxe",
+    "kind": "weapon",
+    "name": "Handaxe",
+    "source": "srd-5.1",
+    "weaponCategory": "simple",
+    "attackType": "melee",
+    "damage": "1d6",
+    "damageType": "slashing",
+    "properties": [
+      "light",
+      "thrown",
+      "monk"
+    ],
+    "versatileDamage": null,
+    "range": null,
+    "throwRange": {
+      "normal": 20,
+      "long": 60
+    },
+    "weight": 2,
+    "cost": {
+      "quantity": 5,
+      "unit": "gp"
+    }
+  },
+  {
+    "id": "javelin",
+    "kind": "weapon",
+    "name": "Javelin",
+    "source": "srd-5.1",
+    "weaponCategory": "simple",
+    "attackType": "melee",
+    "damage": "1d6",
+    "damageType": "piercing",
+    "properties": [
+      "thrown",
+      "monk"
+    ],
+    "versatileDamage": null,
+    "range": null,
+    "throwRange": {
+      "normal": 30,
+      "long": 120
+    },
+    "weight": 2,
+    "cost": {
+      "quantity": 5,
+      "unit": "sp"
+    }
+  },
+  {
+    "id": "lance",
+    "kind": "weapon",
+    "name": "Lance",
+    "source": "srd-5.1",
+    "weaponCategory": "martial",
+    "attackType": "melee",
+    "damage": "1d12",
+    "damageType": "piercing",
+    "properties": [
+      "reach",
+      "special"
+    ],
+    "versatileDamage": null,
+    "range": null,
+    "throwRange": null,
+    "weight": 6,
+    "cost": {
+      "quantity": 10,
+      "unit": "gp"
+    }
+  },
+  {
+    "id": "light-hammer",
+    "kind": "weapon",
+    "name": "Light hammer",
+    "source": "srd-5.1",
+    "weaponCategory": "simple",
+    "attackType": "melee",
+    "damage": "1d4",
+    "damageType": "bludgeoning",
+    "properties": [
+      "light",
+      "thrown",
+      "monk"
+    ],
+    "versatileDamage": null,
+    "range": null,
+    "throwRange": {
+      "normal": 20,
+      "long": 60
+    },
+    "weight": 2,
+    "cost": {
+      "quantity": 2,
+      "unit": "gp"
+    }
+  },
+  {
+    "id": "longbow",
+    "kind": "weapon",
+    "name": "Longbow",
+    "source": "srd-5.1",
+    "weaponCategory": "martial",
+    "attackType": "ranged",
+    "damage": "1d8",
+    "damageType": "piercing",
+    "properties": [
+      "ammunition",
+      "heavy",
+      "two-handed"
+    ],
+    "versatileDamage": null,
+    "range": {
+      "normal": 150,
+      "long": 600
+    },
+    "throwRange": null,
+    "weight": 2,
+    "cost": {
+      "quantity": 50,
+      "unit": "gp"
+    }
+  },
+  {
+    "id": "longsword",
+    "kind": "weapon",
+    "name": "Longsword",
+    "source": "srd-5.1",
+    "weaponCategory": "martial",
+    "attackType": "melee",
+    "damage": "1d8",
+    "damageType": "slashing",
+    "properties": [
+      "versatile"
+    ],
+    "versatileDamage": "1d10",
+    "range": null,
+    "throwRange": null,
+    "weight": 3,
+    "cost": {
+      "quantity": 15,
+      "unit": "gp"
+    }
+  },
+  {
+    "id": "mace",
+    "kind": "weapon",
+    "name": "Mace",
+    "source": "srd-5.1",
+    "weaponCategory": "simple",
+    "attackType": "melee",
+    "damage": "1d6",
+    "damageType": "bludgeoning",
+    "properties": [
+      "monk"
+    ],
+    "versatileDamage": null,
+    "range": null,
+    "throwRange": null,
+    "weight": 4,
+    "cost": {
+      "quantity": 5,
+      "unit": "gp"
+    }
+  },
+  {
+    "id": "maul",
+    "kind": "weapon",
+    "name": "Maul",
+    "source": "srd-5.1",
+    "weaponCategory": "martial",
+    "attackType": "melee",
+    "damage": "2d6",
+    "damageType": "bludgeoning",
+    "properties": [
+      "heavy",
+      "two-handed"
+    ],
+    "versatileDamage": null,
+    "range": null,
+    "throwRange": null,
+    "weight": 10,
+    "cost": {
+      "quantity": 10,
+      "unit": "gp"
+    }
+  },
+  {
+    "id": "morningstar",
+    "kind": "weapon",
+    "name": "Morningstar",
+    "source": "srd-5.1",
+    "weaponCategory": "martial",
+    "attackType": "melee",
+    "damage": "1d8",
+    "damageType": "piercing",
+    "properties": [],
+    "versatileDamage": null,
+    "range": null,
+    "throwRange": null,
+    "weight": 4,
+    "cost": {
+      "quantity": 15,
+      "unit": "gp"
+    }
+  },
+  {
+    "id": "net",
+    "kind": "weapon",
+    "name": "Net",
+    "source": "srd-5.1",
+    "weaponCategory": "martial",
+    "attackType": "ranged",
+    "damage": null,
+    "damageType": null,
+    "properties": [
+      "thrown",
+      "special"
+    ],
+    "versatileDamage": null,
+    "range": {
+      "normal": 5,
+      "long": 15
+    },
+    "throwRange": {
+      "normal": 5,
+      "long": 15
+    },
+    "weight": 3,
+    "cost": {
+      "quantity": 1,
+      "unit": "gp"
+    }
+  },
+  {
+    "id": "pike",
+    "kind": "weapon",
+    "name": "Pike",
+    "source": "srd-5.1",
+    "weaponCategory": "martial",
+    "attackType": "melee",
+    "damage": "1d10",
+    "damageType": "piercing",
+    "properties": [
+      "heavy",
+      "reach",
+      "two-handed"
+    ],
+    "versatileDamage": null,
+    "range": null,
+    "throwRange": null,
+    "weight": 18,
+    "cost": {
+      "quantity": 5,
+      "unit": "gp"
+    }
+  },
+  {
+    "id": "quarterstaff",
+    "kind": "weapon",
+    "name": "Quarterstaff",
+    "source": "srd-5.1",
+    "weaponCategory": "simple",
+    "attackType": "melee",
+    "damage": "1d6",
+    "damageType": "bludgeoning",
+    "properties": [
+      "versatile",
+      "monk"
+    ],
+    "versatileDamage": "1d8",
+    "range": null,
+    "throwRange": null,
+    "weight": 4,
+    "cost": {
+      "quantity": 2,
+      "unit": "sp"
+    }
+  },
+  {
+    "id": "rapier",
+    "kind": "weapon",
+    "name": "Rapier",
+    "source": "srd-5.1",
+    "weaponCategory": "martial",
+    "attackType": "melee",
+    "damage": "1d8",
+    "damageType": "piercing",
+    "properties": [
+      "finesse"
+    ],
+    "versatileDamage": null,
+    "range": null,
+    "throwRange": null,
+    "weight": 2,
+    "cost": {
+      "quantity": 25,
+      "unit": "gp"
+    }
+  },
+  {
+    "id": "scimitar",
+    "kind": "weapon",
+    "name": "Scimitar",
+    "source": "srd-5.1",
+    "weaponCategory": "martial",
+    "attackType": "melee",
+    "damage": "1d6",
+    "damageType": "slashing",
+    "properties": [
+      "finesse",
+      "light"
+    ],
+    "versatileDamage": null,
+    "range": null,
+    "throwRange": null,
+    "weight": 3,
+    "cost": {
+      "quantity": 25,
+      "unit": "gp"
+    }
+  },
+  {
+    "id": "shortbow",
+    "kind": "weapon",
+    "name": "Shortbow",
+    "source": "srd-5.1",
+    "weaponCategory": "simple",
+    "attackType": "ranged",
+    "damage": "1d6",
+    "damageType": "piercing",
+    "properties": [
+      "ammunition",
+      "two-handed"
+    ],
+    "versatileDamage": null,
+    "range": {
+      "normal": 80,
+      "long": 320
+    },
+    "throwRange": null,
+    "weight": 2,
+    "cost": {
+      "quantity": 25,
+      "unit": "gp"
+    }
+  },
+  {
+    "id": "shortsword",
+    "kind": "weapon",
+    "name": "Shortsword",
+    "source": "srd-5.1",
+    "weaponCategory": "martial",
+    "attackType": "melee",
+    "damage": "1d6",
+    "damageType": "piercing",
+    "properties": [
+      "finesse",
+      "light",
+      "monk"
+    ],
+    "versatileDamage": null,
+    "range": null,
+    "throwRange": null,
+    "weight": 2,
+    "cost": {
+      "quantity": 10,
+      "unit": "gp"
+    }
+  },
+  {
+    "id": "sickle",
+    "kind": "weapon",
+    "name": "Sickle",
+    "source": "srd-5.1",
+    "weaponCategory": "simple",
+    "attackType": "melee",
+    "damage": "1d4",
+    "damageType": "slashing",
+    "properties": [
+      "light",
+      "monk"
+    ],
+    "versatileDamage": null,
+    "range": null,
+    "throwRange": null,
+    "weight": 2,
+    "cost": {
+      "quantity": 1,
+      "unit": "gp"
+    }
+  },
+  {
+    "id": "sling",
+    "kind": "weapon",
+    "name": "Sling",
+    "source": "srd-5.1",
+    "weaponCategory": "simple",
+    "attackType": "ranged",
+    "damage": "1d4",
+    "damageType": "bludgeoning",
+    "properties": [
+      "ammunition"
+    ],
+    "versatileDamage": null,
+    "range": {
+      "normal": 30,
+      "long": 120
+    },
+    "throwRange": null,
+    "weight": 0,
+    "cost": {
+      "quantity": 1,
+      "unit": "sp"
+    }
+  },
+  {
+    "id": "spear",
+    "kind": "weapon",
+    "name": "Spear",
+    "source": "srd-5.1",
+    "weaponCategory": "simple",
+    "attackType": "melee",
+    "damage": "1d6",
+    "damageType": "piercing",
+    "properties": [
+      "thrown",
+      "versatile",
+      "monk"
+    ],
+    "versatileDamage": "1d8",
+    "range": null,
+    "throwRange": {
+      "normal": 20,
+      "long": 60
+    },
+    "weight": 3,
+    "cost": {
+      "quantity": 1,
+      "unit": "gp"
+    }
+  },
+  {
+    "id": "trident",
+    "kind": "weapon",
+    "name": "Trident",
+    "source": "srd-5.1",
+    "weaponCategory": "martial",
+    "attackType": "melee",
+    "damage": "1d6",
+    "damageType": "piercing",
+    "properties": [
+      "thrown",
+      "versatile"
+    ],
+    "versatileDamage": "1d8",
+    "range": null,
+    "throwRange": {
+      "normal": 20,
+      "long": 60
+    },
+    "weight": 4,
+    "cost": {
+      "quantity": 5,
+      "unit": "gp"
+    }
+  },
+  {
+    "id": "war-pick",
+    "kind": "weapon",
+    "name": "War pick",
+    "source": "srd-5.1",
+    "weaponCategory": "martial",
+    "attackType": "melee",
+    "damage": "1d8",
+    "damageType": "piercing",
+    "properties": [],
+    "versatileDamage": null,
+    "range": null,
+    "throwRange": null,
+    "weight": 2,
+    "cost": {
+      "quantity": 5,
+      "unit": "gp"
+    }
+  },
+  {
+    "id": "warhammer",
+    "kind": "weapon",
+    "name": "Warhammer",
+    "source": "srd-5.1",
+    "weaponCategory": "martial",
+    "attackType": "melee",
+    "damage": "1d8",
+    "damageType": "bludgeoning",
+    "properties": [
+      "versatile"
+    ],
+    "versatileDamage": "1d10",
+    "range": null,
+    "throwRange": null,
+    "weight": 2,
+    "cost": {
+      "quantity": 15,
+      "unit": "gp"
+    }
+  },
+  {
+    "id": "whip",
+    "kind": "weapon",
+    "name": "Whip",
+    "source": "srd-5.1",
+    "weaponCategory": "martial",
+    "attackType": "melee",
+    "damage": "1d4",
+    "damageType": "slashing",
+    "properties": [
+      "finesse",
+      "reach"
+    ],
+    "versatileDamage": null,
+    "range": null,
+    "throwRange": null,
+    "weight": 3,
+    "cost": {
+      "quantity": 2,
+      "unit": "gp"
+    }
+  }
+]
