@@ -50,6 +50,7 @@ import {
   resetAll as _resetAll
 } from "./js/storage/backup.js";
 import { createSaveManager } from "./js/storage/saveManager.js";
+import { bindCustomContentProvider } from "./js/domain/rules/registry.js";
 import {
   loadAll as loadAllPersist,
   installExitSave,
@@ -160,6 +161,11 @@ if (DEV_MODE && StateGuard.enabled) {
 }
 
 const VaultRuntime = { current: null };
+
+// Content registry: builtin SRD data + campaign custom content. The provider
+// reads the live state bucket so campaign loads/switches/imports refresh the
+// active registry automatically (custom-content mutations replace the array).
+bindCustomContentProvider(() => appState.content?.custom);
 
 /************************ Shared file picker ************************/
 // One hidden <input type="file"> for the whole app.

@@ -162,7 +162,7 @@ describe("schema version", () => {
   it("always sets schemaVersion to the current version after migration", () => {
     const fromLegacy = migrateState({ character: { name: "Arlen" } });
     expect(fromLegacy.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
-    expect(CURRENT_SCHEMA_VERSION).toBe(10);
+    expect(CURRENT_SCHEMA_VERSION).toBe(11);
 
     const fromEmpty = migrateState({});
     expect(fromEmpty.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
@@ -255,7 +255,13 @@ describe("migrateToV6 — Step 3 rules-builder foundation fields", () => {
     expect(migrated.characters.entries[0].build).toBeNull();
     expect(migrated.characters.entries[1].build).toBeNull();
     expect(migrated.characters.entries[2].build).toBeNull();
-    expect(migrated.characters.entries[3].build).toEqual({ classId: "class_fighter" });
+    // Legacy class_fighter with no level normalizes into a one-level v2 build
+    // with the bare registry id — the class selection is preserved.
+    expect(migrated.characters.entries[3].build).toMatchObject({
+      version: 2,
+      ruleset: "srd-5.1",
+      levels: [{ classId: "fighter", hp: null }]
+    });
   });
 
   it("normalizes malformed and partial overrides into the foundation shape", () => {

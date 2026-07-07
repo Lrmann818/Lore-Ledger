@@ -213,7 +213,7 @@ describe("migrateState", () => {
       });
 
       expect(migrated.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
-      expect(CURRENT_SCHEMA_VERSION).toBe(10);
+      expect(CURRENT_SCHEMA_VERSION).toBe(11);
       expect(migrated.combat).toEqual(DEFAULT_COMBAT_STATE);
       expect(migrated.tracker.campaignTitle).toBe("Moonfall");
       expect(migrated.tracker.misc).toBe("Preserve this");
@@ -308,7 +308,10 @@ describe("migrateState", () => {
 
       expect(migrated.characters.entries[0].build).toBeNull();
       expect(migrated.characters.entries[0].overrides).toEqual(makeDefaultCharacterOverrides());
-      expect(migrated.characters.entries[1].build).toEqual({ classId: "class_fighter" });
+      expect(migrated.characters.entries[1].build).toMatchObject({
+      version: 2,
+      levels: [{ classId: "fighter", hp: null }]
+    });
       expect(migrated.characters.entries[1].overrides).toEqual({
         abilities: { str: 2, dex: 0, con: 0, int: 0, wis: 0, cha: 0 },
         saves: { str: 0, dex: 0, con: 1, int: 0, wis: 0, cha: 0 },

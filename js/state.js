@@ -2,7 +2,7 @@
 // js/state.js — app-wide state + schema migration
 
 import { DEV_MODE } from "./utils/dev.js";
-import { isBuilderCharacter, normalizeCharacterOverrides } from "./domain/characterHelpers.js";
+import { isBuilderCharacter, normalizeCharacterBuild, normalizeCharacterOverrides } from "./domain/characterHelpers.js";
 import { normalizeManualFeatureCard } from "./domain/manualFeatureCards.js";
 import { normalizeFeatureUses } from "./domain/featureUses.js";
 
@@ -10,7 +10,7 @@ export const STORAGE_KEY = "localCampaignTracker_v1";
 export const ACTIVE_TAB_KEY = "localCampaignTracker_activeTab";
 
 // Save schema versioning
-export const CURRENT_SCHEMA_VERSION = 10;
+export const CURRENT_SCHEMA_VERSION = 11;
 
 /** @typedef {import("./domain/factories.js").NpcCard & PortraitRef} NpcCard */
 /** @typedef {import("./domain/factories.js").PartyMemberCard & PortraitRef} PartyMemberCard */
@@ -78,6 +78,11 @@ export const SCHEMA_MIGRATION_HISTORY = Object.freeze([
     version: 10,
     date: "2026-04-30",
     changes: "Added character-owned derived feature-use storage on character entries. (Renumbered from v8 during the develop merge.)"
+  },
+  {
+    version: 11,
+    date: "2026-07-06",
+    changes: "Added campaign custom content bucket (content.custom) and migrated builder characters to the level-by-level build model (build.version 2) with bare SRD registry ids."
   }
 ]);
 
@@ -459,16 +464,25 @@ function normalizeTrackerSessions(input) {
  */
 
 /**
+ * Level-by-level builder state (build.version 2). levels[i] describes
+ * character level i + 1; multiclassing is the ordered sequence of classIds.
+ * Legacy v1 fields (classId, level, subclassId) remain readable for
+ * migration and backward compatibility only.
  * @typedef {{
  *   version?: number,
  *   ruleset?: string,
  *   raceId?: string | null,
+ *   subraceId?: string | null,
  *   classId?: string | null,
  *   subclassId?: string | null,
  *   backgroundId?: string | null,
  *   level?: number,
- *   abilities?: { base?: NumberLookup, [key: string]: unknown },
+ *   abilities?: { method?: string, base?: NumberLookup, [key: string]: unknown },
+ *   levels?: Array<{ classId: string, hp?: number | null, [key: string]: unknown }>,
+ *   subclassByClass?: Record<string, string>,
  *   choicesByLevel?: Record<string, unknown>,
+ *   spellcasting?: Record<string, { cantripIds?: string[], knownIds?: string[], preparedIds?: string[], [key: string]: unknown }>,
+ *   equipment?: { armorId?: string | null, shield?: boolean, weaponIds?: string[], startingChoices?: Record<string, unknown>, notes?: string, [key: string]: unknown },
  *   [key: string]: unknown
  * }} CharacterBuildState
  */
@@ -481,6 +495,15 @@ function normalizeTrackerSessions(input) {
  *   initiative: number,
  *   [key: string]: unknown
  * }} CharacterOverridesState
+ */
+
+/**
+ * Campaign-scoped custom (homebrew) content records. Records use the same
+ * normalized shape as the shipped SRD registry files, with source "custom".
+ * @typedef {{
+ *   custom: Record<string, unknown>[],
+ *   [key: string]: unknown
+ * }} CustomContentState
  */
 
 /**
@@ -649,6 +672,7 @@ function normalizeTrackerSessions(input) {
  *   characters: CharactersCollection,
  *   map: MapState,
  *   combat: CombatState,
+ *   content: CustomContentState,
  *   ui: RootUiState,
  *   app: AppRuntimeState,
  *   appShell: AppShellState,
@@ -663,6 +687,7 @@ function normalizeTrackerSessions(input) {
  *   characters: CharactersCollection | undefined,
  *   map: PersistedMapState,
  *   combat: CombatState | undefined,
+ *   content: CustomContentState | undefined,
  *   ui: PersistedUiState,
  *   app: AppRuntimeState,
  *   [key: string]: unknown
@@ -728,6 +753,7 @@ export const state = {
       undoStack: []
     }
   },
+  content: { custom: [] },
   ui: { theme: "system", textareaHeights: {}, panelCollapsed: {} },
   app: {
     preferences: {
@@ -932,12 +958,29 @@ export function sanitizeForSave(source, opts = {}) {
 
   const serializableApp = normalizeAppState(input.app);
 
+  const inputContent = /** @type {{ content?: unknown }} */ (input).content;
+  const serializableContent = (
+    inputContent &&
+    typeof inputContent === "object" &&
+    !Array.isArray(inputContent)
+  )
+    ? {
+      .../** @type {Record<string, unknown>} */ (inputContent),
+      custom: Array.isArray(/** @type {{ custom?: unknown }} */ (inputContent).custom)
+        ? /** @type {Record<string, unknown>[]} */ (/** @type {{ custom?: unknown }} */ (inputContent).custom).filter(
+          (record) => !!record && typeof record === "object" && !Array.isArray(record)
+        )
+        : []
+    }
+    : undefined;
+
   return {
     schemaVersion: input.schemaVersion ?? currentSchemaVersion,
     tracker: /** @type {TrackerState | undefined} */ (serializableTracker),
     characters: /** @type {CharactersCollection | undefined} */ (serializableCharacters),
     map: /** @type {PersistedMapState} */ (serializableMap),
     combat: /** @type {CombatState | undefined} */ (serializableCombat),
+    content: /** @type {CustomContentState | undefined} */ (serializableContent),
     ui: /** @type {PersistedUiState} */ (serializableUi),
     app: serializableApp
   };
@@ -1494,6 +1537,28 @@ export function migrateState(raw) {
     }
   }
 
+  // Custom content bucket + level-by-level builder model.
+  function migrateToV11() {
+    if (!data.content || typeof data.content !== "object" || Array.isArray(data.content)) {
+      data.content = { custom: [] };
+    }
+    const content = /** @type {Record<string, unknown>} */ (data.content);
+    content.custom = Array.isArray(content.custom)
+      ? content.custom.filter((record) => !!record && typeof record === "object" && !Array.isArray(record))
+      : [];
+
+    const characters = data.characters && typeof data.characters === "object" && !Array.isArray(data.characters)
+      ? /** @type {CharactersCollection & Record<string, unknown>} */ (data.characters)
+      : null;
+    const entries = Array.isArray(characters?.entries) ? characters.entries : [];
+    for (const entry of entries) {
+      if (!entry || typeof entry !== "object" || Array.isArray(entry)) continue;
+      const character = /** @type {Record<string, unknown>} */ (entry);
+      if (character.build == null) continue;
+      character.build = normalizeCharacterBuild(character.build);
+    }
+  }
+
   const SCHEMA_MIGRATIONS = Object.freeze({
     0: migrateToV1,
     1: migrateToV2,
@@ -1504,7 +1569,8 @@ export function migrateState(raw) {
     6: migrateToV7,
     7: migrateToV8,
     8: migrateToV9,
-    9: migrateToV10
+    9: migrateToV10,
+    10: migrateToV11
   });
 
   function applyMigrationStep(version) {
@@ -1538,6 +1604,7 @@ export function migrateState(raw) {
   migrateToV8();
   migrateToV9();
   migrateToV10();
+  migrateToV11();
 
   data.schemaVersion = CURRENT_SCHEMA_VERSION;
   return normalizeState(/** @type {State} */ (data));

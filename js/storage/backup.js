@@ -662,6 +662,9 @@ function validateIncomingStateShape(state) {
   if (Object.prototype.hasOwnProperty.call(state, "app") && !isPlainObject(state.app)) {
     throw new Error("Backup state.app must be an object.");
   }
+  if (Object.prototype.hasOwnProperty.call(state, "content") && !isPlainObject(state.content)) {
+    throw new Error("Backup state.content must be an object.");
+  }
 }
 
 /**
@@ -691,6 +694,11 @@ function replaceStateBuckets(target, source) {
   target.characters = /** @type {AppState["characters"]} */ (source.characters);
   target.map = /** @type {AppState["map"]} */ (source.map);
   target.combat = /** @type {AppState["combat"]} */ (source.combat);
+  // Custom content travels with the campaign; older backups without the
+  // bucket restore to an empty custom list via migrateState.
+  target.content = /** @type {AppState["content"]} */ (
+    isPlainObject(source.content) ? source.content : { custom: [] }
+  );
   target.ui = /** @type {AppState["ui"]} */ (source.ui);
   target.app = /** @type {AppState["app"]} */ (source.app);
   if (isPlainObject(source.appShell)) {

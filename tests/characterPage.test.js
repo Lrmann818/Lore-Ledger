@@ -2015,11 +2015,10 @@ describe("character page selector", () => {
       background: "",
       proficiency: null,
       build: {
-        version: 1,
+        version: 2,
         ruleset: "srd-5.1",
         raceId: "human",
         classId: "fighter",
-        subclassId: null,
         backgroundId: "acolyte",
         level: 1,
         abilities: {

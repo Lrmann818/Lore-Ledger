@@ -148,10 +148,14 @@ export const BUILTIN_CONTENT_REGISTRY = createContentRegistry(BUILTIN_CONTENT);
 /** @type {ContentRegistry} */
 let activeRegistry = BUILTIN_CONTENT_REGISTRY;
 
+/** @type {(() => unknown) | null} */
+let customContentProvider = null;
+/** @type {unknown} */
+let lastCustomContentRef;
+
 /**
  * Rebuilds the active registry from builtin content plus the given custom
- * records (normally state.content.custom). Call after load, import, and any
- * custom-content mutation.
+ * records (normally state.content.custom).
  *
  * @param {unknown} customRecords
  * @returns {{ registry: ContentRegistry, skipped: Array<{ id: string, reason: string }> }}
@@ -161,7 +165,22 @@ export function setActiveCustomContent(customRecords) {
   activeRegistry = entries.length
     ? createContentRegistry([...BUILTIN_CONTENT, ...entries])
     : BUILTIN_CONTENT_REGISTRY;
+  lastCustomContentRef = customRecords;
   return { registry: activeRegistry, skipped };
+}
+
+/**
+ * Binds a provider returning the live custom content array (normally
+ * `() => state.content?.custom`). The active registry rebuilds whenever the
+ * provided array identity changes, so custom-content mutations must replace
+ * the array rather than push in place (see js/domain/customContent.js).
+ *
+ * @param {(() => unknown) | null} provider
+ * @returns {void}
+ */
+export function bindCustomContentProvider(provider) {
+  customContentProvider = typeof provider === "function" ? provider : null;
+  lastCustomContentRef = undefined;
 }
 
 /**
@@ -170,6 +189,17 @@ export function setActiveCustomContent(customRecords) {
  * @returns {ContentRegistry}
  */
 export function getActiveContentRegistry() {
+  if (customContentProvider) {
+    let current;
+    try {
+      current = customContentProvider();
+    } catch {
+      current = undefined;
+    }
+    if (current !== lastCustomContentRef) {
+      setActiveCustomContent(current);
+    }
+  }
   return activeRegistry;
 }
 

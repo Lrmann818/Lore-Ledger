@@ -81,19 +81,28 @@ describe("makeDefaultCharacterEntry", () => {
 });
 
 describe("makeDefaultCharacterBuild", () => {
-  it("returns the minimal Step 3 builder metadata shape", () => {
+  it("returns the default level-by-level builder metadata shape", () => {
     expect(makeDefaultCharacterBuild()).toEqual({
-      version: 1,
+      version: 2,
       ruleset: "srd-5.1",
       raceId: null,
-      classId: null,
-      subclassId: null,
+      subraceId: null,
       backgroundId: null,
-      level: 1,
       abilities: {
+        method: "manual",
         base: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }
       },
-      choicesByLevel: {}
+      levels: [],
+      subclassByClass: {},
+      choicesByLevel: {},
+      spellcasting: {},
+      equipment: {
+        armorId: null,
+        shield: false,
+        weaponIds: [],
+        startingChoices: {},
+        notes: ""
+      }
     });
   });
 

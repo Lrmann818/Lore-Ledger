@@ -399,8 +399,13 @@ export function deriveCharacter(character, registry = getActiveContentRegistry()
   // still derives through normalizeBuildLevels' fallback.
   const legacyClassId = build ? getBuildContentId(build, "class") : "";
 
+  // A build with no class levels and no legacy level field is still a level
+  // 1 character (v2 default build before classes are chosen). An explicit but
+  // malformed legacy level stays null and warns below.
   const totalLevel = build
-    ? (levels.length ? getTotalLevel(levels) : normalizeLevel(build.level))
+    ? (levels.length
+      ? getTotalLevel(levels)
+      : (build.level === undefined ? 1 : normalizeLevel(build.level)))
     : null;
   const level = build
     ? totalLevel
