@@ -1,26 +1,43 @@
 // @ts-check
-// Minimal in-memory builder creation wizard for Phase 2A.
+// Builder creation/edit wizard: identity → origin choices → classes &
+// levels → class choices → abilities → spells → equipment → summary.
+// Steps with nothing to show are skipped. The draft build uses the v2
+// level-by-level shape; dynamic steps live in builderWizardSteps.js.
 
-import { CHARACTER_ABILITY_KEYS, makeDefaultCharacterBuild } from "../../domain/characterHelpers.js";
+import {
+  CHARACTER_ABILITY_KEYS,
+  isBuilderCharacter,
+  makeDefaultCharacterBuild,
+  normalizeCharacterBuild
+} from "../../domain/characterHelpers.js";
 import { deriveCharacter } from "../../domain/rules/deriveCharacter.js";
 import {
-  BUILTIN_CONTENT_REGISTRY,
-  getContentById,
+  getActiveContentRegistry,
+  getContentByKind,
   listContentByKind
 } from "../../domain/rules/registry.js";
+import {
+  collectActiveChoiceIds,
+  getClassBlocks,
+  getRequiredAncestryChoice,
+  hasClassChoices,
+  hasOriginChoices,
+  hasSpellcastingClasses,
+  pruneStaleChoices,
+  renderClassChoicesStep,
+  renderClassesStep,
+  renderEquipmentStep,
+  renderOriginChoicesStep,
+  renderSpellsStep,
+  setClassBlocks
+} from "./builderWizardSteps.js";
 import { enhanceSelectDropdown } from "../../ui/selectDropdown.js";
 import { getNoopDestroyApi, requireMany } from "../../utils/domGuards.js";
 
-const MIN_LEVEL = 1;
-const MAX_LEVEL = 20;
 const MIN_ABILITY_SCORE = 1;
 const MAX_ABILITY_SCORE = 20;
 const DEFAULT_NAME = "New Builder Character";
 const NOT_SELECTED_LABEL = "Not selected";
-const LEVEL_ONE_CHOICE_KEY = "1";
-const DRAGONBORN_RACE_ID = "dragonborn";
-const DRAGONBORN_ANCESTRY_CHOICE_ID = "dragonborn-ancestry";
-const DRACONIC_ANCESTRY_SOURCE = "draconic-ancestries";
 const STANDARD_ARRAY_SCORES = Object.freeze([15, 14, 13, 12, 10, 8]);
 const ROLL_MODE_4D6_DROP_LOWEST = "4d6-drop-lowest";
 const ROLL_MODE_3D6_STRAIGHT = "3d6-straight";
@@ -66,14 +83,29 @@ const ABILITY_FULL_NAMES = Object.freeze({
 });
 
 const STEP_IDENTITY = "identity";
-const STEP_RACE_CHOICES = "race-choices";
+const STEP_ORIGIN = "race-choices";
+const STEP_CLASSES = "classes";
+const STEP_CLASS_CHOICES = "class-choices";
 const STEP_ABILITIES = "abilities";
+const STEP_SPELLS = "spells";
+const STEP_EQUIPMENT = "equipment";
 const STEP_SUMMARY = "summary";
+const STEP_ORDER = Object.freeze([
+  STEP_IDENTITY,
+  STEP_ORIGIN,
+  STEP_CLASSES,
+  STEP_CLASS_CHOICES,
+  STEP_ABILITIES,
+  STEP_SPELLS,
+  STEP_EQUIPMENT,
+  STEP_SUMMARY
+]);
 
 /**
  * @typedef {{
  *   name: string,
- *   build: import("../../state.js").CharacterBuildState
+ *   build: import("../../state.js").CharacterBuildState,
+ *   characterId: string | null
  * }} BuilderWizardResult
  */
 
@@ -100,24 +132,24 @@ function clampInteger(value, min, max, fallback) {
 
 /**
  * @param {unknown} value
- * @param {import("../../domain/rules/builtinContent.js").BuiltinContentKind} kind
+ * @param {"race" | "subrace" | "class" | "background"} kind
  * @returns {string | null}
  */
 function normalizeContentId(value, kind) {
   const id = cleanString(value);
   if (!id) return null;
-  return getContentById(BUILTIN_CONTENT_REGISTRY, id)?.kind === kind ? id : null;
+  return getContentByKind(getActiveContentRegistry(), kind, id) ? id : null;
 }
 
 /**
  * @param {HTMLSelectElement} select
- * @param {import("../../domain/rules/builtinContent.js").BuiltinContentKind} kind
+ * @param {"race" | "class" | "background"} kind
  * @param {unknown} selectedId
  * @returns {void}
  */
 function populateContentSelect(select, kind, selectedId) {
   const selected = cleanString(selectedId);
-  const entries = listContentByKind(BUILTIN_CONTENT_REGISTRY, kind);
+  const entries = listContentByKind(getActiveContentRegistry(), kind);
   select.innerHTML = "";
 
   const emptyOption = document.createElement("option");
@@ -128,50 +160,11 @@ function populateContentSelect(select, kind, selectedId) {
   for (const entry of entries) {
     const option = document.createElement("option");
     option.value = entry.id;
-    option.textContent = entry.name;
+    option.textContent = entry.source === "custom" ? `${entry.name} (custom)` : entry.name;
     select.appendChild(option);
   }
 
   select.value = selected && entries.some((entry) => entry.id === selected) ? selected : "";
-}
-
-/**
- * @param {unknown} choice
- * @returns {choice is { id: string, kind: string, count?: unknown, from?: { type?: unknown, source?: unknown } }}
- */
-function isDragonbornAncestryChoice(choice) {
-  if (!choice || typeof choice !== "object" || Array.isArray(choice)) return false;
-  const record = /** @type {Record<string, unknown>} */ (choice);
-  return record.id === DRAGONBORN_ANCESTRY_CHOICE_ID &&
-    record.kind === "ancestry" &&
-    record.count === 1 &&
-    !!record.from &&
-    typeof record.from === "object" &&
-    !Array.isArray(record.from) &&
-    /** @type {Record<string, unknown>} */ (record.from).type === "list" &&
-    /** @type {Record<string, unknown>} */ (record.from).source === DRACONIC_ANCESTRY_SOURCE;
-}
-
-/**
- * @param {unknown} raceId
- * @returns {{ id: string, kind: string, count?: unknown, from?: { type?: unknown, source?: unknown } } | null}
- */
-function getSupportedRaceChoice(raceId) {
-  const id = cleanString(raceId);
-  if (id !== DRAGONBORN_RACE_ID) return null;
-  const race = getContentById(BUILTIN_CONTENT_REGISTRY, id);
-  const choices = Array.isArray(race?.data?.choices) ? race.data.choices : [];
-  return choices.find(isDragonbornAncestryChoice) || null;
-}
-
-/**
- * @param {unknown} id
- * @returns {string}
- */
-function normalizeAncestryId(id) {
-  const ancestryId = cleanString(id);
-  if (!ancestryId) return "";
-  return getContentById(BUILTIN_CONTENT_REGISTRY, ancestryId)?.kind === "ancestry" ? ancestryId : "";
 }
 
 /**
@@ -319,7 +312,7 @@ function hasTagName(value, tagName) {
  *   onFinish?: (result: BuilderWizardResult) => void,
  *   setStatus?: (message: string, options?: Record<string, unknown>) => void
  * }} [deps]
- * @returns {{ open: () => void, close: () => void, destroy: () => void }}
+ * @returns {{ open: (options?: { character?: import("../../state.js").CharacterEntry | null }) => void, close: () => void, destroy: () => void }}
  */
 export function initBuilderWizard(deps = {}) {
   const {
@@ -338,13 +331,24 @@ export function initBuilderWizard(deps = {}) {
       closeBtn: "#builderWizardClose",
       name: "#builderWizardName",
       race: "#builderWizardRace",
+      subraceField: "#builderWizardSubraceField",
+      subrace: "#builderWizardSubrace",
       class: "#builderWizardClass",
       background: "#builderWizardBackground",
       level: "#builderWizardLevel",
       identityValidation: "#builderWizardIdentityValidation",
       stepRaceChoices: "#builderWizardStepRaceChoices",
-      draconicAncestry: "#builderWizardDraconicAncestry",
+      originChoicesBody: "#builderWizardOriginChoices",
       raceChoicesValidation: "#builderWizardRaceChoicesValidation",
+      stepClasses: "#builderWizardStepClasses",
+      classesBody: "#builderWizardClassesBody",
+      classesValidation: "#builderWizardClassesValidation",
+      stepClassChoices: "#builderWizardStepClassChoices",
+      classChoicesBody: "#builderWizardClassChoicesBody",
+      stepSpells: "#builderWizardStepSpells",
+      spellsBody: "#builderWizardSpellsBody",
+      stepEquipment: "#builderWizardStepEquipment",
+      equipmentBody: "#builderWizardEquipmentBody",
       methodManual: "#builderWizardAbilityMethodManual",
       stepIdentity: "#builderWizardStepIdentity",
       stepAbilities: "#builderWizardStepAbilities",
@@ -374,16 +378,28 @@ export function initBuilderWizard(deps = {}) {
 
   const overlay = /** @type {HTMLElement} */ (guard.els.overlay);
   const panel = /** @type {HTMLElement} */ (guard.els.panel);
+  const titleEl = /** @type {HTMLElement} */ (guard.els.title);
   const closeBtn = /** @type {HTMLButtonElement} */ (guard.els.closeBtn);
   const nameInput = /** @type {HTMLInputElement} */ (guard.els.name);
   const raceSelect = /** @type {HTMLSelectElement} */ (guard.els.race);
+  const subraceField = /** @type {HTMLElement} */ (guard.els.subraceField);
+  const subraceSelect = /** @type {HTMLSelectElement} */ (guard.els.subrace);
   const classSelect = /** @type {HTMLSelectElement} */ (guard.els.class);
   const backgroundSelect = /** @type {HTMLSelectElement} */ (guard.els.background);
   const levelDisplay = /** @type {HTMLElement} */ (guard.els.level);
   const identityValidation = /** @type {HTMLElement} */ (guard.els.identityValidation);
   const stepRaceChoices = /** @type {HTMLElement} */ (guard.els.stepRaceChoices);
-  const draconicAncestrySelect = /** @type {HTMLSelectElement} */ (guard.els.draconicAncestry);
+  const originChoicesBody = /** @type {HTMLElement} */ (guard.els.originChoicesBody);
   const raceChoicesValidation = /** @type {HTMLElement} */ (guard.els.raceChoicesValidation);
+  const stepClasses = /** @type {HTMLElement} */ (guard.els.stepClasses);
+  const classesBody = /** @type {HTMLElement} */ (guard.els.classesBody);
+  const classesValidation = /** @type {HTMLElement} */ (guard.els.classesValidation);
+  const stepClassChoices = /** @type {HTMLElement} */ (guard.els.stepClassChoices);
+  const classChoicesBody = /** @type {HTMLElement} */ (guard.els.classChoicesBody);
+  const stepSpells = /** @type {HTMLElement} */ (guard.els.stepSpells);
+  const spellsBody = /** @type {HTMLElement} */ (guard.els.spellsBody);
+  const stepEquipment = /** @type {HTMLElement} */ (guard.els.stepEquipment);
+  const equipmentBody = /** @type {HTMLElement} */ (guard.els.equipmentBody);
   let raceChoicePreview = /** @type {HTMLElement | null} */ (root.querySelector?.("#builderWizardRaceChoicePreview"));
   if (!raceChoicePreview) {
     raceChoicePreview = document.createElement("section");
@@ -391,16 +407,8 @@ export function initBuilderWizard(deps = {}) {
     raceChoicePreview.className = "builderChoicePreview";
     raceChoicePreview.setAttribute("aria-labelledby", "builderWizardRaceChoicePreviewTitle");
     raceChoicePreview.setAttribute("aria-describedby", "builderWizardRaceChoicePreviewBody");
-    const raceChoicesGrid = draconicAncestrySelect.closest?.(".builderWizardGrid");
-    raceChoicesGrid?.insertAdjacentElement?.("afterend", raceChoicePreview);
+    originChoicesBody.insertAdjacentElement("afterend", raceChoicePreview);
   }
-  const describedBy = cleanString(draconicAncestrySelect.getAttribute("aria-describedby"));
-  draconicAncestrySelect.setAttribute(
-    "aria-describedby",
-    describedBy
-      ? Array.from(new Set([...describedBy.split(/\s+/), "builderWizardRaceChoicePreviewBody"])).join(" ")
-      : "builderWizardRaceChoicePreviewBody"
-  );
   const methodManualInput = /** @type {HTMLInputElement} */ (guard.els.methodManual);
   const stepIdentity = /** @type {HTMLElement} */ (guard.els.stepIdentity);
   const stepAbilities = /** @type {HTMLElement} */ (guard.els.stepAbilities);
@@ -478,6 +486,8 @@ export function initBuilderWizard(deps = {}) {
   let identityValidationAttempted = false;
   let raceChoicesValidationAttempted = false;
   let abilityValidationAttempted = false;
+  /** @type {string | null} */
+  let editingCharacterId = null;
   /** @type {Record<string, number>} */
   let manualAbilityBase = {};
   /** @type {Record<string, string>} */
@@ -493,10 +503,47 @@ export function initBuilderWizard(deps = {}) {
   let rollGeneration = 0;
   /** @type {Array<{ rebuild?: () => void, close?: () => void, destroy?: () => void }>} */
   const enhancedSelects = [];
-  /** @type {BuilderWizardResult} */
+  /** @type {Array<{ select: HTMLSelectElement, api: { rebuild?: () => void, close?: () => void, destroy?: () => void } }>} */
+  const dynamicEnhancedSelects = [];
+  /** @type {{ name: string, build: import("../../state.js").CharacterBuildState }} */
   let draft = {
     name: DEFAULT_NAME,
     build: makeDefaultCharacterBuild()
+  };
+
+  /**
+   * Enhance a dynamically created select; stale instances (whose select was
+   * removed by a re-render) are destroyed lazily on the next call.
+   * @param {HTMLSelectElement} select
+   */
+  function enhanceDynamicSelect(select) {
+    for (let i = dynamicEnhancedSelects.length - 1; i >= 0; i -= 1) {
+      if (!dynamicEnhancedSelects[i].select.isConnected) {
+        try { dynamicEnhancedSelects[i].api.destroy?.(); } catch { /* noop */ }
+        dynamicEnhancedSelects.splice(i, 1);
+      }
+    }
+    if (!Popovers) return;
+    const api = enhanceSelectDropdown({
+      select,
+      Popovers,
+      buttonClass: "settingsSelectBtn builderWizardSelectBtn",
+      optionClass: "swatchOption",
+      groupLabelClass: "dropdownGroupLabel",
+      preferRight: false
+    });
+    if (api) dynamicEnhancedSelects.push({ select, api });
+  }
+
+  /** @type {import("./builderWizardSteps.js").WizardStepContext} */
+  const stepCtx = {
+    getDraft: () => draft,
+    getRegistry: () => getActiveContentRegistry(),
+    signal,
+    enhanceSelect: enhanceDynamicSelect,
+    onDraftChanged: () => {
+      updateLevelDisplay();
+    }
   };
 
   /**
@@ -689,67 +736,13 @@ export function initBuilderWizard(deps = {}) {
   }
 
   /**
-   * @param {unknown} value
-   * @returns {Record<string, unknown>}
-   */
-  function getPlainChoiceLevel(value) {
-    if (!value || typeof value !== "object" || Array.isArray(value)) return {};
-    return /** @type {Record<string, unknown>} */ (value);
-  }
-
-  function ensureLevelOneChoices() {
-    if (!draft.build.choicesByLevel || typeof draft.build.choicesByLevel !== "object" || Array.isArray(draft.build.choicesByLevel)) {
-      draft.build.choicesByLevel = {};
-    }
-    const choicesByLevel = /** @type {Record<string, unknown>} */ (draft.build.choicesByLevel);
-    const levelChoices = getPlainChoiceLevel(choicesByLevel[LEVEL_ONE_CHOICE_KEY]);
-    choicesByLevel[LEVEL_ONE_CHOICE_KEY] = levelChoices;
-    return levelChoices;
-  }
-
-  function getSelectedDraconicAncestryId() {
-    if (!draft.build.choicesByLevel || typeof draft.build.choicesByLevel !== "object" || Array.isArray(draft.build.choicesByLevel)) {
-      return "";
-    }
-    const choicesByLevel = /** @type {Record<string, unknown>} */ (draft.build.choicesByLevel);
-    const levelChoices = getPlainChoiceLevel(choicesByLevel[LEVEL_ONE_CHOICE_KEY]);
-    return normalizeAncestryId(levelChoices[DRAGONBORN_ANCESTRY_CHOICE_ID]);
-  }
-
-  function clearDraconicAncestryChoice() {
-    if (!draft.build.choicesByLevel || typeof draft.build.choicesByLevel !== "object" || Array.isArray(draft.build.choicesByLevel)) {
-      draft.build.choicesByLevel = {};
-      return;
-    }
-    const choicesByLevel = /** @type {Record<string, unknown>} */ (draft.build.choicesByLevel);
-    const levelChoices = getPlainChoiceLevel(choicesByLevel[LEVEL_ONE_CHOICE_KEY]);
-    delete levelChoices[DRAGONBORN_ANCESTRY_CHOICE_ID];
-    if (Object.keys(levelChoices).length) choicesByLevel[LEVEL_ONE_CHOICE_KEY] = levelChoices;
-    else delete choicesByLevel[LEVEL_ONE_CHOICE_KEY];
-  }
-
-  function syncRaceChoicesFromControls() {
-    if (!getSupportedRaceChoice(draft.build.raceId)) {
-      clearDraconicAncestryChoice();
-      return;
-    }
-    const ancestryId = normalizeAncestryId(draconicAncestrySelect.value);
-    if (!ancestryId) {
-      clearDraconicAncestryChoice();
-      return;
-    }
-    const levelChoices = ensureLevelOneChoices();
-    levelChoices[DRAGONBORN_ANCESTRY_CHOICE_ID] = ancestryId;
-  }
-
-  /**
    * @param {{ showIncomplete?: boolean }} [options]
    */
   function getRaceChoicesValidationMessage(options = {}) {
-    if (!getSupportedRaceChoice(draft.build.raceId)) return "";
-    const ancestryId = normalizeAncestryId(draconicAncestrySelect.value) || getSelectedDraconicAncestryId();
-    if (!ancestryId && !options.showIncomplete) return "";
-    return ancestryId ? "" : "Draconic Ancestry is required before continuing.";
+    const required = getRequiredAncestryChoice(draft.build, getActiveContentRegistry());
+    if (!required) return "";
+    if (!required.value && !options.showIncomplete) return "";
+    return required.value ? "" : "Draconic Ancestry is required before continuing.";
   }
 
   /**
@@ -781,11 +774,29 @@ export function initBuilderWizard(deps = {}) {
     if (message) setStatus?.(message, { stickyMs: 2500 });
   }
 
+  /**
+   * @param {string} message
+   */
+  function showClassesValidation(message) {
+    classesValidation.textContent = message;
+    classesValidation.hidden = !message;
+    if (message) setStatus?.(message, { stickyMs: 2500 });
+  }
+
   function syncAbilityBaseToDraft() {
     const base = getActiveAbilityBaseOrNull();
     if (!base) return false;
+    if (!draft.build.abilities || typeof draft.build.abilities !== "object") {
+      draft.build.abilities = { method: abilityMethod, base: {} };
+    }
+    draft.build.abilities.method = abilityMethod;
     draft.build.abilities.base = { ...base };
     return true;
+  }
+
+  function updateLevelDisplay() {
+    const total = getClassBlocks(draft.build).reduce((sum, block) => sum + block.level, 0);
+    levelDisplay.textContent = `Level ${total || 1}`;
   }
 
   /**
@@ -1042,30 +1053,6 @@ export function initBuilderWizard(deps = {}) {
     renderAbilityPreview();
   }
 
-  function renderRaceChoices() {
-    const choice = getSupportedRaceChoice(draft.build.raceId);
-    const selected = getSelectedDraconicAncestryId();
-    draconicAncestrySelect.innerHTML = "";
-
-    const emptyOption = document.createElement("option");
-    emptyOption.value = "";
-    emptyOption.textContent = "Choose ancestry";
-    draconicAncestrySelect.appendChild(emptyOption);
-
-    if (choice) {
-      for (const entry of listContentByKind(BUILTIN_CONTENT_REGISTRY, "ancestry")) {
-        const option = document.createElement("option");
-        option.value = entry.id;
-        option.textContent = entry.name;
-        draconicAncestrySelect.appendChild(option);
-      }
-    }
-
-    draconicAncestrySelect.value = selected && normalizeAncestryId(selected) ? selected : "";
-    syncEnhancedSelects();
-    renderRaceChoicePreview();
-  }
-
   function getDraftDerivedCharacter() {
     return deriveCharacter({
       id: "builder_wizard_preview",
@@ -1095,7 +1082,7 @@ export function initBuilderWizard(deps = {}) {
     body.className = "builderChoicePreviewBody";
     raceChoicePreview.appendChild(body);
 
-    if (!getSupportedRaceChoice(draft.build.raceId)) {
+    if (!getRequiredAncestryChoice(draft.build, getActiveContentRegistry())) {
       raceChoicePreview.hidden = true;
       return;
     }
@@ -1117,6 +1104,42 @@ export function initBuilderWizard(deps = {}) {
     });
   }
 
+  function renderOriginChoices() {
+    renderOriginChoicesStep(stepCtx, originChoicesBody, {
+      onAncestryChanged: () => {
+        renderRaceChoicePreview();
+        renderAbilityPreview();
+        showRaceChoicesValidation(getRaceChoicesValidationMessage({ showIncomplete: raceChoicesValidationAttempted }));
+      }
+    });
+    renderRaceChoicePreview();
+  }
+
+  function renderSubraceSelect() {
+    const registry = getActiveContentRegistry();
+    const raceEntry = getContentByKind(registry, "race", cleanString(draft.build.raceId));
+    const subraceIds = Array.isArray(raceEntry?.data?.subraceIds)
+      ? raceEntry.data.subraceIds.map(cleanString).filter(Boolean)
+      : [];
+    subraceField.hidden = subraceIds.length === 0;
+    subraceSelect.innerHTML = "";
+    const emptyOption = document.createElement("option");
+    emptyOption.value = "";
+    emptyOption.textContent = subraceIds.length ? "Choose subrace" : NOT_SELECTED_LABEL;
+    subraceSelect.appendChild(emptyOption);
+    for (const subraceId of subraceIds) {
+      const entry = getContentByKind(registry, "subrace", subraceId);
+      const option = document.createElement("option");
+      option.value = subraceId;
+      option.textContent = entry?.name || subraceId;
+      subraceSelect.appendChild(option);
+    }
+    const stored = cleanString(draft.build.subraceId);
+    subraceSelect.value = subraceIds.includes(stored) ? stored : "";
+    if (!subraceIds.includes(stored)) draft.build.subraceId = null;
+    syncEnhancedSelects();
+  }
+
   /**
    * @param {string} nextMethod
    * @returns {boolean}
@@ -1134,18 +1157,36 @@ export function initBuilderWizard(deps = {}) {
     return true;
   }
 
+  function syncStartingClassToDraft() {
+    const classId = normalizeContentId(classSelect.value, "class");
+    const blocks = getClassBlocks(draft.build);
+    if (!classId) return;
+    if (!blocks.length) {
+      setClassBlocks(draft.build, [{ classId, level: 1, hp: [null] }]);
+      return;
+    }
+    if (blocks[0].classId === classId) return;
+    if (blocks.some((block, index) => index > 0 && block.classId === classId)) {
+      // The class is already a multiclass block; keep the current first class.
+      classSelect.value = blocks[0].classId;
+      syncEnhancedSelects();
+      return;
+    }
+    blocks[0].classId = classId;
+    setClassBlocks(draft.build, blocks);
+  }
+
   function syncDraftFromControls() {
     const summaryNameInput = /** @type {HTMLInputElement | null} */ (root.querySelector?.("#builderWizardSummaryName"));
     const summaryName = currentStep === STEP_SUMMARY && !stepSummary.hidden ? cleanString(summaryNameInput?.value) : "";
     draft.name = summaryName || cleanString(nameInput.value) || DEFAULT_NAME;
     nameInput.value = draft.name;
     draft.build.raceId = normalizeContentId(raceSelect.value, "race");
-    draft.build.classId = normalizeContentId(classSelect.value, "class");
+    draft.build.subraceId = normalizeContentId(subraceSelect.value, "subrace");
     draft.build.backgroundId = normalizeContentId(backgroundSelect.value, "background");
-    draft.build.level = MIN_LEVEL;
-    syncRaceChoicesFromControls();
+    syncStartingClassToDraft();
     if (!draft.build.abilities || typeof draft.build.abilities !== "object") {
-      draft.build.abilities = { base: {} };
+      draft.build.abilities = { method: abilityMethod, base: {} };
     }
     if (!draft.build.abilities.base || typeof draft.build.abilities.base !== "object") {
       draft.build.abilities.base = {};
@@ -1160,17 +1201,20 @@ export function initBuilderWizard(deps = {}) {
       syncRollDraftFromControls();
     }
     syncAbilityBaseToDraft();
+    pruneStaleChoices(draft.build, collectActiveChoiceIds(draft.build, getActiveContentRegistry()));
+    updateLevelDisplay();
   }
 
   function syncControlsFromDraft() {
     nameInput.value = draft.name;
     populateContentSelect(raceSelect, "race", draft.build.raceId);
-    populateContentSelect(classSelect, "class", draft.build.classId);
+    const blocks = getClassBlocks(draft.build);
+    populateContentSelect(classSelect, "class", blocks.length ? blocks[0].classId : "");
     populateContentSelect(backgroundSelect, "background", draft.build.backgroundId);
+    renderSubraceSelect();
     syncEnhancedSelects();
-    draft.build.level = MIN_LEVEL;
-    levelDisplay.textContent = "Level 1";
-    manualAbilityBase = { ...getDefaultAbilityBase(), ...draft.build.abilities.base };
+    updateLevelDisplay();
+    manualAbilityBase = { ...getDefaultAbilityBase(), ...draft.build.abilities?.base };
     pointBuyAbilityBase = getDefaultPointBuyBase();
     standardArrayAssignments = {};
     rollMode = ROLL_MODE_4D6_DROP_LOWEST;
@@ -1180,7 +1224,7 @@ export function initBuilderWizard(deps = {}) {
     for (const key of CHARACTER_ABILITY_KEYS) {
       const input = abilityInputs[key];
       if (!input) continue;
-      manualAbilityBase[key] = clampInteger(draft.build.abilities.base[key], MIN_ABILITY_SCORE, MAX_ABILITY_SCORE, 10);
+      manualAbilityBase[key] = clampInteger(draft.build.abilities?.base?.[key], MIN_ABILITY_SCORE, MAX_ABILITY_SCORE, 10);
       input.value = String(manualAbilityBase[key]);
       input.min = String(MIN_ABILITY_SCORE);
       input.max = String(MAX_ABILITY_SCORE);
@@ -1208,7 +1252,8 @@ export function initBuilderWizard(deps = {}) {
     abilityValidationAttempted = false;
     showIdentityValidation("");
     showRaceChoicesValidation("");
-    renderRaceChoices();
+    showClassesValidation("");
+    renderOriginChoices();
     methodManualInput.checked = true;
     renderAbilityControlsForMethod();
     renderAbilityPreview();
@@ -1401,13 +1446,25 @@ export function initBuilderWizard(deps = {}) {
     renderAbilityPreview();
   }
 
+  /**
+   * @param {HTMLElement} rowsEl
+   * @param {Array<[string, string]>} rows
+   */
+  function appendSummaryRows(rowsEl, rows) {
+    rows.forEach(([label, value]) => {
+      const row = appendDiv(rowsEl, "builderSummaryRow", "");
+      appendDiv(row, "builderSummaryLabel", label);
+      appendDiv(row, "builderSummaryValue", value || NOT_SELECTED_LABEL);
+    });
+  }
+
   function renderSummary() {
     syncDraftFromControls();
-    levelDisplay.textContent = `Level ${MIN_LEVEL}`;
     for (const key of CHARACTER_ABILITY_KEYS) {
-      if (abilityInputs[key]) abilityInputs[key].value = String(draft.build.abilities.base[key]);
+      if (abilityInputs[key]) abilityInputs[key].value = String(draft.build.abilities?.base?.[key] ?? 10);
     }
 
+    const registry = getActiveContentRegistry();
     const derived = getDraftDerivedCharacter();
 
     summaryEl.innerHTML = "";
@@ -1432,20 +1489,89 @@ export function initBuilderWizard(deps = {}) {
 
     const rows = appendDiv(summaryEl, "builderWizardSummaryRows", "");
     const labels = /** @type {{ classLevel?: unknown, race?: unknown, background?: unknown }} */ (derived.labels || {});
+    /** @type {Array<[string, string]>} */
     const summaryRows = [
       ["Name", draft.name],
       ["Class / Level", cleanString(labels.classLevel) || NOT_SELECTED_LABEL],
       ["Race", cleanString(labels.race) || NOT_SELECTED_LABEL],
       ["Background", cleanString(labels.background) || NOT_SELECTED_LABEL],
-      ["Proficiency Bonus", derived.proficiencyBonus == null ? "" : signedNumber(derived.proficiencyBonus)]
+      ["Proficiency Bonus", derived.proficiencyBonus == null ? "" : signedNumber(derived.proficiencyBonus)],
+      ["Max HP", derived.hp?.max != null ? String(derived.hp.max) : NOT_SELECTED_LABEL],
+      ["Armor Class", derived.ac?.value != null
+        ? `${derived.ac.value}${derived.ac.formula ? ` (${derived.ac.formula})` : ""}`
+        : NOT_SELECTED_LABEL],
+      ["Speed", derived.speed != null ? `${derived.speed} ft.` : NOT_SELECTED_LABEL],
+      ["Initiative", derived.initiative != null ? signedNumber(derived.initiative) : NOT_SELECTED_LABEL],
+      ["Passive Perception", derived.passivePerception != null ? String(derived.passivePerception) : NOT_SELECTED_LABEL],
+      ["Hit Dice", derived.hitDice.length
+        ? derived.hitDice.map((pool) => `${pool.count}d${pool.die ?? "?"}`).join(" + ")
+        : NOT_SELECTED_LABEL]
     ];
     const ancestryRows = getDragonbornAncestryRows(derived);
-    if (ancestryRows.length) summaryRows.splice(4, 0, ...ancestryRows);
-    summaryRows.forEach(([label, value]) => {
-      const row = appendDiv(rows, "builderSummaryRow", "");
-      appendDiv(row, "builderSummaryLabel", label);
-      appendDiv(row, "builderSummaryValue", value || NOT_SELECTED_LABEL);
-    });
+    if (ancestryRows.length) summaryRows.push(...ancestryRows);
+    appendSummaryRows(rows, summaryRows);
+
+    // Saving throws + skills.
+    const savesLine = CHARACTER_ABILITY_KEYS
+      .map((key) => {
+        const save = derived.saves[key];
+        if (save?.total == null) return null;
+        return `${ABILITY_META[key].label} ${signedNumber(save.total)}${save.proficient ? "*" : ""}`;
+      })
+      .filter(Boolean)
+      .join(", ");
+    const proficientSkills = Object.entries(derived.skills)
+      .filter(([, skill]) => skill.level === "prof" || skill.level === "expert")
+      .map(([key, skill]) => {
+        const entry = getContentByKind(registry, "skill", key) ||
+          getContentByKind(registry, "skill", key === "animal" ? "animal-handling" : key === "sleight" ? "sleight-of-hand" : key);
+        const name = entry?.name || key;
+        return `${name}${skill.total != null ? ` ${signedNumber(skill.total)}` : ""}${skill.level === "expert" ? " (expertise)" : ""}`;
+      })
+      .join(", ");
+    const languageNames = derived.proficiencies.languages
+      .map((id) => getContentByKind(registry, "language", id)?.name || id)
+      .join(", ");
+    const featNames = derived.featIds
+      .map((id) => getContentByKind(registry, "feat", id)?.name || id)
+      .join(", ");
+    /** @type {Array<[string, string]>} */
+    const detailRows = [];
+    if (savesLine) detailRows.push(["Saving Throws (* prof)", savesLine]);
+    if (proficientSkills) detailRows.push(["Skill Proficiencies", proficientSkills]);
+    if (languageNames) detailRows.push(["Languages", languageNames]);
+    if (featNames) detailRows.push(["Feats", featNames]);
+    if (detailRows.length) {
+      const detailWrap = appendDiv(summaryEl, "builderWizardSummaryRows", "");
+      appendSummaryRows(detailWrap, detailRows);
+    }
+
+    // Spellcasting.
+    if (derived.spellcasting) {
+      const spellWrap = appendDiv(summaryEl, "builderSummarySpells", "");
+      appendDiv(spellWrap, "builderSummarySubhead", "Spellcasting");
+      const spellRows = appendDiv(spellWrap, "builderWizardSummaryRows", "");
+      for (const casterInfo of derived.spellcasting.classes) {
+        appendSummaryRows(spellRows, [[
+          casterInfo.className,
+          `DC ${casterInfo.saveDc ?? "—"}, attack ${casterInfo.attackBonus != null ? signedNumber(casterInfo.attackBonus) : "—"}, ${ABILITY_FULL_NAMES[/** @type {keyof typeof ABILITY_FULL_NAMES} */ (casterInfo.ability)] || casterInfo.ability}`
+        ]]);
+      }
+      const slotParts = derived.spellcasting.slots
+        .map((count, index) => (count > 0 ? `L${index + 1}: ${count}` : null))
+        .filter(Boolean);
+      if (derived.spellcasting.pact) {
+        slotParts.push(`Pact: ${derived.spellcasting.pact.slots} × L${derived.spellcasting.pact.slotLevel}`);
+      }
+      if (slotParts.length) appendSummaryRows(spellRows, [["Spell Slots", slotParts.join(", ")]]);
+    }
+
+    // Warnings.
+    if (derived.warnings.length) {
+      const warningsEl = appendDiv(summaryEl, "builderWizardValidation builderSummaryWarnings", "");
+      warningsEl.hidden = false;
+      warningsEl.textContent = `Warnings: ${derived.warnings.join("; ")}`;
+    }
 
     const abilities = appendDiv(summaryEl, "builderSummaryAbilities", "");
     appendDiv(abilities, "builderSummarySubhead", "Ability Totals");
@@ -1461,35 +1587,53 @@ export function initBuilderWizard(deps = {}) {
     }
   }
 
+  /**
+   * @param {string} step
+   * @returns {boolean}
+   */
+  function isStepAvailable(step) {
+    const registry = getActiveContentRegistry();
+    if (step === STEP_ORIGIN) return hasOriginChoices(draft.build, registry);
+    if (step === STEP_CLASS_CHOICES) return hasClassChoices(draft.build, registry);
+    if (step === STEP_SPELLS) return hasSpellcastingClasses(draft.build, registry);
+    return true;
+  }
+
   function getNextStep(step) {
-    if (step === STEP_IDENTITY) {
-      return getSupportedRaceChoice(draft.build.raceId) ? STEP_RACE_CHOICES : STEP_ABILITIES;
+    const index = STEP_ORDER.indexOf(step);
+    for (let i = index + 1; i < STEP_ORDER.length; i += 1) {
+      if (isStepAvailable(STEP_ORDER[i])) return STEP_ORDER[i];
     }
-    if (step === STEP_RACE_CHOICES) return STEP_ABILITIES;
-    if (step === STEP_ABILITIES) return STEP_SUMMARY;
     return STEP_SUMMARY;
   }
 
   function getPreviousStep(step) {
-    if (step === STEP_SUMMARY) return STEP_ABILITIES;
-    if (step === STEP_ABILITIES) {
-      return getSupportedRaceChoice(draft.build.raceId) ? STEP_RACE_CHOICES : STEP_IDENTITY;
+    const index = STEP_ORDER.indexOf(step);
+    for (let i = index - 1; i >= 0; i -= 1) {
+      if (isStepAvailable(STEP_ORDER[i])) return STEP_ORDER[i];
     }
-    if (step === STEP_RACE_CHOICES) return STEP_IDENTITY;
     return STEP_IDENTITY;
   }
 
   function syncStep() {
     renderAbilityMethods();
     stepIdentity.hidden = currentStep !== STEP_IDENTITY;
-    stepRaceChoices.hidden = currentStep !== STEP_RACE_CHOICES;
+    stepRaceChoices.hidden = currentStep !== STEP_ORIGIN;
+    stepClasses.hidden = currentStep !== STEP_CLASSES;
+    stepClassChoices.hidden = currentStep !== STEP_CLASS_CHOICES;
     stepAbilities.hidden = currentStep !== STEP_ABILITIES;
+    stepSpells.hidden = currentStep !== STEP_SPELLS;
+    stepEquipment.hidden = currentStep !== STEP_EQUIPMENT;
     stepSummary.hidden = currentStep !== STEP_SUMMARY;
     backBtn.hidden = currentStep === STEP_IDENTITY;
     nextBtn.hidden = currentStep === STEP_SUMMARY;
     finishBtn.hidden = currentStep !== STEP_SUMMARY;
-    if (currentStep === STEP_RACE_CHOICES) renderRaceChoices();
+    if (currentStep === STEP_ORIGIN) renderOriginChoices();
+    if (currentStep === STEP_CLASSES) renderClassesStep(stepCtx, classesBody);
+    if (currentStep === STEP_CLASS_CHOICES) renderClassChoicesStep(stepCtx, classChoicesBody);
     if (currentStep === STEP_ABILITIES) renderAbilityPreview();
+    if (currentStep === STEP_SPELLS) renderSpellsStep(stepCtx, spellsBody);
+    if (currentStep === STEP_EQUIPMENT) renderEquipmentStep(stepCtx, equipmentBody);
     if (currentStep === STEP_SUMMARY) renderSummary();
   }
 
@@ -1497,6 +1641,10 @@ export function initBuilderWizard(deps = {}) {
     for (const enhanced of enhancedSelects) {
       try { enhanced.close?.(); } catch { /* noop */ }
     }
+    for (const enhanced of dynamicEnhancedSelects) {
+      try { enhanced.api.destroy?.(); } catch { /* noop */ }
+    }
+    dynamicEnhancedSelects.length = 0;
     overlay.hidden = true;
     overlay.setAttribute("aria-hidden", "true");
     const target = previousFocus && typeof /** @type {HTMLElement} */ (previousFocus).focus === "function"
@@ -1512,12 +1660,29 @@ export function initBuilderWizard(deps = {}) {
     });
   }
 
-  function open() {
-    draft = {
-      name: DEFAULT_NAME,
-      build: makeDefaultCharacterBuild()
-    };
-    draft.build.level = MIN_LEVEL;
+  /**
+   * Opens the wizard. Pass `options.character` (a builder character entry)
+   * to edit its build in place; omit to create a new builder character.
+   * @param {{ character?: import("../../state.js").CharacterEntry | null }} [options]
+   */
+  function open(options = {}) {
+    const character = options.character ?? null;
+    if (character && isBuilderCharacter(character)) {
+      editingCharacterId = typeof character.id === "string" ? character.id : null;
+      const normalized = normalizeCharacterBuild(structuredClone(character.build));
+      draft = {
+        name: cleanString(character.name) || DEFAULT_NAME,
+        build: normalized || makeDefaultCharacterBuild()
+      };
+      titleEl.textContent = "Edit with Builder";
+    } else {
+      editingCharacterId = null;
+      draft = {
+        name: DEFAULT_NAME,
+        build: makeDefaultCharacterBuild()
+      };
+      titleEl.textContent = "Create with Builder";
+    }
     currentStep = STEP_IDENTITY;
     previousFocus = document.activeElement;
     summaryEl.innerHTML = "";
@@ -1538,7 +1703,8 @@ export function initBuilderWizard(deps = {}) {
     syncDraftFromControls();
     onFinish?.({
       name: draft.name,
-      build: structuredClone(draft.build)
+      build: structuredClone(draft.build),
+      characterId: editingCharacterId
     });
     close();
   }
@@ -1578,7 +1744,7 @@ export function initBuilderWizard(deps = {}) {
       showIdentityValidation(identityMessage);
       if (identityMessage) return;
     }
-    if (currentStep === STEP_RACE_CHOICES) {
+    if (currentStep === STEP_ORIGIN) {
       raceChoicesValidationAttempted = true;
       const raceChoicesMessage = getRaceChoicesValidationMessage({ showIncomplete: true });
       showRaceChoicesValidation(raceChoicesMessage);
@@ -1602,7 +1768,7 @@ export function initBuilderWizard(deps = {}) {
     syncDraftFromControls();
     const raceChoicesMessage = getRaceChoicesValidationMessage({ showIncomplete: true });
     if (raceChoicesMessage) {
-      currentStep = STEP_RACE_CHOICES;
+      currentStep = STEP_ORIGIN;
       raceChoicesValidationAttempted = true;
       syncStep();
       showRaceChoicesValidation(raceChoicesMessage);
@@ -1611,6 +1777,8 @@ export function initBuilderWizard(deps = {}) {
     abilityValidationAttempted = true;
     const validationMessage = getAbilityValidationMessage({ showIncomplete: true });
     if (validationMessage) {
+      currentStep = STEP_ABILITIES;
+      syncStep();
       showAbilityValidation(validationMessage);
       return;
     }
@@ -1624,25 +1792,26 @@ export function initBuilderWizard(deps = {}) {
   panel.addEventListener("input", handleManualAbilityInput, { signal });
   rollButton?.addEventListener("click", handleRollButtonClick, { signal });
   rollModeSelect?.addEventListener("change", handleRollModeChange, { signal });
-  for (const select of [raceSelect, classSelect, backgroundSelect]) {
+  for (const select of [raceSelect, subraceSelect, classSelect, backgroundSelect]) {
     select.addEventListener("change", () => {
       syncDraftFromControls();
       if (select === raceSelect) {
         raceChoicesValidationAttempted = false;
         showRaceChoicesValidation("");
-        renderRaceChoices();
+        renderSubraceSelect();
+        renderOriginChoices();
         renderAbilityPreview();
+      }
+      if (select === subraceSelect) {
+        renderAbilityPreview();
+      }
+      if (select === backgroundSelect) {
+        renderOriginChoices();
       }
       if (!identityValidationAttempted) return;
       showIdentityValidation(getIdentityValidationMessage());
     }, { signal });
   }
-  draconicAncestrySelect.addEventListener("change", () => {
-    syncRaceChoicesFromControls();
-    renderRaceChoicePreview();
-    renderAbilityPreview();
-    showRaceChoicesValidation(getRaceChoicesValidationMessage({ showIncomplete: raceChoicesValidationAttempted }));
-  }, { signal });
   for (const select of Object.values(standardArraySelects)) {
     select.addEventListener("change", handleStandardArrayChange, { signal });
   }
@@ -1657,9 +1826,9 @@ export function initBuilderWizard(deps = {}) {
   if (Popovers) {
     for (const select of [
       raceSelect,
+      subraceSelect,
       classSelect,
       backgroundSelect,
-      draconicAncestrySelect,
       ...(rollModeSelect ? [rollModeSelect] : []),
       ...Object.values(standardArraySelects),
       ...Object.values(rollAssignmentSelects)
@@ -1684,6 +1853,10 @@ export function initBuilderWizard(deps = {}) {
         try { enhanced.destroy?.(); } catch { /* noop */ }
       }
       enhancedSelects.length = 0;
+      for (const enhanced of dynamicEnhancedSelects) {
+        try { enhanced.api.destroy?.(); } catch { /* noop */ }
+      }
+      dynamicEnhancedSelects.length = 0;
       listenerController.abort();
       close();
     }

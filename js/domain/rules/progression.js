@@ -127,6 +127,64 @@ export function normalizeBuildLevels(build) {
 }
 
 /**
+ * Class blocks view of the levels array: contiguous per-class totals in
+ * acquisition order, each with its per-level HP values.
+ * @param {unknown} build
+ * @returns {Array<{ classId: string, level: number, hp: Array<number | null> }>}
+ */
+export function getClassBlocks(build) {
+  const levels = normalizeBuildLevels(build);
+  /** @type {Array<{ classId: string, level: number, hp: Array<number | null> }>} */
+  const blocks = [];
+  /** @type {Map<string, { classId: string, level: number, hp: Array<number | null> }>} */
+  const byClass = new Map();
+  for (const row of levels) {
+    let block = byClass.get(row.classId);
+    if (!block) {
+      block = { classId: row.classId, level: 0, hp: [] };
+      byClass.set(row.classId, block);
+      blocks.push(block);
+    }
+    block.level += 1;
+    block.hp.push(row.hp);
+  }
+  return blocks;
+}
+
+/**
+ * Writes class blocks back to the levels array (expanded per level, blocks
+ * in acquisition order) and drops subclass/spell selections for classes no
+ * longer present.
+ * @param {import("../../state.js").CharacterBuildState} build
+ * @param {Array<{ classId: string, level: number, hp: Array<number | null> }>} blocks
+ */
+export function setClassBlocks(build, blocks) {
+  /** @type {Array<{ classId: string, hp: number | null }>} */
+  const levels = [];
+  for (const block of blocks) {
+    const classId = cleanString(block.classId);
+    if (!classId || block.level < 1) continue;
+    for (let i = 0; i < block.level && levels.length < MAX_CHARACTER_LEVEL; i += 1) {
+      const hp = block.hp[i];
+      levels.push({ classId, hp: Number.isFinite(Number(hp)) && hp != null ? Number(hp) : null });
+    }
+  }
+  build.levels = levels;
+  if (isPlainObject(build.subclassByClass)) {
+    const active = new Set(levels.map((row) => row.classId));
+    for (const classId of Object.keys(build.subclassByClass)) {
+      if (!active.has(classId)) delete build.subclassByClass[classId];
+    }
+  }
+  if (isPlainObject(build.spellcasting)) {
+    const active = new Set(levels.map((row) => row.classId));
+    for (const classId of Object.keys(build.spellcasting)) {
+      if (!active.has(classId)) delete build.spellcasting[classId];
+    }
+  }
+}
+
+/**
  * Total class levels per class in acquisition order.
  * @param {Array<{ classId: string }>} levels
  * @returns {Array<{ classId: string, level: number }>}

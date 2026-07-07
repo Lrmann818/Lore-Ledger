@@ -8620,3 +8620,242 @@ section.combatPanel[data-collapsed="true"]> :not([data-panel-header]) {
     min-height: calc(34px * var(--ui-scale));
   }
 }
+
+/* ---------- Builder wizard: multiclass-era dynamic steps ---------- */
+/* Scoped to #builderWizardPanel; complements the existing wizard styles. */
+
+#builderWizardPanel .builderWizardDynamicBody {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+#builderWizardPanel .builderWizardSubTitle {
+  margin: 4px 0 2px;
+  font-size: 0.95rem;
+}
+
+#builderWizardPanel .builderClassesHeadline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+#builderWizardPanel .builderClassesTotal {
+  font-weight: 600;
+}
+
+#builderWizardPanel .builderClassBlock {
+  border: 1px solid var(--border, rgba(128, 128, 128, 0.35));
+  border-radius: 8px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+#builderWizardPanel .builderClassBlockHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+#builderWizardPanel .builderClassBlockHead select {
+  flex: 1 1 160px;
+  min-width: 0;
+}
+
+#builderWizardPanel .builderClassLevelControls {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+#builderWizardPanel .builderClassLevelValue {
+  min-width: 64px;
+  text-align: center;
+  font-weight: 600;
+}
+
+#builderWizardPanel .builderAddClassWrap {
+  display: flex;
+}
+
+#builderWizardPanel .builderAddClassWrap select {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+#builderWizardPanel .builderHpGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 8px;
+}
+
+#builderWizardPanel .builderHpField {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 64px;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+}
+
+#builderWizardPanel .builderHpField input {
+  width: 100%;
+  min-width: 0;
+}
+
+#builderWizardPanel .builderMulticlassWarning {
+  display: block;
+}
+
+#builderWizardPanel .builderChoiceField select {
+  margin-top: 4px;
+}
+
+#builderWizardPanel .builderAsiSlot {
+  border: 1px solid var(--border, rgba(128, 128, 128, 0.35));
+  border-radius: 8px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+#builderWizardPanel .builderAsiBody {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+#builderWizardPanel .builderFeatDesc {
+  margin: 0;
+  font-size: 0.85rem;
+  opacity: 0.85;
+  white-space: pre-line;
+}
+
+#builderWizardPanel .builderSpellSlotsRow,
+#builderWizardPanel .builderGrantedSpells {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  align-items: baseline;
+}
+
+#builderWizardPanel .builderSpellClassSection {
+  border: 1px solid var(--border, rgba(128, 128, 128, 0.35));
+  border-radius: 8px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+#builderWizardPanel .builderSpellFilterField input {
+  width: 100%;
+}
+
+#builderWizardPanel .builderSpellGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+#builderWizardPanel .builderSpellGroupHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+#builderWizardPanel .builderSpellGroupTitle {
+  font-weight: 600;
+}
+
+#builderWizardPanel .builderSpellGroupCount {
+  font-size: 0.85rem;
+  opacity: 0.85;
+}
+
+#builderWizardPanel .builderSpellLevelDetails summary {
+  cursor: pointer;
+  padding: 4px 0;
+}
+
+#builderWizardPanel .builderSpellCheckList {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 4px 12px;
+  padding: 4px 0 8px;
+}
+
+#builderWizardPanel .builderSpellCheckItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.9rem;
+  min-width: 0;
+}
+
+#builderWizardPanel .builderSpellCheckItem span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#builderWizardPanel .builderEquipmentShieldField {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+#builderWizardPanel .builderWeaponList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+#builderWizardPanel .builderWeaponRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+#builderWizardPanel .builderWeaponName {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#builderWizardPanel .builderEquipmentNotes {
+  width: 100%;
+  resize: vertical;
+}
+
+#builderWizardPanel .builderSummaryWarnings {
+  display: block;
+}
+
+@media (max-width: 640px) {
+  #builderWizardPanel .builderHpGrid {
+    grid-template-columns: 1fr;
+  }
+
+  #builderWizardPanel .builderSpellCheckList {
+    grid-template-columns: 1fr;
+  }
+
+  #builderWizardPanel .builderClassBlockHead {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  #builderWizardPanel .builderClassLevelControls {
+    justify-content: space-between;
+  }
+}

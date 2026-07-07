@@ -9,10 +9,16 @@ import {
   isBuilderCharacter
 } from "../../../domain/characterHelpers.js";
 import {
-  BUILTIN_CONTENT_REGISTRY,
-  getContentById,
+  getActiveContentRegistry,
+  getContentByKind,
   listContentByKind
 } from "../../../domain/rules/registry.js";
+import {
+  getClassBlocks,
+  getTotalLevel,
+  normalizeBuildLevels,
+  setClassBlocks
+} from "../../../domain/rules/progression.js";
 import { createStateActions } from "../../../domain/stateActions.js";
 import { notifyPanelDataChanged, subscribePanelDataChanged } from "../../../ui/panelInvalidation.js";
 import { getNoopDestroyApi, requireMany } from "../../../utils/domGuards.js";
@@ -21,10 +27,9 @@ const NOT_SELECTED_LABEL = "Not selected";
 const MIN_LEVEL = 1;
 const MAX_LEVEL = 20;
 
-/** @type {Readonly<Record<"race" | "class" | "background", string>>} */
+/** @type {Readonly<Record<"race" | "background", string>>} */
 const BUILD_FIELD_BY_KIND = Object.freeze({
   race: "raceId",
-  class: "classId",
   background: "backgroundId"
 });
 
@@ -57,6 +62,7 @@ function normalizeLevel(value) {
 }
 
 /**
+ * Accepts both v2 builds (levels array) and legacy v1 builds (level field).
  * @param {Record<string, unknown>} build
  * @returns {boolean}
  */
@@ -66,7 +72,27 @@ function hasCurrentMinimalBuildShape(build) {
     isPlainObject(build.abilities) &&
     isPlainObject(build.abilities.base) &&
     isPlainObject(build.choicesByLevel) &&
-    normalizeLevel(build.level) != null;
+    (Array.isArray(build.levels) || normalizeLevel(build.level) != null);
+}
+
+/**
+ * @param {Record<string, unknown>} build
+ * @returns {string}
+ */
+function getStartingClassId(build) {
+  const blocks = getClassBlocks(build);
+  if (blocks.length) return blocks[0].classId;
+  return cleanString(build.classId).replace(/^class_/, "");
+}
+
+/**
+ * @param {Record<string, unknown>} build
+ * @returns {number}
+ */
+function getDisplayLevel(build) {
+  const levels = normalizeBuildLevels(build);
+  if (levels.length) return getTotalLevel(levels);
+  return normalizeLevel(build.level) ?? MIN_LEVEL;
 }
 
 /**
@@ -88,7 +114,7 @@ function getEditableBuild(character) {
  */
 function populateContentSelect(select, kind, selectedId) {
   const selected = cleanString(selectedId);
-  const entries = listContentByKind(BUILTIN_CONTENT_REGISTRY, kind);
+  const entries = listContentByKind(getActiveContentRegistry(), kind);
   select.innerHTML = "";
 
   const emptyOption = document.createElement("option");
@@ -114,7 +140,7 @@ function populateContentSelect(select, kind, selectedId) {
 function normalizeSelectedContentId(value, kind) {
   const id = cleanString(value);
   if (!id) return null;
-  return getContentById(BUILTIN_CONTENT_REGISTRY, id)?.kind === kind ? id : undefined;
+  return getContentByKind(getActiveContentRegistry(), kind, id) ? id : undefined;
 }
 
 /**
@@ -165,7 +191,7 @@ export function initBuilderIdentityPanel(deps = {}) {
   const classSelect = /** @type {HTMLSelectElement} */ (guard.els.class);
   const backgroundSelect = /** @type {HTMLSelectElement} */ (guard.els.background);
   const levelInput = /** @type {HTMLInputElement} */ (guard.els.level);
-  const { updateCharacterField } = createStateActions({ state, SaveManager });
+  const { updateCharacterField, mutateCharacter } = createStateActions({ state, SaveManager });
   const destroyFns = [];
   const listenerController = new AbortController();
   const listenerSignal = listenerController.signal;
@@ -186,9 +212,9 @@ export function initBuilderIdentityPanel(deps = {}) {
    */
   function syncControls(build) {
     populateContentSelect(raceSelect, "race", build.raceId);
-    populateContentSelect(classSelect, "class", build.classId);
+    populateContentSelect(classSelect, "class", getStartingClassId(build));
     populateContentSelect(backgroundSelect, "background", build.backgroundId);
-    levelInput.value = String(normalizeLevel(build.level) ?? MIN_LEVEL);
+    levelInput.value = String(getDisplayLevel(build));
     levelInput.min = String(MIN_LEVEL);
     levelInput.max = String(MAX_LEVEL);
     levelInput.step = "1";
@@ -243,7 +269,7 @@ export function initBuilderIdentityPanel(deps = {}) {
   }
 
   /**
-   * @param {"race" | "class" | "background"} kind
+   * @param {"race" | "background"} kind
    * @param {unknown} rawValue
    */
   function updateContentId(kind, rawValue) {
@@ -272,6 +298,59 @@ export function initBuilderIdentityPanel(deps = {}) {
   }
 
   /**
+   * Updates the starting (first) class in the level plan. Clearing the class
+   * clears the plan; multiclass blocks beyond the first are preserved.
+   * @param {unknown} rawValue
+   */
+  function updateStartingClass(rawValue) {
+    const build = getEditableBuild(getActiveCharacter(state));
+    if (!build) {
+      refresh();
+      return;
+    }
+    const nextValue = normalizeSelectedContentId(rawValue, "class");
+    if (nextValue === undefined) {
+      refresh();
+      return;
+    }
+    const updated = mutateCharacter((character) => {
+      const target = getEditableBuild(character);
+      if (!target) return false;
+      const blocks = getClassBlocks(target);
+      if (nextValue === null) {
+        if (!blocks.length) return false;
+        // Keep the level for later re-selection, drop the legacy classId so
+        // the empty plan is not resurrected by the v1 fallback.
+        target.level = getDisplayLevel(target);
+        setClassBlocks(/** @type {import("../../../state.js").CharacterBuildState} */ (target), blocks.slice(1));
+        delete target.classId;
+        return true;
+      }
+      if (blocks.some((block, index) => index > 0 && block.classId === nextValue)) return false;
+      if (!blocks.length) {
+        setClassBlocks(/** @type {import("../../../state.js").CharacterBuildState} */ (target), [{ classId: nextValue, level: getDisplayLevel(target), hp: [] }]);
+      } else {
+        if (blocks[0].classId === nextValue) return false;
+        blocks[0].classId = nextValue;
+        setClassBlocks(/** @type {import("../../../state.js").CharacterBuildState} */ (target), blocks);
+      }
+      delete target.classId;
+      delete target.level;
+      return true;
+    }, { queueSave: false });
+    if (!updated) {
+      refresh();
+      return;
+    }
+
+    SaveManager?.markDirty?.();
+    notifyPanelDataChanged("character-fields", { source: panelSource });
+    refresh();
+  }
+
+  /**
+   * Adjusts the total level by resizing the first class block (multiclass
+   * blocks keep their levels; the total never drops below their sum + 1).
    * @param {unknown} rawValue
    */
   function updateLevel(rawValue) {
@@ -287,7 +366,27 @@ export function initBuilderIdentityPanel(deps = {}) {
       return;
     }
 
-    const updated = updateCharacterField("build.level", nextLevel, { queueSave: false });
+    const updated = mutateCharacter((character) => {
+      const target = getEditableBuild(character);
+      if (!target) return false;
+      const blocks = getClassBlocks(target);
+      if (!blocks.length) {
+        // Legacy build with no class yet: keep the legacy level field.
+        if (normalizeLevel(target.level) === nextLevel) return false;
+        target.level = nextLevel;
+        return true;
+      }
+      const otherLevels = blocks.slice(1).reduce((sum, block) => sum + block.level, 0);
+      const firstLevel = Math.max(1, nextLevel - otherLevels);
+      if (blocks[0].level === firstLevel && Array.isArray(target.levels) && target.levels.length) return false;
+      blocks[0].level = firstLevel;
+      blocks[0].hp.length = Math.min(blocks[0].hp.length, firstLevel);
+      while (blocks[0].hp.length < firstLevel) blocks[0].hp.push(null);
+      setClassBlocks(/** @type {import("../../../state.js").CharacterBuildState} */ (target), blocks);
+      delete target.classId;
+      delete target.level;
+      return true;
+    }, { queueSave: false });
     if (!updated) {
       refresh();
       return;
@@ -301,7 +400,7 @@ export function initBuilderIdentityPanel(deps = {}) {
   raceSelect.addEventListener("change", () => updateContentId("race", raceSelect.value), {
     signal: listenerSignal
   });
-  classSelect.addEventListener("change", () => updateContentId("class", classSelect.value), {
+  classSelect.addEventListener("change", () => updateStartingClass(classSelect.value), {
     signal: listenerSignal
   });
   backgroundSelect.addEventListener("change", () => updateContentId("background", backgroundSelect.value), {

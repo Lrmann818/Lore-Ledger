@@ -569,6 +569,9 @@ function installBuilderWizardDom(document) {
   const identityGrid = appendWithId(document, identity, "div", "builderWizardGrid", "builderWizardGrid");
   appendWithId(document, identityGrid, "input", "builderWizardName");
   appendWithId(document, identityGrid, "select", "builderWizardRace");
+  const subraceField = appendWithId(document, identityGrid, "label", "builderWizardSubraceField", "builderIdentityField");
+  subraceField.hidden = true;
+  appendWithId(document, subraceField, "select", "builderWizardSubrace");
   appendWithId(document, identityGrid, "select", "builderWizardClass");
   appendWithId(document, identityGrid, "select", "builderWizardBackground");
   appendWithId(document, identityGrid, "span", "builderWizardLevel", "builderWizardReadonlyValue").textContent = "Level 1";
@@ -579,13 +582,34 @@ function installBuilderWizardDom(document) {
 
   const raceChoices = appendWithId(document, body, "section", "builderWizardStepRaceChoices", "builderWizardStep");
   raceChoices.hidden = true;
-  appendWithId(document, raceChoices, "h3", "builderWizardRaceChoicesTitle", "builderWizardStepTitle").textContent = "Race Choices";
-  const raceChoicesGrid = appendWithId(document, raceChoices, "div", "builderWizardGrid", "builderWizardGrid");
-  appendWithId(document, raceChoicesGrid, "select", "builderWizardDraconicAncestry");
+  appendWithId(document, raceChoices, "h3", "builderWizardRaceChoicesTitle", "builderWizardStepTitle").textContent = "Race & Background Choices";
+  appendWithId(document, raceChoices, "div", "builderWizardOriginChoices", "builderWizardGrid");
   const raceChoicesValidation = appendWithId(document, raceChoices, "div", "builderWizardRaceChoicesValidation", "builderWizardValidation");
   raceChoicesValidation.hidden = true;
   raceChoicesValidation.setAttribute("role", "status");
   raceChoicesValidation.setAttribute("aria-live", "polite");
+
+  const classesStep = appendWithId(document, body, "section", "builderWizardStepClasses", "builderWizardStep");
+  classesStep.hidden = true;
+  appendWithId(document, classesStep, "h3", "builderWizardClassesTitle", "builderWizardStepTitle").textContent = "Classes & Levels";
+  appendWithId(document, classesStep, "div", "builderWizardClassesBody", "builderWizardDynamicBody");
+  const classesValidation = appendWithId(document, classesStep, "div", "builderWizardClassesValidation", "builderWizardValidation");
+  classesValidation.hidden = true;
+
+  const classChoicesStep = appendWithId(document, body, "section", "builderWizardStepClassChoices", "builderWizardStep");
+  classChoicesStep.hidden = true;
+  appendWithId(document, classChoicesStep, "h3", "builderWizardClassChoicesTitle", "builderWizardStepTitle").textContent = "Class Choices";
+  appendWithId(document, classChoicesStep, "div", "builderWizardClassChoicesBody", "builderWizardDynamicBody");
+
+  const spellsStep = appendWithId(document, body, "section", "builderWizardStepSpells", "builderWizardStep");
+  spellsStep.hidden = true;
+  appendWithId(document, spellsStep, "h3", "builderWizardSpellsTitle", "builderWizardStepTitle").textContent = "Spells";
+  appendWithId(document, spellsStep, "div", "builderWizardSpellsBody", "builderWizardDynamicBody");
+
+  const equipmentStep = appendWithId(document, body, "section", "builderWizardStepEquipment", "builderWizardStep");
+  equipmentStep.hidden = true;
+  appendWithId(document, equipmentStep, "h3", "builderWizardEquipmentTitle", "builderWizardStepTitle").textContent = "Equipment";
+  appendWithId(document, equipmentStep, "div", "builderWizardEquipmentBody", "builderWizardDynamicBody");
 
   const abilities = appendWithId(document, body, "section", "builderWizardStepAbilities", "builderWizardStep");
   abilities.hidden = true;
@@ -719,6 +743,30 @@ function dispatchChange(el) {
   el.dispatchEvent(new Event("change", { bubbles: true, cancelable: true }));
 }
 
+function clickBuilderWizardNext() {
+  document.getElementById("builderWizardNext").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+}
+
+/**
+ * Clicks Next until the given step section is visible, filling the required
+ * Draconic Ancestry choice when passing through Race & Background Choices.
+ */
+function advanceBuilderWizardToStep(stepElementId, { ancestryId = "" } = {}) {
+  for (let i = 0; i < 10; i += 1) {
+    if (!document.getElementById(stepElementId).hidden) return true;
+    const raceChoicesStep = document.getElementById("builderWizardStepRaceChoices");
+    if (raceChoicesStep && !raceChoicesStep.hidden) {
+      const ancestrySelect = document.getElementById("builderWizardDraconicAncestry");
+      if (ancestrySelect && ancestryId && ancestrySelect.value !== ancestryId) {
+        ancestrySelect.value = ancestryId;
+        dispatchChange(ancestrySelect);
+      }
+    }
+    clickBuilderWizardNext();
+  }
+  return !document.getElementById(stepElementId).hidden;
+}
+
 async function finishBuilderWizardWith({
   name = "Mira",
   raceId = "human",
@@ -731,18 +779,11 @@ async function finishBuilderWizardWith({
   document.getElementById("builderWizardRace").value = raceId;
   document.getElementById("builderWizardClass").value = classId;
   document.getElementById("builderWizardBackground").value = backgroundId;
-  document.getElementById("builderWizardNext").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
-  if (!document.getElementById("builderWizardStepRaceChoices").hidden) {
-    if (ancestryId) {
-      document.getElementById("builderWizardDraconicAncestry").value = ancestryId;
-      document.getElementById("builderWizardDraconicAncestry").dispatchEvent(new Event("change", { bubbles: true, cancelable: true }));
-    }
-    document.getElementById("builderWizardNext").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
-  }
+  advanceBuilderWizardToStep("builderWizardStepAbilities", { ancestryId });
   Object.entries(abilities).forEach(([suffix, value]) => {
     document.getElementById(`builderWizardAbility${suffix}`).value = String(value);
   });
-  document.getElementById("builderWizardNext").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+  advanceBuilderWizardToStep("builderWizardStepSummary", { ancestryId });
   document.getElementById("builderWizardFinish").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
   await flushPromises();
 }
@@ -763,7 +804,7 @@ function openBuilderWizardToAbilities(actionMenuButton) {
   actionMenuButton.dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
   document.getElementById("charActionNewBuilderBtn").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
   completeBuilderIdentity();
-  document.getElementById("builderWizardNext").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+  advanceBuilderWizardToStep("builderWizardStepAbilities");
 }
 
 function chooseBuilderAbilityMethod(methodId) {
@@ -1021,6 +1062,7 @@ describe("character page selector", () => {
     expect(actions).toEqual([
       { action: "new", label: "New Character" },
       { action: "new-builder", label: "Create with Builder" },
+      { action: "edit-builder", label: "Edit in Builder" },
       { action: "rename", label: "Rename Character" },
       { action: "add-npc", label: "Add to NPCs" },
       { action: "add-party", label: "Add to Party" },
@@ -1661,7 +1703,7 @@ describe("character page selector", () => {
     actionMenuButton.dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
     document.getElementById("charActionNewBuilderBtn").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
     completeBuilderIdentity();
-    document.getElementById("builderWizardNext").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    advanceBuilderWizardToStep("builderWizardStepAbilities");
 
     expect(document.getElementById("builderWizardStepIdentity").hidden).toBe(true);
     expect(document.getElementById("builderWizardStepAbilities").hidden).toBe(false);
@@ -1810,7 +1852,7 @@ describe("character page selector", () => {
     document.getElementById("builderWizardNext").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
     document.getElementById("builderWizardDraconicAncestry").value = "red";
     document.getElementById("builderWizardDraconicAncestry").dispatchEvent(new Event("change", { bubbles: true, cancelable: true }));
-    document.getElementById("builderWizardNext").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    advanceBuilderWizardToStep("builderWizardStepAbilities");
 
     expect(document.getElementById("builderWizardStepRaceChoices").hidden).toBe(true);
     expect(document.getElementById("builderWizardStepAbilities").hidden).toBe(false);
@@ -1964,7 +2006,7 @@ describe("character page selector", () => {
     actionMenuButton.dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
     document.getElementById("charActionNewBuilderBtn").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
     completeBuilderIdentity({ raceId: "human" });
-    document.getElementById("builderWizardNext").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    advanceBuilderWizardToStep("builderWizardStepAbilities");
 
     expect(document.getElementById("builderWizardRaceAbilityBonusPreview").textContent)
       .toBe("Race Ability Bonus: +1 STR, +1 DEX, +1 CON, +1 INT, +1 WIS, +1 CHA");
@@ -1982,6 +2024,8 @@ describe("character page selector", () => {
     actionMenuButton.dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
     document.getElementById("charActionNewBuilderBtn").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
     await flushPromises();
+    completeBuilderIdentity({ raceId: "dragonborn" });
+    advanceBuilderWizardToStep("builderWizardStepRaceChoices");
 
     const select = document.getElementById("builderWizardDraconicAncestry");
     const wrap = select.nextElementSibling;
@@ -2018,13 +2062,12 @@ describe("character page selector", () => {
         version: 2,
         ruleset: "srd-5.1",
         raceId: "human",
-        classId: "fighter",
         backgroundId: "acolyte",
-        level: 1,
+        levels: [{ classId: "fighter", hp: null }],
         abilities: {
+          method: "manual",
           base: { str: 15, dex: 14, con: 13, int: 12, wis: 10, cha: 8 }
-        },
-        choicesByLevel: {}
+        }
       }
     });
     expect(isBuilderCharacter(entries[2])).toBe(true);
@@ -2192,9 +2235,9 @@ describe("character page selector", () => {
       classId: "wizard",
       backgroundId: "acolyte"
     });
-    document.getElementById("builderWizardNext").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    advanceBuilderWizardToStep("builderWizardStepAbilities");
     document.getElementById("builderWizardAbilityInt").value = "16";
-    document.getElementById("builderWizardNext").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    advanceBuilderWizardToStep("builderWizardStepSummary");
 
     expect(deps.state.characters.entries).toHaveLength(2);
     expect(deps.SaveManager.markDirty).not.toHaveBeenCalled();
@@ -2225,11 +2268,7 @@ describe("character page selector", () => {
       classId: "fighter",
       backgroundId: "acolyte"
     });
-    document.getElementById("builderWizardNext").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
-    document.getElementById("builderWizardDraconicAncestry").value = "red";
-    document.getElementById("builderWizardDraconicAncestry").dispatchEvent(new Event("change", { bubbles: true, cancelable: true }));
-    document.getElementById("builderWizardNext").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
-    document.getElementById("builderWizardNext").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    advanceBuilderWizardToStep("builderWizardStepSummary", { ancestryId: "red" });
 
     const summary = document.getElementById("builderWizardSummary").textContent;
     expect(summary).toContain("Dragonborn");
@@ -2273,8 +2312,7 @@ describe("character page selector", () => {
     actionMenuButton.dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
     document.getElementById("charActionNewBuilderBtn").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
     completeBuilderIdentity({ name: "Identity Name" });
-    document.getElementById("builderWizardNext").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
-    document.getElementById("builderWizardNext").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    advanceBuilderWizardToStep("builderWizardStepSummary");
 
     const summaryName = document.getElementById("builderWizardSummaryName");
     expect(summaryName.value).toBe("Identity Name");
@@ -2596,7 +2634,7 @@ describe("character page selector", () => {
     chooseBuilderAbilityMethod("roll");
     clickRollScores();
     assignRollScoresByIndex();
-    document.getElementById("builderWizardNext").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    advanceBuilderWizardToStep("builderWizardStepSummary");
 
     const summary = document.getElementById("builderWizardSummary").textContent;
     expect(summary).toContain("STR19 (+4)");
@@ -2742,13 +2780,13 @@ describe("character page selector", () => {
     actionMenuButton.dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
     document.getElementById("charActionNewBuilderBtn").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
     completeBuilderIdentity({ name: "Point Mira" });
-    document.getElementById("builderWizardNext").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    advanceBuilderWizardToStep("builderWizardStepAbilities");
     chooseBuilderAbilityMethod("point-buy");
     clickPointBuy("Str", "increase", 2);
     clickPointBuy("Dex", "increase", 1);
 
     expect(document.getElementById("builderWizardPointBuyRemaining").textContent).toBe("24");
-    document.getElementById("builderWizardNext").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    advanceBuilderWizardToStep("builderWizardStepSummary");
 
     const summary = document.getElementById("builderWizardSummary").textContent;
     expect(summary).toContain("Point Mira");
@@ -2867,13 +2905,13 @@ describe("character page selector", () => {
     actionMenuButton.dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
     document.getElementById("charActionNewBuilderBtn").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
     completeBuilderIdentity({ name: "Array Mira" });
-    document.getElementById("builderWizardNext").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    advanceBuilderWizardToStep("builderWizardStepAbilities");
 
     chooseBuilderAbilityMethod("standard-array");
     expect(document.getElementById("builderWizardManualAbilityGrid").hidden).toBe(true);
     expect(document.getElementById("builderWizardStandardArrayGrid").hidden).toBe(false);
     assignStandardArrayScores({ Str: 15, Dex: 14, Con: 13, Int: 12, Wis: 10, Cha: 8 });
-    document.getElementById("builderWizardNext").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    advanceBuilderWizardToStep("builderWizardStepSummary");
 
     const summary = document.getElementById("builderWizardSummary").textContent;
     expect(summary).toContain("Array Mira");
@@ -2921,7 +2959,7 @@ describe("character page selector", () => {
     actionMenuButton.dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
     document.getElementById("charActionNewBuilderBtn").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
     completeBuilderIdentity();
-    document.getElementById("builderWizardNext").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    advanceBuilderWizardToStep("builderWizardStepAbilities");
 
     chooseBuilderAbilityMethod("standard-array");
     document.getElementById("builderWizardNext").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
@@ -3310,10 +3348,10 @@ describe("character page selector", () => {
 
     const entry = deps.state.characters.entries[2];
     expect(entry.build).toMatchObject({
+      version: 2,
       raceId: null,
-      classId: null,
       backgroundId: null,
-      level: 1
+      levels: []
     });
     expect(document.getElementById("charBuilderIdentityPanel").hidden).toBe(false);
     expect(document.getElementById("charBuilderRaceSelect").value).toBe("");
@@ -3390,25 +3428,25 @@ describe("character page selector", () => {
     const classSelect = document.getElementById("charBuilderClassSelect");
     classSelect.value = "wizard";
     dispatchChange(classSelect);
-    expect(builder.build.classId).toBe("wizard");
+    // v2 build model: class/level edits write the levels array.
+    expect(builder.build.levels).toHaveLength(5);
+    expect(builder.build.levels.every((row) => row.classId === "wizard")).toBe(true);
     expect(builder.build.raceId).toBe("human");
     expect(builder.build.backgroundId).toBe("acolyte");
-    expect(builder.build.level).toBe(5);
 
     const backgroundSelect = document.getElementById("charBuilderBackgroundSelect");
     backgroundSelect.value = "acolyte";
     dispatchChange(backgroundSelect);
     expect(builder.build.backgroundId).toBe("acolyte");
     expect(builder.build.raceId).toBe("human");
-    expect(builder.build.classId).toBe("wizard");
-    expect(builder.build.level).toBe(5);
+    expect(builder.build.levels).toHaveLength(5);
 
     const levelInput = document.getElementById("charBuilderLevelInput");
     levelInput.value = "6";
     dispatchChange(levelInput);
-    expect(builder.build.level).toBe(6);
+    expect(builder.build.levels).toHaveLength(6);
+    expect(builder.build.levels.every((row) => row.classId === "wizard")).toBe(true);
     expect(builder.build.raceId).toBe("human");
-    expect(builder.build.classId).toBe("wizard");
     expect(builder.build.backgroundId).toBe("acolyte");
 
     expect(builder.classLevel).toBe(beforeFlat.classLevel);
@@ -3443,7 +3481,8 @@ describe("character page selector", () => {
     });
 
     expect(builder.build.raceId).toBeNull();
-    expect(builder.build.classId).toBeNull();
+    expect(builder.build.levels).toEqual([]);
+    expect(builder.build.classId).toBeUndefined();
     expect(builder.build.backgroundId).toBeNull();
 
     controller.destroy();
@@ -3510,15 +3549,16 @@ describe("character page selector", () => {
     expect(levelInput.value).toBe("5");
     expect(deps.SaveManager.markDirty).not.toHaveBeenCalled();
 
+
     levelInput.value = "99";
     dispatchChange(levelInput);
-    expect(builder.build.level).toBe(20);
+    expect(builder.build.levels).toHaveLength(20);
     expect(levelInput.value).toBe("20");
     expect(deps.SaveManager.markDirty).toHaveBeenCalledTimes(1);
 
     levelInput.value = "0";
     dispatchChange(levelInput);
-    expect(builder.build.level).toBe(1);
+    expect(builder.build.levels).toHaveLength(1);
     expect(levelInput.value).toBe("1");
     expect(deps.SaveManager.markDirty).toHaveBeenCalledTimes(2);
 

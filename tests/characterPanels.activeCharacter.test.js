@@ -1191,8 +1191,8 @@ describe("character panels active character resolution", () => {
     dispatchChange(levelInput);
 
     expect(builder.build.raceId).toBe("human");
-    expect(builder.build.classId).toBe("wizard");
-    expect(builder.build.level).toBe(9);
+    expect(builder.build.levels).toHaveLength(9);
+    expect(builder.build.levels.every((row) => row.classId === "wizard")).toBe(true);
     expect(document.getElementById("charSpeed").value).toBe("30");
     expect(document.getElementById("hitDieAmt").value).toBe("9");
     expect(document.getElementById("hitDieSize").value).toBe("6");

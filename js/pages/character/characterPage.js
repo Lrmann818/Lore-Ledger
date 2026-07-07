@@ -289,7 +289,31 @@ export function initCharacterPageUI(deps) {
       root: document,
       Popovers,
       setStatus,
-      onFinish: ({ name, build }) => {
+      onFinish: ({ name, build, characterId }) => {
+        if (characterId) {
+          // Edit mode: update the build in place and re-seed additively.
+          // Every other character field (notes, inventory, spells usage,
+          // combat state, manual edits) is left untouched.
+          const updated = mutateCharacter((character) => {
+            if (character.id !== characterId) return false;
+            character.name = name;
+            character.build = build;
+            Object.assign(character, getBuilderFinishSheetSeedPatch(character));
+            return true;
+          });
+          if (!updated) {
+            mutateCharactersAndNotify((s) => {
+              const entry = s.characters.entries.find((e) => e.id === characterId);
+              if (!entry) return;
+              entry.name = name;
+              entry.build = build;
+              Object.assign(entry, getBuilderFinishSheetSeedPatch(entry));
+            });
+          }
+          rerender();
+          if (typeof setStatus === "function") setStatus("Builder character updated.", { stickyMs: 2000 });
+          return;
+        }
         const entry = makeDefaultBuilderCharacterEntry(name);
         entry.build = build;
         Object.assign(entry, getBuilderFinishSheetSeedPatch(entry));
@@ -345,10 +369,16 @@ export function initCharacterPageUI(deps) {
       button.dataset.charAction === "add-npc" || button.dataset.charAction === "add-party"
     ));
     const exportButtons = actionButtons.filter((button) => button.dataset.charAction === "export");
+    const editBuilderButtons = actionButtons.filter((button) => button.dataset.charAction === "edit-builder");
     const activeCharacterForActions = getActiveCharacter(state);
+    const activeIsBuilder = isBuilderCharacter(activeCharacterForActions);
     if (builderBadgeEl) {
-      builderBadgeEl.hidden = !isBuilderCharacter(activeCharacterForActions);
+      builderBadgeEl.hidden = !activeIsBuilder;
     }
+    editBuilderButtons.forEach((button) => {
+      button.disabled = !activeIsBuilder;
+      button.setAttribute("aria-disabled", (!activeIsBuilder).toString());
+    });
     restButtons.forEach((button) => {
       button.disabled = !activeCharacterForActions;
       button.setAttribute("aria-disabled", (!activeCharacterForActions).toString());
@@ -477,6 +507,12 @@ export function initCharacterPageUI(deps) {
 
     async function runNewBuilderCharacterAction() {
       builderWizard.open();
+    }
+
+    async function runEditBuilderCharacterAction() {
+      const activeChar = getActiveCharacter(state);
+      if (!activeChar || !isBuilderCharacter(activeChar)) return;
+      builderWizard.open({ character: activeChar });
     }
 
     async function runRenameCharacterAction() {
@@ -698,6 +734,8 @@ export function initCharacterPageUI(deps) {
         await runNewCharacterAction();
       } else if (action === "new-builder") {
         await runNewBuilderCharacterAction();
+      } else if (action === "edit-builder") {
+        await runEditBuilderCharacterAction();
       } else if (action === "rename") {
         await runRenameCharacterAction();
       } else if (action === "add-npc") {

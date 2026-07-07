@@ -537,6 +537,8 @@
               data-char-action="new">New Character</button>
             <button type="button" class="swatchOption charActionMenuItem" id="charActionNewBuilderBtn"
               data-char-action="new-builder">Create with Builder</button>
+            <button type="button" class="swatchOption charActionMenuItem" id="charActionEditBuilderBtn"
+              data-char-action="edit-builder">Edit in Builder</button>
             <button type="button" class="swatchOption charActionMenuItem" id="charActionRenameBtn"
               data-char-action="rename">Rename Character</button>
             <button type="button" class="swatchOption charActionMenuItem" id="charActionAddNpcBtn"
@@ -1228,8 +1230,12 @@
               <span>Race</span>
               <select id="builderWizardRace" class="settingsSelect builderWizardSelect"></select>
             </label>
+            <label class="builderIdentityField" for="builderWizardSubrace" id="builderWizardSubraceField" hidden>
+              <span>Subrace</span>
+              <select id="builderWizardSubrace" class="settingsSelect builderWizardSelect"></select>
+            </label>
             <label class="builderIdentityField" for="builderWizardClass">
-              <span>Class</span>
+              <span>Starting Class</span>
               <select id="builderWizardClass" class="settingsSelect builderWizardSelect"></select>
             </label>
             <label class="builderIdentityField" for="builderWizardBackground">
@@ -1245,14 +1251,21 @@
         </section>
 
         <section class="builderWizardStep" id="builderWizardStepRaceChoices" aria-labelledby="builderWizardRaceChoicesTitle" hidden>
-          <h3 class="builderWizardStepTitle" id="builderWizardRaceChoicesTitle">Race Choices</h3>
-          <div class="builderWizardGrid">
-            <label class="builderIdentityField" for="builderWizardDraconicAncestry">
-              <span>Draconic Ancestry</span>
-              <select id="builderWizardDraconicAncestry" class="settingsSelect builderWizardSelect"></select>
-            </label>
-          </div>
+          <h3 class="builderWizardStepTitle" id="builderWizardRaceChoicesTitle">Race &amp; Background Choices</h3>
+          <div class="builderWizardGrid" id="builderWizardOriginChoices"></div>
           <div class="builderWizardValidation" id="builderWizardRaceChoicesValidation" role="status" aria-live="polite" hidden></div>
+        </section>
+
+        <section class="builderWizardStep" id="builderWizardStepClasses" aria-labelledby="builderWizardClassesTitle" hidden>
+          <h3 class="builderWizardStepTitle" id="builderWizardClassesTitle">Classes &amp; Levels</h3>
+          <div id="builderWizardClassesBody" class="builderWizardDynamicBody"></div>
+          <div class="builderWizardValidation" id="builderWizardClassesValidation" role="status" aria-live="polite" hidden></div>
+        </section>
+
+        <section class="builderWizardStep" id="builderWizardStepClassChoices" aria-labelledby="builderWizardClassChoicesTitle" hidden>
+          <h3 class="builderWizardStepTitle" id="builderWizardClassChoicesTitle">Class Choices</h3>
+          <div id="builderWizardClassChoicesBody" class="builderWizardDynamicBody"></div>
+          <div class="builderWizardValidation" id="builderWizardClassChoicesValidation" role="status" aria-live="polite" hidden></div>
         </section>
 
         <section class="builderWizardStep" id="builderWizardStepAbilities" aria-labelledby="builderWizardAbilitiesTitle" hidden>
@@ -1427,6 +1440,18 @@
               </label>
             </div>
           </div>
+        </section>
+
+        <section class="builderWizardStep" id="builderWizardStepSpells" aria-labelledby="builderWizardSpellsTitle" hidden>
+          <h3 class="builderWizardStepTitle" id="builderWizardSpellsTitle">Spells</h3>
+          <div id="builderWizardSpellsBody" class="builderWizardDynamicBody"></div>
+          <div class="builderWizardValidation" id="builderWizardSpellsValidation" role="status" aria-live="polite" hidden></div>
+        </section>
+
+        <section class="builderWizardStep" id="builderWizardStepEquipment" aria-labelledby="builderWizardEquipmentTitle" hidden>
+          <h3 class="builderWizardStepTitle" id="builderWizardEquipmentTitle">Equipment</h3>
+          <div id="builderWizardEquipmentBody" class="builderWizardDynamicBody"></div>
+          <div class="builderWizardValidation" id="builderWizardEquipmentValidation" role="status" aria-live="polite" hidden></div>
         </section>
 
         <section class="builderWizardStep" id="builderWizardStepSummary" aria-labelledby="builderWizardSummaryTitle" hidden>
