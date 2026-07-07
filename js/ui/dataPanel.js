@@ -3,7 +3,12 @@
 // Modal "Data & Settings" panel.
 // Keeps app.js lean by dependency-injecting actions (backup/reset/theme/etc).
 
-import { uiConfirm, uiAlert } from "./dialogs.js";
+import { uiConfirm, uiAlert, uiPrompt } from "./dialogs.js";
+import {
+  addCustomContentRecords,
+  listCustomContent,
+  removeCustomContentRecord
+} from "../domain/customContent.js";
 import { enhanceSelectDropdown } from "./selectDropdown.js";
 import { safeAsync } from "./safeAsync.js";
 import {
@@ -421,6 +426,121 @@ export function initDataPanel(deps) {
 
   if (exportBtn) addListener("actions", exportBtn, "click", () => exportBackup());
   if (importFile) addListener("actions", importFile, "change", (e) => importBackup(e));
+
+  // --- Custom content (campaign homebrew builder records) ---
+  const customContentSummary = /** @type {HTMLElement|null} */ (document.getElementById("dataCustomContentSummary"));
+  const customContentImportFile = /** @type {HTMLInputElement|null} */ (document.getElementById("dataCustomContentImportFile"));
+  const customContentExportBtn = /** @type {HTMLButtonElement|null} */ (document.getElementById("dataCustomContentExportBtn"));
+  const customContentManageBtn = /** @type {HTMLButtonElement|null} */ (document.getElementById("dataCustomContentManageBtn"));
+
+  const syncCustomContentSummary = () => {
+    if (!customContentSummary) return;
+    const records = listCustomContent(state);
+    customContentSummary.textContent = records.length
+      ? `${records.length} custom record${records.length === 1 ? "" : "s"} in this campaign (source: "custom").`
+      : "Homebrew races, classes, spells, and more for this campaign's builder.";
+  };
+  syncCustomContentSummary();
+
+  if (customContentImportFile) addListener("actions", customContentImportFile, "change",
+    safeAsync(async () => {
+      const file = customContentImportFile.files?.[0];
+      customContentImportFile.value = "";
+      if (!file) return;
+      const text = await file.text();
+      let parsed;
+      try {
+        parsed = JSON.parse(text);
+      } catch {
+        await uiAlert("That file is not valid JSON.", { title: "Custom Content Import" });
+        return;
+      }
+      const records = Array.isArray(parsed)
+        ? parsed
+        : (parsed && typeof parsed === "object" && Array.isArray(parsed.custom))
+          ? parsed.custom
+          : [parsed];
+      const result = addCustomContentRecords(state, records);
+      if (result.added > 0) markDirty();
+      syncCustomContentSummary();
+      const lines = [`Imported ${result.added} record${result.added === 1 ? "" : "s"}.`];
+      if (result.errors.length) {
+        lines.push("", "Skipped:");
+        for (const failure of result.errors.slice(0, 8)) {
+          lines.push(`• Record ${failure.index + 1}: ${failure.errors.join(" ")}`);
+        }
+        if (result.errors.length > 8) lines.push(`…and ${result.errors.length - 8} more.`);
+      }
+      await uiAlert(lines.join("\n"), { title: "Custom Content Import" });
+      notifyStatus(setStatus, result.added > 0 ? "Custom content imported." : "No custom content imported.");
+    }, (err) => {
+      console.error(err);
+      notifyStatus(setStatus, "Custom content import failed.");
+    })
+  );
+
+  if (customContentExportBtn) addListener("actions", customContentExportBtn, "click",
+    safeAsync(async () => {
+      const records = listCustomContent(state);
+      if (!records.length) {
+        await uiAlert("This campaign has no custom content yet.", { title: "Custom Content Export" });
+        return;
+      }
+      const text = JSON.stringify(records, null, 2);
+      const fileBlob = new Blob([text], { type: "application/json" });
+      const url = URL.createObjectURL(fileBlob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "lore-ledger-custom-content.json";
+      try {
+        a.click();
+      } finally {
+        URL.revokeObjectURL(url);
+      }
+      notifyStatus(setStatus, "Custom content exported.");
+    }, (err) => {
+      console.error(err);
+      notifyStatus(setStatus, "Custom content export failed.");
+    })
+  );
+
+  if (customContentManageBtn) addListener("actions", customContentManageBtn, "click",
+    safeAsync(async () => {
+      const records = listCustomContent(state);
+      if (!records.length) {
+        await uiAlert(
+          "This campaign has no custom content yet.\n\n" +
+          "Import a JSON file with records shaped like the SRD registry files:\n" +
+          '{ "id": "my-race", "kind": "race", "name": "My Race", ... }\n' +
+          "Supported kinds: race, subrace, class, subclass, background, feat, trait, ancestry, armor, weapon, spell, language, skill, feature.",
+          { title: "Custom Content" }
+        );
+        return;
+      }
+      const listing = records
+        .map((record) => `• ${record.kind}:${record.id} — ${record.name}`)
+        .join("\n");
+      const answer = await uiPrompt(
+        `Custom content in this campaign:\n${listing}\n\nTo remove a record, enter its "kind:id" (e.g. race:my-race). Leave blank to close.`,
+        { title: "Custom Content", defaultValue: "" }
+      );
+      const requested = typeof answer === "string" ? answer.trim() : "";
+      if (!requested) return;
+      const separator = requested.indexOf(":");
+      const kind = separator > 0 ? requested.slice(0, separator).trim() : "";
+      const id = separator > 0 ? requested.slice(separator + 1).trim() : "";
+      if (!kind || !id || !removeCustomContentRecord(state, kind, id)) {
+        notifyStatus(setStatus, `No custom record matches "${requested}".`);
+        return;
+      }
+      markDirty();
+      syncCustomContentSummary();
+      notifyStatus(setStatus, `Removed custom ${kind} "${id}".`);
+    }, (err) => {
+      console.error(err);
+      notifyStatus(setStatus, "Custom content update failed.");
+    })
+  );
   if (openHubBtn) addListener("settings", openHubBtn, "click",
     safeAsync(async () => {
       if (typeof openCampaignHub !== "function") return;
@@ -677,6 +797,17 @@ export function initDataPanel(deps) {
       "Local storage keys:",
       `• Data: ${storageKeys?.STORAGE_KEY || "(unknown)"}`,
       `• UI tab: ${storageKeys?.ACTIVE_TAB_KEY || "(unknown)"}`,
+      "",
+      "Legal / Licenses:",
+      "This work includes material taken from the System Reference Document 5.1",
+      "(“SRD 5.1”) by Wizards of the Coast LLC and available at",
+      "https://dnd.wizards.com/resources/systems-reference-document.",
+      "The SRD 5.1 is licensed under the Creative Commons Attribution 4.0",
+      "International License available at",
+      "https://creativecommons.org/licenses/by/4.0/legalcode.",
+      "",
+      "SRD data is bundled locally (generated via the 5e SRD API, dnd5eapi.co);",
+      "no rules content is fetched at runtime.",
     ].filter((line) => typeof line === "string");
 
       await uiAlert(lines.join("\n"), { title: "About" });

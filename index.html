@@ -1522,6 +1522,21 @@
         <div class="settingsDivider"></div>
 
         <div class="dataPanelSection">
+          <div class="dataPanelLabel">Custom Content</div>
+          <div class="mutedSmall" id="dataCustomContentSummary">Homebrew races, classes, spells, and more for this campaign's builder.</div>
+          <div class="dataPanelActions">
+            <label class="settingsItem settingsFileItem" title="Import custom content records from a JSON file">
+              Import Custom Content
+              <input id="dataCustomContentImportFile" type="file" accept="application/json" />
+            </label>
+            <button id="dataCustomContentExportBtn" class="settingsItem" type="button">Export Custom Content (.json)</button>
+            <button id="dataCustomContentManageBtn" class="settingsItem" type="button">List / Remove Custom Content</button>
+          </div>
+        </div>
+
+        <div class="settingsDivider"></div>
+
+        <div class="dataPanelSection">
           <div class="dataPanelLabel">Maintenance</div>
           <div class="mutedSmall">These options affect data stored in your browser on this device.</div>
           <div class="dataPanelActions">

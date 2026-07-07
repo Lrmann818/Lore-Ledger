@@ -21,24 +21,26 @@ This means the builder is allowed to determine things like:
 - how many spell slots the character has
 - which builtin spells are automatically granted by the build
 
+### Expanded 2026-07-06: Full SRD 5.1 Spell Registry
+
+The full SRD 5.1 spell registry (`game-data/srd/spells.json`, generated from
+the 5e SRD API) is now greenlit and shipped. The builder wizard offers
+class-list spell selection (cantrips, known, prepared, spellbook) and seeds
+selections into the sheet spells model at Finish.
+
 ### Still Deferred
 
-The following are still not part of the current shipped builtin scope unless explicitly expanded later:
-
-- full builtin spell registry support for all spell selection flows
-- fully builder-managed spellbook workflows
 - magic items
 - monster / NPC stat blocks
 
 ### Practical Rule
 
-The existing spells panel remains the main manual-entry UI for user-managed spells.
-
-The builder may derive spellcasting progression data and surface automatically granted builtin spells, but Lore Ledger is not yet committing to a full builtin spell compendium or fully builder-managed spell selection workflow.
+The existing spells panel remains the manual-entry and at-the-table UI for
+user-managed spells. Builder spell selection seeds into it; it never locks it.
 
 # Builder Scope Greenlist
 
-_Last updated: 2026-04-17_
+_Last updated: 2026-07-06_
 
 ## Purpose
 
@@ -225,41 +227,24 @@ Project rule:
 
 ---
 
-## Spell Scope Distinction
+## Spell Scope (expanded 2026-07-06)
 
-Lore Ledger makes an explicit distinction between **spellcasting progression support** and a **full builtin spell registry**.
+The full SRD 5.1 spell registry is greenlit and shipped in
+`game-data/srd/spells.json` (319 spells, generated from the 5e SRD API).
 
-### In Scope for Shipped Builder Behavior
+In scope for shipped builder behavior:
 
-The following spell-related capabilities are part of the current intended shipped builder scope:
+- spellcasting progression metadata (ability, slots, known/prepared counts)
+- builder spell selection from class spell lists (cantrips, known,
+  prepared, and wizard spellbook flows)
+- automatically granted spells (e.g. domain spells) from builtin content
+- multiclass and pact-magic slot derivation
 
-- spellcasting progression metadata
-- spellcasting ability metadata
-- spell slot progression
-- spell level access/progression
-- automatically granted spells or cantrips from builtin races, classes, subclasses, feats, backgrounds, or similar builder-backed content
+Still deferred: magic items, monster / NPC stat blocks.
 
-This means the builder is allowed to determine things like:
-
-- whether a character is a spellcaster
-- what spellcasting ability applies
-- how many spell slots the character has
-- which builtin spells are automatically granted by the build
-
-### Still Deferred
-
-The following are still not part of the current shipped builtin scope unless explicitly expanded later:
-
-- full builtin spell registry support for all spell selection flows
-- fully builder-managed spellbook workflows
-- magic items
-- monster / NPC stat blocks
-
-### Practical Rule
-
-The existing spells panel remains the main manual-entry UI for user-managed spells.
-
-The builder may derive spellcasting progression data and surface automatically granted builtin spells, but Lore Ledger is not yet committing to a full builtin spell compendium or fully builder-managed spell selection workflow.
+Practical rule: the spells panel remains the manual-entry and at-the-table
+surface. Builder Finish seeds selections and slot totals into it
+additively; user edits are never overwritten.
 
 ---
 
@@ -329,20 +314,20 @@ At the current stage of Lore Ledger builder development, the safe working builti
 
 ### Approved current focus
 
-- races
+- races (and SRD subraces)
 - classes
 - backgrounds
 - subclasses
 - feats
 - armor
 - weapons
+- spells (full SRD 5.1 registry)
+- languages, skills, features
 - spellcasting progression metadata
 - automatically granted builtin spells
 
 ### Deferred / later
 
-- full builtin spell registry support for all spell selection flows
-- fully builder-managed spellbook workflows
 - magic items
 - monster data
 
@@ -368,20 +353,20 @@ Lore Ledger's current builder greenlist is conservative where it needs to be, bu
 
 **Approved builtin direction right now:**
 
-- races
-- classes
+- races (and SRD subraces)
+- classes (with level tables, multiclassing data, starting equipment)
 - backgrounds
-- subclasses
+- subclasses (with granted spells)
 - feats
 - armor
 - weapons
+- the full SRD 5.1 spell registry
+- languages, skills, features (supporting registries)
 - spellcasting progression metadata
 - automatically granted builtin spells
 
 **Not default builtin right now:**
 
-- full builtin spell registry support for all spell selection flows
-- fully builder-managed spellbook workflows
 - magic items
 - monsters
 - non-SRD content
