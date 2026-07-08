@@ -105,3 +105,82 @@ test("builder wizard dragonborn happy path seeds the character sheet", async ({ 
 
   await expectNoFatalSignals(page, fatalSignals);
 });
+
+// Regression guard for the Spells step spell list. A broad
+// `#builderWizardPanel :is(input, select)` rule used to give every checkbox
+// text-field styling (100% width, 36px min-height, padded rounded box), so the
+// spell toggles rendered as large empty rectangles beside truncated names.
+// Drive a level-1 sorcerer to the Spells step and assert the checkboxes render
+// as compact toggles (not stretched fields) and the spell names are allowed to
+// wrap.
+test("builder wizard spells step renders compact checkbox rows", async ({ page }) => {
+  const fatalSignals = await openSmokeApp(page, { campaignName: "Spells Smoke" });
+
+  await page.getByRole("tab", { name: "Character" }).click();
+  await page.locator("#charActionMenuBtn").click();
+  await page.locator("#charActionNewBuilderBtn").click();
+  await expect(page.locator("#builderWizardPanel")).toBeVisible();
+
+  // Identity — a half-orc (no required race choices) sorcerer is a level-1
+  // caster, so the Spells step is reachable without any blocking selections.
+  await page.locator("#builderWizardName").fill("Smoke Sorcerer");
+  await page.locator("#builderWizardRace").selectOption("half-orc");
+  await page.locator("#builderWizardClass").selectOption("sorcerer");
+  await page.locator("#builderWizardBackground").selectOption("acolyte");
+  await page.locator("#builderWizardNext").click();
+
+  // Origin (acolyte languages — optional), classes, and class choices all
+  // advance without required input for this build.
+  await expect(page.locator("#builderWizardStepRaceChoices")).toBeVisible();
+  await page.locator("#builderWizardNext").click();
+  await expect(page.locator("#builderWizardStepClasses")).toBeVisible();
+  await page.locator("#builderWizardNext").click();
+  await expect(page.locator("#builderWizardStepClassChoices")).toBeVisible();
+  await page.locator("#builderWizardNext").click();
+
+  // Abilities must be complete before the Spells step.
+  await expect(page.locator("#builderWizardStepAbilities")).toBeVisible();
+  const abilityValues = { Str: "10", Dex: "14", Con: "13", Int: "12", Wis: "10", Cha: "15" };
+  for (const [suffix, value] of Object.entries(abilityValues)) {
+    await page.locator(`#builderWizardAbility${suffix}`).fill(value);
+  }
+  await page.locator("#builderWizardNext").click();
+
+  // Spells step: the Sorcerer cantrip list (open by default) is present.
+  await expect(page.locator("#builderWizardStepSpells")).toBeVisible();
+  await expect(page.locator("#builderWizardSpellsBody")).toContainText("Sorcerer Spellcasting");
+  const firstItem = page.locator("#builderWizardSpellsBody .builderSpellCheckItem").first();
+  await expect(firstItem).toBeVisible();
+
+  // The checkbox must render as a compact toggle, not stretched to the
+  // text-field 36px min-height / full row width that caused the regression.
+  const checkbox = firstItem.locator("input[type=checkbox]");
+  const box = await checkbox.boundingBox();
+  expect(box).not.toBeNull();
+  expect(box.width).toBeGreaterThan(8);
+  expect(box.width).toBeLessThanOrEqual(30);
+  expect(box.height).toBeGreaterThan(8);
+  expect(box.height).toBeLessThanOrEqual(30);
+
+  // The checkbox toggles the selection (UI binding still wired).
+  await checkbox.check();
+  await expect(checkbox).toBeChecked();
+
+  // Spell names are allowed to wrap instead of being truncated with an ellipsis.
+  const nameWhiteSpace = await firstItem.locator("span").first().evaluate(
+    (node) => getComputedStyle(node).whiteSpace
+  );
+  expect(nameWhiteSpace).not.toBe("nowrap");
+
+  // The list stays usable and free of horizontal overflow at a narrow width.
+  await page.setViewportSize({ width: 380, height: 900 });
+  const narrowBox = await checkbox.boundingBox();
+  expect(narrowBox).not.toBeNull();
+  expect(narrowBox.width).toBeLessThanOrEqual(30);
+  const overflow = await page.locator("#builderWizardSpellsBody").evaluate(
+    (node) => node.scrollWidth - node.clientWidth
+  );
+  expect(overflow).toBeLessThanOrEqual(1);
+
+  await expectNoFatalSignals(page, fatalSignals);
+});

@@ -4328,6 +4328,43 @@ div.mutedSmall {
   box-shadow: 0 0 0 1px var(--shadow-inset) inset;
 }
 
+/*
+ * The base reset applies `appearance: none` + full-width text-field styling to
+ * every input. Without an explicit toggle style, checkboxes/radios inherit that
+ * and render as large empty rounded rectangles (the Spells step spell list and
+ * the equipment shield toggle). Render them as the compact toggle used
+ * elsewhere in the app (see the .skillRow/.settingsToggleItem block). The more
+ * specific .builderAbilityMethodOption rule keeps its own radio styling.
+ */
+#builderWizardPanel input[type="checkbox"],
+#builderWizardPanel input[type="radio"] {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  box-shadow: none;
+  cursor: pointer;
+}
+
+#builderWizardPanel input[type="checkbox"] {
+  border-radius: 4px;
+}
+
+#builderWizardPanel input[type="radio"] {
+  border-radius: 50%;
+}
+
+#builderWizardPanel input[type="checkbox"]:checked,
+#builderWizardPanel input[type="radio"]:checked {
+  background: var(--skill-prof-dot);
+  border-color: var(--skill-prof-dot);
+}
+
 #builderWizardPanel .builderWizardReadonlyValue {
   display: flex;
   align-items: center;
@@ -8851,16 +8888,22 @@ section.combatPanel[data-collapsed="true"]> :not([data-panel-header]) {
 
 #builderWizardPanel .builderSpellCheckItem {
   display: flex;
-  align-items: center;
-  gap: 6px;
+  align-items: flex-start;
+  gap: 8px;
   font-size: 0.9rem;
+  line-height: 1.3;
   min-width: 0;
+  padding: 3px 0;
+  cursor: pointer;
+}
+
+#builderWizardPanel .builderSpellCheckItem input[type="checkbox"] {
+  margin-top: 0.15em;
 }
 
 #builderWizardPanel .builderSpellCheckItem span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 #builderWizardPanel .builderEquipmentShieldField {
