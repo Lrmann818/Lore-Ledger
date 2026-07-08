@@ -121,6 +121,30 @@ function cleanString(value) {
 }
 
 /**
+ * Deep-clones a build object into a fresh, fully-detached plain object.
+ *
+ * The active character's `build` is read from `getActiveCharacter(state)`,
+ * which — in dev/local/preview and `?dev=1` sessions — returns values wrapped
+ * by the state-mutation guard's recursive Proxy (see js/utils/dev.js). Passing
+ * such a proxied object to `structuredClone()` throws a `DataCloneError`
+ * ("could not be cloned"), which is why editing a builder character used to
+ * crash. A JSON round-trip reads through the proxy get-traps and produces plain
+ * data, matching how the rest of the app detaches state (e.g.
+ * materializeDerivedCharacterFields, campaign vault, backup). Build data is
+ * always JSON-safe, so nothing is lost.
+ *
+ * @param {unknown} build
+ * @returns {unknown}
+ */
+export function clonePlainBuild(build) {
+  try {
+    return JSON.parse(JSON.stringify(build ?? null));
+  } catch {
+    return null;
+  }
+}
+
+/**
  * @param {unknown} value
  * @param {number} min
  * @param {number} max
@@ -1682,7 +1706,7 @@ export function initBuilderWizard(deps = {}) {
     const character = options.character ?? null;
     if (character && isBuilderCharacter(character)) {
       editingCharacterId = typeof character.id === "string" ? character.id : null;
-      const normalized = normalizeCharacterBuild(structuredClone(character.build));
+      const normalized = normalizeCharacterBuild(clonePlainBuild(character.build));
       draft = {
         name: cleanString(character.name) || DEFAULT_NAME,
         build: normalized || makeDefaultCharacterBuild()

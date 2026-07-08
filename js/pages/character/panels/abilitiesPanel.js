@@ -212,6 +212,25 @@ function labelForLevel(level) {
 }
 
 /**
+ * @param {unknown} value
+ * @returns {value is SkillLevel}
+ */
+function isSkillLevel(value) {
+  return value === "none" || value === "half" || value === "prof" || value === "expert";
+}
+
+/**
+ * @param {SkillLevel} level
+ * @returns {string}
+ */
+function describeSkillLevel(level) {
+  if (level === "half") return "Half proficient";
+  if (level === "prof") return "Proficient";
+  if (level === "expert") return "Expertise";
+  return "Not proficient";
+}
+
+/**
  * @param {AbilitiesPanelDeps} [deps]
  * @returns {{ destroy: () => void }}
  */
@@ -362,6 +381,31 @@ export function initAbilitiesPanel(deps = {}) {
       modifier: display[key].modifier,
       builderOwned: true
     };
+  }
+
+  /**
+   * Builder-derived skill states (proficiency level, expertise, misc/override,
+   * and the rules-engine total), keyed by the sheet skill key. Class/background
+   * proficiencies and expertise live in the build, not on the flat sheet, so a
+   * builder character's proficient skills only surface here. Manual sheet
+   * toggles still merge in (highest proficiency level wins, per deriveCharacter).
+   * Returns null for freeform characters or when derivation fails.
+   * @returns {Record<string, { ability: string, level: SkillLevel, misc: number, override: number, total: number | null }> | null}
+   */
+  function getBuilderDerivedSkills() {
+    const character = getCharacter();
+    if (!isBuilderCharacter(character)) return null;
+    let derived;
+    try {
+      derived = deriveCharacter(character);
+    } catch (err) {
+      console.warn("Abilities panel builder skill derivation failed:", err);
+      return null;
+    }
+    if (!derived || derived.mode !== "builder" || !isRecord(derived.skills)) return null;
+    return /** @type {Record<string, { ability: string, level: SkillLevel, misc: number, override: number, total: number | null }>} */ (
+      derived.skills
+    );
   }
 
   /**
@@ -926,12 +970,26 @@ export function initAbilitiesPanel(deps = {}) {
   }
 
   /**
+   * Reflects a skill's effective proficiency state on its menu button: the
+   * glyph (— / ½ / ✓ / ★) makes not-proficient/half/proficient/expertise
+   * visible at a glance, `data-skill-level` exposes it for styling/tests, and
+   * the tooltip spells out the state plus any misc bonus and running total.
    * @param {HTMLButtonElement} btn
    * @param {SkillLevel} level
+   * @param {{ total?: number | null, misc?: number } | null} [info]
    */
-  function syncSkillButton(btn, level) {
+  function syncSkillButton(btn, level, info = null) {
     btn.textContent = labelForLevel(level);
-    btn.title = "Skill options";
+    btn.dataset.skillLevel = level;
+
+    const misc = info && isFiniteNumber(info.misc) ? info.misc : 0;
+    if (misc !== 0) btn.dataset.skillMisc = String(misc);
+    else delete btn.dataset.skillMisc;
+
+    const parts = [describeSkillLevel(level)];
+    if (misc !== 0) parts.push(`misc ${formatSigned(misc)}`);
+    if (info && isFiniteNumber(info.total)) parts.push(`total ${formatSigned(info.total)}`);
+    btn.title = `${parts.join(" · ")} — skill options`;
   }
 
   /**
@@ -1082,18 +1140,45 @@ export function initAbilitiesPanel(deps = {}) {
       );
       syncLegacyAbilityScoreOwnership(ability, builderOwned);
 
-      for (const valueEl of Array.from(blockEl.querySelectorAll("[data-skill-value]"))) {
-        if (!(valueEl instanceof HTMLElement)) continue;
-        const skillKey = valueEl.dataset.skillValue;
+      // Builder characters derive class/background proficiencies, expertise,
+      // and totals from the build; the flat sheet only holds manual overrides.
+      // Merge them so proficient skills actually show (highest level wins,
+      // matching deriveCharacter), while freeform characters keep computing
+      // from the manual sheet state alone.
+      const builderSkills = builderOwned ? getBuilderDerivedSkills() : null;
+      for (const rowEl of Array.from(blockEl.querySelectorAll(".skillRow"))) {
+        if (!(rowEl instanceof HTMLElement)) continue;
+        const valueEl = rowEl.querySelector("[data-skill-value]");
+        const skillKey = valueEl instanceof HTMLElement ? valueEl.dataset.skillValue : null;
         if (!skillKey) continue;
 
         const skillState = ensureSkillState(skillKey);
-        if (mod == null) {
-          valueEl.textContent = "—";
+        const derivedSkill = builderSkills ? builderSkills[skillKey] : null;
+        const effectiveLevel = derivedSkill && isSkillLevel(derivedSkill.level)
+          ? derivedSkill.level
+          : skillState.level;
+        const effectiveMisc = derivedSkill && isFiniteNumber(derivedSkill.misc)
+          ? derivedSkill.misc
+          : Number(skillState.misc || 0);
+
+        /** @type {number | null} */
+        let total;
+        if (derivedSkill && isFiniteNumber(derivedSkill.total)) {
+          total = derivedSkill.total;
+        } else if (mod == null) {
+          total = null;
         } else {
-          const total = mod + profAddForLevel(skillState.level, getProfBonus()) + Number(skillState.misc || 0);
-          valueEl.textContent = formatSigned(total);
+          total = mod + profAddForLevel(skillState.level, getProfBonus()) + Number(skillState.misc || 0);
           if (!builderOwned) skillState.value = total;
+        }
+
+        if (valueEl instanceof HTMLElement) {
+          valueEl.textContent = total == null ? "—" : formatSigned(total);
+        }
+
+        const btn = rowEl.querySelector(`.skillProfBtn[data-skill-prof-btn="${skillKey}"]`);
+        if (btn instanceof HTMLButtonElement) {
+          syncSkillButton(btn, effectiveLevel, { total, misc: effectiveMisc });
         }
       }
 

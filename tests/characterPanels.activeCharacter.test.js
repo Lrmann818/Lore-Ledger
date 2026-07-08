@@ -662,6 +662,10 @@ function installSkillRow(root, ability, skillKey, label) {
   return row;
 }
 
+function skillProfButton(root, skillKey) {
+  return root.querySelector(`.skillProfBtn[data-skill-prof-btn="${skillKey}"]`);
+}
+
 function abilityAdjustmentInput(root, key) {
   return root.querySelector(`#miscSave_${key}`);
 }
@@ -1126,6 +1130,74 @@ describe("character panels active character resolution", () => {
     expect(builder.hitDieAmt).toBe(99);
     expect(builder.hitDieSize).toBe(99);
     expect(deps.SaveManager.markDirty).not.toHaveBeenCalled();
+
+    api.destroy();
+  });
+
+  it("displays builder-derived initiative from Dexterity and keeps it read-only", () => {
+    const builder = makeBuilder("char_builder", { str: 10, dex: 18, con: 10, int: 10, wis: 10, cha: 10 });
+    builder.build.raceId = "human"; // +1 Dex → 19 (+4)
+    builder.build.classId = "fighter";
+    builder.build.level = 1;
+    builder.initiative = 99; // stale flat value must not be shown or mutated
+    const state = { characters: { activeId: "char_builder", entries: [builder] }, combat: { workspace: {} } };
+    const deps = makeDeps(state);
+
+    const api = initVitalsPanel(deps);
+
+    const init = document.getElementById("charInit");
+    expect(init.value).toBe("4");
+    expect(init.readOnly).toBe(true);
+    expect(init.disabled).toBe(true);
+    expect(init.dataset.builderOwned).toBe("true");
+
+    // Read-only: attempted edits are ignored and never mutate/mark dirty.
+    init.value = "42";
+    dispatchInput(init);
+    expect(init.value).toBe("4");
+    expect(builder.initiative).toBe(99);
+    expect(deps.SaveManager.markDirty).not.toHaveBeenCalled();
+
+    api.destroy();
+  });
+
+  it("updates builder initiative when Dexterity changes and on character switch", () => {
+    const builder = makeBuilder("char_builder", { str: 10, dex: 14, con: 10, int: 10, wis: 10, cha: 10 });
+    builder.build.raceId = null;
+    builder.build.classId = "fighter";
+    builder.build.level = 1;
+    const freeform = makeCharacter("char_free", "Freeform", { build: null, initiative: 5 });
+    const state = {
+      characters: { activeId: "char_builder", entries: [builder, freeform] },
+      combat: { workspace: {} }
+    };
+    const deps = makeDeps(state);
+
+    const api = initVitalsPanel(deps);
+    expect(document.getElementById("charInit").value).toBe("2"); // Dex 14 → +2
+
+    // Ability change (character-fields channel) re-derives the tile live.
+    builder.build.abilities.base.dex = 18;
+    notifyPanelDataChanged("character-fields", { source: {} });
+    expect(document.getElementById("charInit").value).toBe("4"); // Dex 18 → +4
+
+    // Switching to a freeform character shows its stored editable initiative.
+    state.characters.activeId = "char_free";
+    notifyPanelDataChanged("vitals", { source: {} });
+    expect(document.getElementById("charInit").value).toBe("5");
+    expect(document.getElementById("charInit").disabled).toBe(false);
+    expect(document.getElementById("charInit").readOnly).toBe(false);
+
+    // Freeform initiative remains user-editable.
+    document.getElementById("charInit").value = "8";
+    dispatchInput(document.getElementById("charInit"));
+    expect(freeform.initiative).toBe(8);
+
+    // Switching back restores the builder-derived, read-only value.
+    state.characters.activeId = "char_builder";
+    notifyPanelDataChanged("vitals", { source: {} });
+    expect(document.getElementById("charInit").value).toBe("4");
+    expect(document.getElementById("charInit").disabled).toBe(true);
 
     api.destroy();
   });
@@ -2627,6 +2699,182 @@ describe("character panels active character resolution", () => {
     api.destroy();
   });
 
+  // A builder-created character's class/background skill proficiencies live in
+  // the build, not on the flat sheet — the panel must surface them (glyph +
+  // total) even though `character.skills` holds no manual toggle for them.
+  function makeSkilledBuilder(id) {
+    // Human Fighter (Athletics + Intimidation) with an Acolyte background
+    // (Insight + Religion fixed). Human's +1 raises Str 15→16 (+3), Dex 14→15
+    // (+2), Wis 10→11 (+0), Int 12→13 (+1).
+    const builder = makeBuilder(id, { str: 15, dex: 14, con: 13, int: 12, wis: 10, cha: 8 });
+    builder.build.raceId = "human";
+    builder.build.levels = [{ classId: "fighter", hp: null }];
+    builder.build.backgroundId = "acolyte";
+    builder.build.choicesByLevel = { "1": { "class-skill-fighter": ["athletics", "intimidation"] } };
+    return builder;
+  }
+
+  it("shows builder class/background skill proficiencies with correct totals", () => {
+    installAbilityBlocks(document);
+    installSkillRow(document, "str", "athletics", "Athletics");
+    installSkillRow(document, "wis", "insight", "Insight");
+    installSkillRow(document, "int", "religion", "Religion");
+    installSkillRow(document, "dex", "stealth", "Stealth");
+    const builder = makeSkilledBuilder("char_builder");
+    const state = { characters: { activeId: "char_builder", entries: [builder] }, combat: { workspace: {} } };
+    const deps = makeDeps(state);
+
+    const api = initAbilitiesPanel(deps);
+
+    // Proficient skills show the ✓ glyph and the rules-engine total.
+    expect(skillProfButton(document, "athletics").textContent).toBe("✓");
+    expect(skillProfButton(document, "athletics").dataset.skillLevel).toBe("prof");
+    expect(skillValueText(document, "athletics")).toBe("+5"); // Str +3 + prof +2
+    expect(skillProfButton(document, "insight").textContent).toBe("✓"); // Acolyte
+    expect(skillValueText(document, "insight")).toBe("+2"); // Wis +0 + prof +2
+    expect(skillProfButton(document, "religion").textContent).toBe("✓"); // Acolyte
+    expect(skillValueText(document, "religion")).toBe("+3"); // Int +1 + prof +2
+
+    // A non-proficient skill stays "—" and reads its ability modifier only.
+    expect(skillProfButton(document, "stealth").textContent).toBe("—");
+    expect(skillProfButton(document, "stealth").dataset.skillLevel).toBe("none");
+    expect(skillValueText(document, "stealth")).toBe("+2"); // Dex +2, no prof
+
+    // Derived proficiency/total must not materialize onto the flat sheet — the
+    // manual layer stays "none" with no written value.
+    expect(builder.skills.athletics.level).toBe("none");
+    expect(builder.skills.athletics.value).toBe(0);
+    expect(deps.SaveManager.markDirty).not.toHaveBeenCalled();
+
+    api.destroy();
+  });
+
+  it("shows builder-derived expertise distinctly from plain proficiency", () => {
+    installAbilityBlocks(document);
+    installSkillRow(document, "dex", "stealth", "Stealth");
+    installSkillRow(document, "wis", "perception", "Perception");
+    const builder = makeBuilder("char_builder", { str: 10, dex: 16, con: 12, int: 10, wis: 10, cha: 10 });
+    builder.build.raceId = null;
+    builder.build.levels = [{ classId: "rogue", hp: null }];
+    builder.build.choicesByLevel = {
+      "1": {
+        "class-skill-rogue": ["stealth", "perception", "acrobatics", "investigation"],
+        "feature-rogue-expertise-1": ["stealth", "acrobatics"]
+      }
+    };
+    const state = { characters: { activeId: "char_builder", entries: [builder] }, combat: { workspace: {} } };
+    const deps = makeDeps(state);
+
+    const api = initAbilitiesPanel(deps);
+
+    // Expertise gets the ★ glyph and doubles the proficiency bonus.
+    expect(skillProfButton(document, "stealth").textContent).toBe("★");
+    expect(skillProfButton(document, "stealth").dataset.skillLevel).toBe("expert");
+    expect(skillValueText(document, "stealth")).toBe("+7"); // Dex +3 + prof×2 (+4)
+    // A plain proficiency on the same character stays ✓, not ★.
+    expect(skillProfButton(document, "perception").textContent).toBe("✓");
+    expect(skillValueText(document, "perception")).toBe("+2"); // Wis +0 + prof +2
+
+    api.destroy();
+  });
+
+  it("shows a misc skill bonus distinctly and folds it into the total", () => {
+    installAbilityBlocks(document);
+    installSkillRow(document, "str", "athletics", "Athletics");
+    const builder = makeSkilledBuilder("char_builder");
+    // Manual misc bonus on an otherwise build-proficient skill.
+    builder.skills.athletics = { level: "none", misc: 2, value: 0 };
+    const state = { characters: { activeId: "char_builder", entries: [builder] }, combat: { workspace: {} } };
+    const deps = makeDeps(state);
+
+    const api = initAbilitiesPanel(deps);
+
+    const btn = skillProfButton(document, "athletics");
+    expect(btn.dataset.skillMisc).toBe("2");
+    expect(btn.title).toContain("misc +2");
+    // Build proficiency (+2) still wins the level; misc adds on top.
+    expect(btn.textContent).toBe("✓");
+    expect(skillValueText(document, "athletics")).toBe("+7"); // Str +3 + prof +2 + misc +2
+
+    api.destroy();
+  });
+
+  it("lets a manual expertise toggle override a builder proficiency (highest wins)", () => {
+    installAbilityBlocks(document);
+    installSkillRow(document, "str", "athletics", "Athletics");
+    const builder = makeSkilledBuilder("char_builder");
+    // Manual expert beats the build's plain proficiency.
+    builder.skills.athletics = { level: "expert", misc: 0, value: 0 };
+    const state = { characters: { activeId: "char_builder", entries: [builder] }, combat: { workspace: {} } };
+    const deps = makeDeps(state);
+
+    const api = initAbilitiesPanel(deps);
+
+    expect(skillProfButton(document, "athletics").textContent).toBe("★");
+    expect(skillProfButton(document, "athletics").dataset.skillLevel).toBe("expert");
+    expect(skillValueText(document, "athletics")).toBe("+7"); // Str +3 + prof×2 (+4)
+
+    api.destroy();
+  });
+
+  it("refreshes builder skill display when the active character switches", () => {
+    installAbilityBlocks(document);
+    installSkillRow(document, "str", "athletics", "Athletics");
+    const skilled = makeSkilledBuilder("char_builder");
+    const freeform = makeCharacter("char_free", "Freeform", {
+      build: null,
+      abilities: makeAbilityRows({ str: 14, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }),
+      skills: { athletics: { level: "none", misc: 0, value: 0 } }
+    });
+    const state = {
+      characters: { activeId: "char_builder", entries: [skilled, freeform] },
+      combat: { workspace: {} }
+    };
+    const deps = makeDeps(state);
+
+    const api = initAbilitiesPanel(deps);
+    expect(skillProfButton(document, "athletics").textContent).toBe("✓");
+    expect(skillValueText(document, "athletics")).toBe("+5");
+
+    // Freeform character: no build, so athletics reverts to its manual state.
+    state.characters.activeId = "char_free";
+    notifyActiveCharacterChanged({ previousId: "char_builder", activeId: "char_free" });
+    expect(skillProfButton(document, "athletics").textContent).toBe("—");
+    expect(skillValueText(document, "athletics")).toBe("+2"); // Str 14 (+2), no prof
+
+    // Switching back restores the builder-derived proficient display.
+    state.characters.activeId = "char_builder";
+    notifyActiveCharacterChanged({ previousId: "char_free", activeId: "char_builder" });
+    expect(skillProfButton(document, "athletics").textContent).toBe("✓");
+    expect(skillValueText(document, "athletics")).toBe("+5");
+
+    api.destroy();
+  });
+
+  it("keeps freeform manual skill editing working alongside the builder path", () => {
+    installAbilityBlocks(document);
+    installSkillRow(document, "str", "athletics", "Athletics");
+    const freeform = makeCharacter("char_free", "Freeform", {
+      proficiency: 3,
+      abilities: makeAbilityRows({ str: 16, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }),
+      skills: { athletics: { level: "prof", misc: 1, value: 0 } }
+    });
+    document.getElementById("charProf").value = "3";
+    const state = { characters: { activeId: "char_free", entries: [freeform] }, combat: { workspace: {} } };
+    const deps = makeDeps(state);
+
+    const api = initAbilitiesPanel(deps);
+
+    // Manual prof + misc still renders and computes for freeform characters.
+    expect(skillProfButton(document, "athletics").textContent).toBe("✓");
+    expect(skillProfButton(document, "athletics").dataset.skillMisc).toBe("1");
+    expect(skillValueText(document, "athletics")).toBe("+7"); // Str +3 + prof +3 + misc +1
+    // Freeform totals still materialize onto the sheet (unchanged behavior).
+    expect(freeform.skills.athletics.value).toBe(7);
+
+    api.destroy();
+  });
+
   it("displays builder-derived proficiency in embedded Combat Vitals", () => {
     const host = append(document.body, "div", { id: "combatVitalsHost" });
     renderVitalsEmbeddedContent(host);
@@ -3333,5 +3581,109 @@ describe("character panels active character resolution", () => {
 
     characterApi.destroy();
     expect(notifyPanelDataChanged("vitals")).toBe(0);
+  });
+
+  // Equipment inventory pockets must be isolated per character. The character
+  // page destroys and re-initializes the Equipment panel on every active
+  // character change, so switching must fully rebind the panel to the newly
+  // active character with no stale pockets, notes, or search state.
+  const inventoryTabLabels = () =>
+    Array.from(document.getElementById("inventoryTabs").querySelectorAll(".sessionTab"))
+      .map((tab) => tab.textContent);
+  const notesValue = () => document.getElementById("inventoryNotesBox").value;
+  const searchValue = () => document.getElementById("inventorySearch").value;
+
+  // Mirrors the character page: destroy the current panel, repoint activeId,
+  // and re-init a fresh panel for the newly active character.
+  const switchActiveCharacter = (api, state, deps, nextId) => {
+    api.destroy();
+    state.characters.activeId = nextId;
+    return initEquipmentPanel(deps);
+  };
+
+  it("rebinds the Equipment panel to the newly active character on switch", () => {
+    const state = makeState("char_a");
+    const deps = makeDeps(state);
+
+    let api = initEquipmentPanel(deps);
+    expect(inventoryTabLabels()).toEqual(["Pack"]);
+    expect(notesValue()).toBe("rope");
+
+    api = switchActiveCharacter(api, state, deps, "char_b");
+    expect(inventoryTabLabels()).toEqual(["Satchel"]);
+    expect(inventoryTabLabels()).not.toContain("Pack");
+    expect(notesValue()).toBe("chalk");
+
+    // Switching back restores the first character's pockets (no leaked state).
+    api = switchActiveCharacter(api, state, deps, "char_a");
+    expect(inventoryTabLabels()).toEqual(["Pack"]);
+    expect(notesValue()).toBe("rope");
+
+    api.destroy();
+  });
+
+  it("keeps inventory search state per character across switches", () => {
+    const state = makeState("char_a");
+    const deps = makeDeps(state);
+
+    let api = initEquipmentPanel(deps);
+    const search = document.getElementById("inventorySearch");
+    search.value = "rope";
+    dispatchInput(search);
+    expect(state.characters.entries[0].inventorySearch).toBe("rope");
+
+    api = switchActiveCharacter(api, state, deps, "char_b");
+    // The freshly bound panel shows the newly active character's (empty) search,
+    // not the previous character's query.
+    expect(searchValue()).toBe("");
+    expect(state.characters.entries[1].inventorySearch).toBe("");
+
+    api = switchActiveCharacter(api, state, deps, "char_a");
+    expect(searchValue()).toBe("rope");
+
+    api.destroy();
+  });
+
+  it("adds and renames pockets only on the active character (isolation)", async () => {
+    const state = makeState("char_a");
+    const deps = makeDeps(state);
+    // uiPrompt resolves to a distinctive pocket name we can assert on.
+    deps.uiPrompt = vi.fn(async () => "Bryn Only");
+
+    let api = switchActiveCharacter(initEquipmentPanel(deps), state, deps, "char_b");
+
+    const addBtn = document.getElementById("addInventoryBtn");
+    addBtn.dispatchEvent(new Event("click"));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    // The new pocket landed on char_b only; char_a's inventory is untouched.
+    expect(state.characters.entries[1].inventoryItems.map((i) => i.title)).toContain("Bryn Only");
+    expect(state.characters.entries[0].inventoryItems.map((i) => i.title)).toEqual(["Pack"]);
+    expect(inventoryTabLabels()).toContain("Bryn Only");
+    expect(inventoryTabLabels()).not.toContain("Pack");
+
+    api.destroy();
+  });
+
+  it("does not share inventory array references between characters", () => {
+    const builder = makeBuilder("char_builder", { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 });
+    const other = makeBuilder("char_builder_2", { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 });
+    const state = {
+      appShell: { activeCampaignId: "campaign_test" },
+      characters: { activeId: "char_builder", entries: [builder, other] },
+      combat: { workspace: { embeddedPanels: [], panelCollapsed: {} } }
+    };
+    const deps = makeDeps(state);
+
+    let api = initEquipmentPanel(deps);
+    // Seeding/defaults must not reuse one shared inventory array across builders.
+    expect(builder.inventoryItems).not.toBe(other.inventoryItems);
+
+    // Mutating the active builder's inventory does not bleed into the other.
+    api = switchActiveCharacter(api, state, deps, "char_builder");
+    builder.inventoryItems.push({ id: "inv_extra", title: "Solo", notes: "" });
+    expect(other.inventoryItems.map((i) => i.title)).not.toContain("Solo");
+
+    api.destroy();
   });
 });

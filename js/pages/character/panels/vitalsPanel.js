@@ -22,7 +22,7 @@ function isFiniteNumber(value) {
   return typeof value === "number" && Number.isFinite(value);
 }
 
-const BUILDER_OWNED_VITAL_NUMBER_IDS = new Set(["hitDieAmt", "hitDieSize", "charSpeed", "charProf"]);
+const BUILDER_OWNED_VITAL_NUMBER_IDS = new Set(["hitDieAmt", "hitDieSize", "charSpeed", "charProf", "charInit"]);
 const BREATH_WEAPON_DC_VITAL_KEY = "breathWeaponDC";
 const RESOURCE_RECOVERY_OPTIONS = Object.freeze([
   { value: "manual", label: "Manual" },
@@ -220,6 +220,7 @@ export function initVitalsPanel(deps = {}) {
         hitDieAmt: isFiniteNumber(derived?.vitals?.hitDieAmt) ? derived.vitals.hitDieAmt : null,
         hitDieSize: isFiniteNumber(derived?.vitals?.hitDieSize) ? derived.vitals.hitDieSize : null,
         proficiency: isFiniteNumber(derived?.proficiencyBonus) ? derived.proficiencyBonus : null,
+        initiative: isFiniteNumber(derived?.initiative) ? derived.initiative : null,
         breathWeaponDC: isFiniteNumber(derived?.dragonbornAncestry?.breathWeapon?.saveDC)
           ? derived.dragonbornAncestry.breathWeapon.saveDC
           : null
@@ -231,7 +232,7 @@ export function initVitalsPanel(deps = {}) {
   }
 
   /**
-   * @param {"speed" | "hitDieAmt" | "hitDieSize" | "proficiency" | "breathWeaponDC"} key
+   * @param {"speed" | "hitDieAmt" | "hitDieSize" | "proficiency" | "initiative" | "breathWeaponDC"} key
    * @returns {number | null}
    */
   function getBuilderDerivedVitalValue(key) {
@@ -244,6 +245,16 @@ export function initVitalsPanel(deps = {}) {
     const character = getCurrentCharacter();
     if (isBuilderCharacter(character)) return getBuilderDerivedVitalValue("speed");
     return character?.speed;
+  }
+
+  // Initiative is live-derived from Dex (plus any initiative overrides/feat
+  // effects) for builder characters — like speed and proficiency, it is a pure
+  // function of the build and stays read-only so it can't desync. Freeform
+  // characters keep their manually-entered initiative field.
+  function getInitiativeDisplayValue() {
+    const character = getCurrentCharacter();
+    if (isBuilderCharacter(character)) return getBuilderDerivedVitalValue("initiative");
+    return character?.initiative;
   }
 
   function getHitDieAmtDisplayValue() {
@@ -286,7 +297,7 @@ export function initVitalsPanel(deps = {}) {
     { id: "hitDieAmt", path: "hitDieAmt", getValue: getHitDieAmtDisplayValue },
     { id: "hitDieSize", path: "hitDieSize", getValue: getHitDieSizeDisplayValue },
     { id: "charAC", path: "ac", getValue: () => getCurrentCharacter()?.ac },
-    { id: "charInit", path: "initiative", getValue: () => getCurrentCharacter()?.initiative },
+    { id: "charInit", path: "initiative", getValue: getInitiativeDisplayValue },
     { id: "charSpeed", path: "speed", getValue: getSpeedDisplayValue },
     { id: "charProf", path: "proficiency", getValue: getProficiencyDisplayValue },
     { id: "charSpellAtk", path: "spellAttack", getValue: () => getCurrentCharacter()?.spellAttack },
@@ -354,11 +365,13 @@ export function initVitalsPanel(deps = {}) {
     const shouldRefreshBuilderOwnedVitals = isBuilderCharacter(getCurrentCharacter()) ||
       guard.els.hitDieAmt?.dataset.builderOwned === "true" ||
       guard.els.hitDieSize?.dataset.builderOwned === "true" ||
-      guard.els.charSpeed?.dataset.builderOwned === "true";
+      guard.els.charSpeed?.dataset.builderOwned === "true" ||
+      guard.els.charInit?.dataset.builderOwned === "true";
     if (shouldRefreshBuilderOwnedVitals) {
       refreshVitalNumberField("hitDieAmt", getHitDieAmtDisplayValue);
       refreshVitalNumberField("hitDieSize", getHitDieSizeDisplayValue);
       refreshVitalNumberField("charSpeed", getSpeedDisplayValue);
+      refreshVitalNumberField("charInit", getInitiativeDisplayValue);
     }
     refreshProficiencyField();
   }
