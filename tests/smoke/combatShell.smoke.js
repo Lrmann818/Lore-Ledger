@@ -801,3 +801,60 @@ test("combat embedded spell notes are the same canonical text as the character s
 
   await expectNoFatalSignals(page, fatalSignals);
 });
+
+// Regression guard for duplicate element ids between the character-page
+// Equipment panel and the combat workspace's embedded Equipment panel. Both
+// can be live in the DOM at once, and #page-combat precedes #page-character,
+// so if the embedded panel reused the canonical ids (#inventoryTabs, #moneyGP,
+// …) the character-page panel would bind to the hidden combat copy — the
+// visible Equipment panel then went stale and stopped responding to clicks
+// after a character switch, with no console error, until a full page reload.
+test("adding a combat Equipment panel does not break the character Equipment panel", async ({ page }) => {
+  const fatalSignals = await openSmokeApp(page, { campaignName: "Equip Dup Smoke" });
+
+  // Two characters with distinct gold and pockets.
+  await page.getByRole("tab", { name: "Character" }).click();
+  await page.locator("#charActionMenuBtn").click();
+  await page.locator("#charActionNewBtn").click();
+  await expect(page.locator("#charName")).toBeVisible();
+  await page.locator("#charName").fill("Alpha");
+  await page.locator("#charEquipmentPanel #moneyGP").fill("111");
+  await page.locator("#charEquipmentPanel #moneyGP").dispatchEvent("input");
+  const alphaId = await page.evaluate(() => String(globalThis.__APP_STATE__?.characters?.activeId || ""));
+
+  await page.locator("#charActionMenuBtn").click();
+  await page.locator("#charActionNewBtn").click();
+  await page.locator("#charName").fill("Beta");
+  await page.locator("#charEquipmentPanel #moneyGP").fill("222");
+  await page.locator("#charEquipmentPanel #moneyGP").dispatchEvent("input");
+
+  // Add the Equipment panel to the Combat workspace (creates the second copy).
+  await page.getByRole("tab", { name: "Combat" }).click();
+  await expect(page.locator("#page-combat")).toBeVisible();
+  await page.locator("[data-add-embedded-panel='equipment']").click();
+  await expect(page.locator("#combatEmbeddedEquipmentSource")).toBeVisible();
+
+  await page.getByRole("tab", { name: "Character" }).click();
+  await expect(page.locator("#page-character")).toBeVisible();
+
+  // The canonical equipment ids must remain unique (only the character page's).
+  await expect(page.locator("#inventoryTabs")).toHaveCount(1);
+  await expect(page.locator("#moneyGP")).toHaveCount(1);
+
+  // Switch to Alpha via the character selector; the VISIBLE character panel
+  // must update to Alpha's gold (before the fix it stayed on Beta's 222).
+  await page.evaluate((id) => {
+    const sel = document.getElementById("charSelector");
+    sel.value = id;
+    sel.dispatchEvent(new Event("change", { bubbles: true }));
+  }, alphaId);
+  await expect(page.locator("#charEquipmentPanel #moneyGP")).toHaveValue("111");
+
+  // The character panel's controls are wired again: add-pocket opens its prompt.
+  await page.locator("#charEquipmentPanel #addInventoryBtn").click();
+  await expect(page.locator("#uiDialogInput")).toBeVisible();
+  await page.locator("#uiDialogCancel").click();
+  await expect(page.locator("#uiDialogOverlay")).toBeHidden();
+
+  await expectNoFatalSignals(page, fatalSignals);
+});

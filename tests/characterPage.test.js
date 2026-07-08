@@ -1144,6 +1144,55 @@ describe("character page selector", () => {
     secondController.destroy();
   });
 
+  it("stays interactive when a boot step throws during (re)render", () => {
+    // Reported failure: switching characters left the whole page unresponsive
+    // to clicks with stale panels until a full reload. Root failure mode: a
+    // re-render destroys the previous controller first, then rebuilds; if any
+    // rebuild step (or a cleanup) throws, the page is left with no listeners
+    // and no rebuilt panels. Simulate a boot-time failure in the selector bar
+    // (here: the action-menu popover registration throws) and assert the page
+    // still comes up — panels still bind and a later re-render still works.
+    const { document, selector } = installCharacterSelectorDom();
+    const base = createFakePopovers();
+    let injectFault = true;
+    const Popovers = {
+      handles: base.handles,
+      register(args) {
+        if (injectFault && args?.button?.id === "charActionMenuBtn") {
+          throw new Error("boom: action menu registration failed");
+        }
+        return base.register(args);
+      },
+      open: base.open,
+      close: base.close,
+      toggle: base.toggle
+    };
+    const deps = createCharacterPageDeps(Popovers);
+
+    // Before the hardening this threw out of initCharacterPageUI (page bricked).
+    let controller;
+    expect(() => { controller = initCharacterPageUI(deps); }).not.toThrow();
+    expect(controller).toBeTruthy();
+
+    // The failure is surfaced, not silently swallowed.
+    expect(deps.setStatus).toHaveBeenCalled();
+
+    // Execution continued past the failing step: the enhanced character
+    // selector still built (proving the boot sequence did not abort).
+    const wrap = selector.nextElementSibling;
+    expect(wrap?.classList.contains("selectDropdown")).toBe(true);
+
+    // A subsequent re-render (the destroy-then-rebuild character-switch path)
+    // also survives and rebuilds cleanly once the fault clears.
+    injectFault = false;
+    let controller2;
+    expect(() => { controller2 = initCharacterPageUI(deps); }).not.toThrow();
+    expect(controller2).toBeTruthy();
+    expect(document.querySelectorAll(".selectDropdown")).toHaveLength(1);
+
+    controller2.destroy();
+  });
+
   it("initializes the Character action overflow menu closed", () => {
     const { document, actionMenuButton, actionMenuDropdown } = installCharacterSelectorDom();
     const Popovers = createFakePopovers();

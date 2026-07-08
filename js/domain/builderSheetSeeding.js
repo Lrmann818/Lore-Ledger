@@ -20,6 +20,10 @@ const SPELL_LEVEL_LABELS = Object.freeze([
   "5th Level", "6th Level", "7th Level", "8th Level", "9th Level"
 ]);
 
+// Stable marker stamped on the inventory pocket seeded from starting equipment
+// so re-seeds and edits find it again even after the user renames the pocket.
+const STARTING_GEAR_SEED_MARKER = "starting-gear";
+
 /**
  * @param {unknown} value
  * @returns {value is Record<string, unknown>}
@@ -83,6 +87,34 @@ function normalizeLine(value) {
 }
 
 /**
+ * Collapses a (possibly multi-paragraph) description into a single line so it
+ * can share one flat-textarea line with the feature name/source and stay
+ * dedupe-safe.
+ * @param {unknown} value
+ * @returns {string}
+ */
+function oneLineText(value) {
+  return (typeof value === "string" ? value : "").replace(/\s+/g, " ").trim();
+}
+
+// Separator between a feature's name/source head and its description on one
+// seeded line. Kept distinct from the "Label:" separator used by the Dragonborn
+// slice so both dedupe strategies stay unambiguous.
+const FEATURE_DESC_SEPARATOR = " — ";
+
+/**
+ * Builds one seeded feature line: "Name (Source) — description" when a
+ * description exists, otherwise just the name/source head.
+ * @param {string} head
+ * @param {unknown} description
+ * @returns {string}
+ */
+function featureLine(head, description) {
+  const desc = oneLineText(description);
+  return desc ? `${head}${FEATURE_DESC_SEPARATOR}${desc}` : head;
+}
+
+/**
  * @param {string} existing
  * @param {string[]} seedLines
  * @param {(normalizedExistingLine: string, normalizedSeedLine: string) => boolean} hasEquivalent
@@ -109,16 +141,28 @@ function appendMissingLines(existing, seedLines, hasEquivalent = (a, b) => a ===
 }
 
 /**
+ * Reduces a normalized feature line to the head used for duplicate detection.
+ * Feature lines carry their description inline ("Name (Source) — description"),
+ * so re-seeding must compare only the name/source head; that keeps re-seeds
+ * idempotent even after the user edits or rewrites the seeded description.
+ * @param {string} normalizedLine
+ * @returns {string}
+ */
+function featureLineDedupKey(normalizedLine) {
+  if (normalizedLine.startsWith("draconic ancestry:")) return "draconic ancestry:";
+  if (normalizedLine.startsWith("damage resistance:")) return "damage resistance:";
+  const separatorIndex = normalizedLine.indexOf(FEATURE_DESC_SEPARATOR);
+  return separatorIndex >= 0 ? normalizedLine.slice(0, separatorIndex).trim() : normalizedLine;
+}
+
+/**
  * @param {string} existing
  * @param {string[]} seedLines
  * @returns {string}
  */
 function appendMissingFeatureLines(existing, seedLines) {
-  return appendMissingLines(existing, seedLines, (existingLine, seedLine) => {
-    if (seedLine.startsWith("draconic ancestry:")) return existingLine.startsWith("draconic ancestry:");
-    if (seedLine.startsWith("damage resistance:")) return existingLine.startsWith("damage resistance:");
-    return existingLine === seedLine;
-  });
+  return appendMissingLines(existing, seedLines,
+    (existingLine, seedLine) => featureLineDedupKey(existingLine) === featureLineDedupKey(seedLine));
 }
 
 /**
@@ -176,9 +220,15 @@ function getDragonbornFeatureLines(derived, raceEntry) {
   ];
 }
 
+// Traits already surfaced by a dedicated seeded slice (getDragonbornFeatureLines)
+// and/or the derived feature-action cards. Seeding their generic trait text too
+// would duplicate the ancestry/breath-weapon presentation.
+const SLICE_COVERED_TRAIT_IDS = new Set(["draconic-ancestry"]);
+
 /**
  * Race trait lines for non-choice-derived traits (traits whose mechanics
- * depend on a build choice stay live-derived, not seeded text).
+ * depend on a build choice stay live-derived, not seeded text). Each seeded
+ * line carries the trait's SRD description where available.
  * @param {ContentRegistry} registry
  * @param {import("./rules/builtinContent.js").BuiltinContentEntry | null} raceEntry
  * @param {import("./rules/builtinContent.js").BuiltinContentEntry | null} subraceEntry
@@ -191,10 +241,12 @@ function getRaceTraitLines(registry, raceEntry, subraceEntry) {
     if (!parent) continue;
     const traitIds = Array.isArray(parent.data?.traits) ? parent.data.traits : [];
     for (const traitId of traitIds) {
-      const traitEntry = getContentByKind(registry, "trait", cleanString(traitId));
+      const id = cleanString(traitId);
+      if (SLICE_COVERED_TRAIT_IDS.has(id)) continue;
+      const traitEntry = getContentByKind(registry, "trait", id);
       if (!traitEntry) continue;
       if (cleanString(traitEntry.data?.derivedFrom)) continue;
-      lines.push(`${traitEntry.name} (${parent.name})`);
+      lines.push(featureLine(`${traitEntry.name} (${parent.name})`, traitEntry.data?.description));
     }
   }
   return lines;
@@ -218,15 +270,15 @@ function getClassAndBackgroundFeatureLines(derived, registry, backgroundEntry) {
     seen.add(feature.featureId);
     const classEntry = getContentByKind(registry, "class", feature.classId);
     const className = classEntry?.name || feature.classId;
-    lines.push(`${feature.name} (${className} ${feature.classLevel})`);
+    lines.push(featureLine(`${feature.name} (${className} ${feature.classLevel})`, feature.desc));
   }
   if (backgroundEntry && isPlainObject(backgroundEntry.data?.feature)) {
     const name = cleanString(backgroundEntry.data.feature.name);
-    if (name) lines.push(`${name} (${backgroundEntry.name})`);
+    if (name) lines.push(featureLine(`${name} (${backgroundEntry.name})`, backgroundEntry.data.feature.desc));
   }
   for (const featId of derived.featIds) {
     const featEntry = getContentByKind(registry, "feat", featId);
-    if (featEntry) lines.push(`${featEntry.name} (Feat)`);
+    if (featEntry) lines.push(featureLine(`${featEntry.name} (Feat)`, featEntry.data?.desc));
   }
   return lines;
 }
@@ -324,6 +376,56 @@ function getSeededAttacks(source, derived, registry) {
   }
   if (!additions.length) return null;
   return [...existing, ...additions];
+}
+
+/**
+ * Canonical display rank for a spell-level label: cantrips first, then spell
+ * levels 1–9 ascending, with a Pact Magic bucket placed just after the regular
+ * level of the same number. Returns null for labels we do not recognize
+ * (user-created custom levels), which keeps them anchored during the sort.
+ * @param {unknown} label
+ * @returns {number | null}
+ */
+function spellLevelRank(label) {
+  const normalized = cleanString(label).toLowerCase();
+  if (!normalized) return null;
+  if (normalized.includes("cantrip")) return 0;
+  const isPact = normalized.includes("pact");
+  const match = normalized.match(/(\d+)\s*(?:st|nd|rd|th)?\s*level/);
+  const value = match ? Number(match[1]) : NaN;
+  if (!Number.isFinite(value)) return null;
+  // Pact Magic sorts immediately after the same-numbered regular slot level.
+  return isPact ? value + 0.5 : value;
+}
+
+/**
+ * Reorders recognized spell levels into canonical order (cantrips, then 1–9,
+ * pact after its numbered level) while leaving unrecognized custom levels in
+ * their original slots. A stable sort preserves the relative order of levels
+ * that share a rank, and user notes/prepared state travel with each level
+ * object untouched.
+ * @param {Array<Record<string, unknown>>} levels
+ * @returns {{ levels: Array<Record<string, unknown>>, reordered: boolean }}
+ */
+function sortSpellLevelsCanonically(levels) {
+  if (!Array.isArray(levels) || levels.length < 2) return { levels, reordered: false };
+  const ranked = levels.map((level, index) => ({
+    level,
+    index,
+    rank: spellLevelRank(isPlainObject(level) ? level.label : "")
+  }));
+  const knownPositions = ranked.filter((entry) => entry.rank != null).map((entry) => entry.index);
+  if (knownPositions.length < 2) return { levels, reordered: false };
+  const sortedKnown = ranked
+    .filter((entry) => entry.rank != null)
+    .sort((a, b) => (/** @type {number} */ (a.rank) - /** @type {number} */ (b.rank)) || (a.index - b.index));
+  const result = levels.slice();
+  let reordered = false;
+  knownPositions.forEach((position, i) => {
+    if (result[position] !== sortedKnown[i].level) reordered = true;
+    result[position] = sortedKnown[i].level;
+  });
+  return reordered ? { levels: result, reordered: true } : { levels, reordered: false };
 }
 
 /**
@@ -441,8 +543,12 @@ function getSeededSpells(source, derived, registry) {
     level.spells = spells;
   }
 
-  if (!changed) return null;
-  return { ...existingSpells, levels: nextLevels };
+  // Enforce cantrips-first, then ascending level order (pact after its number)
+  // for the seeded/derived levels; unrecognized custom levels stay put.
+  const ordered = sortSpellLevelsCanonically(nextLevels);
+
+  if (!changed && !ordered.reordered) return null;
+  return { ...existingSpells, levels: ordered.levels };
 }
 
 /**
@@ -493,6 +599,78 @@ function getStartingGearLines(source, registry) {
     if (note.trim()) lines.push(note.trim());
   }
   return lines;
+}
+
+/**
+ * @param {unknown} value
+ * @returns {boolean}
+ */
+function isPackName(value) {
+  return typeof value === "string" && value.trim().toLowerCase().endsWith(" pack");
+}
+
+/**
+ * @param {unknown} value
+ * @returns {boolean}
+ */
+function isPackItemId(value) {
+  return typeof value === "string" && /-pack$/.test(value.trim().toLowerCase());
+}
+
+/**
+ * Distinct equipment-pack names (e.g. "Explorer's Pack") seeded from the first
+ * class and background — fixed starting equipment and chosen options both.
+ * @param {Record<string, unknown>} source
+ * @param {ContentRegistry} registry
+ * @returns {string[]}
+ */
+function getStartingGearPackNames(source, registry) {
+  const build = isPlainObject(source.build) ? source.build : {};
+  const equipment = isPlainObject(build.equipment) ? build.equipment : {};
+  /** @type {string[]} */
+  const packs = [];
+  const seen = new Set();
+  const addPack = (name) => {
+    const clean = cleanString(name);
+    if (!clean || seen.has(clean.toLowerCase())) return;
+    seen.add(clean.toLowerCase());
+    packs.push(clean);
+  };
+
+  const levels = normalizeBuildLevels(build);
+  const firstClassId = levels.length ? levels[0].classId : "";
+  const sources = [
+    firstClassId ? getContentByKind(registry, "class", firstClassId) : null,
+    getContentByKind(registry, "background", cleanString(build.backgroundId))
+  ];
+  for (const parent of sources) {
+    if (!parent) continue;
+    const fixed = Array.isArray(parent.data?.startingEquipment) ? parent.data.startingEquipment : [];
+    for (const item of fixed) {
+      if (!isPlainObject(item)) continue;
+      if (isPackItemId(item.itemId) || isPackName(item.name)) addPack(cleanString(item.name) || cleanString(item.itemId));
+    }
+  }
+
+  const startingChoices = isPlainObject(equipment.startingChoices) ? equipment.startingChoices : {};
+  for (const choice of Object.values(startingChoices)) {
+    if (!isPlainObject(choice)) continue;
+    if (isPackItemId(choice.itemId) || isPackName(choice.label)) addPack(cleanString(choice.label));
+  }
+
+  return packs;
+}
+
+/**
+ * Pocket title for seeded starting gear: the pack name when a single pack is
+ * present, packs joined when several, else the generic fallback.
+ * @param {string[]} packNames
+ * @returns {string}
+ */
+function getStartingGearPocketTitle(packNames) {
+  if (packNames.length === 1) return packNames[0];
+  if (packNames.length > 1) return packNames.join(" & ");
+  return "Starting Gear";
 }
 
 /**
@@ -590,22 +768,37 @@ export function getBuilderFinishSheetSeedPatch(character, registry = getActiveCo
   const seededSpells = getSeededSpells(source, derived, registry);
   if (seededSpells) patch.spells = /** @type {import("../state.js").CharacterEntry["spells"]} */ (seededSpells);
 
-  // Starting gear → dedicated inventory tab.
+  // Starting gear → dedicated inventory pocket, named after the source pack(s)
+  // when known (e.g. "Explorer's Pack"), else the generic "Starting Gear".
   const gearLines = getStartingGearLines(source, registry);
   if (gearLines.length) {
     const existingItems = Array.isArray(source.inventoryItems) ? source.inventoryItems : [];
-    const gearIndex = existingItems.findIndex((item) =>
-      isPlainObject(item) && cleanString(item.title).toLowerCase() === "starting gear");
-    const existingNotes = gearIndex >= 0 && isPlainObject(existingItems[gearIndex])
-      ? existingText(existingItems[gearIndex].notes)
-      : "";
+    const pocketTitle = getStartingGearPocketTitle(getStartingGearPackNames(source, registry));
+    // Locate the previously seeded pocket by its stable marker first (survives
+    // user renames), then fall back to the legacy "Starting Gear" title for
+    // pockets seeded before the marker existed. User-created pockets are never
+    // matched, so they are never touched or renamed.
+    let gearIndex = existingItems.findIndex((item) =>
+      isPlainObject(item) && cleanString(item.builderSeed) === STARTING_GEAR_SEED_MARKER);
+    if (gearIndex < 0) {
+      gearIndex = existingItems.findIndex((item) =>
+        isPlainObject(item) && !cleanString(item.builderSeed)
+        && cleanString(item.title).toLowerCase() === "starting gear");
+    }
+    const existingItem = gearIndex >= 0 && isPlainObject(existingItems[gearIndex])
+      ? /** @type {Record<string, unknown>} */ (existingItems[gearIndex])
+      : null;
+    const existingNotes = existingItem ? existingText(existingItem.notes) : "";
     const nextNotes = appendMissingLines(existingNotes, gearLines);
-    if (nextNotes !== existingNotes) {
+    const needsMarker = !!existingItem && cleanString(existingItem.builderSeed) !== STARTING_GEAR_SEED_MARKER;
+    if (nextNotes !== existingNotes || needsMarker) {
       const nextItems = existingItems.slice();
-      if (gearIndex >= 0) {
-        nextItems[gearIndex] = { .../** @type {Record<string, unknown>} */ (nextItems[gearIndex]), notes: nextNotes };
+      if (existingItem) {
+        // Keep the user's pocket title (never auto-rename); append missing gear
+        // and stamp the marker so future re-seeds find it after a rename.
+        nextItems[gearIndex] = { ...existingItem, notes: nextNotes, builderSeed: STARTING_GEAR_SEED_MARKER };
       } else {
-        nextItems.push({ id: newSeedId("inv"), title: "Starting Gear", notes: nextNotes });
+        nextItems.push({ id: newSeedId("inv"), title: pocketTitle, notes: nextNotes, builderSeed: STARTING_GEAR_SEED_MARKER });
       }
       patch.inventoryItems = /** @type {import("../state.js").CharacterEntry["inventoryItems"]} */ (nextItems);
     }

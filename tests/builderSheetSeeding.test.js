@@ -30,6 +30,11 @@ describe("builder finish sheet seeding", () => {
     ].join("\n"))).toBe(true);
     expect(patch.features).toContain("Second Wind (Fighter 1)");
     expect(patch.languages).toBe("Common\nDraconic");
+    // The Dragonborn slice owns the ancestry presentation; the generic
+    // draconic-ancestry trait text (which restates the breath weapon) is not
+    // seeded again.
+    expect(patch.features.toLowerCase()).not.toContain("breath weapon");
+    expect(patch.features.match(/Draconic Ancestry/g)).toHaveLength(1);
   });
 
   it("uses the selected ancestry damage type from derivation", () => {
@@ -65,6 +70,50 @@ describe("builder finish sheet seeding", () => {
     expect(patch.languages).toBe("Common");
     expect(patch.features).toBeUndefined();
     expect(getBuilderFinishSheetSeedPatch(makeDefaultCharacterEntry("Freeform Mira"))).toEqual({});
+  });
+});
+
+describe("builder finish seeding — feature descriptions", () => {
+  function makeDwarfBuilder() {
+    const character = makeDefaultBuilderCharacterEntry("Durin");
+    character.build.raceId = "dwarf";
+    character.build.backgroundId = "acolyte";
+    character.build.levels = [{ classId: "fighter", hp: null }];
+    return character;
+  }
+
+  it("seeds Darkvision with its SRD description, not just the name", () => {
+    const patch = getBuilderFinishSheetSeedPatch(makeDwarfBuilder());
+    expect(patch.features).toContain("Darkvision (Dwarf)");
+    // Description text should ride along on the same line.
+    expect(patch.features).toContain("superior vision in dark and dim");
+    expect(patch.features).toMatch(/Darkvision \(Dwarf\) — .+superior vision/);
+  });
+
+  it("seeds descriptions for class and racial features where the data exists", () => {
+    const patch = getBuilderFinishSheetSeedPatch(makeDwarfBuilder());
+    // Class feature carries a description.
+    expect(patch.features).toMatch(/Second Wind \(Fighter 1\) — .+/);
+    // Another racial trait carries a description.
+    expect(patch.features).toMatch(/Dwarven Resilience \(Dwarf\) — .+/);
+  });
+
+  it("does not duplicate features or overwrite user-edited descriptions on re-seed", () => {
+    const character = makeDwarfBuilder();
+    const first = getBuilderFinishSheetSeedPatch(character);
+    expect(first.features).toBeTruthy();
+
+    // Apply the seed, then let the user rewrite the Darkvision description.
+    character.features = first.features.replace(
+      /Darkvision \(Dwarf\) — [^\n]*/,
+      "Darkvision (Dwarf) — My house-ruled 120 ft darkvision"
+    );
+
+    const second = getBuilderFinishSheetSeedPatch(character);
+    // Nothing missing → no feature patch, so no duplication and no overwrite.
+    expect(second.features).toBeUndefined();
+    expect(character.features.match(/Darkvision \(Dwarf\)/g)).toHaveLength(1);
+    expect(character.features).toContain("My house-ruled 120 ft darkvision");
   });
 });
 
@@ -111,6 +160,10 @@ describe("builder finish seeding — full-sheet integration and edit preservatio
     const labels = patch.spells.levels.map((level) => level.label);
     expect(labels).toContain("Cantrips");
     expect(labels).toContain("1st Level");
+    // Cantrips first, then ascending spell levels.
+    expect(labels[0]).toBe("Cantrips");
+    expect(labels.indexOf("Cantrips")).toBeLessThan(labels.indexOf("1st Level"));
+    expect(labels.indexOf("1st Level")).toBeLessThan(labels.indexOf("2nd Level"));
     const firstLevel = patch.spells.levels.find((level) => level.label === "1st Level");
     expect(firstLevel.total).toBe(4);
     const spellNames = firstLevel.spells.map((spell) => spell.name);
@@ -189,5 +242,99 @@ describe("builder finish seeding — full-sheet integration and edit preservatio
 
     // Existing feature text is preserved at the start.
     expect(patch.features.startsWith("My custom note")).toBe(true);
+  });
+});
+
+describe("builder finish seeding — inventory pocket naming", () => {
+  function makeBarbarianBuilder() {
+    // Barbarian ships an Explorer's Pack as fixed starting equipment.
+    const character = makeDefaultBuilderCharacterEntry("Grog");
+    character.build.raceId = "human";
+    character.build.backgroundId = "acolyte";
+    character.build.levels = [{ classId: "barbarian", hp: null }];
+    character.build.equipment = {
+      armorId: null,
+      shield: false,
+      weaponIds: ["greataxe"],
+      startingChoices: {},
+      notes: ""
+    };
+    return character;
+  }
+
+  it("names the starting-gear pocket after the pack when one is known", () => {
+    const patch = getBuilderFinishSheetSeedPatch(makeBarbarianBuilder());
+    const pocket = patch.inventoryItems.find((item) => item.builderSeed === "starting-gear");
+    expect(pocket).toBeTruthy();
+    expect(pocket.title).toBe("Explorer's Pack");
+    expect(pocket.notes).toContain("Explorer's Pack");
+  });
+
+  it("falls back to a generic pocket name when no pack is present", () => {
+    const character = makeBarbarianBuilder();
+    // A wizard-less build with only armor/weapon and no pack source.
+    character.build.levels = [{ classId: "fighter", hp: null }];
+    character.build.equipment = {
+      armorId: "chain-mail",
+      shield: false,
+      weaponIds: ["longsword"],
+      startingChoices: {},
+      notes: ""
+    };
+    const patch = getBuilderFinishSheetSeedPatch(character);
+    const pocket = patch.inventoryItems.find((item) => item.builderSeed === "starting-gear");
+    expect(pocket.title).toBe("Starting Gear");
+  });
+
+  it("names a pocket after a pack chosen from a starting-equipment option", () => {
+    const character = makeBarbarianBuilder();
+    character.build.levels = [{ classId: "fighter", hp: null }];
+    character.build.equipment = {
+      armorId: null,
+      shield: false,
+      weaponIds: [],
+      startingChoices: { "class:fighter:1": { optionIndex: "1", label: "Dungeoneer's Pack" } },
+      notes: ""
+    };
+    const patch = getBuilderFinishSheetSeedPatch(character);
+    const pocket = patch.inventoryItems.find((item) => item.builderSeed === "starting-gear");
+    expect(pocket.title).toBe("Dungeoneer's Pack");
+  });
+
+  it("preserves a user-renamed pocket and appends to it on re-seed without duplicating", () => {
+    const character = makeBarbarianBuilder();
+    const first = getBuilderFinishSheetSeedPatch(character);
+    character.inventoryItems = first.inventoryItems;
+
+    // User renames the seeded pocket and clears its notes.
+    const pocketIndex = character.inventoryItems.findIndex((item) => item.builderSeed === "starting-gear");
+    character.inventoryItems[pocketIndex] = {
+      ...character.inventoryItems[pocketIndex],
+      title: "My Backpack",
+      notes: ""
+    };
+
+    const second = getBuilderFinishSheetSeedPatch(character);
+    expect(second.inventoryItems).toBeDefined();
+    const seededPockets = second.inventoryItems.filter((item) => item.builderSeed === "starting-gear");
+    // Found again by marker — appended to the renamed pocket, not duplicated.
+    expect(seededPockets).toHaveLength(1);
+    expect(seededPockets[0].title).toBe("My Backpack");
+    expect(seededPockets[0].notes).toContain("Explorer's Pack");
+    expect(second.inventoryItems).toHaveLength(character.inventoryItems.length);
+  });
+
+  it("does not rename existing user-created pockets", () => {
+    const character = makeBarbarianBuilder();
+    character.inventoryItems = [
+      { id: "inv_user", title: "My Loot", notes: "trinket" }
+    ];
+    const patch = getBuilderFinishSheetSeedPatch(character);
+    const userPocket = patch.inventoryItems.find((item) => item.id === "inv_user");
+    expect(userPocket.title).toBe("My Loot");
+    expect(userPocket.notes).toBe("trinket");
+    expect(userPocket.builderSeed).toBeUndefined();
+    // A separate seeded pocket is created instead.
+    expect(patch.inventoryItems.some((item) => item.builderSeed === "starting-gear")).toBe(true);
   });
 });

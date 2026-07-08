@@ -75,11 +75,25 @@ export const EMBEDDED_PANEL_HOST_SELECTORS = Object.freeze({
     listEl: "#combatEmbeddedAttackList",
     addBtn: "#combatEmbeddedAddAttackBtn"
   }),
-  // Equipment: only the outer panel element has a combat-scoped id.
-  // Inner elements (inventoryTabs, moneyGP, etc.) keep their canonical ids and
-  // are found via root.querySelector inside the scoped bodyEl.
+  // Equipment: every element uses a combat-scoped id. The inner elements must
+  // NOT reuse the character page's canonical ids (#inventoryTabs, #moneyGP,
+  // etc.): both panels can be live in the DOM at once, and #page-combat comes
+  // before #page-character, so the character-page panel's document-wide
+  // requireMany would resolve to the combat copy — leaving the visible
+  // character Equipment panel stale and unclickable until a full reload.
   equipment: Object.freeze({
-    panelEl: "#combatEmbeddedEquipmentSource"
+    panelEl: "#combatEmbeddedEquipmentSource",
+    tabsEl: "#combatEmbeddedInventoryTabs",
+    notesBoxEl: "#combatEmbeddedInventoryNotesBox",
+    searchEl: "#combatEmbeddedInventorySearch",
+    addBtn: "#combatEmbeddedAddInventoryBtn",
+    renameBtn: "#combatEmbeddedRenameInventoryBtn",
+    deleteBtn: "#combatEmbeddedDeleteInventoryBtn",
+    moneyPP: "#combatEmbeddedMoneyPP",
+    moneyGP: "#combatEmbeddedMoneyGP",
+    moneyEP: "#combatEmbeddedMoneyEP",
+    moneySP: "#combatEmbeddedMoneySP",
+    moneyCP: "#combatEmbeddedMoneyCP"
   }),
   // Abilities: outer panel and abilityGrid selector need scoping;
   // save-options internals are found via scope.querySelector inside bodyEl.
@@ -503,23 +517,23 @@ export function renderEquipmentEmbeddedContent(container) {
       <div class="sessionHeader">
         <div class="fieldLabel">Pockets</div>
         <div class="sessionControls panelControls">
-          <button id="addInventoryBtn" class="panelBtn panelBtnSm" type="button" title="Add a new inventory item">+ Pocket</button>
-          <button id="renameInventoryBtn" class="panelBtn panelBtnSm" type="button" title="Rename current item">Rename</button>
-          <button id="deleteInventoryBtn" class="danger panelBtn panelBtnSm" type="button" title="Delete current item">Delete</button>
-          <input id="inventorySearch" class="sessionSearch panelSearch" placeholder="Search inventory..." />
+          <button id="combatEmbeddedAddInventoryBtn" class="panelBtn panelBtnSm" type="button" title="Add a new inventory item">+ Pocket</button>
+          <button id="combatEmbeddedRenameInventoryBtn" class="panelBtn panelBtnSm" type="button" title="Rename current item">Rename</button>
+          <button id="combatEmbeddedDeleteInventoryBtn" class="danger panelBtn panelBtnSm" type="button" title="Delete current item">Delete</button>
+          <input id="combatEmbeddedInventorySearch" class="sessionSearch panelSearch" placeholder="Search inventory..." />
         </div>
       </div>
       <div class="sessionTabsWrap" role="tablist" aria-label="Inventory">
-        <div id="inventoryTabs" class="sessionTabs"></div>
+        <div id="combatEmbeddedInventoryTabs" class="sessionTabs"></div>
       </div>
-      <textarea id="inventoryNotesBox" placeholder="Notes for this item..."></textarea>
+      <textarea id="combatEmbeddedInventoryNotesBox" placeholder="Notes for this item..."></textarea>
     </div>
     <div class="moneyRow">
-      <div class="moneyTile"><div class="moneyLabel">GP</div><input id="moneyGP" type="number" placeholder="0" /></div>
-      <div class="moneyTile"><div class="moneyLabel">SP</div><input id="moneySP" type="number" placeholder="0" /></div>
-      <div class="moneyTile"><div class="moneyLabel">CP</div><input id="moneyCP" type="number" placeholder="0" /></div>
-      <div class="moneyTile"><div class="moneyLabel">PP</div><input id="moneyPP" type="number" placeholder="0" /></div>
-      <div class="moneyTile"><div class="moneyLabel">EP</div><input id="moneyEP" type="number" placeholder="0" /></div>
+      <div class="moneyTile"><div class="moneyLabel">GP</div><input id="combatEmbeddedMoneyGP" type="number" placeholder="0" /></div>
+      <div class="moneyTile"><div class="moneyLabel">SP</div><input id="combatEmbeddedMoneySP" type="number" placeholder="0" /></div>
+      <div class="moneyTile"><div class="moneyLabel">CP</div><input id="combatEmbeddedMoneyCP" type="number" placeholder="0" /></div>
+      <div class="moneyTile"><div class="moneyLabel">PP</div><input id="combatEmbeddedMoneyPP" type="number" placeholder="0" /></div>
+      <div class="moneyTile"><div class="moneyLabel">EP</div><input id="combatEmbeddedMoneyEP" type="number" placeholder="0" /></div>
     </div>
   `;
   container.appendChild(panel);

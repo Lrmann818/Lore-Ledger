@@ -34,6 +34,70 @@ function recoveryMatchesRest(recovery, restType) {
 }
 
 /**
+ * Whether a spell-slot level refills on the given rest. The v2 spells model has
+ * no per-level recovery metadata, so recovery is inferred from the label:
+ * every slot level refills on a long rest, while a short rest only refills Pact
+ * Magic (Warlock) slots — matching SRD 5.1 rest rules. Slot-less levels
+ * (cantrips) and custom labels without slots recover nothing.
+ * @param {Record<string, unknown>} level
+ * @param {CharacterRestType} restType
+ * @returns {boolean}
+ */
+function spellLevelRefillsOnRest(level, restType) {
+  if (!level || level.hasSlots !== true) return false;
+  if (restType === "longRest") return true;
+  const label = typeof level.label === "string" ? level.label.toLowerCase() : "";
+  return restType === "shortRest" && label.includes("pact");
+}
+
+/**
+ * Refills spell slot usage for a rest without disturbing known/prepared flags,
+ * spell notes, level labels, or slot totals. "used" tracks currently available
+ * slots (full == total), mirroring the per-level Reset control; a rest sets it
+ * back to full and clears each spell's cast/expended flag. Returns the original
+ * object reference when nothing changed.
+ * @param {unknown} spells
+ * @param {CharacterRestType} restType
+ * @returns {{ spells: unknown, changed: boolean }}
+ */
+function recoverSpellSlotsForRest(spells, restType) {
+  if (!spells || typeof spells !== "object" || Array.isArray(spells)) return { spells, changed: false };
+  const levels = /** @type {{ levels?: unknown }} */ (spells).levels;
+  if (!Array.isArray(levels)) return { spells, changed: false };
+
+  let changed = false;
+  const nextLevels = levels.map((level) => {
+    if (!level || typeof level !== "object" || Array.isArray(level)) return level;
+    const record = /** @type {Record<string, unknown>} */ (level);
+    if (!spellLevelRefillsOnRest(record, restType)) return level;
+
+    let levelChanged = false;
+    // Refill available slots to full (used == total).
+    const refill = Number.isFinite(record.total) ? record.total : null;
+    let nextUsed = record.used;
+    if (record.used !== refill) {
+      nextUsed = refill;
+      levelChanged = true;
+    }
+    // Clear cast/expended flags; leave known/prepared/notes untouched.
+    const levelSpells = Array.isArray(record.spells) ? record.spells : [];
+    let nextSpells = levelSpells;
+    if (levelSpells.some((spell) => spell && typeof spell === "object" && spell.expended)) {
+      nextSpells = levelSpells.map((spell) => (
+        spell && typeof spell === "object" && spell.expended ? { ...spell, expended: false } : spell
+      ));
+      levelChanged = true;
+    }
+    if (!levelChanged) return level;
+    changed = true;
+    return { ...record, used: nextUsed, spells: nextSpells };
+  });
+
+  if (!changed) return { spells, changed: false };
+  return { spells: { ...spells, levels: nextLevels }, changed: true };
+}
+
+/**
  * Recovers explicitly tagged current/max resource counters, manual feature-use
  * counters, and currently-derived feature-specific use counters on one character.
  * Untagged, manual, none, and unknown recovery metadata is intentionally ignored.
@@ -71,6 +135,9 @@ export function recoverCharacterForRest(character, restType) {
   const featureUseResult = recoverDerivedFeatureUses(character.featureUses, derivedFeatures, restType);
   if (featureUseResult.changed) changed = true;
 
+  const spellSlotResult = recoverSpellSlotsForRest(character.spells, restType);
+  if (spellSlotResult.changed) changed = true;
+
   if (!changed) return { character, changed: false };
   const nextCharacter = {
     ...character,
@@ -78,5 +145,8 @@ export function recoverCharacterForRest(character, restType) {
     manualFeatureCards: nextManualFeatureCards
   };
   if (featureUseResult.changed) nextCharacter.featureUses = featureUseResult.featureUses;
+  if (spellSlotResult.changed) {
+    nextCharacter.spells = /** @type {CharacterEntry["spells"]} */ (spellSlotResult.spells);
+  }
   return { character: nextCharacter, changed: true };
 }

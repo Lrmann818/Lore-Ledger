@@ -60,6 +60,35 @@ describe("EMBEDDED_PANEL_HOST_SELECTORS", () => {
     expect(EMBEDDED_PANEL_HOST_SELECTORS.equipment.panelEl).toBe("#combatEmbeddedEquipmentSource");
   });
 
+  it("scopes every equipment inner element so it cannot collide with the character-page panel", () => {
+    // Regression: the character-page Equipment panel resolves these keys
+    // document-wide (root defaults to document). #page-combat precedes
+    // #page-character in the DOM, so if the embedded Equipment panel reused the
+    // canonical ids (#inventoryTabs, #moneyGP, …) the character panel would
+    // bind to the hidden combat copy — leaving the visible Equipment panel
+    // stale and unclickable after a character switch until a full reload.
+    const eq = EMBEDDED_PANEL_HOST_SELECTORS.equipment;
+    // Must override every id the equipment panel looks up (see the `required`
+    // map in js/pages/character/panels/equipmentPanel.js).
+    const requiredKeys = [
+      "panelEl", "tabsEl", "notesBoxEl", "searchEl",
+      "addBtn", "renameBtn", "deleteBtn",
+      "moneyPP", "moneyGP", "moneyEP", "moneySP", "moneyCP"
+    ];
+    for (const key of requiredKeys) {
+      expect(typeof eq[key]).toBe("string");
+      expect(eq[key].startsWith("#combatEmbedded")).toBe(true);
+    }
+    // And it must not reuse any of the character page's canonical ids.
+    const canonicalIds = [
+      "#inventoryTabs", "#inventoryNotesBox", "#inventorySearch",
+      "#addInventoryBtn", "#renameInventoryBtn", "#deleteInventoryBtn",
+      "#moneyPP", "#moneyGP", "#moneyEP", "#moneySP", "#moneyCP"
+    ];
+    const values = Object.values(eq);
+    for (const id of canonicalIds) expect(values).not.toContain(id);
+  });
+
   it("uses combat-scoped panel + abilityGrid selectors for abilities", () => {
     expect(EMBEDDED_PANEL_HOST_SELECTORS.abilities.panel).toBe("#combatEmbeddedAbilitiesSource");
     expect(EMBEDDED_PANEL_HOST_SELECTORS.abilities.abilityGrid).toBe("#combatEmbeddedAbilitiesSource .abilityGrid");

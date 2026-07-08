@@ -849,15 +849,31 @@ export function initCharacterPageUI(deps) {
     addListener("chrome", noBtn, "click", dismiss);
   }
 
-  // Boot character page bindings
-  initCharacterEmptyState();
-  initCharacterSelectorBar();
-  initCharacterUI();
+  // Boot character page bindings.
+  //
+  // Each boot step is isolated so a failure in one cannot leave the page
+  // half-built. This matters most on a re-render (character switch): the
+  // previous controller has already been destroyed at the top of this
+  // function, so a throw here would otherwise leave the page with no listeners
+  // (unresponsive to clicks) and stale panels until a full page reload. In
+  // particular, the Equipment/Inventory and other panels (initCharacterUI)
+  // must still bind even if the selector bar or empty-state setup throws.
+  runPanelInit("Character empty state", () => initCharacterEmptyState());
+  runPanelInit("Character selector bar", () => initCharacterSelectorBar());
+  runPanelInit("Character panels", () => initCharacterUI());
 
   const api = {
     destroy() {
+      // Never let one failing cleanup abort the rest, or propagate out of
+      // destroy(). On a character switch this runs from the top of a
+      // re-render; a thrown cleanup would abort the rebuild and freeze the
+      // page until reload.
       for (let i = destroyFns.length - 1; i >= 0; i--) {
-        destroyFns[i]?.();
+        try {
+          destroyFns[i]?.();
+        } catch (err) {
+          console.error("Character page cleanup failed:", err);
+        }
       }
       if (_activeCharacterPageController === api) {
         _activeCharacterPageController = null;
