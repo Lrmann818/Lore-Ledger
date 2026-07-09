@@ -34,7 +34,7 @@ restore obsolete behavior.
 
 | If your task is… | Read these, in order | Skip |
 | --- | --- | --- |
-| **Builder / SRD content** (registry data, wizard, rules engine) | `docs/reference/srd-licensing-notes.md` → `docs/reference/builder-scope-greenlist.md` → `docs/reference/content-registry-plan.md` → `game-data/srd/*.json` → `docs/reference/character-builder-handoff.md` | `docs/archive/**`, `docs/design/vertical-slice-schema.md` |
+| **Builder / SRD content** (registry data, wizard, rules engine) | `docs/reference/srd-licensing-notes.md` → `docs/reference/builder-scope-greenlist.md` → `docs/reference/content-registry-plan.md` → `game-data/srd/*.json` | `docs/archive/**`, `docs/design/vertical-slice-schema.md`. `character-builder-handoff.md` is an optional deep-dive, not required reading — and its §7 "next fixes" is **not** the work order. |
 | **State, persistence, migration** | `docs/state-schema.md` → `js/state.js` → `docs/operations/storage-and-backups.md` | Phase-by-phase bullets at the end of the "Step 3 builder foundation" section |
 | **Character architecture** (multi-character, freeform vs. builder) | "Character Architecture" below → `docs/features/multi-character-design.md` | `docs/archive/multi-character-steps-1-4.md` (historical build notes, incl. a wrong "SRD 5.1 green list") |
 | **Character sheet editing surfaces** | "Editing Model" below → `docs/reference/fifth-edition-character-sheet/` (UX only) | Any doc implying builder panels are the post-creation editing surface |
@@ -64,7 +64,7 @@ not "fix" code to match them):
 
 - `docs/archive/**` — superseded plans, audits, and commit trackers
 - `docs/design/vertical-slice-schema.md` — design rationale for choices already absorbed into the canonical docs
-- `docs/reference/character-builder-handoff.md` — session snapshot; accurate at time of writing, verify before relying on
+- `docs/reference/character-builder-handoff.md` — session snapshot, optional deep-dive. Accurate at time of writing; verify before relying on. Its §7 "Top 5 safest next fixes" is **not** the work order — the Current Working Order below wins.
 - `docs/archive/multi-character-steps-1-4.md` — historical Step 1-4 implementation notes; its "SRD 5.1 green list" section is **wrong** and is struck through in place
 - `docs/audits/**` — planning artifact. Its priority order is real; its batch prompts are **queued, not authorized**. Never self-start B1/B2/B3 from it.
 

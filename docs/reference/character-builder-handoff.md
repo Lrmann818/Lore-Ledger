@@ -235,6 +235,12 @@ data is a separate `srd-data` chunk via `vite.config.js` `manualChunks`).
 
 ## 7. Top 5 safest next fixes (value ÷ risk, best first)
 
+> ⚠️ **This is not the work order.** It ranks fixes by risk, not by priority, and it
+> predates the current sequencing. **Do not start from it.** The binding sequence is
+> [`AGENTS.md` → Current Working Order](../../AGENTS.md#current-working-order): docs cleanup,
+> then P0 stabilization, then rest correctness, then the P1 display/seeding fixes, and only
+> then Level Up. Item 1 below belongs to that P1 seeding step; the others are queued behind it.
+
 1. **Seed full feature descriptions.** `builderSheetSeeding.js` seeds
    feature _names_ only; `features.json` already has full `desc` text.
    Single-module change, duplicate-aware line logic already exists.

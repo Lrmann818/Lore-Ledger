@@ -92,7 +92,7 @@ Ratified policies for content, attribution, and scope. These are authoritative �
 - [`reference/builder-scope-greenlist.md`](./reference/builder-scope-greenlist.md) — Greenlist of builtin content scope for the in-app builder: what ships, what's custom, decision rationale. **Start here before assuming any SRD content exists** — SRD 5.1 is much smaller than full 5E.
 - [`reference/rest-rules-spec.md`](./reference/rest-rules-spec.md) — **Canonical rest behavior.** Short Rest (Hit Dice spending), Long Rest (HP, Hit Dice recovery up to half total, slots, death saves), and the prepared-spell-at-Long-Rest flow. Rest is only partially implemented; the doc marks the gaps.
 - [`reference/level-up-flow-spec.md`](./reference/level-up-flow-spec.md) — Level-up flow spec. Its §10 decisions are ratified (down-leveling out of scope; appends exactly one level; prepared selection routes through Long Rest; do not rename the `used` slot field). **The spec itself is a proposal — do not implement it yet.**
-- 📸 **Session snapshot** — [`reference/character-builder-handoff.md`](./reference/character-builder-handoff.md) — How the builder implementation fits together. Written at the end of one session (2026-07-07); good orientation, but verify its counts and hashes against the code before relying on them.
+- 📸 **Session snapshot, optional deep-dive** — [`reference/character-builder-handoff.md`](./reference/character-builder-handoff.md) — How the builder implementation fits together. Written at the end of one session (2026-07-07); good orientation, but verify its counts and hashes against the code. **Not required reading**, and its §7 "next fixes" is not the work order.
 
 ---
 
