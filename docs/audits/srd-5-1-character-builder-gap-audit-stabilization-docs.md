@@ -5,6 +5,7 @@ _Last revised: 2026-07-09_
 _Branch: `builder-wizard`_  
 _Original audit HEAD: `21e4264`_  
 _Original audit schema reference: `v11`_
+_Current stabilization status: P0/P1 complete; Level Up spec revision is next_
 
 > ## ⛔ PLANNING ARTIFACT — NOT A WORK ORDER
 >
@@ -13,10 +14,11 @@ _Original audit schema reference: `v11`_
 > `docs/reference/content-registry-plan.md`, `docs/reference/rest-rules-spec.md`, current
 > `game-data/srd/*.json`, or current code, stop and resolve the conflict before implementation.
 >
-> **The prompts in this document are queued, not authorized.** Do not self-start work from
-> them. In particular, **do not begin batches B1 (builder-only panel retirement), B2 (spell
-> detail seeding), or B3 (feature detail seeding)** until docs cleanup, P0 stabilization,
-> P0 rest correctness, and the P1 display/seeding fixes have all landed.
+> **The prompts in this document are queued, not authorized.** Docs cleanup and P0/P1
+> stabilization have landed, but **do not begin batches B1 (builder-only panel retirement),
+> B2 (spell detail seeding), or B3 (feature detail seeding)**. The next authorized work is
+> revising the Level Up spec only; Level Up implementation and audit batches remain blocked
+> until their working-order steps are reached and explicitly authorized.
 >
 > The binding sequence lives in
 > [`AGENTS.md` → Current Working Order](../../AGENTS.md#current-working-order). If this
@@ -32,18 +34,10 @@ _Original audit schema reference: `v11`_
 
 ## Executive Summary
 
-The SRD 5.1 character builder implementation is stable enough to audit, but user testing has found several stabilization bugs that should be fixed before larger audit batches or Level Up work.
-
-The original audit found that the implementation is generally honest and test-backed, but remaining work is mostly about:
-
-- stale documentation cleanup
-- active sheet-state regressions
-- richer SRD data seeding
-- missing descriptions
-- rest correctness
-- spell and equipment behavior
-- post-creation editing model alignment
-- Level Up planning
+The original audit found several stabilization bugs that needed to land before larger audit
+batches or Level Up work. Docs cleanup, P0 stabilization/rest correctness, and the P1
+display/seeding fixes are now complete. The next authorized work is revising the Level Up
+spec only; implementation and larger audit batches remain blocked.
 
 Current product direction:
 
@@ -56,18 +50,16 @@ Current product direction:
 
 ## Current Priority Order
 
-Recommended working order:
+`AGENTS.md` remains binding. Current status:
 
-1. Docs cleanup / stale instruction audit
-2. P0 stabilization: inventory state + Edit in Builder crash
-3. P0 core rules: Short Rest / Long Rest + prepared-spell flow
-4. P1 display bugs: initiative + skill/proficiency indicators
-5. P1 seeding/display bugs: descriptions, spell order, inventory pocket labels
-6. Revise Level Up spec
-7. Implement Level Up Phase 1
-8. Resume larger audit batches
-
-Do **not** start larger audit feature work until the stabilization bugs and stale-doc issues are handled.
+1. [x] Docs cleanup / stale instruction audit
+2. [x] P0 stabilization: inventory state, Edit in Builder crash, character switching
+3. [x] P0 core rules: Short Rest / Long Rest + prepared-spell flow, including active-character isolation
+4. [x] P1 display bugs: initiative + skill/proficiency indicators
+5. [x] P1 seeding/display bugs: descriptions, spell order, inventory pocket labels
+6. [ ] **Next authorized:** revise the Level Up spec only
+7. [ ] **Blocked:** implement Level Up only after revision and explicit authorization
+8. [ ] Resume larger audit batches only when explicitly authorized
 
 ---
 
@@ -549,8 +541,9 @@ Acceptance criteria:
 
 ### Prompt 2 — P0: Short Rest and Long Rest Core Rules
 
-📄 **Promoted to a canonical spec.** The full rule baseline, the prepared-spell Long Rest
-flow, the resource recovery vocabulary, and the required test list now live in
+✅ **Completed 2026-07-09.** P0 rest correctness, including active-character isolation, has
+landed. The full rule baseline, the prepared-spell Long Rest flow, the resource recovery
+vocabulary, and the required test list now live in
 [`../reference/rest-rules-spec.md`](../reference/rest-rules-spec.md), which owns Short Rest
 and Long Rest behavior.
 
@@ -564,6 +557,10 @@ This remains **P0 work that comes before Level Up.** It is queued, not authorize
 ---
 
 ### Prompt 3 — P1: Initiative and Skill/Proficiency Display
+
+✅ **Completed 2026-07-09.** Builder-derived initiative and skill/proficiency indicators
+are implemented and regression-tested. The original prompt below is retained for audit
+provenance; do not rerun it as pending work.
 
 ```text
 Investigate and fix missing or unclear values on builder-created characters.
@@ -621,6 +618,10 @@ Acceptance criteria:
 ---
 
 ### Prompt 4 — P1: Descriptions, Spell Ordering, and Inventory Pocket Labels
+
+✅ **Completed 2026-07-09.** Feature descriptions, canonical spell ordering, and inventory
+pocket labels are implemented and regression-tested. The original prompt below is retained
+for audit provenance; do not rerun it as pending work.
 
 ```text
 Investigate and fix remaining builder-created character sheet bugs and missing seeded descriptions.
@@ -724,7 +725,8 @@ If user chooses **Yes**:
 
 ## 12. Level Up Planning Decisions
 
-The Level Up spec should be revised after stabilization, not implemented immediately.
+Stabilization is complete. Revising the Level Up spec is the next authorized step; Level Up
+implementation remains blocked until the revision is complete and explicitly authorized.
 
 ### Decision summary
 
@@ -746,7 +748,9 @@ down-leveling is out of scope, Level Up appends exactly one level and asks only 
 level unlocks, prepared selection routes through the Long Rest flow, and the internal `used`
 slot field must not be renamed.
 
-That spec is still a **proposal awaiting revision — do not implement it yet.**
+That spec is still a **proposal awaiting revision — revising it is the next authorized
+step, but implementation remains blocked until the revision is complete and explicitly
+authorized.**
 
 ---
 
@@ -754,10 +758,10 @@ That spec is still a **proposal awaiting revision — do not implement it yet.**
 
 Updated recommended order:
 
-1. Docs cleanup
-2. Stabilization P0/P1 bugs
-3. Revised Level Up spec
-4. Original audit B0–B8 work
+1. [x] Docs cleanup
+2. [x] Stabilization P0/P1 bugs
+3. [ ] **Next authorized:** revise the Level Up spec only
+4. [ ] **Blocked:** Level Up implementation, then original audit B0–B8 work, only when explicitly authorized
 
 ### B0 — Documentation correction
 
@@ -856,18 +860,10 @@ Do not copy the reference app’s visual design.
 
 ## Bottom Line
 
-The builder is moving in the right direction, but the next work should be stabilization and documentation cleanup, not new feature expansion.
+The stabilization sequence is complete: stale instructions, character switching/inventory
+state, Edit in Builder, P0 rest correctness and prepared spells, P1 display, and P1 seeding
+have all landed.
 
-The most important immediate fixes are:
-
-1. remove stale instructions from docs
-2. fix character switching/inventory state
-3. fix Edit in Builder crash
-4. fix Short Rest and Long Rest correctness
-5. add prepared-spell Long Rest flow
-6. fix initiative and skill/proficiency display
-7. seed/show feature and spell descriptions correctly
-8. fix spell ordering and inventory pocket labels
-9. revise Level Up spec only after the above are stable
-
-After that, the larger SRD 5.1 audit batches can resume with much lower risk.
+The next authorized step is revising the Level Up spec only. Do not implement Level Up or
+start the larger SRD 5.1 audit batches until their working-order steps are reached and the
+work is explicitly authorized.

@@ -166,11 +166,11 @@ A portfolio project that accumulates silent regressions is not a portfolio proje
 
 ### Step 3 — Rules Engine and Character Builder
 
-**Status:** [x] Shipped — SRD 5.1 builder, multi-step wizard, rules engine, custom content, sheet seeding (schema v11)
+**Status:** [x] Shipped — SRD 5.1 builder, multi-step wizard, rules engine, custom content, sheet seeding, and P0/P1 stabilization (schema v12)
 
 > The phase checklist below is a **historical record of how it was built**, and its schema
 > version numbers are frozen at the time each line was written (e.g. "Schema v6 builder
-> foundation" — the current version is v11). The detailed sequencing doc it referenced is
+> foundation" — the current version is v12). The detailed sequencing doc it referenced is
 > archived at `docs/archive/lore-ledger-builder-plan.md`. For current builder state read
 > `docs/reference/builder-scope-greenlist.md` and `docs/state-schema.md`.
 
@@ -212,8 +212,11 @@ A portfolio project that accumulates silent regressions is not a portfolio proje
 - [x] Expand builtin registry coverage incrementally after the first slice is proven
 - [ ] Custom content export/import story
 - [ ] Content registry licensing attribution
-- [ ] **P0 — rest correctness:** Short Rest Hit Dice spending; Long Rest HP, Hit Dice recovery, death saves; Long Rest prepared-spell flow (see `docs/reference/rest-rules-spec.md`)
-- [ ] **Queued behind rest —** revise then implement Level Up (see `docs/reference/level-up-flow-spec.md`)
+- [x] **P0 — rest correctness:** Short Rest Hit Dice spending; Long Rest HP, Hit Dice recovery, death saves; Long Rest prepared-spell flow; and an active-character submission guard (see `docs/reference/rest-rules-spec.md`)
+- [x] **P1 — display stabilization:** builder-derived initiative and skill/proficiency indicators
+- [x] **P1 — seeding/display stabilization:** feature descriptions, canonical spell ordering, and inventory pocket labels
+- [ ] **Next authorized —** revise the Level Up spec only (see `docs/reference/level-up-flow-spec.md`)
+- [ ] **Blocked —** implement Level Up only after the spec revision is complete and implementation is explicitly authorized
 
 Still-open design constraints carried forward from the original Step 3 notes:
 

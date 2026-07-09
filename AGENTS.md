@@ -704,14 +704,18 @@ Canonical: [`docs/reference/rest-rules-spec.md`](docs/reference/rest-rules-spec.
 - **Known-spell casters** (Bard, Ranger, Sorcerer, Warlock) change known spells at
   **Level Up**, not at rest.
 
-Rest correctness is P0 work that comes before Level Up. The implemented rest flow handles
-tracked HP, Hit Dice, death saves, tagged recovery, normal/Pact slots, and builder
-prepared-spell changes at Long Rest; consult the canonical rest spec for the exact rules.
+P0 rest correctness is complete. The implemented rest flow handles tracked HP, Hit Dice,
+death saves, tagged recovery, normal/Pact slots, and builder prepared-spell changes at Long
+Rest. Rest submission is also guarded against active-character changes: if the active
+character changes while the dialog is open, the pending rest is canceled without mutating
+either character. Consult the canonical rest spec for the exact rules.
 
 ### Level Up Rules
 
 Canonical: [`docs/reference/level-up-flow-spec.md`](docs/reference/level-up-flow-spec.md).
-That spec is a **proposal awaiting revision — do not implement it yet.** Ratified decisions:
+That spec is a **proposal awaiting revision — do not implement it yet.** Revising the spec
+is the next authorized step. Level Up implementation remains blocked until the revision is
+complete and implementation is explicitly authorized. Ratified decisions:
 
 - **Down-leveling is out of scope.** Do not build reverse level-up logic.
 - Level Up **appends exactly one level** and asks only for choices that level unlocks.
@@ -736,22 +740,23 @@ not relax any rule in this section.
 
 ### Current Working Order
 
-Work proceeds in this order. **Do not skip ahead.**
+Work proceeds in this order. **Do not skip ahead.** Completed stabilization steps stay
+listed so agents do not repeat them:
 
-1. Docs cleanup / stale-instruction audit
-2. P0 stabilization bugs (inventory state, Edit in Builder crash, character switching)
-3. P0 core rules: Short Rest / Long Rest + prepared-spell flow
-4. P1 display bugs: initiative, skill/proficiency indicators
-5. P1 seeding/display: descriptions, spell ordering, inventory pocket labels
-6. Revise the Level Up spec
-7. Implement Level Up Phase 1
-8. Only then, resume larger audit batches
+1. [x] Docs cleanup / stale-instruction audit
+2. [x] P0 stabilization bugs (inventory state, Edit in Builder crash, character switching)
+3. [x] P0 core rules: Short Rest / Long Rest + prepared-spell flow, including active-character isolation
+4. [x] P1 display bugs: initiative, skill/proficiency indicators
+5. [x] P1 seeding/display: descriptions, spell ordering, inventory pocket labels
+6. [ ] **Next authorized:** revise the Level Up spec only
+7. [ ] **Blocked:** implement Level Up Phase 1 only after the spec revision is complete and implementation is explicitly authorized
+8. [ ] Only then, and with explicit authorization, resume larger audit batches
 
 `docs/audits/srd-5-1-character-builder-gap-audit-stabilization-docs.md` is a **planning
-artifact, not a work order**. Its batches **B1 (builder-only panel retirement), B2 (spell
-detail seeding), and B3 (feature detail seeding) must not be started** until steps 1-5
-above are complete. Do not begin audit feature work from that document on your own
-initiative.
+artifact, not a work order**. Steps 1-5 above are complete, but its batches **B1
+(builder-only panel retirement), B2 (spell detail seeding), and B3 (feature detail seeding)
+remain queued and are not authorized**. Do not begin audit feature work from that document
+until the working order reaches step 8 and the batch is explicitly authorized.
 
 ### SRD Data Fetch Pipeline
 

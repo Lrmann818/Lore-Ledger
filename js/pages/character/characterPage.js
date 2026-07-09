@@ -431,6 +431,7 @@ export function initCharacterPageUI(deps) {
       if (error === "unavailable-hit-dice") return "That Short Rest selection spends unavailable Hit Dice.";
       if (error === "missing-hp-for-hit-dice") return "Set current and maximum HP before spending Hit Dice.";
       if (error === "incomplete-hit-dice-allocation") return "Allocate the required recovered Hit Dice before taking a Long Rest.";
+      if (error === "active-character-changed") return "Rest was canceled because the active character changed.";
       if (error?.startsWith?.("prepared-capacity:")) return "Prepared spell selection exceeds that class's capacity.";
       if (error?.startsWith?.("invalid-prepared-spell:")) return "Prepared spell selection includes an unavailable spell.";
       return "Rest could not be applied. Please review the selection and try again.";
@@ -439,6 +440,7 @@ export function initCharacterPageUI(deps) {
     async function runCharacterRestAction(restType) {
       const activeCharacter = getActiveCharacter(state);
       if (!activeCharacter) return;
+      const activeCharacterId = activeCharacter.id;
       let selection = {};
       if (restType === "longRest") {
         const preflight = applyLongRest(activeCharacter);
@@ -457,8 +459,18 @@ export function initCharacterPageUI(deps) {
         if (!result) return;
         selection = result;
       }
+      if (getActiveCharacter(state)?.id !== activeCharacterId) {
+        if (typeof setStatus === "function") {
+          setStatus(restErrorMessage("active-character-changed"), { stickyMs: 2500 });
+        }
+        return;
+      }
       let restError = "";
       const updated = mutateCharacter((character) => {
+        if (character.id !== activeCharacterId) {
+          restError = "active-character-changed";
+          return false;
+        }
         const result = restType === "shortRest"
           ? applyShortRest(character, selection)
           : applyLongRest(character, selection);

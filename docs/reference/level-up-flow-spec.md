@@ -1,10 +1,11 @@
 # Level Up Flow — Implementation Spec
 
-_Status: **proposal — do not implement yet.** Written 2026-07-09._
+_Status: **proposal awaiting revision — revise the spec only; do not implement yet.** Written 2026-07-09._
 
-> **Sequencing guard.** This spec is queued behind docs cleanup, P0 stabilization bugs,
-> and rest correctness, and it is expected to be **revised** before implementation. Do not
-> start building it. See §11 and the [Working Order](../../AGENTS.md#current-working-order).
+> **Sequencing guard.** Docs cleanup and P0/P1 stabilization are complete. Revising this
+> proposal is the next authorized step. Level Up implementation remains blocked until the
+> revision is complete and implementation is explicitly authorized. See §11 and the
+> [Working Order](../../AGENTS.md#current-working-order).
 
 Adds a **Level Up** action to the character action menu for builder-created
 characters: a narrow, guided wizard that **appends exactly one level**, walks only the
@@ -530,7 +531,8 @@ them, and do not implement against the alternatives._
 
 ## 11. Sequencing guard
 
-This spec is **not ready to implement**. Per the current working order, Level Up is
-implemented only after docs cleanup, stabilization bugs, and rest correctness land, and
-after this spec has been revised against those outcomes. See the
+This spec is **not ready to implement**. Docs cleanup and P0/P1 stabilization have landed,
+so the next authorized work is to revise this document against those outcomes. Completing
+the revision does not itself authorize implementation: Level Up may be implemented only
+after the revised spec is complete and implementation is explicitly authorized. See the
 [Working Order](../../AGENTS.md#current-working-order) in `AGENTS.md`.

@@ -186,7 +186,31 @@ export function openCharacterRestFlow(options) {
       resolve(result);
     };
     const onKeyDown = (event) => {
-      if (event.key === "Escape") close(null);
+      if (event.key === "Escape") {
+        close(null);
+        return;
+      }
+      if (event.key !== "Tab") return;
+
+      const focusable = Array.from(panel.querySelectorAll(
+        "a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])"
+      )).filter((node) => !node.closest("[hidden]") && node.getAttribute("aria-hidden") !== "true");
+      if (!focusable.length) {
+        event.preventDefault();
+        panel.focus();
+        return;
+      }
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement;
+      if (event.shiftKey && (active === first || !panel.contains(active))) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && (active === last || !panel.contains(active))) {
+        event.preventDefault();
+        first.focus();
+      }
     };
     document.addEventListener("keydown", onKeyDown);
     overlay.addEventListener("click", (event) => {

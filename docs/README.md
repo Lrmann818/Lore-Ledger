@@ -90,8 +90,8 @@ Ratified policies for content, attribution, and scope. These are authoritative �
 - [`reference/srd-licensing-notes.md`](./reference/srd-licensing-notes.md) — Licensing context for SRD use: what's covered by which license, what attribution is required where.
 - [`reference/content-registry-plan.md`](./reference/content-registry-plan.md) — Plan for the content registry: how SRD-derived content is structured, validated, and surfaced in the app.
 - [`reference/builder-scope-greenlist.md`](./reference/builder-scope-greenlist.md) — Greenlist of builtin content scope for the in-app builder: what ships, what's custom, decision rationale. **Start here before assuming any SRD content exists** — SRD 5.1 is much smaller than full 5E.
-- [`reference/rest-rules-spec.md`](./reference/rest-rules-spec.md) — **Canonical rest behavior.** Short Rest (Hit Dice spending), Long Rest (HP, Hit Dice recovery up to half total, slots, death saves), and the prepared-spell-at-Long-Rest flow. Rest is only partially implemented; the doc marks the gaps.
-- [`reference/level-up-flow-spec.md`](./reference/level-up-flow-spec.md) — Level-up flow spec. Its §10 decisions are ratified (down-leveling out of scope; appends exactly one level; prepared selection routes through Long Rest; do not rename the `used` slot field). **The spec itself is a proposal — do not implement it yet.**
+- [`reference/rest-rules-spec.md`](./reference/rest-rules-spec.md) — **Canonical rest behavior.** P0 rest correctness is complete: Short Rest Hit Dice spending; Long Rest HP, Hit Dice, slot, resource, and death-save recovery; prepared-spell changes at Long Rest; and active-character isolation.
+- [`reference/level-up-flow-spec.md`](./reference/level-up-flow-spec.md) — Level-up flow spec. Its §10 decisions are ratified (down-leveling out of scope; appends exactly one level; prepared selection routes through Long Rest; do not rename the `used` slot field). **Revising this proposal is the next authorized step; implementation remains blocked until that revision is complete and explicitly authorized.**
 - 📸 **Session snapshot, optional deep-dive** — [`reference/character-builder-handoff.md`](./reference/character-builder-handoff.md) — How the builder implementation fits together. Written at the end of one session (2026-07-07); good orientation, but verify its counts and hashes against the code. **Not required reading**, and its §7 "next fixes" is not the work order.
 
 ---
@@ -102,7 +102,7 @@ Ratified policies for content, attribution, and scope. These are authoritative �
 order is real**; their **batch prompts are queued, not work orders**. Never self-start a
 batch from an audit doc.
 
-- [`audits/srd-5-1-character-builder-gap-audit-stabilization-docs.md`](./audits/srd-5-1-character-builder-gap-audit-stabilization-docs.md) — SRD 5.1 builder gap audit and stabilization plan. **Do not begin batches B1/B2/B3** until docs cleanup, P0 stabilization, rest correctness, and the P1 fixes have landed. The binding sequence is [`AGENTS.md` → Current Working Order](../AGENTS.md#current-working-order).
+- [`audits/srd-5-1-character-builder-gap-audit-stabilization-docs.md`](./audits/srd-5-1-character-builder-gap-audit-stabilization-docs.md) — SRD 5.1 builder gap audit and stabilization plan. Its P0/P1 prerequisites have landed, but **batches B1/B2/B3 remain queued and are not authorized**. The binding sequence is [`AGENTS.md` → Current Working Order](../AGENTS.md#current-working-order).
 
 ---
 

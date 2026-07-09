@@ -12,6 +12,9 @@ async function installRestState(page) {
     freeform.id = "char_rest_freeform";
     freeform.hpCur = 3;
     freeform.hpMax = 10;
+    freeform.hitDieAmt = 1;
+    freeform.hitDieSize = 8;
+    freeform.rest = { hitDiceSpent: {}, preparedByClass: {} };
 
     devMod.withAllowedStateMutation(() => {
       const collection = globalThis.__APP_STATE__.characters;
@@ -93,6 +96,67 @@ test("Long Rest prepared flow preserves No, applies Yes, and stays character-iso
     const cleric = globalThis.__APP_STATE__.characters.entries.find((entry) => entry?.build);
     return { hpCur: cleric.hpCur, prepared: cleric.rest?.preparedByClass?.cleric || [] };
   })).toEqual({ hpCur: 16, prepared: [] });
+
+  await page.evaluate(async () => {
+    const devMod = await import(new URL("js/utils/dev.js", window.location.href).href);
+    devMod.withAllowedStateMutation(() => {
+      const state = globalThis.__APP_STATE__;
+      const cleric = state.characters.entries.find((entry) => entry?.build);
+      cleric.hpCur = 5;
+      cleric.deathSaves = { successes: 2, failures: 1 };
+      cleric.rest.preparedByClass = { cleric: ["cure-wounds"] };
+    });
+  });
+  await page.locator("#charLongRestBtn").click();
+  await expect(page.locator("#characterRestOverlay")).toBeVisible();
+  await page.keyboard.press("Tab");
+  await expect.poll(() => page.evaluate(() => {
+    const overlay = document.getElementById("characterRestOverlay");
+    return !!overlay?.contains(document.activeElement);
+  })).toBe(true);
+  const beforeRace = await page.evaluate(() => globalThis.__APP_STATE__.characters.entries.map((entry) => ({
+    id: entry.id,
+    hpCur: entry.hpCur,
+    deathSaves: entry.deathSaves,
+    rest: entry.rest
+  })));
+  await page.evaluate(async () => {
+    const devMod = await import(new URL("js/utils/dev.js", window.location.href).href);
+    devMod.withAllowedStateMutation(() => {
+      globalThis.__APP_STATE__.characters.activeId = "char_rest_freeform";
+    });
+  });
+  await page.getByRole("button", { name: "Take Long Rest" }).click();
+  await expect(page.locator("#characterRestOverlay")).toBeHidden();
+  await expect(page.locator("#statusText")).toContainText("Rest was canceled because the active character changed.");
+  const afterRace = await page.evaluate(() => globalThis.__APP_STATE__.characters.entries.map((entry) => ({
+    id: entry.id,
+    hpCur: entry.hpCur,
+    deathSaves: entry.deathSaves,
+    rest: entry.rest
+  })));
+  expect(afterRace).toEqual(beforeRace);
+
+  await page.evaluate(async () => {
+    const devMod = await import(new URL("js/utils/dev.js", window.location.href).href);
+    devMod.withAllowedStateMutation(() => {
+      const state = globalThis.__APP_STATE__;
+      state.characters.activeId = state.characters.entries.find((entry) => entry?.build)?.id || null;
+    });
+  });
+  await page.locator("#charSelector").selectOption("char_rest_freeform");
+  await expect.poll(() => page.evaluate(() => globalThis.__APP_STATE__.characters.activeId)).toBe("char_rest_freeform");
+  await page.locator("#charShortRestBtn").click();
+  await expect(page.locator("#characterRestOverlay")).toBeVisible();
+  await page.locator("input[data-rest-pool-id='manual']").fill("1");
+  await page.getByRole("button", { name: "Take Short Rest" }).click();
+  await expect(page.locator("#characterRestOverlay")).toBeHidden();
+  await expect.poll(() => page.evaluate(() => {
+    const freeform = globalThis.__APP_STATE__.characters.entries.find((entry) => entry?.id === "char_rest_freeform");
+    return { hpCur: freeform.hpCur, spent: freeform.rest?.hitDiceSpent?.manual || 0 };
+  })).toEqual(expect.objectContaining({ hpCur: expect.any(Number), spent: 1 }));
+  const shortRestHp = await page.evaluate(() => globalThis.__APP_STATE__.characters.entries.find((entry) => entry?.id === "char_rest_freeform")?.hpCur);
+  expect(shortRestHp).toBeGreaterThan(3);
 
   await expectNoFatalSignals(page, fatalSignals);
 });
