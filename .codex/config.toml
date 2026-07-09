@@ -3,6 +3,7 @@
 # Lore Ledger Codex project config
 # Keep this file small and conservative. Use AGENTS.md for most behavioral guidance.
 
+sandbox_mode = "workspace-write"
 [project]
 name = "LoreLedger"
 description = "Lore Ledger production SPA with SRD 5.1-backed builder work"
@@ -43,3 +44,6 @@ avoid_duplicate_character_state = true
 avoid_casual_materialization_of_derived_fields = true
 require_migrations_for_storage_shape_changes = true
 keep_ui_state_out_of_domain_records = true
+
+[sandbox_workspace_write]
+network_access = true
