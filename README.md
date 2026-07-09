@@ -74,24 +74,20 @@ At a high level, the app is wired as a modular vanilla JS application:
 - `js/pages/*` contains page-specific orchestration for `hub`, `tracker`, `combat`, `character`, and `map`
 - `js/domain/*` contains explicit state action helpers and entity factories
 
-For a deeper maintainer view, see [`docs/architecture.md`](docs/architecture.md).
+Two load-bearing character rules, because they are easy to get wrong:
 
-Current tracker-specific architecture notes:
+- Active character data lives in `state.characters.entries`, selected by `state.characters.activeId` and resolved through `getActiveCharacter(state)`. The legacy singleton `state.character` key is valid **only** in migration/backward-compatibility code.
+- Builder characters have `build !== null` and derive sheet values from their build; freeform characters have `build: null` and stay fully manual. **The two modes are deliberately distinct and must not be collapsed.**
 
-- `initTrackerPage(...)` destroys the previous tracker-page controller before re-initializing Tracker wiring.
-- The NPC, Party, and Location panels now return real `destroy()` APIs and own listener cleanup through `AbortController`.
-- Shared tracker-card dedupe is intentionally narrow today: `js/pages/tracker/panels/cards/shared/cardIncrementalPatchShared.js` only owns incremental DOM patch mechanics, while filtering, section defaults, toolbar wiring, and card-body renderers remain panel-local.
+Everything else — module boundaries, panel lifecycle and `destroy()` contracts, tracker-card
+linking, character portability, builder scope and schema shape — is documented rather than
+summarized here, because this README goes stale faster than the docs do:
 
-Current character-specific architecture notes:
-
-- Multi-character support is complete and verified. Active character data lives in `state.characters.entries`, selected by `state.characters.activeId`.
-- The legacy singleton `state.character` key is valid only in migration/backward-compatibility handling for old saves/backups.
-- Character panels resolve the active entry through `getActiveCharacter(state)` and write through helpers such as `mutateCharacter(...)` and `updateCharacterField(...)`.
-- Combat embedded character panels are live alternate views of canonical active character data. They use active-character change events and panel invalidation/rebinding rather than duplicate character data or a sync store.
-- NPC and Party tracker-card linking is complete. Linked cards store `characterId` and use `js/domain/cardLinking.js` so shared fields read from and write to the canonical character entry; card notes remain card-only.
-- Character export/import portability is complete. `js/domain/characterPortability.js` validates files before state mutation, restores portrait and spell-note payloads into the destination campaign, and always assigns imported characters fresh IDs.
-- The character builder and rules engine are implemented on top of a shipped SRD 5.1 content registry. Builder characters have `build !== null` and derive sheet values from their build; freeform characters have `build: null` and stay fully manual. The two modes are deliberately distinct and must not be collapsed.
-- Builder scope, schema shape, and remaining work are documented, not summarized here — this README goes stale faster than the docs do. For current detail see [`docs/reference/builder-scope-greenlist.md`](docs/reference/builder-scope-greenlist.md) (what content ships), [`docs/reference/content-registry-plan.md`](docs/reference/content-registry-plan.md) (how it is modeled), [`docs/state-schema.md`](docs/state-schema.md) (persisted shape and current schema version), and [`AGENTS.md`](AGENTS.md) (the rules that win on conflict).
+- [`docs/architecture.md`](docs/architecture.md) — module boundaries and current architecture rules
+- [`docs/features/multi-character-design.md`](docs/features/multi-character-design.md) — character architecture rules
+- [`docs/reference/builder-scope-greenlist.md`](docs/reference/builder-scope-greenlist.md) — what SRD content actually ships
+- [`docs/state-schema.md`](docs/state-schema.md) — persisted shape and current schema version
+- [`AGENTS.md`](AGENTS.md) — the rules that win on conflict
 
 ## 5.1 Type safety in vanilla JS
 
@@ -134,76 +130,31 @@ __APP_STATE__.tracker.campaignTitle = "Guard test"
 
 ## 7. Automated tests
 
-The repo now includes targeted automation in two layers:
-
-- `tests/state.migrate.test.js` covers `migrateState(...)` in `js/state.js`, including supported legacy upgrade paths, current-schema normalization, and malformed or partial inputs.
-- `tests/state.sanitize.test.js` covers `sanitizeForSave(...)` payload-copy behavior so save/export sanitization does not mutate the live tracker/character buckets.
-- `tests/stateActions.test.js` covers `createStateActions(...)`, including its public helper surface, queue-save behavior, tracker-card type aliases, and unsafe path rejection.
-- `tests/storage.persistence.test.js` covers `loadAll(...)` and `saveAllLocal(...)`, including sanitized saves, legacy image migration, stale-bucket replacement, and corrupt-storage fallback behavior.
-- `tests/storage.blobReplacement.test.js` covers the blob replacement hardening path: write new blob, apply the new reference, flush the structured save, then delete the old blob, with rollback when a flush fails.
-- `tests/assetReplacementFlows.test.js` covers portrait/map replacement failure paths so old asset references survive when the replacement save cannot be committed.
-- `tests/storage.saveManager.test.js` covers the local save manager lifecycle, including dirty/saving/saved transitions, debounce behavior, retries after failure, and reset behavior.
-- `tests/storage.backup.test.js` covers backup export/import validation, staged blob/text writes, text rollback on failed imports, and blob-ID remap behavior during import.
-- `tests/smoke/app.smoke.js` covers app shell boot, opening the Map workspace, and a simple reload-persistence check in Chromium.
-- `tests/smoke/backup.smoke.js` covers backup export, import into a fresh browser context, and visible failure handling for invalid backup files in Chromium.
-- `tests/smoke/combatShell.smoke.js` covers the Combat tab shell, Combat Cards, round controls, HP/temp HP actions, status effects, turn undo, tracker writeback for HP/status labels, role/order/remove/clear flows, mobile stacking, and embedded panel selection/reorder/source-panel behavior.
-- `tests/smoke/npcPortrait.smoke.js` covers NPC portrait crop/save plus incremental tracker-card patch behavior for search, section moves, reorder, collapse, and focus restoration.
-- `tests/smoke/partyLocationPanels.smoke.js` covers the same tracker-card behavior for Party and Location panels, including location type filtering.
-- `tests/smoke/trackerPanelLifecycle.smoke.js` covers repeated `initTrackerPage(...)` calls so tracker panel lifecycle cleanup stays single-bound after re-init.
-- `tests/smoke/characterPanelLifecycle.smoke.js` covers repeated `initCharacterPageUI(...)` calls so Character page re-init keeps spells, equipment, and representative panel actions single-bound after teardown/re-init; Step 1 smoke helpers now account for fresh campaigns having no active character until one is created.
-- `tests/smoke/dropdownRegression.smoke.js` covers shared dropdown/popover behavior, including enhanced select opening, tracker card menu clickability in the body-ported menu path, and dropdown wiring after rerender.
-
-Run the test suite in watch mode:
-
 ```bash
-npm test
+npm run test          # Vitest, watch mode
+npm run test:run      # Vitest, once
+npm run typecheck     # CheckJS via tsconfig.checkjs.json
+npm run verify        # test:run + typecheck + build -- the canonical local gate
+npm run test:smoke    # Playwright smoke suite (Chromium)
 ```
 
-Run the suite once:
+Run one suite directly with `npm run test:run -- tests/state.migrate.test.js`. If Playwright
+Chromium is not installed on this machine yet, run `npx playwright install chromium` once.
+For the closest local match to CI, start from `npm ci`, then `npm run verify` and
+`npm run test:smoke`.
 
-```bash
-npm run test:run
-```
+Coverage is **intentionally targeted, not full-app automation.** Unit tests concentrate on
+persistence: migration, save sanitization, state actions, blob replacement ordering, save
+lifecycle, and backup import/export. The Playwright suite covers app boot, Campaign Hub,
+reload persistence, a backup round trip, tracker/character page re-init safety, Combat
+Workspace, and shared dropdown regressions.
 
-Run the same build-and-unit verification CI uses:
+`Reset Everything`, map drawing and touch behavior, and PWA/offline behavior remain **manual
+release checks**. Broader cross-browser automation is out of scope for this version.
 
-```bash
-npm run verify
-```
-
-Run the repo-wide CheckJS pass directly:
-
-```bash
-npm run typecheck
-```
-
-Run the local browser smoke suite:
-
-```bash
-npm run test:smoke
-```
-
-If Playwright Chromium is not installed yet on this machine, install it once first:
-
-```bash
-npx playwright install chromium
-```
-
-Run one suite directly:
-
-```bash
-npm run test:run -- tests/state.migrate.test.js
-```
-
-`npm run test:smoke` runs the current Playwright smoke suite against a controlled Vite server started in production mode on the repo's GitHub Pages base path. GitHub Pages CI now installs Playwright Chromium and runs this smoke suite after `npm run verify`; preview-based PWA/offline validation remains manual, and broader browser/PWA automation is roadmap hardening rather than unresolved release debt.
-
-This is intentionally targeted coverage, not full-app automation. Automation now covers migration, `sanitizeForSave(...)`, `createStateActions(...)`, safe asset replacement ordering, local save/load, a representative structured save/load round trip, save-manager behavior, backup/import logic, basic browser boot, Campaign Hub first-run/layout/rename/delete paths, one reload-persistence path, a file-based backup round trip into a fresh browser context, tracker-page re-init safety, character-page re-init safety, Step 1 multi-character fresh-campaign behavior, targeted NPC/Party/Location panel regression paths, Combat Workspace card/round/status/embedded-panel paths, and shared dropdown/popover regressions. `Reset Everything`, broader Character-page coverage beyond the current lifecycle smoke, map drawing/touch behavior, and PWA/offline behavior remain manual release checks today; broader automation for those areas is roadmap work, while broader automated cross-browser coverage remains out of scope for this version.
-
-`npm run verify` is the canonical local build-and-unit readiness check. It runs `npm run test:run`, `npm run typecheck`, and `npm run build`, matching the first automated gate in CI. It does not replace `npm run test:smoke`, `npm run preview`, or the browser-level manual checks needed for release validation.
-
-For the closest local match to CI, start from a clean install with `npm ci`, then run `npm run verify` and `npm run test:smoke`. If Playwright Chromium is not installed locally yet, run `npx playwright install chromium` once first.
-
-Static validation is also available directly through `npm run typecheck` for the vanilla-JS codebase via `tsconfig.checkjs.json`. That repo-wide CheckJS pass is currently clean and now ships as part of `npm run verify` and the current CI gate.
+For what is automated versus intentionally manual, see
+[`docs/operations/browser-smoke-status.md`](docs/operations/browser-smoke-status.md). For the
+full testing procedure, see [`docs/operations/testing-guide.md`](docs/operations/testing-guide.md).
 
 ## 8. Build and preview
 
@@ -267,70 +218,44 @@ If the GitHub Pages path ever changes, update the following together:
 
 ## 12. Persistence and storage overview
 
-The app is local-first and stores data in the browser:
+The app is local-first. Data lives in the browser, split across three stores:
 
-- Structured app state is saved to `localStorage` under `localCampaignTracker_v1` as a campaign vault with app-shell UI, campaign index metadata, and isolated per-campaign documents
-- The active tab is saved separately under `localCampaignTracker_activeTab`
-- IndexedDB database `localCampaignTracker_db` stores binary assets in `blobs` and large text payloads in `texts`
-- Portraits, map background images, and persisted map drawings are stored as IndexedDB blobs
-- Spell notes are stored separately in IndexedDB text storage with campaign-scoped keys
-- `loadAll()` migrates older saved shapes, wraps legacy single-campaign saves into a one-campaign vault, and migrates legacy image data URLs into the current schema/storage model during startup
-- Backup export is campaign-level: it bundles the currently active campaign's sanitized state, referenced images, and referenced text notes into a JSON file
-- Backup import is campaign-level: it validates, migrates, stages blob/text writes before the state swap, attempts to restore touched text IDs if a later step fails, saves into the active campaign or creates a new campaign when importing from the hub, and then reloads the app after a successful save
-- Character export/import is single-character portability: it writes a `.ll-character.json` file with one character, portrait data, and spell notes, then imports it as a new standalone character in the active destination campaign
-- Vitest coverage now protects `migrateState(...)`, startup load/save behavior, backup import/export logic, and the local save lifecycle, which improves confidence in saved-state integrity without replacing manual browser-level verification
+- `localStorage["localCampaignTracker_v1"]` — the campaign vault: app-shell UI, campaign index, and isolated per-campaign documents. Active tab is separate, under `localCampaignTracker_activeTab`.
+- IndexedDB `localCampaignTracker_db` → `blobs` — portraits, map backgrounds, persisted map drawings.
+- IndexedDB `localCampaignTracker_db` → `texts` — long spell notes, campaign-scoped keys.
 
-Intentionally non-persistent runtime state:
+**Copying `localStorage` alone is not a complete backup of a populated app.** Use the
+in-app backup export, which bundles the active campaign's sanitized state plus its
+referenced images and text notes.
 
-- Map undo/redo history
-- Dice history
-- Calculator history
+Intentionally **non-persistent** runtime state: map undo/redo history, dice history,
+calculator history.
 
-For maintainers, this split matters: copying `localStorage` alone is not a complete backup of a populated app.
+Full detail — save lifecycle, blob-replacement rollback, import staging, reset behavior —
+lives in [`docs/operations/storage-and-backups.md`](docs/operations/storage-and-backups.md).
+The persisted shape and migration rules live in [`docs/state-schema.md`](docs/state-schema.md).
 
 ## 13. PWA / offline behavior overview
 
-Production builds register a service worker through `vite-plugin-pwa`. Dev builds do not register the service worker.
+Production builds register a service worker through `vite-plugin-pwa`. **Dev builds do not** —
+use `npm run preview` for any PWA or offline validation.
 
-- The app shell and built assets are precached so the site can reopen offline after it has been loaded online at least once
-- Same-origin navigation requests use a `NetworkFirst` strategy with a `3` second timeout and fall back to cached `index.html`
-- Same-origin images use a `CacheFirst` runtime cache
-- Cross-origin images are not included in the runtime image cache rule
-- Update handling uses a prompt flow: when a new version is available, the app can show an in-app refresh banner
-- The settings panel also exposes a `Check for updates` action
-- Old caches are cleaned up during updates via `cleanupOutdatedCaches: true`
+The app shell and built assets are precached, so the site reopens offline once it has loaded
+online at least once. Updates use a prompt flow with an in-app refresh banner, and
+`Data & Settings` exposes a `Check for updates` action.
 
-See [`docs/operations/pwa-notes.md`](docs/operations/pwa-notes.md) for offline test steps and cache reset guidance.
+Strategies, cache rules, offline test steps, and cache reset guidance are in
+[`docs/operations/pwa-notes.md`](docs/operations/pwa-notes.md).
 
 ## 14. Documentation index
 
-Core maintainer docs:
+See [`docs/README.md`](docs/README.md) — the full index, with each doc marked canonical,
+historical, or planning-only.
 
-- [`docs/architecture.md`](docs/architecture.md) - module boundaries, startup order, dependency direction, and page wiring
-- [`docs/operations/storage-and-backups.md`](docs/operations/storage-and-backups.md) - current localStorage/IndexedDB responsibilities, save lifecycle, backup/import flow, and reset behavior
-- [`docs/state-schema.md`](docs/state-schema.md) - persisted state shape, schema history, migration rules, and restore compatibility notes
-- [`docs/operations/testing-guide.md`](docs/operations/testing-guide.md) - current automated test commands plus the manual release/regression checklist
-- [`docs/operations/release-process.md`](docs/operations/release-process.md) - tagging, verification, deploy, and web release checklist
-- [`docs/operations/ios-packaging.md`](docs/operations/ios-packaging.md) - native iOS / App Store packaging via Capacitor
-- [`docs/operations/security-privacy.md`](docs/operations/security-privacy.md) - local-data, CSP, import/export, and privacy expectations
-- [`docs/features/character-portability.md`](docs/features/character-portability.md) - single-character export/import format and import-ordering rationale
-- [`docs/operations/troubleshooting.md`](docs/operations/troubleshooting.md) - common recovery steps for save, import, offline, and build issues
-- [`docs/operations/browser-smoke-status.md`](docs/operations/browser-smoke-status.md) - current Playwright smoke scope and the manual gaps it does not replace
-- [`docs/operations/pwa-notes.md`](docs/operations/pwa-notes.md) - offline cache behavior, update prompts, and cache reset steps
-- [`docs/operations/pre-ship-smoke-test.md`](docs/operations/pre-ship-smoke-test.md) - 5-minute pre-ship persistence checklist for NPC/map data, undo/redo behavior, and backup round-trip
-- [`docs/operations/vite-smoke-test.md`](docs/operations/vite-smoke-test.md) - post-Vite-change validation checklist for dev server, boot ordering, static assets, and offline app shell
-
-Supplemental checklists and support docs:
-
-- [`docs/operations/csp-audit.md`](docs/operations/csp-audit.md) - dev-mode CSP verification checklist
-- [`AGENTS.md`](AGENTS.md) - repository editing rules for AI-assisted changes
-- [`.github/workflows/pages.yml`](.github/workflows/pages.yml) - production Pages build/deploy workflow
-
-Historical records (provenance only — these do **not** describe the current system):
-
-- [`docs/archive/`](docs/archive/) - superseded plans, completed phase trackers, and point-in-time audits. See [`docs/archive/README.md`](docs/archive/README.md).
-
-For the full docs index, including which docs are canonical and which are historical, see [`docs/README.md`](docs/README.md).
+Start points: [`AGENTS.md`](AGENTS.md) for the agent rules and task-specific doc map,
+[`docs/architecture.md`](docs/architecture.md) for module boundaries,
+[`docs/operations/testing-guide.md`](docs/operations/testing-guide.md) for testing, and
+[`docs/operations/release-process.md`](docs/operations/release-process.md) for shipping.
 
 ## 15. Current status / known limitations
 
