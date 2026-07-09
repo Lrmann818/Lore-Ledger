@@ -7,6 +7,7 @@ import backgrounds from "../../../game-data/srd/backgrounds.json";
 import classes from "../../../game-data/srd/classes.json";
 import draconicAncestries from "../../../game-data/srd/draconic-ancestries.json";
 import armor from "../../../game-data/srd/equipment.armor.json";
+import packs from "../../../game-data/srd/equipment.packs.json";
 import weapons from "../../../game-data/srd/equipment.weapons.json";
 import feats from "../../../game-data/srd/feats.json";
 import features from "../../../game-data/srd/features.json";
@@ -19,7 +20,7 @@ import traits from "../../../game-data/srd/traits.json";
 
 /**
  * @typedef {"race" | "subrace" | "class" | "subclass" | "background" | "feat"
- *   | "trait" | "ancestry" | "armor" | "weapon" | "spell" | "language"
+ *   | "trait" | "ancestry" | "armor" | "weapon" | "pack" | "spell" | "language"
  *   | "skill" | "feature"} BuiltinContentKind
  * @typedef {{
  *   id: string,
@@ -36,7 +37,7 @@ const RULESET = "srd-5.1";
 /** @type {ReadonlySet<string>} */
 export const CONTENT_KINDS = new Set([
   "race", "subrace", "class", "subclass", "background", "feat", "trait",
-  "ancestry", "armor", "weapon", "spell", "language", "skill", "feature"
+  "ancestry", "armor", "weapon", "pack", "spell", "language", "skill", "feature"
 ]);
 
 /**
@@ -98,6 +99,7 @@ export const BUILTIN_CONTENT = Object.freeze([
   ...toContentEntries(draconicAncestries),
   ...toContentEntries(armor),
   ...toContentEntries(weapons),
+  ...toContentEntries(packs),
   ...toContentEntries(spells),
   ...toContentEntries(languages),
   ...toContentEntries(skills),

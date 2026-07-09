@@ -19,6 +19,7 @@ import { buildBackgroundsData } from "./adapters/backgroundsAdapter.js";
 import { buildClassesData } from "./adapters/classesAdapter.js";
 import { buildDraconicAncestriesData } from "./adapters/draconicAncestriesAdapter.js";
 import { buildArmorData, buildWeaponsData } from "./adapters/equipmentAdapter.js";
+import { buildPacksData } from "./adapters/equipmentPacksAdapter.js";
 import { buildFeatsData } from "./adapters/featsAdapter.js";
 import { buildFeaturesData } from "./adapters/featuresAdapter.js";
 import { buildLanguagesData } from "./adapters/languagesAdapter.js";
@@ -70,6 +71,10 @@ const ADAPTERS = {
   weapons: {
     fn: buildWeaponsData,
     file: "equipment.weapons.json",
+  },
+  packs: {
+    fn: buildPacksData,
+    file: "equipment.packs.json",
   },
   spells: {
     fn: buildSpellsData,

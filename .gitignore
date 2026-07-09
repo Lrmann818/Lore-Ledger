@@ -32,6 +32,7 @@ temp/
 # Private personal notes
 docs/#personal/
 docs/\#personal/
+docs/reference/fifth-edition-character-sheet/
 
 # Markdownlint config file
 .markdownlint.json

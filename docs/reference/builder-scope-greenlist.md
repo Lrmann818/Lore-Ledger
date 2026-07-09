@@ -225,6 +225,21 @@ Project rule:
 - if an armor entry is in the approved SRD scope and Lore Ledger can legally use it, it should be treated as greenlit builtin content
 - armor must be represented in structured records so AC logic derives from registry data, not scattered UI assumptions
 
+### 8. Equipment Packs (added 2026-07-09)
+
+**Greenlit as builtin category:** Yes
+
+Builtin equipment packs may be shipped if they are approved SRD packs and are modeled in `game-data/srd/equipment.packs.json` (7 packs, generated from the 5e SRD API).
+
+Project rule:
+
+- equipment packs are part of the required shipped scope because class and background starting equipment reference them by id (`explorers-pack`, `dungeoneers-pack`, …)
+- a pack is a **container**: its record carries the pack's `contents` inline as `{ itemId, name, quantity }` rows so builder Finish can seed a dedicated inventory pocket listing what the pack actually holds
+- the individual adventuring-gear items inside a pack (bedroll, torch, rations, …) are captured inline on the pack record and are **not** shipped as standalone registry entries
+- packs must be represented as structured records; do not hardcode pack contents in seeding or UI code
+
+Deliberately still out of builtin scope: standalone adventuring gear, tools, and trade goods as their own registry kind. Only the pack containers referenced by starting equipment are shipped.
+
 ---
 
 ## Spell Scope (expanded 2026-07-06)
@@ -360,6 +375,7 @@ Lore Ledger's current builder greenlist is conservative where it needs to be, bu
 - feats
 - armor
 - weapons
+- equipment packs (with inline contents)
 - the full SRD 5.1 spell registry
 - languages, skills, features (supporting registries)
 - spellcasting progression metadata
@@ -369,6 +385,7 @@ Lore Ledger's current builder greenlist is conservative where it needs to be, bu
 
 - magic items
 - monsters
+- standalone adventuring gear, tools, and trade goods
 - non-SRD content
 
 Final rule:

@@ -72,6 +72,7 @@ The planned builtin registry files are:
 - `game-data/srd/skills.json`
 - `game-data/srd/equipment.armor.json`
 - `game-data/srd/equipment.weapons.json`
+- `game-data/srd/equipment.packs.json`
 - `game-data/srd/spells.json` _(optional/later, only if needed for granted builtin spell support or future expansion)_
 
 These files hold **shipped builtin content only**.
@@ -554,6 +555,38 @@ Notes:
 
 - keep properties normalized as stable string IDs
 - represent range explicitly instead of embedding it only in display text
+
+### Equipment Packs (added 2026-07-09)
+
+Stored in:
+
+- `game-data/srd/equipment.packs.json`
+
+Recommended shape:
+
+```json
+{
+  "id": "explorers-pack",
+  "kind": "pack",
+  "name": "Explorer's Pack",
+  "source": "srd-5.1",
+  "cost": {
+    "quantity": 10,
+    "unit": "gp"
+  },
+  "contents": [
+    { "itemId": "backpack", "name": "Backpack", "quantity": 1 },
+    { "itemId": "torch", "name": "Torch", "quantity": 10 }
+  ]
+}
+```
+
+Notes:
+
+- a pack is a **container**, referenced by id from class/background `startingEquipment` and `startingEquipmentOptions`
+- `contents` is stored **inline** on the pack record as `{ itemId, name, quantity }` rows; the individual adventuring-gear items are deliberately not shipped as standalone registry entries, so `itemId` here is a stable identifier rather than a cross-file reference
+- packs never nest other packs — the referential integrity test enforces this, because builder Finish expands a pack into one inventory pocket and must not recurse
+- builder Finish seeds loose starting gear into the character's general inventory pocket and gives each pack its own pocket listing `contents`; do not hardcode pack contents in seeding or UI code
 
 ### Draconic Ancestries
 
@@ -1111,6 +1144,7 @@ Current planned builtin registry files:
 - `spells.json` _(optional/later if needed for granted builtin spell support or broader spell workflows)_
 - `equipment.armor.json`
 - `equipment.weapons.json`
+- `equipment.packs.json`
 
 Final rule:
 

@@ -4,6 +4,7 @@ import backgrounds from "../../game-data/srd/backgrounds.json";
 import classes from "../../game-data/srd/classes.json";
 import draconicAncestries from "../../game-data/srd/draconic-ancestries.json";
 import armor from "../../game-data/srd/equipment.armor.json";
+import packs from "../../game-data/srd/equipment.packs.json";
 import weapons from "../../game-data/srd/equipment.weapons.json";
 import feats from "../../game-data/srd/feats.json";
 import features from "../../game-data/srd/features.json";
@@ -27,6 +28,7 @@ const DATASETS = [
   ["draconic-ancestries", draconicAncestries, 10],
   ["armor", armor, 13],
   ["weapons", weapons, 37],
+  ["packs", packs, 7],
   ["spells", spells, 319],
   ["languages", languages, 16],
   ["skills", skills, 18],
@@ -148,6 +150,31 @@ describe("bundled SRD 5.1 datasets", () => {
     const weaponIds = new Set(weapons.map((record) => record.id));
     expect(weaponIds.has("longsword")).toBe(true);
     expect(weaponIds.has("vicious-weapon")).toBe(false);
+  });
+
+  it("keeps equipment packs structured with resolvable contents", () => {
+    for (const record of packs) {
+      expect(record.kind, `${record.id} kind`).toBe("pack");
+      expect(Array.isArray(record.contents), `${record.id} contents`).toBe(true);
+      expect(record.contents.length, `${record.id} contents`).toBeGreaterThan(0);
+      for (const item of record.contents) {
+        expect(ID_PATTERN.test(item.itemId), `${record.id}:${item.itemId} charset`).toBe(true);
+        expect(item.name, `${record.id}:${item.itemId} name`).toBeTruthy();
+        expect(Number.isInteger(item.quantity), `${record.id}:${item.itemId} quantity`).toBe(true);
+        expect(item.quantity, `${record.id}:${item.itemId} quantity`).toBeGreaterThan(0);
+      }
+    }
+    const packIds = new Set(packs.map((record) => record.id));
+    // Every pack referenced by class starting equipment must resolve.
+    expect(packIds.has("explorers-pack")).toBe(true);
+    expect(packIds.has("dungeoneers-pack")).toBe(true);
+    // Explorer's Pack carries its SRD contents, not a self-reference.
+    const explorers = packs.find((record) => record.id === "explorers-pack");
+    const itemIds = explorers.contents.map((item) => item.itemId);
+    expect(itemIds).toContain("bedroll");
+    expect(itemIds).toContain("waterskin");
+    expect(itemIds).not.toContain("explorers-pack");
+    expect(explorers.contents.find((item) => item.itemId === "torch").quantity).toBe(10);
   });
 
   it("resolves race subraces, traits, and language lists", () => {

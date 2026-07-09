@@ -172,7 +172,9 @@ describe("builder finish seeding — full-sheet integration and edit preservatio
     expect(spellNames).toContain("Bless");
     expect(spellNames).toContain("Cure Wounds");
 
-    const gear = patch.inventoryItems.find((item) => item.title === "Starting Gear");
+    // Loose gear lands in the general Inventory pocket (this cleric picked no pack).
+    const gear = patch.inventoryItems.find((item) => item.builderSeed === "starting-gear");
+    expect(gear.title).toBe("Inventory");
     expect(gear.notes).toContain("Chain Mail");
     expect(gear.notes).toContain("Shield");
     expect(gear.notes).toContain("Mace");
@@ -245,9 +247,10 @@ describe("builder finish seeding — full-sheet integration and edit preservatio
   });
 });
 
-describe("builder finish seeding — inventory pocket naming", () => {
+describe("builder finish seeding — inventory pockets", () => {
+  // Barbarian ships an Explorer's Pack plus loose javelins as fixed starting
+  // equipment; Acolyte adds common clothes and a pouch.
   function makeBarbarianBuilder() {
-    // Barbarian ships an Explorer's Pack as fixed starting equipment.
     const character = makeDefaultBuilderCharacterEntry("Grog");
     character.build.raceId = "human";
     character.build.backgroundId = "acolyte";
@@ -262,17 +265,63 @@ describe("builder finish seeding — inventory pocket naming", () => {
     return character;
   }
 
-  it("names the starting-gear pocket after the pack when one is known", () => {
+  const findPocket = (patch, marker) => patch.inventoryItems.find((item) => item.builderSeed === marker);
+
+  it("seeds loose starting gear into the general Inventory pocket", () => {
     const patch = getBuilderFinishSheetSeedPatch(makeBarbarianBuilder());
-    const pocket = patch.inventoryItems.find((item) => item.builderSeed === "starting-gear");
-    expect(pocket).toBeTruthy();
-    expect(pocket.title).toBe("Explorer's Pack");
-    expect(pocket.notes).toContain("Explorer's Pack");
+    const inventory = findPocket(patch, "starting-gear");
+
+    expect(inventory.title).toBe("Inventory");
+    const lines = inventory.notes.split("\n");
+    expect(lines).toContain("Javelin ×4");
+    expect(lines).toContain("Greataxe");
+    expect(lines).toContain("Clothes, common");
+    expect(lines).toContain("Pouch");
+    // The pack is a container, not a loose inventory line.
+    expect(inventory.notes).not.toContain("Explorer's Pack");
   });
 
-  it("falls back to a generic pocket name when no pack is present", () => {
+  it("gives each equipment pack its own pocket listing its SRD contents", () => {
+    const patch = getBuilderFinishSheetSeedPatch(makeBarbarianBuilder());
+    const pack = findPocket(patch, "pack:explorers-pack");
+
+    expect(pack.title).toBe("Explorer's Pack");
+    expect(pack.notes.split("\n")).toEqual([
+      "Backpack",
+      "Bedroll",
+      "Mess Kit",
+      "Tinderbox",
+      "Torch ×10",
+      "Rations (1 day) ×10",
+      "Waterskin",
+      "Rope, hempen (50 feet)"
+    ]);
+  });
+
+  it("expands a pack chosen from a starting-equipment option", () => {
     const character = makeBarbarianBuilder();
-    // A wizard-less build with only armor/weapon and no pack source.
+    character.build.levels = [{ classId: "fighter", hp: null }];
+    character.build.equipment = {
+      armorId: null,
+      shield: false,
+      weaponIds: [],
+      // Option choices persist only the option label, not an itemId.
+      startingChoices: { "class:fighter:1": { optionIndex: "1", label: "Dungeoneer's Pack" } },
+      notes: ""
+    };
+
+    const patch = getBuilderFinishSheetSeedPatch(character);
+    const pack = findPocket(patch, "pack:dungeoneers-pack");
+
+    expect(pack.title).toBe("Dungeoneer's Pack");
+    expect(pack.notes).toContain("Crowbar");
+    expect(pack.notes).toContain("Piton ×10");
+    // The chosen pack label is not also dumped into loose inventory.
+    expect(findPocket(patch, "starting-gear")?.notes ?? "").not.toContain("Dungeoneer's Pack");
+  });
+
+  it("creates no pack pocket when the build includes no pack", () => {
+    const character = makeBarbarianBuilder();
     character.build.levels = [{ classId: "fighter", hp: null }];
     character.build.equipment = {
       armorId: "chain-mail",
@@ -281,60 +330,76 @@ describe("builder finish seeding — inventory pocket naming", () => {
       startingChoices: {},
       notes: ""
     };
+
     const patch = getBuilderFinishSheetSeedPatch(character);
-    const pocket = patch.inventoryItems.find((item) => item.builderSeed === "starting-gear");
-    expect(pocket.title).toBe("Starting Gear");
+    expect(patch.inventoryItems.some((item) => String(item.builderSeed || "").startsWith("pack:"))).toBe(false);
+    const inventory = findPocket(patch, "starting-gear");
+    expect(inventory.title).toBe("Inventory");
+    expect(inventory.notes).toContain("Chain Mail");
+    expect(inventory.notes).toContain("Longsword");
   });
 
-  it("names a pocket after a pack chosen from a starting-equipment option", () => {
-    const character = makeBarbarianBuilder();
-    character.build.levels = [{ classId: "fighter", hp: null }];
-    character.build.equipment = {
-      armorId: null,
-      shield: false,
-      weaponIds: [],
-      startingChoices: { "class:fighter:1": { optionIndex: "1", label: "Dungeoneer's Pack" } },
-      notes: ""
-    };
-    const patch = getBuilderFinishSheetSeedPatch(character);
-    const pocket = patch.inventoryItems.find((item) => item.builderSeed === "starting-gear");
-    expect(pocket.title).toBe("Dungeoneer's Pack");
-  });
-
-  it("preserves a user-renamed pocket and appends to it on re-seed without duplicating", () => {
+  it("re-seeds into renamed pockets without duplicating or renaming them", () => {
     const character = makeBarbarianBuilder();
     const first = getBuilderFinishSheetSeedPatch(character);
-    character.inventoryItems = first.inventoryItems;
 
-    // User renames the seeded pocket and clears its notes.
-    const pocketIndex = character.inventoryItems.findIndex((item) => item.builderSeed === "starting-gear");
-    character.inventoryItems[pocketIndex] = {
-      ...character.inventoryItems[pocketIndex],
-      title: "My Backpack",
-      notes: ""
-    };
+    // User renames both seeded pockets and clears their notes.
+    character.inventoryItems = first.inventoryItems.map((item) => {
+      if (item.builderSeed === "starting-gear") return { ...item, title: "Backpack Contents", notes: "" };
+      if (item.builderSeed === "pack:explorers-pack") return { ...item, title: "My Kit", notes: "" };
+      return item;
+    });
 
     const second = getBuilderFinishSheetSeedPatch(character);
-    expect(second.inventoryItems).toBeDefined();
-    const seededPockets = second.inventoryItems.filter((item) => item.builderSeed === "starting-gear");
-    // Found again by marker — appended to the renamed pocket, not duplicated.
-    expect(seededPockets).toHaveLength(1);
-    expect(seededPockets[0].title).toBe("My Backpack");
-    expect(seededPockets[0].notes).toContain("Explorer's Pack");
     expect(second.inventoryItems).toHaveLength(character.inventoryItems.length);
+
+    const loose = findPocket(second, "starting-gear");
+    const pack = findPocket(second, "pack:explorers-pack");
+    // Found again by marker: titles preserved, contents re-appended, no duplicates.
+    expect(loose.title).toBe("Backpack Contents");
+    expect(loose.notes).toContain("Greataxe");
+    expect(pack.title).toBe("My Kit");
+    expect(pack.notes).toContain("Bedroll");
+    expect(second.inventoryItems.filter((item) => item.builderSeed === "pack:explorers-pack")).toHaveLength(1);
   });
 
-  it("does not rename existing user-created pockets", () => {
+  it("is idempotent on an unchanged re-seed", () => {
     const character = makeBarbarianBuilder();
-    character.inventoryItems = [
-      { id: "inv_user", title: "My Loot", notes: "trinket" }
-    ];
+    character.inventoryItems = getBuilderFinishSheetSeedPatch(character).inventoryItems;
+
+    // Nothing missing → no inventory patch at all.
+    expect(getBuilderFinishSheetSeedPatch(character).inventoryItems).toBeUndefined();
+  });
+
+  it("does not touch or rename user-created pockets", () => {
+    const character = makeBarbarianBuilder();
+    character.inventoryItems = [{ id: "inv_user", title: "My Loot", notes: "trinket" }];
+
     const patch = getBuilderFinishSheetSeedPatch(character);
     const userPocket = patch.inventoryItems.find((item) => item.id === "inv_user");
+
     expect(userPocket.title).toBe("My Loot");
     expect(userPocket.notes).toBe("trinket");
     expect(userPocket.builderSeed).toBeUndefined();
-    // A separate seeded pocket is created instead.
-    expect(patch.inventoryItems.some((item) => item.builderSeed === "starting-gear")).toBe(true);
+    // Seeded pockets are created alongside it.
+    expect(findPocket(patch, "starting-gear").title).toBe("Inventory");
+    expect(findPocket(patch, "pack:explorers-pack").title).toBe("Explorer's Pack");
+  });
+
+  it("adopts a legacy 'Starting Gear' pocket as the loose-gear pocket", () => {
+    const character = makeBarbarianBuilder();
+    character.inventoryItems = [
+      { id: "inv_main", title: "Inventory", notes: "50 ft rope" },
+      { id: "inv_gear", title: "Starting Gear", notes: "Greataxe" }
+    ];
+
+    const patch = getBuilderFinishSheetSeedPatch(character);
+    const loose = findPocket(patch, "starting-gear");
+
+    expect(loose.id).toBe("inv_gear");
+    expect(loose.title).toBe("Starting Gear");
+    expect(loose.notes.match(/Greataxe/g)).toHaveLength(1);
+    // The user's own general pocket is left alone.
+    expect(patch.inventoryItems.find((item) => item.id === "inv_main").notes).toBe("50 ft rope");
   });
 });

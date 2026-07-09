@@ -10,7 +10,7 @@
 
 import { isBuilderCharacter } from "./characterHelpers.js";
 import { deriveCharacter } from "./rules/deriveCharacter.js";
-import { getActiveContentRegistry, getContentByKind } from "./rules/registry.js";
+import { getActiveContentRegistry, getContentByKind, listContentByKind } from "./rules/registry.js";
 import { normalizeBuildLevels } from "./rules/progression.js";
 
 /** @typedef {import("./rules/registry.js").ContentRegistry} ContentRegistry */
@@ -20,9 +20,12 @@ const SPELL_LEVEL_LABELS = Object.freeze([
   "5th Level", "6th Level", "7th Level", "8th Level", "9th Level"
 ]);
 
-// Stable marker stamped on the inventory pocket seeded from starting equipment
-// so re-seeds and edits find it again even after the user renames the pocket.
+// Stable markers stamped on seeded inventory pockets so re-seeds and edits find
+// them again even after the user renames the pocket. Loose starting gear lands
+// in the character's general inventory pocket; each equipment pack gets its own
+// pocket holding that pack's SRD contents.
 const STARTING_GEAR_SEED_MARKER = "starting-gear";
+const PACK_SEED_MARKER_PREFIX = "pack:";
 
 /**
  * @param {unknown} value
@@ -552,89 +555,75 @@ function getSeededSpells(source, derived, registry) {
 }
 
 /**
- * Starting gear lines for the inventory "Starting Gear" tab.
- * @param {Record<string, unknown>} source
+ * @param {unknown} name
+ * @param {unknown} quantity
+ * @returns {string}
+ */
+function itemLine(name, quantity) {
+  const clean = cleanString(name);
+  if (!clean) return "";
+  return Number(quantity) > 1 ? `${clean} ×${quantity}` : clean;
+}
+
+/**
+ * Resolves an equipment pack from the registry by id, falling back to an exact
+ * name match (starting-equipment choices persist only the option label).
  * @param {ContentRegistry} registry
+ * @param {unknown} itemId
+ * @param {unknown} name
+ * @returns {import("./rules/builtinContent.js").BuiltinContentEntry | null}
+ */
+function resolvePackEntry(registry, itemId, name) {
+  const id = cleanString(itemId);
+  if (id) {
+    const byId = getContentByKind(registry, "pack", id);
+    if (byId) return byId;
+  }
+  const label = cleanString(name).toLowerCase();
+  if (!label) return null;
+  return listContentByKind(registry, "pack").find((entry) => entry.name.toLowerCase() === label) || null;
+}
+
+/**
+ * @param {import("./rules/builtinContent.js").BuiltinContentEntry} packEntry
  * @returns {string[]}
  */
-function getStartingGearLines(source, registry) {
-  const build = isPlainObject(source.build) ? source.build : {};
-  const equipment = isPlainObject(build.equipment) ? build.equipment : {};
+function getPackContentLines(packEntry) {
+  const contents = Array.isArray(packEntry.data?.contents) ? packEntry.data.contents : [];
   /** @type {string[]} */
   const lines = [];
-
-  const levels = normalizeBuildLevels(build);
-  const firstClassId = levels.length ? levels[0].classId : "";
-  const sources = [
-    firstClassId ? getContentByKind(registry, "class", firstClassId) : null,
-    getContentByKind(registry, "background", cleanString(build.backgroundId))
-  ];
-  for (const parent of sources) {
-    if (!parent) continue;
-    const fixed = Array.isArray(parent.data?.startingEquipment) ? parent.data.startingEquipment : [];
-    for (const item of fixed) {
-      if (!isPlainObject(item)) continue;
-      const name = cleanString(item.name) || cleanString(item.itemId);
-      if (!name) continue;
-      const quantity = Number(item.quantity) > 1 ? ` ×${item.quantity}` : "";
-      lines.push(`${name}${quantity}`);
-    }
-  }
-
-  const startingChoices = isPlainObject(equipment.startingChoices) ? equipment.startingChoices : {};
-  for (const choice of Object.values(startingChoices)) {
-    if (!isPlainObject(choice)) continue;
-    const label = cleanString(choice.label);
-    if (label) lines.push(label);
-  }
-
-  const armorEntry = getContentByKind(registry, "armor", cleanString(equipment.armorId));
-  if (armorEntry) lines.push(armorEntry.name);
-  if (equipment.shield === true) lines.push("Shield");
-  for (const weaponId of Array.isArray(equipment.weaponIds) ? equipment.weaponIds : []) {
-    const weapon = getContentByKind(registry, "weapon", cleanString(weaponId));
-    if (weapon) lines.push(weapon.name);
-  }
-  for (const note of cleanString(equipment.notes).split(/\r?\n/)) {
-    if (note.trim()) lines.push(note.trim());
+  for (const item of contents) {
+    if (!isPlainObject(item)) continue;
+    const line = itemLine(cleanString(item.name) || cleanString(item.itemId), item.quantity);
+    if (line) lines.push(line);
   }
   return lines;
 }
 
 /**
- * @param {unknown} value
- * @returns {boolean}
- */
-function isPackName(value) {
-  return typeof value === "string" && value.trim().toLowerCase().endsWith(" pack");
-}
-
-/**
- * @param {unknown} value
- * @returns {boolean}
- */
-function isPackItemId(value) {
-  return typeof value === "string" && /-pack$/.test(value.trim().toLowerCase());
-}
-
-/**
- * Distinct equipment-pack names (e.g. "Explorer's Pack") seeded from the first
- * class and background — fixed starting equipment and chosen options both.
+ * Splits the build's starting equipment into loose gear (weapons, armor, gear
+ * items, notes) and the equipment packs that carry their own SRD contents.
+ * Loose gear seeds into the general inventory pocket; each pack becomes its own
+ * pocket. A pack we cannot resolve in the registry degrades to a loose line.
+ *
  * @param {Record<string, unknown>} source
  * @param {ContentRegistry} registry
- * @returns {string[]}
+ * @returns {{ looseLines: string[], packs: Array<{ id: string, name: string, lines: string[] }> }}
  */
-function getStartingGearPackNames(source, registry) {
+function getStartingEquipment(source, registry) {
   const build = isPlainObject(source.build) ? source.build : {};
   const equipment = isPlainObject(build.equipment) ? build.equipment : {};
   /** @type {string[]} */
+  const looseLines = [];
+  /** @type {Array<{ id: string, name: string, lines: string[] }>} */
   const packs = [];
-  const seen = new Set();
-  const addPack = (name) => {
-    const clean = cleanString(name);
-    if (!clean || seen.has(clean.toLowerCase())) return;
-    seen.add(clean.toLowerCase());
-    packs.push(clean);
+  const seenPackIds = new Set();
+
+  /** @param {import("./rules/builtinContent.js").BuiltinContentEntry} packEntry */
+  const addPack = (packEntry) => {
+    if (seenPackIds.has(packEntry.id)) return;
+    seenPackIds.add(packEntry.id);
+    packs.push({ id: packEntry.id, name: packEntry.name, lines: getPackContentLines(packEntry) });
   };
 
   const levels = normalizeBuildLevels(build);
@@ -648,29 +637,60 @@ function getStartingGearPackNames(source, registry) {
     const fixed = Array.isArray(parent.data?.startingEquipment) ? parent.data.startingEquipment : [];
     for (const item of fixed) {
       if (!isPlainObject(item)) continue;
-      if (isPackItemId(item.itemId) || isPackName(item.name)) addPack(cleanString(item.name) || cleanString(item.itemId));
+      const packEntry = resolvePackEntry(registry, item.itemId, item.name);
+      if (packEntry) {
+        addPack(packEntry);
+        continue;
+      }
+      const line = itemLine(cleanString(item.name) || cleanString(item.itemId), item.quantity);
+      if (line) looseLines.push(line);
     }
   }
 
   const startingChoices = isPlainObject(equipment.startingChoices) ? equipment.startingChoices : {};
   for (const choice of Object.values(startingChoices)) {
     if (!isPlainObject(choice)) continue;
-    if (isPackItemId(choice.itemId) || isPackName(choice.label)) addPack(cleanString(choice.label));
+    const label = cleanString(choice.label);
+    const packEntry = resolvePackEntry(registry, choice.itemId, label);
+    if (packEntry) {
+      addPack(packEntry);
+      continue;
+    }
+    if (label) looseLines.push(label);
   }
 
-  return packs;
+  const armorEntry = getContentByKind(registry, "armor", cleanString(equipment.armorId));
+  if (armorEntry) looseLines.push(armorEntry.name);
+  if (equipment.shield === true) looseLines.push("Shield");
+  for (const weaponId of Array.isArray(equipment.weaponIds) ? equipment.weaponIds : []) {
+    const weapon = getContentByKind(registry, "weapon", cleanString(weaponId));
+    if (weapon) looseLines.push(weapon.name);
+  }
+  for (const note of cleanString(equipment.notes).split(/\r?\n/)) {
+    if (note.trim()) looseLines.push(note.trim());
+  }
+  return { looseLines, packs };
 }
 
 /**
- * Pocket title for seeded starting gear: the pack name when a single pack is
- * present, packs joined when several, else the generic fallback.
- * @param {string[]} packNames
- * @returns {string}
+ * Locates the pocket that owns loose starting gear: the marker first (survives
+ * a user rename), then a legacy seeded "Starting Gear" pocket, then the
+ * character's default general "Inventory" pocket. Pockets carrying a different
+ * seed marker (i.e. pack pockets) and user-created pockets are never matched.
+ * @param {unknown[]} items
+ * @returns {number}
  */
-function getStartingGearPocketTitle(packNames) {
-  if (packNames.length === 1) return packNames[0];
-  if (packNames.length > 1) return packNames.join(" & ");
-  return "Starting Gear";
+function findLooseGearPocketIndex(items) {
+  const marked = items.findIndex((item) =>
+    isPlainObject(item) && cleanString(item.builderSeed) === STARTING_GEAR_SEED_MARKER);
+  if (marked >= 0) return marked;
+  const legacy = items.findIndex((item) =>
+    isPlainObject(item) && !cleanString(item.builderSeed)
+    && cleanString(item.title).toLowerCase() === "starting gear");
+  if (legacy >= 0) return legacy;
+  return items.findIndex((item) =>
+    isPlainObject(item) && !cleanString(item.builderSeed)
+    && cleanString(item.title).toLowerCase() === "inventory");
 }
 
 /**
@@ -768,38 +788,48 @@ export function getBuilderFinishSheetSeedPatch(character, registry = getActiveCo
   const seededSpells = getSeededSpells(source, derived, registry);
   if (seededSpells) patch.spells = /** @type {import("../state.js").CharacterEntry["spells"]} */ (seededSpells);
 
-  // Starting gear → dedicated inventory pocket, named after the source pack(s)
-  // when known (e.g. "Explorer's Pack"), else the generic "Starting Gear".
-  const gearLines = getStartingGearLines(source, registry);
-  if (gearLines.length) {
+  // Starting equipment → inventory pockets. Loose gear joins the general
+  // inventory pocket; each equipment pack becomes its own pocket listing that
+  // pack's SRD contents. Seeding is additive and pocket titles are never
+  // auto-renamed, so user edits survive re-seeding in edit mode.
+  const { looseLines, packs } = getStartingEquipment(source, registry);
+  if (looseLines.length || packs.length) {
     const existingItems = Array.isArray(source.inventoryItems) ? source.inventoryItems : [];
-    const pocketTitle = getStartingGearPocketTitle(getStartingGearPackNames(source, registry));
-    // Locate the previously seeded pocket by its stable marker first (survives
-    // user renames), then fall back to the legacy "Starting Gear" title for
-    // pockets seeded before the marker existed. User-created pockets are never
-    // matched, so they are never touched or renamed.
-    let gearIndex = existingItems.findIndex((item) =>
-      isPlainObject(item) && cleanString(item.builderSeed) === STARTING_GEAR_SEED_MARKER);
-    if (gearIndex < 0) {
-      gearIndex = existingItems.findIndex((item) =>
-        isPlainObject(item) && !cleanString(item.builderSeed)
-        && cleanString(item.title).toLowerCase() === "starting gear");
-    }
-    const existingItem = gearIndex >= 0 && isPlainObject(existingItems[gearIndex])
-      ? /** @type {Record<string, unknown>} */ (existingItems[gearIndex])
-      : null;
-    const existingNotes = existingItem ? existingText(existingItem.notes) : "";
-    const nextNotes = appendMissingLines(existingNotes, gearLines);
-    const needsMarker = !!existingItem && cleanString(existingItem.builderSeed) !== STARTING_GEAR_SEED_MARKER;
-    if (nextNotes !== existingNotes || needsMarker) {
-      const nextItems = existingItems.slice();
-      if (existingItem) {
-        // Keep the user's pocket title (never auto-rename); append missing gear
-        // and stamp the marker so future re-seeds find it after a rename.
-        nextItems[gearIndex] = { ...existingItem, notes: nextNotes, builderSeed: STARTING_GEAR_SEED_MARKER };
+    const nextItems = existingItems.slice();
+    let inventoryChanged = false;
+
+    /**
+     * @param {number} index
+     * @param {string[]} lines
+     * @param {string} marker
+     * @param {string} newPocketTitle
+     */
+    const seedPocket = (index, lines, marker, newPocketTitle) => {
+      if (!lines.length) return;
+      if (index >= 0) {
+        const existingItem = /** @type {Record<string, unknown>} */ (nextItems[index]);
+        const existingNotes = existingText(existingItem.notes);
+        const nextNotes = appendMissingLines(existingNotes, lines);
+        const needsMarker = cleanString(existingItem.builderSeed) !== marker;
+        if (nextNotes === existingNotes && !needsMarker) return;
+        // Keep the user's pocket title; only append gear and stamp the marker.
+        nextItems[index] = { ...existingItem, notes: nextNotes, builderSeed: marker };
       } else {
-        nextItems.push({ id: newSeedId("inv"), title: pocketTitle, notes: nextNotes, builderSeed: STARTING_GEAR_SEED_MARKER });
+        nextItems.push({ id: newSeedId("inv"), title: newPocketTitle, notes: lines.join("\n"), builderSeed: marker });
       }
+      inventoryChanged = true;
+    };
+
+    seedPocket(findLooseGearPocketIndex(nextItems), looseLines, STARTING_GEAR_SEED_MARKER, "Inventory");
+
+    for (const pack of packs) {
+      const marker = `${PACK_SEED_MARKER_PREFIX}${pack.id}`;
+      const index = nextItems.findIndex((item) =>
+        isPlainObject(item) && cleanString(item.builderSeed) === marker);
+      seedPocket(index, pack.lines, marker, pack.name);
+    }
+
+    if (inventoryChanged) {
       patch.inventoryItems = /** @type {import("../state.js").CharacterEntry["inventoryItems"]} */ (nextItems);
     }
   }

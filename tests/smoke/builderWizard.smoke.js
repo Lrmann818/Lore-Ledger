@@ -225,13 +225,15 @@ test("inventory pockets stay isolated per character across switching", async ({ 
   const fatalSignals = await openSmokeApp(page, { campaignName: "Inventory Smoke" });
   await page.getByRole("tab", { name: "Character" }).click();
 
-  // Builder character — seeded with a "Starting Gear" pocket at Finish.
+  // Builder character — at Finish, loose starting gear merges into the general
+  // "Inventory" pocket and the Barbarian's fixed Explorer's Pack becomes its
+  // own pocket listing that pack's SRD contents.
   await page.locator("#charActionMenuBtn").click();
   await page.locator("#charActionNewBuilderBtn").click();
   await expect(page.locator("#builderWizardPanel")).toBeVisible();
   await page.locator("#builderWizardName").fill("Inv Builder");
   await page.locator("#builderWizardRace").selectOption("half-orc");
-  await page.locator("#builderWizardClass").selectOption("fighter");
+  await page.locator("#builderWizardClass").selectOption("barbarian");
   await page.locator("#builderWizardBackground").selectOption("acolyte");
   await page.locator("#builderWizardNext").click();
   await page.locator("#builderWizardNext").click();
@@ -246,7 +248,12 @@ test("inventory pockets stay isolated per character across switching", async ({ 
   await page.locator("#builderWizardFinish").click();
   await expect(page.locator("#builderWizardPanel")).toBeHidden();
   const builderId = await page.evaluate(() => String(globalThis.__APP_STATE__?.characters?.activeId || ""));
-  expect(await inventoryTabTitles(page)).toEqual(["Inventory", "Starting Gear"]);
+  expect(await inventoryTabTitles(page)).toEqual(["Inventory", "Explorer's Pack"]);
+  // Loose gear lands in Inventory; the pack pocket holds the pack's contents.
+  await expect(page.locator("#inventoryNotesBox")).toHaveValue(/Javelin ×4/);
+  await page.locator("#inventoryTabs .sessionTab", { hasText: "Explorer's Pack" }).click();
+  await expect(page.locator("#inventoryNotesBox")).toHaveValue(/Bedroll/);
+  await page.locator("#inventoryTabs .sessionTab", { hasText: "Inventory" }).first().click();
 
   // Freeform character with its own distinctive pocket.
   await page.locator("#charActionMenuBtn").click();
@@ -262,18 +269,18 @@ test("inventory pockets stay isolated per character across switching", async ({ 
   // add-pocket control still works and targets the builder character only.
   await selectCharacter(page, builderId);
   await expect(page.locator("#inventoryTabs .sessionTab")).toHaveCount(2);
-  expect(await inventoryTabTitles(page)).toEqual(["Inventory", "Starting Gear"]);
+  expect(await inventoryTabTitles(page)).toEqual(["Inventory", "Explorer's Pack"]);
   await page.locator("#addInventoryBtn").click();
   await fillPromptDialog(page, "Builder Pocket");
-  expect(await inventoryTabTitles(page)).toEqual(["Inventory", "Starting Gear", "Builder Pocket"]);
+  expect(await inventoryTabTitles(page)).toEqual(["Inventory", "Explorer's Pack", "Builder Pocket"]);
 
   // Switch back to the freeform character: its pockets are intact and never
-  // received the builder's "Builder Pocket" or "Starting Gear".
+  // received the builder's "Builder Pocket" or "Explorer's Pack".
   await selectCharacter(page, freeformId);
   await expect(page.locator("#inventoryTabs .sessionTab")).toHaveCount(2);
   const freeformTitles = await inventoryTabTitles(page);
   expect(freeformTitles).toEqual(["Inventory", "Freeform Pocket"]);
-  expect(freeformTitles).not.toContain("Starting Gear");
+  expect(freeformTitles).not.toContain("Explorer's Pack");
   expect(freeformTitles).not.toContain("Builder Pocket");
 
   // The freeform add-pocket control is still usable after repeated switching.

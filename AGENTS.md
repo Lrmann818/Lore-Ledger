@@ -534,6 +534,7 @@ The current intended shipped builtin builder scope includes:
 - feats
 - armor
 - weapons
+- equipment packs, with their contents stored inline (added 2026-07-09)
 - the full SRD 5.1 spell registry (expanded 2026-07-06)
 - languages, skills, and features (supporting registries)
 - spellcasting progression metadata
@@ -543,6 +544,7 @@ The current deferred categories include:
 
 - magic items
 - monster data
+- standalone adventuring gear, tools, and trade goods (pack contents ship inline on the pack record instead)
 
 Important spell rule:
 
@@ -614,6 +616,7 @@ backgroundsAdapter.js            — produces backgrounds.json
 draconicAncestriesAdapter.js     — produces draconic-ancestries.json
 traitsAdapter.js                 — produces traits.json, including derivedFrom on traits whose mechanics depend on a build-time choice (e.g. Breath Weapon, Damage Resistance)
 equipmentAdapter.js              — produces equipment.armor.json and equipment.weapons.json
+equipmentPacksAdapter.js         — produces equipment.packs.json (SRD packs with inline contents)
 spellsAdapter.js                 — produces spells.json (full SRD 5.1 spell registry)
 subclassesAdapter.js             — produces subclasses.json (incl. granted domain spells)
 featuresAdapter.js               — produces features.json (feature text + subfeature options)

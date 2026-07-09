@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
+import backgrounds from "../../game-data/srd/backgrounds.json";
+import classes from "../../game-data/srd/classes.json";
 import draconicAncestries from "../../game-data/srd/draconic-ancestries.json";
+import packs from "../../game-data/srd/equipment.packs.json";
 import races from "../../game-data/srd/races.json";
 import traits from "../../game-data/srd/traits.json";
 
@@ -11,6 +14,7 @@ const registryFiles = [
   ["races", races],
   ["draconic-ancestries", draconicAncestries],
   ["traits", traits],
+  ["equipment.packs", packs],
 ];
 
 const registryBySource = new Map([
@@ -156,5 +160,62 @@ describe("generated SRD registry integrity", () => {
         .filter((ancestry) => !ABILITY_IDS.has(ancestry.saveAbility))
         .map((ancestry) => `${ancestry.id}:${ancestry.saveAbility}`)
     ).toEqual([]);
+  });
+
+  it("resolves every pack referenced by class/background starting equipment", () => {
+    const packIds = new Set(packs.map((pack) => pack.id));
+
+    // Walks fixed startingEquipment and every nested startingEquipmentOptions
+    // shape (bare option, {items:[...]}, {itemOptions:[...]}).
+    const collectItemIds = (node, out = []) => {
+      if (Array.isArray(node)) {
+        for (const entry of node) collectItemIds(entry, out);
+        return out;
+      }
+      if (!node || typeof node !== "object") return out;
+      if (typeof node.itemId === "string") out.push(node.itemId);
+      collectItemIds(node.items, out);
+      collectItemIds(node.itemOptions, out);
+      collectItemIds(node.options, out);
+      return out;
+    };
+
+    const referenced = [];
+    for (const record of [...classes, ...backgrounds]) {
+      referenced.push(
+        ...collectItemIds(record.startingEquipment).map((itemId) => [record.id, itemId]),
+        ...collectItemIds(record.startingEquipmentOptions).map((itemId) => [record.id, itemId])
+      );
+    }
+
+    // Any "*-pack" itemId in starting equipment must exist in equipment.packs.json.
+    const dangling = referenced
+      .filter(([, itemId]) => itemId.endsWith("-pack") && !packIds.has(itemId))
+      .map(([parentId, itemId]) => `${parentId}:${itemId}`);
+    expect(dangling).toEqual([]);
+
+    // Sanity: the reference walk actually found packs to check.
+    const found = new Set(referenced.map(([, itemId]) => itemId).filter((id) => packIds.has(id)));
+    expect(found.size).toBeGreaterThan(0);
+  });
+
+  it("keeps pack contents structured and free of pack self-references", () => {
+    const packIds = new Set(packs.map((pack) => pack.id));
+    const problems = [];
+
+    for (const pack of packs) {
+      if (!Array.isArray(pack.contents) || pack.contents.length === 0) {
+        problems.push(`${pack.id}:empty-contents`);
+        continue;
+      }
+      for (const item of pack.contents) {
+        if (!ID_PATTERN.test(item.itemId ?? "")) problems.push(`${pack.id}:${item.itemId}:id`);
+        if (!Number.isInteger(item.quantity) || item.quantity < 1) problems.push(`${pack.id}:${item.itemId}:qty`);
+        // A pack never contains another pack (would recurse during seeding).
+        if (packIds.has(item.itemId)) problems.push(`${pack.id}:${item.itemId}:nested-pack`);
+      }
+    }
+
+    expect(problems).toEqual([]);
   });
 });
