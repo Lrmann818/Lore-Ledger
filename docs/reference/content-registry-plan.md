@@ -57,9 +57,9 @@ The registry should never be replaced by scattered hardcoded data in UI modules.
 
 ---
 
-## Current Planned Registry Files
+## Shipped Registry Files
 
-The planned builtin registry files are:
+The 14 builtin registry files, all loaded by `js/domain/rules/builtinContent.js`:
 
 - `game-data/srd/races.json`
 - `game-data/srd/classes.json`
@@ -1117,7 +1117,10 @@ When expanding registry files:
 
 ## Recommended First Implementation Strategy
 
-For Lore Ledger's current builder phase, the safest implementation approach is:
+> **Historical.** This described the vertical-slice-first rollout. That slice is complete and
+> the registry is fully expanded. The principles below still apply to *new* categories.
+
+The approach was:
 
 1. Create the registry files with a small number of clean, representative records.
 2. Confirm the builder can load and reference them through stable IDs.
@@ -1151,39 +1154,6 @@ Still genuinely future, and not currently in scope:
 
 Those should be added deliberately rather than prematurely, and only after the greenlist
 is updated to approve them.
-
----
-
-## Summary
-
-Lore Ledger's content registry should be:
-
-- structured
-- data-driven
-- source-labeled
-- stable-ID based
-- separate from UI state and runtime state
-
-Current shipped builtin registry files (all 14 are loaded by `js/domain/rules/builtinContent.js`):
-
-- `races.json`
-- `classes.json`
-- `backgrounds.json`
-- `feats.json`
-- `subclasses.json`
-- `traits.json`
-- `draconic-ancestries.json`
-- `languages.json`
-- `skills.json`
-- `features.json`
-- `spells.json`
-- `equipment.armor.json`
-- `equipment.weapons.json`
-- `equipment.packs.json`
-
-Final rule:
-
-> If builtin content is approved to ship, it should live in structured registry files with stable IDs and explicit source metadata, not in scattered hardcoded UI logic.
 
 ---
 
@@ -1221,3 +1191,22 @@ Builder characters store one entry per character level in `build.levels`
 (`{ armorId, shield, weaponIds, startingChoices, notes }`). Legacy v1
 builds (`classId` + `level`) migrate via `normalizeCharacterBuild()` in
 `js/domain/characterHelpers.js` (schema v11).
+
+---
+
+## Summary
+
+Lore Ledger's content registry should be:
+
+- structured
+- data-driven
+- source-labeled
+- stable-ID based
+- separate from UI state and runtime state
+
+The 14 shipped registry files are listed once, under
+[Shipped Registry Files](#shipped-registry-files). Do not restate them here.
+
+Final rule:
+
+> If builtin content is approved to ship, it should live in structured registry files with stable IDs and explicit source metadata, not in scattered hardcoded UI logic.

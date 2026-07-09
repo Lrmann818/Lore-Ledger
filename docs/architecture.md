@@ -536,32 +536,39 @@ Current Character page UI:
 - Delete Character
 - empty-state "Create your first character" prompt
 
-> ⚠️ **Stale below (builder subsection).** The next few paragraphs describe the builder as
-> the early **Dragonborn-only vertical slice**. That is no longer accurate: the builder
-> ships an 8-step wizard over the full SRD 5.1 registry, with a multiclass rules engine,
-> custom content, and sheet seeding (schema v11). The *structural* claims still hold —
-> `deriveCharacter(...)` is pure, derived values are not materialized into flat fields, and
-> freeform characters (`build: null`) stay manually editable. The *scope* claims do not.
->
-> Do not infer current builder capability, or remaining work, from this section. See
-> [`../AGENTS.md`](../AGENTS.md) and
-> [`reference/builder-scope-greenlist.md`](./reference/builder-scope-greenlist.md).
->
-> Also note: **builder-only panels are not the preferred post-creation editing surface.**
-> After creation, the normal sheet owns play-state editing. See `AGENTS.md` → "Editing
-> Model: Guarded Build Choices vs. Quick-Edit Sheet Fields".
+`New Character` creates a freeform/manual character with `build: null`. `New Builder
+Character` runs the SRD 5.1 builder wizard, which writes `build` on Finish. For what content
+the wizard can offer, see [`reference/builder-scope-greenlist.md`](./reference/builder-scope-greenlist.md).
 
-`New Character` still creates a freeform/manual character with `build: null`. `New Builder Character` uses the shipped builder creation path for the current slices: Identity, Dragonborn Race Choices when applicable, Ability Scores, Summary, and Finish. The long-term content-complete builder remains future work for broader class/background/equipment/spell choices, generalized seeding, level-up additions, shared-resource automation, full builder-card customization, and existing-character activation.
+**Builder-only panels are not the post-creation editing surface.** After creation the normal
+sheet owns play-state editing; builder flows exist to guard structural choices. Builder
+Summary is live review scaffolding, not the final player-facing home for table-use values.
+See `AGENTS.md` → "Editing Model: Guarded Build Choices vs. Quick-Edit Sheet Fields".
 
-Builder characters also show Builder Identity and Builder Abilities editors after Basics and before Builder Summary. Those editors remain temporary scaffolding for current builder inputs: identity can update `build.raceId`, `build.classId`, `build.backgroundId`, and `build.level`, and Builder Abilities can update manual base scores in `build.abilities.base`. Builder Summary remains visible as temporary live review/comparison scaffolding, not the final player-facing home for table-use values. The summary reads the pure `deriveCharacter(...)` result for class/level, race, background, level, proficiency bonus, ability totals/modifiers, and supported Dragonborn-derived mechanics. The normal Basics panel reads derived builder class/race/background labels for display in `charClassLevel`, `charRace`, and `charBackground`, keeps those three identity fields non-editable for builder characters, and does not write the labels back into flat fields. The normal and embedded Vitals panels read `deriveCharacter(...).proficiencyBonus` plus builder Vitals speed/hit-dice values for builder-character display only, keeping proficiency, speed, `hitDieAmt`, and `hitDieSize` non-editable in builder mode while leaving freeform flat fields unchanged; Vitals also owns compact derived table-use stats such as Dragonborn Breath Weapon DC when derivable. The normal Abilities/Skills panel reads derived builder ability totals/modifiers for display and uses the same derived proficiency scalar for builder save/skill math only. The existing Abilities & Skills adjustment controls can apply builder ability deltas through `overrides.abilities`, without materializing those values into persisted flat fields. Abilities & Features renders builder-derived Dragonborn Breath Weapon as a derived/read-only action-style card with mutable use count stored only in `featureUses["dragonborn-breath-weapon"].current`; manual/custom cards stay in `manualFeatureCards[]`, and broad shared resource pools remain Vitals/resources work.
+Builder Identity and Builder Abilities edit only `build.*` inputs (`raceId`, `classId`,
+`backgroundId`, `level`, and `abilities.base`).
+
+For builder characters, the normal panels **display derived values without persisting them**:
+
+- Basics shows `deriveCharacter(...).labels.*` for class/level, race, and background, keeps
+  those three fields non-editable, and never writes the labels back into the flat fields.
+- Vitals shows derived proficiency bonus, speed, and hit dice as read-only, leaving the
+  freeform flat fields untouched. Vitals also owns compact derived table-use stats such as a
+  derived save DC.
+- Abilities & Skills shows derived ability totals/modifiers and uses the derived proficiency
+  scalar for builder save/skill math. Its adjustment controls write deltas to
+  `overrides.abilities`, never materialized totals.
+- Abilities & Features renders builder-derived feature actions as derived/read-only cards
+  whose mutable use count lives only in `featureUses`. Manual/custom cards stay in
+  `manualFeatureCards[]`. Broad shared resource pools remain Vitals/`resources[]` work.
 
 Rules-engine boundary:
 
-- `js/domain/rules/deriveCharacter.js` is the current pure derivation boundary for Step 3 builder work.
+- `js/domain/rules/deriveCharacter.js` is the pure derivation boundary for builder work.
 - `deriveCharacter(...)` reads character state plus builtin content and returns derived values without mutating the source character.
 - Its builder Vitals shape is display-only groundwork for speed and hit dice. Missing or malformed builder race/class/level inputs return nullable display values and warnings, not persisted fallback values.
 - `materializeDerivedCharacterFields(...)` exists as an explicit compatibility helper, but it is not wired into migration, passive load, save, or Character page runtime flows.
-- Runtime builder panels continue to leave live-derived values unmaterialized unless a slice explicitly adds character-owned state such as `featureUses`. Builder Summary remains temporary review scaffolding, Builder Identity and Builder Abilities remain temporary editing scaffolding, and canonical sheet fields stay freeform or user-owned unless a normal panel explicitly owns their source. Phase 3I seeding writes only editable `features` and `languages` text at wizard Finish for the Dragonborn slice; that seeded text becomes user-owned and is not silently synchronized with registry text after creation.
+- Runtime builder panels leave live-derived values unmaterialized unless a change explicitly adds character-owned state such as `featureUses`. Canonical sheet fields stay freeform or user-owned unless a normal panel explicitly owns their source. Wizard Finish **seeds** editable text into existing sheet fields; seeded text becomes user-owned and is never silently re-synchronized with registry text afterwards.
 - Freeform compatibility remains central: characters with `build: null` stay manually editable, and migrated characters are never inferred into builder mode.
 
 Panel ownership:
