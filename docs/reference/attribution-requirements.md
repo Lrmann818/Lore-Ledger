@@ -1,6 +1,6 @@
 # Attribution Requirements
 
-*Phase 4 work — required before public release*
+Phase 4 work — required before public release
 
 ## In-App Attribution Page
 

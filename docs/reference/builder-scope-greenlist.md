@@ -40,7 +40,7 @@ user-managed spells. Builder spell selection seeds into it; it never locks it.
 
 # Builder Scope Greenlist
 
-_Last updated: 2026-07-06_
+Last updated: 2026-07-06
 
 ## Purpose
 

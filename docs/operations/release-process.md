@@ -243,6 +243,7 @@ Lore Ledger uses [Capacitor](https://capacitorjs.com/) as the native packaging l
 The `ios/` Xcode project has been scaffolded and is **tracked in the repo**.
 
 Tracked files include:
+
 - `ios/.gitignore` (inner exclusions managed by Capacitor)
 - `ios/App/App.xcodeproj/project.pbxproj`
 - `ios/App/App.xcworkspace/contents.xcworkspacedata`
@@ -250,6 +251,7 @@ Tracked files include:
 - `ios/App/Podfile`, `ios/App/Podfile.lock`
 
 Not tracked (excluded by `ios/.gitignore`):
+
 - `ios/App/Pods/` — CocoaPods dependencies, restored by `pod install`
 - `ios/App/App/public/` — web assets, restored by `cap sync ios`
 - `ios/App/App/capacitor.config.json` — generated from `capacitor.config.ts`
@@ -295,13 +297,13 @@ npx cap sync ios       # restores Pods and web assets; requires CocoaPods and Xc
 
 ### Useful scripts
 
-| Script | Purpose |
-|---|---|
-| `npm run cap:sync:ios` | Builds web app then syncs into native iOS project |
-| `npm run cap:open:ios` | Opens `ios/App/App.xcworkspace` in Xcode |
-| `npm run ios:fix-pods` | Re-patches the generated Pods project after any direct `pod install` |
-| `npm run ios:verify-pods` | Confirms no Pods build configuration still has either setting at `YES` |
-| `npm run ios:prep-archive` | Canonical pre-Archive path: build, sync, pod install, then patch Pods |
+| Script                     | Purpose                                                                |
+|----------------------------|------------------------------------------------------------------------|
+| `npm run cap:sync:ios`     | Builds web app then syncs into native iOS project                      |
+| `npm run cap:open:ios`     | Opens `ios/App/App.xcworkspace` in Xcode                               |
+| `npm run ios:fix-pods`     | Re-patches the generated Pods project after any direct `pod install`   |
+| `npm run ios:verify-pods`  | Confirms no Pods build configuration still has either setting at `YES` |
+| `npm run ios:prep-archive` | Canonical pre-Archive path: build, sync, pod install, then patch Pods  |
 
 ### Node version note
 
@@ -314,10 +316,12 @@ npx cap sync ios       # restores Pods and web assets; requires CocoaPods and Xc
 #### What was tested via CLI (`xcodebuild` + `xcrun simctl`)
 
 **Build and install:**
+
 - ✅ `xcodebuild` — BUILD SUCCEEDED, no errors
 - ✅ App installs: `CFBundleIdentifier = com.laurenmann.loreledger`, `CFBundleDisplayName = Lore Ledger`
 
 **Launch scenarios — all PASS:**
+
 - ✅ Cold launch (fresh install): Campaign Hub renders, `⚡️ WebView loaded`
 - ✅ Terminate + relaunch: Campaign Hub renders identically in empty state
 - ✅ Uninstall + reinstall (erase): Campaign Hub renders correctly on completely fresh data
@@ -325,11 +329,13 @@ npx cap sync ios       # restores Pods and web assets; requires CocoaPods and Xc
 - ✅ No WKWebView load failure in console output across all three scenarios
 
 **Storage:**
+
 - ✅ Capacitor kvstore writes on first launch (`lastBinaryVersionName: "1.0"`, `lastBinaryVersionCode: "1"`)
 - ✅ IndexedDB directory created and ready; empty at first launch as expected (no user data yet)
 - ✅ App data container correctly isolated under `Library/WebKit/com.laurenmann.loreledger/`
 
 **Safe-area analysis (source code + screenshot):**
+
 - ✅ `viewport-fit=cover` in `<meta name="viewport">` — full-screen layout enabled
 - ✅ `apple-mobile-web-app-status-bar-style: black-translucent` — status bar correctly overlays content
 - ✅ Body has `padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px))` at `max-width: 600px` for non-hub pages
@@ -339,6 +345,7 @@ npx cap sync ios       # restores Pods and web assets; requires CocoaPods and Xc
 - ⚠️ Bottom safe area: CSS structure is correct and should prevent home indicator overlap, but visual scroll-to-bottom verification still requires manual Xcode/device testing
 
 **Known native-context behavior (expected, not bugs):**
+
 - Service worker does not register on `capacitor://localhost` — WKWebView does not support SWs on custom protocols. `updates.js` guards on `"serviceWorker" in navigator` and returns no-ops cleanly. App functions fully; offline capability is the native bundle.
 - `100dvh` dynamic viewport height used on hub page; resolves correctly in WKWebView.
 
@@ -346,28 +353,28 @@ npx cap sync ios       # restores Pods and web assets; requires CocoaPods and Xc
 
 `simctl` has no touch simulation. AppleScript accessibility and screen recording permissions were not available to this shell process. As a result, the following workflows could NOT be automated and **require manual validation in Xcode or on device**:
 
-| Workflow | Status |
-|---|---|
-| Create a new campaign | **Needs manual test** |
-| Open a campaign | **Needs manual test** |
-| Navigate to Tracker | **Needs manual test** |
-| Navigate to Character | **Needs manual test** |
-| Navigate to Combat | **Needs manual test** |
-| Navigate to Map | **Needs manual test** |
-| Open Data & Settings | **Needs manual test** |
-| Campaign persists after close/reopen | **Needs manual test** |
-| Campaign persists after force quit | **Needs manual test** |
-| Scroll to bottom of hub (bottom safe area) | **Needs manual test** |
-| Keyboard / text input (Campaign Name field) | **Needs manual test** |
+| Workflow                                          | Status                |
+|---------------------------------------------------|-----------------------|
+| Create a new campaign                             | **Needs manual test** |
+| Open a campaign                                   | **Needs manual test** |
+| Navigate to Tracker                               | **Needs manual test** |
+| Navigate to Character                             | **Needs manual test** |
+| Navigate to Combat                                | **Needs manual test** |
+| Navigate to Map                                   | **Needs manual test** |
+| Open Data & Settings                              | **Needs manual test** |
+| Campaign persists after close/reopen              | **Needs manual test** |
+| Campaign persists after force quit                | **Needs manual test** |
+| Scroll to bottom of hub (bottom safe area)        | **Needs manual test** |
+| Keyboard / text input (Campaign Name field)       | **Needs manual test** |
 | Import / export (native file picker availability) | **Needs manual test** |
 
 To enable automated UI testing in future passes: grant Terminal (or the shell running Claude Code) accessibility access under System Settings → Privacy & Security → Accessibility.
 
 #### Xcode build warnings (not blocking)
 
-| Warning | Source | Action |
-|---|---|---|
-| `WKProcessPool` deprecated (iOS 15+) | Capacitor/Cordova internals | Upstream Capacitor fix; not our code |
+| Warning                                 | Source                          | Action                                                                           |
+|-----------------------------------------|---------------------------------|----------------------------------------------------------------------------------|
+| `WKProcessPool` deprecated (iOS 15+)    | Capacitor/Cordova internals     | Upstream Capacitor fix; not our code                                             |
 | `[CP] Embed Pods Frameworks` no outputs | CocoaPods/Capacitor build phase | Causes unconditional pod embedding — minor build overhead, not correctness issue |
 
 #### App icon / splash status
@@ -414,6 +421,7 @@ Manual TestFlight QA for native image capture:
 ### Xcode native build fix (2026-05-16)
 
 **Problem:** Opening `App.xcworkspace` in Xcode and building produced these errors:
+
 - `error: Sandbox: bash deny(1) file-read-data … Pods-App-frameworks.sh`
 - `module 'Cordova' not found` / `could not build module 'Capacitor'`
 
@@ -422,6 +430,7 @@ Manual TestFlight QA for native image capture:
 **Fix:** Set `ENABLE_USER_SCRIPT_SANDBOXING = NO` in both Debug and Release build configurations in `ios/App/App.xcodeproj/project.pbxproj` (lines 278 and 342).
 
 **Result:** `xcodebuild -workspace App.xcworkspace` → **BUILD SUCCEEDED**, no errors. One remaining non-blocking warning:
+
 - `[CP] Embed Pods Frameworks` has no declared outputs — CocoaPods cosmetic warning, causes unconditional pod embedding on every build but doesn't break correctness.
 
 **Note:** `pod install` (run by `cap sync ios`) may not preserve this setting if it regenerates `project.pbxproj`. If the sandbox error reappears after a sync, re-apply the change or add `ENABLE_USER_SCRIPT_SANDBOXING = NO` to the App target's build settings manually in Xcode.
@@ -433,7 +442,8 @@ Manual TestFlight QA for native image capture:
 ### Physical-device build fix (2026-05-16)
 
 **Problem:** Simulator build succeeded; physical-device (iPhone 14 Pro Max) build failed with 21 `CapacitorCordova` issues. The actual CLI errors were:
-```
+
+```text
 error: double-quoted include "CAPPluginMethod.h" in framework header, expected angle-bracketed instead
 error: use of '@import' in framework header is discouraged, including this header requires -fmodules
 error: (fatal) module 'Cordova' not found
@@ -445,6 +455,7 @@ error: (fatal) could not build module 'Capacitor'
 **Fix — two-part (2026-05-16):**
 
 *Part 1 — Podfile `post_install`:* Broadened the hook to apply to **all** pod targets (not just Capacitor and CapacitorCordova by name — the original name filter had a silent mismatch). Sets both:
+
 - `ENABLE_MODULE_VERIFIER = NO`
 - `CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = NO`
 
@@ -453,6 +464,7 @@ error: (fatal) could not build module 'Capacitor'
 **Result:** All 6 `ENABLE_MODULE_VERIFIER` + 2 project-level `CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER` entries in `Pods.xcodeproj/project.pbxproj` are confirmed `NO` after patching. `xcodebuild archive -destination 'generic/platform=iOS'` → **ARCHIVE SUCCEEDED** (2026-05-16, confirmed via `/tmp/LoreLedger.xcarchive`). Simulator and physical-device builds also still succeed.
 
 **Standard workflow — use these npm scripts, not raw pod install:**
+
 ```bash
 npm run cap:sync:ios   # build → cap sync → pod install → patch Pods project
 # OR if you need to run pod install separately:
@@ -478,13 +490,15 @@ npm run ios:verify-pods
 **Why a Xcode Run Script build phase cannot fix this automatically:** The modules-verifier runs during the Pods targets' own build phases (Capacitor, CapacitorCordova). These compile before the App target's build phases start, so any patch script in an App target build phase is too late to affect the already-running Pods target builds.
 
 **Symptom of a missed patch:** Archive fails immediately with errors like:
-```
+
+```text
 error: double-quoted include "CAPPluginMethod.h" in framework header, expected angle-bracketed instead
 error: (fatal) module 'Cordova' not found
 error: (fatal) could not build module 'Capacitor'
 ```
 
 **Recovery:**
+
 ```bash
 npm run ios:fix-pods   # patch only, no sync
 npm run ios:verify-pods
@@ -505,41 +519,41 @@ Retry in this exact order:
 
 ### Build and device status
 
-| Target | Verified |
-|---|---|
-| iOS Simulator (iPhone 17 Pro, arm64) | ✅ BUILD SUCCEEDED (xcodebuild) |
-| Generic iOS / iphoneos SDK (arm64) | ✅ BUILD SUCCEEDED (xcodebuild) |
-| Physical iPhone 14 Pro Max — build + install + launch | ✅ CONFIRMED (2026-05-16) |
-| Physical iPhone 14 Pro Max — full interactive smoke pass | ✅ ALL PASS (2026-05-16) |
+| Target                                                   | Verified                        |
+|----------------------------------------------------------|---------------------------------|
+| iOS Simulator (iPhone 17 Pro, arm64)                     | ✅ BUILD SUCCEEDED (xcodebuild) |
+| Generic iOS / iphoneos SDK (arm64)                       | ✅ BUILD SUCCEEDED (xcodebuild) |
+| Physical iPhone 14 Pro Max — build + install + launch    | ✅ CONFIRMED (2026-05-16)       |
+| Physical iPhone 14 Pro Max — full interactive smoke pass | ✅ ALL PASS (2026-05-16)        |
 
 ### Physical-device smoke pass (2026-05-16)
 
 **Device:** iPhone 14 Pro Max  
 **All 14 checks PASS.**
 
-| Check | Result |
-|---|---|
-| App launches | ✅ PASS |
-| Campaign Hub appears | ✅ PASS |
-| Create campaign "Native Device Test" | ✅ PASS |
-| Campaign appears in archive/list | ✅ PASS |
-| Open the campaign | ✅ PASS |
-| Navigate to Tracker | ✅ PASS |
-| Navigate to Character | ✅ PASS |
-| Navigate to Combat | ✅ PASS |
-| Navigate to Map | ✅ PASS |
-| Open Data & Settings | ✅ PASS |
-| Tap text field — keyboard behavior usable | ✅ PASS |
-| Scroll to bottom — nothing hidden behind home indicator | ✅ PASS |
-| Close/reopen — "Native Device Test" persists | ✅ PASS |
-| Force quit/reopen — "Native Device Test" persists | ✅ PASS |
+| Check                                                   | Result |
+|---------------------------------------------------------|--------|
+| App launches                                            | ✅ PASS|
+| Campaign Hub appears                                    | ✅ PASS|
+| Create campaign "Native Device Test"                    | ✅ PASS|
+| Campaign appears in archive/list                        | ✅ PASS|
+| Open the campaign                                       | ✅ PASS|
+| Navigate to Tracker                                     | ✅ PASS|
+| Navigate to Character                                   | ✅ PASS|
+| Navigate to Combat                                      | ✅ PASS|
+| Navigate to Map                                         | ✅ PASS|
+| Open Data & Settings                                    | ✅ PASS|
+| Tap text field — keyboard behavior usable               | ✅ PASS|
+| Scroll to bottom — nothing hidden behind home indicator | ✅ PASS|
+| Close/reopen — "Native Device Test" persists            | ✅ PASS|
+| Force quit/reopen — "Native Device Test" persists       | ✅ PASS|
 
 **Remaining Xcode warnings (non-blocking — no action required):**
 
-| Warning | Source | Status |
-|---|---|---|
-| `WKProcessPool` deprecated (iOS 15+) | CapacitorCordova dependency code | Non-blocking; upstream Capacitor fix |
-| `[CP] Embed Pods Frameworks` has no declared outputs | CocoaPods build phase | Non-blocking; CocoaPods cosmetic warning |
+| Warning                                              | Source                           | Status                                   |
+|------------------------------------------------------|----------------------------------|------------------------------------------|
+| `WKProcessPool` deprecated (iOS 15+)                 | CapacitorCordova dependency code | Non-blocking; upstream Capacitor fix     |
+| `[CP] Embed Pods Frameworks` has no declared outputs | CocoaPods build phase            | Non-blocking; CocoaPods cosmetic warning |
 
 ### Next steps before TestFlight
 
@@ -560,6 +574,7 @@ Retry in this exact order:
 **Determination: SRD attribution is NOT required for this version.**
 
 **Scope audited:**
+
 - All JS/JSON/HTML source files imported by the production entry point
 - `dist/` output (JS bundle, CSS, static assets) after `npm run build`
 - Synced iOS web assets under `ios/App/App/public/` after `npm run cap:sync:ios`
@@ -570,17 +585,17 @@ Retry in this exact order:
 
 **Findings:**
 
-| Category | Finding |
-|---|---|
-| SRD data files (races, spells, classes, equipment) | None — no JSON/data files ship; no lookup tables exist in source or bundle |
-| SRD rules text (descriptions, tables, mechanics) | None — no SRD rules content in any source or shipped file |
-| Specific SRD species names (Dragonborn, Dwarf, Elf, etc.) | None — zero hits in source or bundle |
-| Character sheet fields (`race`, `class`, `background`, `spell`) | Freeform text inputs — blank by default; user types anything; not SRD-derived |
-| Dice icons (d4–d100 SVGs) | Standard geometric dice shapes — common game tool, not D&D IP |
-| Audio (`the-lore-ledger.mp3`) | Original composition by filename and naming convention; no third-party attribution noted in source |
-| Hub background images (`.webp`) | Original artwork by naming convention; no third-party attribution noted in source |
-| About dialog | Shows app name, version, schema version, storage keys — no SRD/legal text |
-| SRD references in repo | Only in non-shipping dev docs: `CLAUDE.md`, `NEW-FEATURES-ROADMAP.md`, `MULTI-CHARACTER_DESIGN.md` |
+| Category                                                        | Finding                                                                                            |
+|-----------------------------------------------------------------|----------------------------------------------------------------------------------------------------|
+| SRD data files (races, spells, classes, equipment)              | None — no JSON/data files ship; no lookup tables exist in source or bundle                         |
+| SRD rules text (descriptions, tables, mechanics)                | None — no SRD rules content in any source or shipped file                                          |
+| Specific SRD species names (Dragonborn, Dwarf, Elf, etc.)       | None — zero hits in source or bundle                                                               |
+| Character sheet fields (`race`, `class`, `background`, `spell`) | Freeform text inputs — blank by default; user types anything; not SRD-derived                      |
+| Dice icons (d4–d100 SVGs)                                       | Standard geometric dice shapes — common game tool, not D&D IP                                      |
+| Audio (`the-lore-ledger.mp3`)                                   | Original composition by filename and naming convention; no third-party attribution noted in source |
+| Hub background images (`.webp`)                                 | Original artwork by naming convention; no third-party attribution noted in source                  |
+| About dialog                                                    | Shows app name, version, schema version, storage keys — no SRD/legal text                          |
+| SRD references in repo                                          | Only in non-shipping dev docs: `CLAUDE.md`, `NEW-FEATURES-ROADMAP.md`, `MULTI-CHARACTER_DESIGN.md` |
 
 **Why the character sheet fields do not trigger SRD attribution:** Fields like `Race`, `Class/Level`, `Background`, `Spells`, `Equipment` are generic freeform text inputs. The shipped state schema stores `race: string`, `background: string` etc. as user-typed values with no default or lookup data. The SRD builder described in `MULTI-CHARACTER_DESIGN.md` (green list of species/classes/spells) is a planned future feature, not present in this build.
 
