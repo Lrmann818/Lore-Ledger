@@ -13,7 +13,7 @@ The source of truth is the code, primarily:
 
 This is intentionally a maintainer-focused document. It describes the state as it exists today, including a few legacy or duplicated fields that still appear because the app preserves backward compatibility.
 
-Current structured schema version: `10`
+Current structured schema version: `11`
 
 ## 2. Schema versioning policy
 
@@ -39,6 +39,7 @@ Current history:
 - `8`: added Step 3 rules-engine / character-builder foundation fields on character entries: `build` and `overrides` (renumbered from v6 during the develop merge)
 - `9`: added manual Abilities & Features card storage on character entries (renumbered from v7)
 - `10`: added character-owned derived feature-use storage on character entries (renumbered from v8)
+- `11`: added the campaign custom content bucket (`content.custom`) and migrated builder characters to the level-by-level build model (`build.version` 2) with bare SRD registry ids
 
 Schema numbering note: the builder branch originally claimed versions 6-8 in
 parallel with the mobile branch's 6-7. The develop numbering wins; builder
@@ -313,6 +314,14 @@ The legacy singleton `state.character` key is accepted only by migration/backwar
 
 ### Step 3 builder foundation
 
+> **Reading note.** The `build` / `overrides` shapes below are current and load-bearing.
+> The "Step 3 Phase 3A-3I" bullets at the end of this section are a **historical
+> changelog** of how the builder was built up, written while the builder was still a
+> Dragonborn-only vertical slice. They describe what each phase did *at the time*, not
+> today's shipped scope. The builder now ships an 8-step wizard across the full SRD 5.1
+> registry (schema v11, `build.version` 2). Do not read those bullets as a statement of
+> current capability or as a list of remaining work.
+
 Every character entry now carries builder metadata, but migrated characters stay in freeform/manual mode by default:
 
 ```js
@@ -359,7 +368,7 @@ Notes:
 - Abilities & Features Phase 3G extends manual/custom cards with an optional nested `limitedUse` object for feature-specific counters only; broad shared resource pools remain `resources[]` / Vitals work.
 - Abilities & Features Phase 3H added schema v8 `featureUses` for character-owned mutable use state on derived feature-specific counters. The first shipped entry is `featureUses["dragonborn-breath-weapon"].current`; max uses, recovery, label, DC, area, damage, damage type, ancestry, feature text, and generated SRD data remain derived from build/rules data.
 - Phase 3I did not change the schema version or add new fields. Dragonborn wizard Finish seeds existing editable text fields only: selected Draconic Ancestry and Damage Resistance text into `features`, and fixed Common/Draconic language text into `languages`. Seeded text becomes user-owned sheet content after creation and is not silently synchronized with registry/rules text. Breath Weapon remains live-derived in Vitals and Abilities & Features and is not copied into `features`, `manualFeatureCards[]`, `resources[]`, or a new top-level field.
-- Builtin SRD content is code-shipped under `js/domain/rules/`; custom content persistence is intentionally not part of the builder schema versions (v8-v10).
+- Builtin SRD content is code-shipped under `js/domain/rules/` and is never persisted. Custom content **is** persisted: schema v11 added the campaign-scoped `content.custom` array (default `{ custom: [] }` in `js/state.js`). Older notes in this section saying custom content persistence is out of scope describe the v8-v10 era and no longer hold.
 - Step 3 Phase 2A and Phase 2B do not persist `abilityMethod`. Ability-score entry method (manual, standard array, point buy, roll) is wizard-local draft state — only `build.abilities.base` scores are written to the persisted build on Finish, because derivation and sheet-editing paths consume the scores rather than the entry method.
 
 ### Resources

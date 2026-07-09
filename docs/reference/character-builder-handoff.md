@@ -1,5 +1,16 @@
 # Character Builder Handoff
 
+> **📸 Session snapshot — orientation, not specification.**
+>
+> Written 2026-07-07 at the end of one session. It was accurate then. Verification
+> numbers, commit hashes, and file counts in this doc **decay**: check them against the
+> code before relying on them.
+>
+> Use it to learn **how the builder fits together**. Do not use it as the authority on
+> scope, schema, or policy — for those, `AGENTS.md`,
+> `docs/reference/builder-scope-greenlist.md`, `docs/reference/content-registry-plan.md`,
+> and `docs/state-schema.md` win.
+
 _Written 2026-07-07, at the end of the session that implemented the SRD 5.1
 builder end-to-end (commits `6568dfe..8173285` on `builder-wizard`)._
 
@@ -27,7 +38,7 @@ hand-edit the JSON (it will be overwritten).
 
 **Runtime, three layers in `js/domain/rules/`:**
 
-1. `builtinContent.js` — imports all 13 JSON files and wraps each record as
+1. `builtinContent.js` — imports all 14 JSON files and wraps each record as
    `{ id, kind, name, source, ruleset: "srd-5.1", data }` where `data` is
    the whole raw record. Exports `BUILTIN_CONTENT` and the closed
    `CONTENT_KINDS` set (race, subrace, class, subclass, background, feat,

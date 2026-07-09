@@ -8,9 +8,16 @@ This is the navigation index for everything in `docs/`. Files are organized by p
 - **Design** — decision records and rationale for architecture or schema choices
 - **Features** — design and implementation notes for specific features
 - **Reference (policy)** — ratified policies for content, attribution, and scope
-- **Personal notes** — personal working notes and prompts retained for context
+- **Archive** — superseded plans, trackers, and audits. Historical only.
 
 For project-level docs (README, CONTRIBUTING, AGENTS, CLAUDE, CHANGELOG, LEGAL), see the repo root.
+
+> **Coding agents:** read the task-specific doc map in [`AGENTS.md`](../AGENTS.md#agent-doc-map)
+> before opening anything here. Read the docs your task needs, not all of them.
+>
+> Docs marked **📜 Historical** below are point-in-time records. They describe a state of
+> the world that no longer exists. Do not treat them as current, and do not change code to
+> match them. When a historical doc disagrees with a canonical one, the canonical one wins.
 
 ---
 
@@ -50,7 +57,9 @@ Procedures and checklists for shipping and maintaining the app.
 Planning docs for work that's queued or in progress. These get updated as plans evolve.
 
 - [`plans/new-features-roadmap.md`](./plans/new-features-roadmap.md) — Forward-looking roadmap of features and improvements under consideration.
-- [`plans/lore-ledger-builder-plan.md`](./plans/lore-ledger-builder-plan.md) — Plan for the in-app builder feature: scope, content registry approach, attribution requirements.
+- [`plans/combat-workspace-plan.md`](./plans/combat-workspace-plan.md) — Combat Workspace plan and current slice status.
+
+The builder plan has shipped and moved to [`archive/lore-ledger-builder-plan.md`](./archive/lore-ledger-builder-plan.md).
 
 ---
 
@@ -59,7 +68,7 @@ Planning docs for work that's queued or in progress. These get updated as plans 
 Design records explain why a major schema or architecture direction was chosen. Canonical
 rules still live in reference docs.
 
-- [`design/vertical-slice-schema.md`](./design/vertical-slice-schema.md) — Rationale for the build-time choices schema and vertical-slice-first SRD registry strategy.
+- 📜 **Historical** — [`design/vertical-slice-schema.md`](./design/vertical-slice-schema.md) — Rationale for the build-time choices schema and the vertical-slice-first SRD registry strategy. The vertical slice is complete and the registry is fully expanded; read this only for the *why*. Canonical rules live in `reference/content-registry-plan.md`.
 
 ---
 
@@ -67,7 +76,7 @@ rules still live in reference docs.
 
 Design documents for shipped features. These survive shipping because they document decisions and tradeoffs that future changes need to respect.
 
-- [`features/multi-character-design.md`](./features/multi-character-design.md) — Multi-character design and implementation: shipped feature record covering Steps 1–4 of the multi-character work.
+- [`features/multi-character-design.md`](./features/multi-character-design.md) — **Part 1 is canonical** (current character-architecture rules). **📜 Part 2 is historical** (Step 1–4 implementation notes; its schema versions and status lines are frozen at April 2026).
 - [`features/character-portability.md`](./features/character-portability.md) — Character portability design: how character data moves between campaigns and across backups.
 
 ---
@@ -79,7 +88,31 @@ Ratified policies for content, attribution, and scope. These are authoritative �
 - [`reference/attribution-requirements.md`](./reference/attribution-requirements.md) — Required attribution language for SRD-derived content, OGL/CC-BY surfaces.
 - [`reference/srd-licensing-notes.md`](./reference/srd-licensing-notes.md) — Licensing context for SRD use: what's covered by which license, what attribution is required where.
 - [`reference/content-registry-plan.md`](./reference/content-registry-plan.md) — Plan for the content registry: how SRD-derived content is structured, validated, and surfaced in the app.
-- [`reference/builder-scope-greenlist.md`](./reference/builder-scope-greenlist.md) — Greenlist of feature scope for the in-app builder: what's in, what's out, decision rationale.
+- [`reference/builder-scope-greenlist.md`](./reference/builder-scope-greenlist.md) — Greenlist of builtin content scope for the in-app builder: what ships, what's custom, decision rationale. **Start here before assuming any SRD content exists** — SRD 5.1 is much smaller than full 5E.
+- [`reference/rest-rules-spec.md`](./reference/rest-rules-spec.md) — **Canonical rest behavior.** Short Rest (Hit Dice spending), Long Rest (HP, Hit Dice recovery up to half total, slots, death saves), and the prepared-spell-at-Long-Rest flow. Rest is only partially implemented; the doc marks the gaps.
+- [`reference/level-up-flow-spec.md`](./reference/level-up-flow-spec.md) — Level-up flow spec. Its §10 decisions are ratified (down-leveling out of scope; appends exactly one level; prepared selection routes through Long Rest; do not rename the `used` slot field). **The spec itself is a proposal — do not implement it yet.**
+- 📸 **Session snapshot** — [`reference/character-builder-handoff.md`](./reference/character-builder-handoff.md) — How the builder implementation fits together. Written at the end of one session (2026-07-07); good orientation, but verify its counts and hashes against the code before relying on them.
+
+---
+
+## Audits (planning artifacts — queued, not authorized)
+
+⛔ [`audits/`](./audits/) holds gap audits and stabilization planning. Their **priority
+order is real**; their **batch prompts are queued, not work orders**. Never self-start a
+batch from an audit doc.
+
+- [`audits/srd-5-1-character-builder-gap-audit-stabilization-docs.md`](./audits/srd-5-1-character-builder-gap-audit-stabilization-docs.md) — SRD 5.1 builder gap audit and stabilization plan. **Do not begin batches B1/B2/B3** until docs cleanup, P0 stabilization, rest correctness, and the P1 fixes have landed. The binding sequence is [`AGENTS.md` → Current Working Order](../AGENTS.md#current-working-order).
+
+---
+
+## Archive (historical — do not treat as current)
+
+📜 **Nothing in [`archive/`](./archive/) describes the current system.** These are superseded
+plans, completed phase trackers, and point-in-time audits, kept for provenance. See
+[`archive/README.md`](./archive/README.md) for the rules.
+
+- [`archive/lore-ledger-builder-plan.md`](./archive/lore-ledger-builder-plan.md) — Phase-by-phase builder implementation tracker. The builder has shipped; every "deferred"/"future work" item is stale.
+- [`archive/lore-ledger-multi-branch-review.md`](./archive/lore-ledger-multi-branch-review.md) — 2026-07-02 audit of the `main`/`develop`/`builder-wizard` divergence. That divergence has been resolved; all commit hashes are stale.
 
 ---
 

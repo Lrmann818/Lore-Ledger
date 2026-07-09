@@ -1,46 +1,6 @@
-# Greenlist
-
-## Spell Scope Distinction
-
-Lore Ledger makes an explicit distinction between **spellcasting progression support** and a **full builtin spell registry**.
-
-### In Scope for Shipped Builder Behavior
-
-The following spell-related capabilities are part of the current intended shipped builder scope:
-
-- spellcasting progression metadata
-- spellcasting ability metadata
-- spell slot progression
-- spell level access/progression
-- automatically granted spells or cantrips from builtin races, classes, subclasses, feats, backgrounds, or similar builder-backed content
-
-This means the builder is allowed to determine things like:
-
-- whether a character is a spellcaster
-- what spellcasting ability applies
-- how many spell slots the character has
-- which builtin spells are automatically granted by the build
-
-### Expanded 2026-07-06: Full SRD 5.1 Spell Registry
-
-The full SRD 5.1 spell registry (`game-data/srd/spells.json`, generated from
-the 5e SRD API) is now greenlit and shipped. The builder wizard offers
-class-list spell selection (cantrips, known, prepared, spellbook) and seeds
-selections into the sheet spells model at Finish.
-
-### Still Deferred
-
-- magic items
-- monster / NPC stat blocks
-
-### Practical Rule
-
-The existing spells panel remains the manual-entry and at-the-table UI for
-user-managed spells. Builder spell selection seeds into it; it never locks it.
-
 # Builder Scope Greenlist
 
-Last updated: 2026-07-06
+Last updated: 2026-07-09
 
 ## Purpose
 
@@ -103,6 +63,30 @@ If the project later changes source posture or adds another approved builtin sou
 
 ---
 
+## Shipped Scope at a Glance
+
+SRD 5.1 is a **much smaller** content set than full 5E. Agents routinely assume otherwise
+and hallucinate content that was never shipped. The counts below are the ground truth,
+measured from `game-data/srd/*.json`:
+
+| Category | File | Shipped |
+| --- | --- | --- |
+| Races | `races.json` | 9 base + 4 subraces (13 records) |
+| Classes | `classes.json` | 12 |
+| Subclasses | `subclasses.json` | 12 (one per class) |
+| Backgrounds | `backgrounds.json` | **1** — Acolyte only |
+| Feats | `feats.json` | **1** — Grappler only |
+| Spells | `spells.json` | 319 |
+| Equipment packs | `equipment.packs.json` | 7 |
+| Armor / weapons | `equipment.armor.json`, `equipment.weapons.json` | full SRD 5.1 sets |
+| Languages / skills / features | `languages.json`, `skills.json`, `features.json` | supporting registries |
+
+If you are about to write a doc, test, or UI list that names a background other than
+Acolyte, a feat other than Grappler, or a Goliath/Orc race, stop: that content is not
+shipped. Verify against the JSON before asserting it exists.
+
+---
+
 ## Current Greenlit Builtin Categories
 
 The following categories are approved for builtin builder support, provided they are sourced from approved SRD material and represented in the project's structured data files.
@@ -113,17 +97,21 @@ The following categories are approved for builtin builder support, provided they
 
 Builtin races may be shipped if they are approved SRD races and are modeled in `game-data/srd/races.json`.
 
-Current expected builtin race scope includes SRD-safe races such as:
+Current shipped builtin race scope is exactly the 9 SRD 5.1 base races in `game-data/srd/races.json`:
 
 - Dragonborn
 - Dwarf
 - Elf
 - Gnome
-- Goliath
+- Half-Elf
+- Half-Orc
 - Halfling
 - Human
-- Orc
 - Tiefling
+
+Plus the 4 SRD 5.1 subraces modeled as `kind: "subrace"` records: High Elf, Hill Dwarf, Lightfoot Halfling, Rock Gnome.
+
+Goliath and Orc are **not** in scope. They are SRD 5.2.1 races, and SRD 5.2.1 is retired for this project (see `docs/reference/srd-licensing-notes.md`). Treat them as custom content.
 
 Project rule:
 
@@ -137,7 +125,7 @@ Project rule:
 
 Builtin classes may be shipped if they are approved SRD classes and are modeled in `game-data/srd/classes.json`.
 
-Current expected builtin class scope includes SRD-safe classes such as:
+Current shipped builtin class scope is exactly the 12 SRD 5.1 classes in `game-data/srd/classes.json`:
 
 - Barbarian
 - Bard
@@ -164,12 +152,11 @@ Project rule:
 
 Builtin backgrounds may be shipped if they are approved SRD backgrounds and are modeled in `game-data/srd/backgrounds.json`.
 
-Current expected builtin background scope includes SRD-safe backgrounds such as:
+Current shipped builtin background scope is exactly the 1 background in `game-data/srd/backgrounds.json`:
 
 - Acolyte
-- Criminal
-- Sage
-- Soldier
+
+Acolyte is the only background in SRD 5.1. Criminal, Sage, and Soldier are **not** SRD 5.1 content and are not shipped; treat them as custom content unless a future source pack is explicitly approved.
 
 Project rule:
 
@@ -181,7 +168,9 @@ Project rule:
 
 **Greenlit as builtin category:** Yes
 
-Builtin subclasses may be shipped if they are approved SRD subclasses and are modeled in the appropriate project data files.
+Builtin subclasses may be shipped if they are approved SRD subclasses and are modeled in `game-data/srd/subclasses.json`.
+
+Current shipped builtin subclass scope is the 12 SRD 5.1 subclasses — one per class: Berserker, Champion, Devotion, Draconic, Evocation, Fiend, Hunter, Land, Life, Lore, Open Hand, Thief.
 
 Project rule:
 
@@ -193,7 +182,13 @@ Project rule:
 
 **Greenlit as builtin category:** Yes
 
-Builtin feats may be shipped if they are approved SRD feats and are modeled in the appropriate project data files.
+Builtin feats may be shipped if they are approved SRD feats and are modeled in `game-data/srd/feats.json`.
+
+Current shipped builtin feat scope is exactly the 1 feat in `game-data/srd/feats.json`:
+
+- Grappler
+
+Grappler is the only feat in SRD 5.1. Every other feat (Alert, Great Weapon Master, Lucky, Sentinel, War Caster, …) is **not** SRD 5.1 content and is not shipped; treat them as custom content.
 
 Project rule:
 
@@ -281,6 +276,9 @@ Examples of practical interpretation:
 
 - Aasimar: custom unless explicitly approved later
 - Artificer: custom unless explicitly approved later
+- Goliath, Orc: custom — SRD 5.2.1 races, and 5.2.1 is retired
+- Criminal, Sage, Soldier: custom — not SRD 5.1 backgrounds
+- Alert, Lucky, Sentinel, War Caster, and every feat except Grappler: custom — not SRD 5.1 feats
 - homebrew subclasses: custom
 - homebrew feats: custom
 - setting-specific origins or lore packages: custom

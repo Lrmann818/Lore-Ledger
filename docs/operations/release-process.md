@@ -7,7 +7,7 @@ The standard shipping path is:
 1. validate the release candidate locally
 2. build the production artifact with Vite
 3. merge or push the release commit to `main`
-4. let GitHub Pages deploy the built `dist/` output through [`.github/workflows/pages.yml`](../.github/workflows/pages.yml)
+4. let GitHub Pages deploy the built `dist/` output through [`.github/workflows/pages.yml`](../../.github/workflows/pages.yml)
 
 There is no dedicated release automation beyond the GitHub Pages workflow. Today that workflow runs `npm ci`, `npm run verify`, installs Playwright Chromium, and runs `npm run test:smoke` in its `Verify and build` job before any Pages deploy, but releases still remain evidence-driven and still rely on manual validation alongside automated checks.
 
@@ -21,7 +21,7 @@ There is no dedicated release automation beyond the GitHub Pages workflow. Today
 
 ## 2. Versioning rules
 
-User-visible app versioning is computed in [`vite.config.js`](../vite.config.js), not by manually bumping [`package.json`](../package.json).
+User-visible app versioning is computed in [`vite.config.js`](../../vite.config.js), not by manually bumping [`package.json`](../../package.json).
 
 - Accepted release tag formats are `vX.Y.Z` and `X.Y.Z`.
 - Production build version is computed as `MAJOR.MINOR.(tagPatch + commitsSinceTag)`.
@@ -32,7 +32,7 @@ User-visible app versioning is computed in [`vite.config.js`](../vite.config.js)
 Important distinction:
 
 - App release version is separate from persisted data schema versioning.
-- The structured save schema is currently version `3`; if a release changes schema or backup format, update migrations and the storage/schema docs in the same change.
+- The structured save schema version is `CURRENT_SCHEMA_VERSION` in `js/state.js`, documented in [`docs/state-schema.md`](../state-schema.md). Do not restate the number here — it goes stale. If a release changes schema or backup format, update migrations and the storage/schema docs in the same change.
 
 ## 3. Tagging expectations
 
@@ -44,7 +44,7 @@ Important distinction:
 For this repo, tag timing matters:
 
 - The Pages workflow reads Git tags during `npm run build`.
-- A tag by itself does not deploy anything because [`.github/workflows/pages.yml`](../.github/workflows/pages.yml) only runs on pushes to `main` and on manual dispatch.
+- A tag by itself does not deploy anything because [`.github/workflows/pages.yml`](../../.github/workflows/pages.yml) only runs on pushes to `main` and on manual dispatch.
 - If you create or push the release tag after the `main` push has already deployed, rerun the workflow manually so the build can pick up the new tag-based version.
 
 Typical flow:
@@ -108,7 +108,7 @@ Use preview or a deployed production build for PWA and offline checks. `npm run 
 
 ## 6. Required smoke/testing steps
 
-The repository now defines targeted automated checks in [`package.json`](../package.json). The Pages workflow currently runs `npm run verify` before deploy, which covers `npm run test:run`, `npm run typecheck`, and the production build. It then installs Playwright Chromium and runs the focused browser smoke suite in `tests/smoke/*.smoke.js` before uploading the Pages artifact. Release validation still requires the manual checklist in addition to those automated checks because PWA/offline, installed-app, and broader cross-browser behavior remain outside the CI gate.
+The repository now defines targeted automated checks in [`package.json`](../../package.json). The Pages workflow currently runs `npm run verify` before deploy, which covers `npm run test:run`, `npm run typecheck`, and the production build. It then installs Playwright Chromium and runs the focused browser smoke suite in `tests/smoke/*.smoke.js` before uploading the Pages artifact. Release validation still requires the manual checklist in addition to those automated checks because PWA/offline, installed-app, and broader cross-browser behavior remain outside the CI gate.
 
 Primary sources:
 
@@ -154,7 +154,7 @@ That is the artifact uploaded and deployed by the Pages workflow.
 
 ## 8. GitHub Pages deployment notes
 
-Current deploy behavior is defined in [`.github/workflows/pages.yml`](../.github/workflows/pages.yml).
+Current deploy behavior is defined in [`.github/workflows/pages.yml`](../../.github/workflows/pages.yml).
 
 What it does today:
 
@@ -189,11 +189,11 @@ Path/base assumptions:
 
 - production `base` is `/`
 - GitHub Pages production is being prepared for the custom domain `https://lore-ledger.com/`
-- the build should include `dist/CNAME` with `lore-ledger.com` via [`public/CNAME`](../public/CNAME)
+- the build should include `dist/CNAME` with `lore-ledger.com` via [`public/CNAME`](../../public/CNAME)
 - the PWA manifest `id`, `start_url`, and `scope` are also `/`
 - Workbox navigation fallback is built from that same base
 
-If the GitHub Pages path ever changes, update all of these together in [`vite.config.js`](../vite.config.js):
+If the GitHub Pages path ever changes, update all of these together in [`vite.config.js`](../../vite.config.js):
 
 - `base`
 - PWA manifest `id`
@@ -605,19 +605,19 @@ Retry in this exact order:
 
 ## 11. Changelog update expectations
 
-This repository maintains a committed [`CHANGELOG.md`](../CHANGELOG.md).
+This repository maintains a committed [`CHANGELOG.md`](../../CHANGELOG.md).
 
 Current expectation for each release:
 
 - update the `[Unreleased]` section before tagging a release
 - summarize user-visible changes in the GitHub release notes, tag notes, or release PR description
-- update [`README.md`](../README.md) when release behavior, build behavior, or deployment expectations change
+- update [`README.md`](../../README.md) when release behavior, build behavior, or deployment expectations change
 - update this document when the release workflow changes
-- update [`docs/testing-guide.md`](./testing-guide.md) when release validation expectations change
+- update [`docs/operations/testing-guide.md`](./testing-guide.md) when release validation expectations change
 
 If the release changes persistence or compatibility behavior, also update:
 
-- [`docs/state-schema.md`](./state-schema.md)
+- [`docs/state-schema.md`](../state-schema.md)
 - [`docs/storage-and-backups.md`](./storage-and-backups.md)
 
 That is especially important for:

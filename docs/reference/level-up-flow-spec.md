@@ -1,14 +1,21 @@
 # Level Up Flow — Implementation Spec
 
-_Status: proposal. Not implemented. Written 2026-07-09._
+_Status: **proposal — do not implement yet.** Written 2026-07-09._
+
+> **Sequencing guard.** This spec is queued behind docs cleanup, P0 stabilization bugs,
+> and rest correctness, and it is expected to be **revised** before implementation. Do not
+> start building it. See §11 and the [Working Order](../../AGENTS.md#current-working-order).
 
 Adds a **Level Up** action to the character action menu for builder-created
-characters: a narrow, guided wizard that walks only the choices the next
-character level actually requires, previews the result, and applies it.
+characters: a narrow, guided wizard that **appends exactly one level**, walks only the
+choices that level actually unlocks, previews the result, and applies it.
 
-Read with `AGENTS.md`, `docs/reference/builder-scope-greenlist.md`, and
-`docs/reference/content-registry-plan.md`. UX reference (structure only, not
-visual design): `docs/reference/fifth-edition-character-sheet/.../03-level-up-flow`.
+Read with [`AGENTS.md`](../../AGENTS.md),
+[`builder-scope-greenlist.md`](./builder-scope-greenlist.md),
+[`content-registry-plan.md`](./content-registry-plan.md), and
+[`rest-rules-spec.md`](./rest-rules-spec.md) (prepared-spell selection lives there, not
+here). UX reference — **structure and editable surfaces only, never visual design** —
+`docs/reference/fifth-edition-character-sheet/.../03-level-up-flow`.
 
 ---
 
@@ -480,14 +487,50 @@ wizard and the HP step's Max/Avg/Roll row is the most likely thing to wrap badly
 
 ---
 
-## 10. Open questions
+## 10. Ratified decisions
 
-1. **Down-leveling.** Out of scope here. "Edit in Builder" already removes levels
-   via `removeLevelAt()`, but it does not reverse the stored `hpMax`. Worth a
-   separate look; it is an existing bug, not one this spec introduces.
-2. **Prepared casters.** This spec treats prepared-spell _lists_ as play-state
-   and only reports the new capacity. Confirm that matches the intended
-   at-the-table workflow before building step 5.
-3. **`used` slot semantics.** Named `used`, means _available_. Confirmed in
-   `characterRest.js:55` and `spellsPanel.js:416`. Worth a rename in a separate
-   cleanup change — do not rename inside the level-up work.
+_These were open questions. They are now **decided** (2026-07-09). Do not re-litigate
+them, and do not implement against the alternatives._
+
+1. **Down-leveling is out of scope.** Lore Ledger does not need a gameplay flow for
+   removing levels. **Do not build reverse level-up logic.** Do not attempt to reverse HP
+   gains, features, spells, ASIs, feats, resource counters, or multiclass progression as
+   part of Level Up. A user who made a mistake can use "Edit in Builder" or create a
+   corrected character.
+
+   _Known adjacent bug, not introduced by this spec:_ "Edit in Builder" removes levels via
+   `removeLevelAt()` but does not reverse the stored `hpMax`. Track separately; do not fix
+   it inside the Level Up batch.
+
+2. **Level Up appends exactly one level.** It asks **only** for the choices that the
+   newly-appended level actually unlocks. Steps with nothing to ask are skipped. It never
+   re-opens earlier levels' choices; existing selections render as locked context rows.
+
+3. **Prepared casters: capacity here, selection at rest.** Prepared-spell lists are
+   editable play-state, not permanent build choices. Level Up shows newly available spell
+   levels and prepared capacity before/after as **informational lines**. It must not force
+   a permanent prepared list. Prepared selection routes through the Long Rest
+   prepared-spell flow — see [`rest-rules-spec.md`](./rest-rules-spec.md).
+
+   - **Known-spell casters** (Bard, Ranger, Sorcerer, Warlock) choose newly known spells
+     **during Level Up**.
+   - **Wizards** choose spellbook additions during Level Up; they prepare from the
+     spellbook during a Long Rest.
+   - **Cantrips** are chosen during Level Up when the class gains one.
+   - **Granted spells** (domain/oath/patron/subclass) are shown and seeded as granted, not
+     manually chosen, unless the data requires a choice.
+
+4. **`used` slot semantics: do not rename.** The field is named `used` but stores
+   _available_ slots. Confirmed in `js/domain/characterRest.js` and
+   `js/pages/character/panels/spellsPanel.js`. **Do not rename it inside the Level Up
+   work.** Do fix any user-facing label that says "Used" while displaying available slots.
+   An internal rename is a separate cleanup change.
+
+---
+
+## 11. Sequencing guard
+
+This spec is **not ready to implement**. Per the current working order, Level Up is
+implemented only after docs cleanup, stabilization bugs, and rest correctness land, and
+after this spec has been revised against those outcomes. See the
+[Working Order](../../AGENTS.md#current-working-order) in `AGENTS.md`.

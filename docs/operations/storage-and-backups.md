@@ -36,8 +36,8 @@ This keeps the main JSON payload small and migratable while avoiding inlining im
 
 Compatibility is handled in two places:
 
-- `migrateState(...)` in [`js/state.js`](../js/state.js)
-- startup storage migration in [`js/storage/persistence.js`](../js/storage/persistence.js)
+- `migrateState(...)` in [`js/state.js`](../../js/state.js)
+- startup storage migration in [`js/storage/persistence.js`](../../js/storage/persistence.js)
 
 That split matters because some compatibility work needs IndexedDB access, not just JSON reshaping.
 
@@ -106,7 +106,7 @@ Legacy single-campaign saves are still accepted. Startup wraps them into a one-c
 
 The separate UI key is `localCampaignTracker_activeTab`.
 
-That key is written immediately by [`js/ui/navigation.js`](../js/ui/navigation.js) when the top tab changes. It does not mark the full save dirty.
+That key is written immediately by [`js/ui/navigation.js`](../../js/ui/navigation.js) when the top tab changes. It does not mark the full save dirty.
 
 `boot.js` also reads `localCampaignTracker_v1` directly on startup to apply the saved theme as early as possible. If an active campaign exists, boot resolves theme from `campaignDocs[activeCampaignId].tracker.ui.theme` first. Otherwise it falls back to the vault-era `appShell.ui.theme` path, then the legacy root `ui.theme` path for older saves.
 
@@ -171,7 +171,7 @@ Current storage-specific nuances:
 
 ## 6. SaveManager lifecycle
 
-`SaveManager` is created in [`app.js`](../app.js) around `saveAllLocal(...)`.
+`SaveManager` is created in [`app.js`](../../app.js) around `saveAllLocal(...)`.
 
 Configured behavior:
 
@@ -235,9 +235,9 @@ Exit/save hooks are best-effort only:
 
 ## 8. Backup export flow
 
-Export lives in [`js/storage/backup.js`](../js/storage/backup.js).
+Export lives in [`js/storage/backup.js`](../../js/storage/backup.js).
 
-Single-character portability is a separate, narrower file flow owned by [`js/domain/characterPortability.js`](../js/domain/characterPortability.js). It exports one active character to `.ll-character.json` with a portrait data URL and bundled spell notes, then imports that file as a new standalone character in the active campaign. See [`docs/features/character-portability.md`](../features/character-portability.md) for the file format and import-ordering rationale.
+Single-character portability is a separate, narrower file flow owned by [`js/domain/characterPortability.js`](../../js/domain/characterPortability.js). It exports one active character to `.ll-character.json` with a portrait data URL and bundled spell notes, then imports that file as a new standalone character in the active campaign. See [`docs/features/character-portability.md`](../features/character-portability.md) for the file format and import-ordering rationale.
 
 Current flow:
 
@@ -285,7 +285,7 @@ Compatibility note:
 
 ## 9. Backup import flow
 
-Import also lives in [`js/storage/backup.js`](../js/storage/backup.js).
+Import also lives in [`js/storage/backup.js`](../../js/storage/backup.js).
 
 Accepted incoming formats:
 

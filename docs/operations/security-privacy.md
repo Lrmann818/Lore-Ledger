@@ -81,7 +81,7 @@ This is a plain-text troubleshooting snapshot, not a data export. `Report Bug` p
 
 ## 5. CSP summary
 
-The runtime CSP is defined in [`index.html`](../index.html).
+The runtime CSP is defined in [`index.html`](../../index.html).
 
 In plain language, the current policy:
 
@@ -164,11 +164,11 @@ When changing persistence, backup, import, or rendering behavior:
 
 - [`docs/storage-and-backups.md`](./storage-and-backups.md)
 - [`docs/operations/csp-audit.md`](./csp-audit.md)
-- [`index.html`](../index.html)
-- [`js/state.js`](../js/state.js)
-- [`js/ui/support.js`](../js/ui/support.js)
-- [`js/storage/persistence.js`](../js/storage/persistence.js)
-- [`js/storage/backup.js`](../js/storage/backup.js)
-- [`js/storage/blobs.js`](../js/storage/blobs.js)
-- [`js/storage/texts-idb.js`](../js/storage/texts-idb.js)
-- [`vite.config.js`](../vite.config.js)
+- [`index.html`](../../index.html)
+- [`js/state.js`](../../js/state.js)
+- [`js/ui/support.js`](../../js/ui/support.js)
+- [`js/storage/persistence.js`](../../js/storage/persistence.js)
+- [`js/storage/backup.js`](../../js/storage/backup.js)
+- [`js/storage/blobs.js`](../../js/storage/blobs.js)
+- [`js/storage/texts-idb.js`](../../js/storage/texts-idb.js)
+- [`vite.config.js`](../../vite.config.js)

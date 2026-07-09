@@ -1,10 +1,29 @@
 # Vertical Slice Schema (Design Record)
 
-_Status: **RATIFIED 2026-04-22.** All open design questions resolved. Project-of-record rules are absorbed into `docs/reference/content-registry-plan.md` and `AGENTS.md` — see "Where These Decisions Are Canonical Now" at the end of this document._
+> ## 📜 HISTORICAL RATIONALE ONLY — NOT A CURRENT SPEC
+>
+> **This document explains _why_. It never explains _what ships today_.**
+>
+> Ratified 2026-04-22; rules absorbed into `docs/reference/content-registry-plan.md` and
+> `AGENTS.md`. Marked historical 2026-07-09.
+>
+> Read this **only** if you need the reasoning behind the build-time choices schema. Do
+> not read it to learn current builder scope, current registry shape, or current work.
+>
+> Two things in here are especially misleading if taken as current:
+>
+> - **The "vertical slice" strategy is complete.** It described proving one SRD data path
+>   (Dragonborn) before expanding. The registry has long since expanded to the full SRD
+>   5.1 set. There is no active vertical slice.
+> - **Any sequencing, "next", or "deferred" statement is dead.** The plan doc it pointed
+>   to now lives at `docs/archive/lore-ledger-builder-plan.md` and is itself archived.
+>
+> Canonical instead: `docs/reference/content-registry-plan.md` (schema/rules),
+> `docs/reference/builder-scope-greenlist.md` (shipped scope), `AGENTS.md` (rules, wins on
+> all conflicts). **If this record conflicts with them, they win — do not "fix" code or
+> docs to match this file.**
 
-_This file is a design record. It explains **why** the build-time choices schema and vertical-slice-first SRD registry strategy were chosen. `docs/reference/content-registry-plan.md` and `AGENTS.md` remain the authoritative **what** and rules. If they conflict with this record, the reference docs win and this file should be updated to reflect the discrepancy._
-
-Last updated: 2026-04-27
+Last updated: 2026-04-27 (content frozen; banner updated 2026-07-09)
 
 ---
 
@@ -43,7 +62,7 @@ This file should be read together with:
 - `docs/reference/srd-licensing-notes.md` — licensing posture, attribution
 - `docs/reference/builder-scope-greenlist.md` — what categories may ship as builtin
 - `docs/reference/content-registry-plan.md` — how shipped content is modeled (project rule of record for the schema)
-- `docs/plans/lore-ledger-builder-plan.md` — phased rollout plan
+- `docs/archive/lore-ledger-builder-plan.md` — phased rollout plan
 - `AGENTS.md` — contributor rules and data fetch pipeline
 
 Interpretation order:
@@ -438,7 +457,7 @@ Cost of writing the test: one afternoon, once. Probably extending over time as n
 ## Initial Dragonborn Vertical Slice Sequence
 
 The design is ratified. This is the first implementation slice selected to prove the
-build-time choice schema through real generated SRD data. `docs/plans/lore-ledger-builder-plan.md`
+build-time choice schema through real generated SRD data. `docs/archive/lore-ledger-builder-plan.md`
 tracks this sequence as Phase 1; this design record preserves the rationale for why this
 slice comes first.
 

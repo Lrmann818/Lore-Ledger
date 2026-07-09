@@ -1,7 +1,30 @@
 # Lore Ledger — Character Builder Implementation Plan
 
-Drafted: April 20, 2026  
-Last updated: April 30, 2026
+> ## ⚠️ ARCHIVED — HISTORICAL RECORD ONLY
+>
+> **Archived 2026-07-09. Do not use this document to decide what to build.**
+>
+> This was the phase-by-phase implementation tracker for the character builder, written
+> while the builder was a Dragonborn-only vertical slice. The builder has since shipped:
+> an 8-step wizard over the full SRD 5.1 registry, multiclass rules engine, custom
+> content, and sheet seeding, at schema v11.
+>
+> Every "Phase 3x", "still deferred", "future work", and "next slice" statement below is
+> **stale**. Much of it has shipped; some was superseded by a different design. Do not
+> treat any checklist here as remaining work, and do not "restore" behavior it describes.
+>
+> For current builder state, read instead:
+>
+> - `docs/reference/builder-scope-greenlist.md` — what actually ships as builtin content
+> - `docs/reference/content-registry-plan.md` — canonical registry/schema rules
+> - `docs/reference/character-builder-handoff.md` — how the implementation fits together
+> - `docs/state-schema.md` — current persisted shape (schema v11)
+> - `AGENTS.md` — the rules, which win on all conflicts
+>
+> Kept for provenance: it records *why* the builder was sequenced the way it was.
+
+Drafted: April 20, 2026
+Last updated: April 30, 2026 (frozen at archive time)
 
 ---
 

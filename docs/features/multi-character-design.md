@@ -1,10 +1,69 @@
 # Multi-Character System — Design Document
 
-Lore Ledger · April 2026
+Lore Ledger · drafted April 2026 · restructured 2026-07-09
 
-This document captures every design decision agreed upon for the multi-character system. It serves as the single reference for implementation.
+> **How to read this document.** It has two parts, and they have different authority:
+>
+> - **Part 1 — Current character architecture.** Canonical. Rules that still bind new
+>   code. Keep in sync with the code.
+> - **Part 2 — Historical implementation notes (Steps 1-4).** A record of how the
+>   multi-character system was built, step by step, in April 2026. **Reference only.**
+>   Its "Status", "Files affected", and schema-version statements were accurate when
+>   written and have drifted since. Do not treat Part 2 as a description of today's code,
+>   and do not change code to match it.
+>
+> The multi-character system shipped. All four steps are complete.
 
 ---
+
+# Part 1 — Current character architecture (canonical)
+
+## Character model
+
+- Characters live in `state.characters.entries`, selected by `state.characters.activeId`.
+  Resolve the active one with `getActiveCharacter(state)`.
+- The legacy `state.character` singleton key is valid **only** in migration and
+  backward-compatibility code. Never use it in new production code.
+- **Builder characters have `build !== null`. Freeform characters have `build: null`.**
+  These two modes must not be collapsed.
+- Builder characters use the level-by-level build model (`build.version` 2) with bare SRD
+  registry ids. Current schema version is `11` — see `docs/state-schema.md`, which is
+  canonical for the persisted shape.
+- Custom content is persisted per campaign in the `content.custom` bucket (schema v11).
+
+## Architecture rules (carried forward)
+
+1. **Canonical data has one source of truth.** Linked cards are views, not copies.
+2. **UI composition state is not domain data.** Which character is active, which cards are collapsed — these are separate from character content.
+3. **Migration safety is mandatory.** Every state shape change gets a defensive migration with tests.
+4. **Freeform mode is always available.** Users who don't want the builder can use the sheet manually.
+5. **Builtin content is read-only.** Edits fork into custom copies.
+6. **The green-list rule is absolute.** If it's not in the SRD 5.1 green list, it's custom.
+   See `docs/reference/builder-scope-greenlist.md` for what that list actually contains —
+   it is much smaller than full 5E.
+
+## Where the canonical detail lives
+
+| Topic | Canonical doc |
+| --- | --- |
+| Persisted shape, migrations | `docs/state-schema.md` |
+| Shipped builtin content scope | `docs/reference/builder-scope-greenlist.md` |
+| Registry record shapes | `docs/reference/content-registry-plan.md` |
+| Module boundaries | `docs/architecture.md` |
+| Rules that win on conflict | `AGENTS.md` |
+
+---
+
+# Part 2 — Historical implementation notes (Steps 1-4)
+
+> ⚠️ **Reference only. Written April 2026, during implementation.**
+>
+> Everything below describes the sequence in which the multi-character system was built.
+> Status lines, file lists, and especially **schema version numbers** in this part are
+> frozen at time of writing and are now stale — for example, Step 3 below references
+> schema v6; the current version is v11. Trust `docs/state-schema.md` over anything here.
+>
+> Kept because it records the decisions and tradeoffs that later changes must respect.
 
 ## Summary
 
@@ -264,7 +323,12 @@ ac: 18,
 }
 ```
 
-The `overrides` shape above is intentionally narrower than the original aspirational design. It will expand as automation lands for HP, AC, hit points, speed, AC additional-ability (Unarmored Defense), shield bonus, and similar fields. New override fields must be added through the schema migration path (current schema version `6`). See `docs/plans/lore-ledger-builder-plan.md` for the implementation roadmap.
+The `overrides` shape above is intentionally narrower than the original aspirational design. It will expand as automation lands for HP, AC, hit points, speed, AC additional-ability (Unarmored Defense), shield bonus, and similar fields. New override fields must be added through the schema migration path.
+
+> **Stale when written.** This paragraph said "current schema version `6`" and pointed at
+> `docs/plans/lore-ledger-builder-plan.md` for the roadmap. The current schema version is
+> `11` (see `docs/state-schema.md`), and that plan doc is archived at
+> `docs/archive/lore-ledger-builder-plan.md`.
 
 ### Freeform vs builder mode
 
@@ -292,7 +356,11 @@ Every piece of game content follows one schema:
 - `custom` items are user-created. Editing a builtin item creates a custom copy.
 - The green list (SRD 5.1 baseline) defines exactly which items are builtin.
 
-Content registry lives at app level, not per-campaign. All campaigns share the same builtin + custom content library.
+> **Superseded.** This section originally read: "Content registry lives at app level, not
+> per-campaign. All campaigns share the same builtin + custom content library." That is
+> **not** what shipped. Builtin SRD content is code-shipped under `js/domain/rules/` and
+> never persisted; **custom content is campaign-scoped** in the `content.custom` bucket
+> (schema v11, `js/state.js`). Campaigns do not share a custom content library.
 
 #### Armor data shape
 
@@ -409,43 +477,40 @@ Choices are recorded in `build.levelChoices[level]`.
 Triggered from the sub-toolbar menu:
 
 - Short Rest: prompts for hit die usage, restores relevant resources.
-- Long Rest: restores HP to max, resets hit dice (half level, min 1), restores all long-rest resources and spell slots.
+- Long Rest: restores HP to max, recovers spent Hit Dice, restores long-rest resources and spell slots.
 
 Both operate on the active character only.
 
-### SRD 5.1 green list (builtin baseline)
+> **Corrected.** This originally said Long Rest "resets hit dice (half level, min 1)".
+> Under SRD 5.1 a long rest recovers **spent Hit Dice up to half the character's total
+> Hit Dice** (minimum one die) — it is not a reset, and it is keyed to total Hit Dice, not
+> character level. Canonical rest behavior now lives in
+> [`docs/reference/rest-rules-spec.md`](../reference/rest-rules-spec.md).
 
-Race: Dragonborn, Dwarf, Elf, Gnome, Goliath, Halfling, Human, Orc, Tiefling
+### SRD 5.1 green list (builtin baseline) — SUPERSEDED, DO NOT USE
 
-Classes (one subclass each): Barbarian (Berserker), Bard (College of Lore), Cleric (Life Domain), Druid (Circle of the Land), Fighter (Champion), Monk (Warrior of the Open Hand), Paladin (Oath of Devotion), Ranger (Hunter), Rogue (Thief), Sorcerer (Draconic Sorcery), Warlock (Fiend Patron), Wizard (Evoker)
-
-Backgrounds: Acolyte, Criminal, Sage, Soldier (plus others present in SRD — to be confirmed against source PDFs)
-
-Spells: subset present in SRD 5.1 (to be extracted from PDF)
-
-Feats: subset present in SRD 5.1 (to be extracted from PDF)
-
-Armor (all SRD armor):
-
-- Light: Padded, Leather, Studded Leather
-- Medium: Hide, Chain Shirt, Scale Mail, Breastplate, Half Plate
-- Heavy: Ring Mail, Chain Mail, Splint, Plate
-- Shield
-
-Weapons (all SRD weapons):
-
-- Simple Melee: Club, Dagger, Greatclub, Handaxe, Javelin, Light Hammer, Mace, Quarterstaff, Sickle, Spear, Unarmed Strike
-- Simple Ranged: Crossbow (light), Dart, Shortbow, Sling
-- Martial Melee: Battleaxe, Flail, Glaive, Greataxe, Greatsword, Halberd, Lance, Longsword, Maul, Morningstar, Pike, Rapier, Scimitar, Shortsword, Trident, War Pick, Warhammer, Whip
-- Martial Ranged: Blowgun, Crossbow (hand), Crossbow (heavy), Longbow, Net
-
-(Exact list to be confirmed against SRD 5.1 PDF — the above is the expected set.)
+> ⚠️ **This section was wrong and has been removed.** It was drafted from memory of 5E
+> before the registry was built, and it named content that SRD 5.1 does not contain:
+>
+> - It listed **Goliath** and **Orc** as races. Those are SRD **5.2.1** content, and
+>   5.2.1 is retired for this project. SRD 5.1 has Half-Elf and Half-Orc instead.
+> - It listed **Criminal, Sage, and Soldier** as backgrounds. **Acolyte is the only
+>   background in SRD 5.1.**
+> - It said spells and feats were "a subset, to be extracted from PDF". The full 319-spell
+>   registry ships, and **Grappler is the only feat in SRD 5.1.**
+> - Its subclass names used 5.2.1 phrasing ("Warrior of the Open Hand", "College of Lore").
+>
+> Anything not in SRD 5.1 is **custom/homebrew content**, never shipped builtin content.
+>
+> The single source of truth for shipped builtin scope is
+> [`docs/reference/builder-scope-greenlist.md`](../reference/builder-scope-greenlist.md),
+> which is measured against `game-data/srd/*.json`. Read that, not this.
 
 ---
 
 ## Step 4 — Cross-campaign character import
 
-**Status:** Complete, audited, and fully verified. See `STEP4_TASKS.md` and `./character-portability.md` for the full implementation rationale.
+**Status:** Complete, audited, and fully verified. See [`./character-portability.md`](./character-portability.md) for the full implementation rationale. (This previously also pointed at `STEP4_TASKS.md`, which no longer exists in the repo.)
 
 ### Goal
 
@@ -496,25 +561,20 @@ One character at a time. No batch export/import.
 
 ---
 
-## Architecture rules (carried forward)
+## Original open questions (all resolved — historical)
 
-1. **Canonical data has one source of truth.** Linked cards are views, not copies.
-2. **UI composition state is not domain data.** Which character is active, which cards are collapsed — these are separate from character content.
-3. **Migration safety is mandatory.** Every state shape change gets a defensive migration with tests.
-4. **Freeform mode is always available.** Users who don't want the builder can use the sheet manually.
-5. **Builtin content is read-only.** Edits fork into custom copies.
-6. **The green-list rule is absolute.** If it's not in the SRD 5.1 green list, it's custom.
-
----
-
-## Open questions (to be resolved during implementation)
+These were the open questions recorded during implementation. They are listed here for
+provenance; none are open work.
 
 1. **`status` field**: Resolved in Step 2. Characters gained a `status: ""` field (schema v5). Linked cards read and write status from the character entry via `cardLinking.js`. Status is character-level state, visible everywhere the character appears.
 
-2. **Content registry storage location**: The builtin/custom content registry (races, classes, spells, etc.) should live at app level, not per-campaign. Need to decide exact storage shape and where in the vault it goes.
+2. **Content registry storage location**: Resolved. Builtin SRD content is code-shipped under `js/domain/rules/` and never persisted. Custom content is persisted **per campaign** in the `content.custom` bucket, added in schema v11 — not at app level as this question originally proposed.
 
 3. **Spell notes scoping**: Resolved in Step 4. Spell notes remain campaign-scoped IDB text records (`textKey_spellNotes(campaignId, spellId)`). Character export bundles notes for the exported character's spell IDs, and import restores those notes under the destination campaign.
 
-4. **Character sub-toolbar styling**: Needs to be compact enough to not feel like it steals too much vertical space on mobile. May want to collapse into a single row with icon-only buttons beyond the selector and overflow menu.
+4. **Character sub-toolbar styling**: Resolved during implementation. The shipped sub-toolbar uses the selector plus a `...` overflow menu.
 
 5. **`looseNotes` field**: Not implemented. Step 2 kept tracker card notes card-only, so no character-level `looseNotes` field or mirrored notes UI is needed for the shipped linking model.
+
+The canonical architecture rules that came out of this work now live in **Part 1** at the
+top of this document.

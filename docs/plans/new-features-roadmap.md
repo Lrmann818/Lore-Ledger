@@ -166,10 +166,13 @@ A portfolio project that accumulates silent regressions is not a portfolio proje
 
 ### Step 3 — Rules Engine and Character Builder
 
-**Status:** [~] In progress
+**Status:** [x] Shipped — SRD 5.1 builder, multi-step wizard, rules engine, custom content, sheet seeding (schema v11)
 
-Detailed builder sequencing lives in `docs/plans/lore-ledger-builder-plan.md`; this roadmap
-tracks outcomes, not adapter or schema implementation detail.
+> The phase checklist below is a **historical record of how it was built**, and its schema
+> version numbers are frozen at the time each line was written (e.g. "Schema v6 builder
+> foundation" — the current version is v11). The detailed sequencing doc it referenced is
+> archived at `docs/archive/lore-ledger-builder-plan.md`. For current builder state read
+> `docs/reference/builder-scope-greenlist.md` and `docs/state-schema.md`.
 
 - [x] Schema v6 builder foundation (`build` and `overrides` on character entries)
 - [x] Pure derivation foundation for first-slice builder values
@@ -204,10 +207,20 @@ tracks outcomes, not adapter or schema implementation detail.
 - [ ] Spell slot recovery later
 - [ ] Combat/linked-character rest behavior later, if desired
 - [ ] HP, AC derivation/equipment-based AC automation, saves, skills, spells, combat, and linked-card automation beyond the current manual AC linked-card source pattern
-- [ ] Custom content persistence and export/import story
-- [ ] Prove the first vertical SRD registry slice end-to-end before widening content coverage
-- [ ] Expand builtin registry coverage incrementally after the first slice is proven
+- [x] Custom content persistence (campaign-scoped `content.custom`, schema v11)
+- [x] Prove the first vertical SRD registry slice end-to-end before widening content coverage
+- [x] Expand builtin registry coverage incrementally after the first slice is proven
+- [ ] Custom content export/import story
 - [ ] Content registry licensing attribution
+- [ ] **P0 — rest correctness:** Short Rest Hit Dice spending; Long Rest HP, Hit Dice recovery, death saves; Long Rest prepared-spell flow (see `docs/reference/rest-rules-spec.md`)
+- [ ] **Queued behind rest —** revise then implement Level Up (see `docs/reference/level-up-flow-spec.md`)
+
+> ⚠️ **Stale paragraph below.** The prose that follows describes the builder as a
+> Dragonborn-only slice with Builder Summary/Identity scaffolding. That is out of date: the
+> builder ships an 8-step wizard over the full SRD 5.1 registry at schema v11. Treat the
+> paragraph as a historical status snapshot, not as remaining work. Current scope lives in
+> `docs/reference/builder-scope-greenlist.md`; current sequence lives in
+> [`AGENTS.md` → Current Working Order](../../AGENTS.md#current-working-order).
 
 This remains the largest active feature in the product. The foundation is now in place, and the shipped Step 3 UI supports the current builder creation path through Identity, supported Dragonborn Race Choices, Ability Scores, Summary, and Finish while remaining intentionally narrower than the long-term content-complete builder. Current shipped surfaces include an informational badge, a builtin-ID-only Builder Identity editor for race/class/background/level, a manual Builder Abilities editor for base scores, Builder Summary as temporary live review/comparison scaffolding, builder-derived identity display in the normal Basics panel, builder-derived proficiency plus speed and hit-dice display in normal and embedded Vitals, builder-derived ability score/modifier display in the normal Abilities/Skills panel, builder-only use of the derived proficiency scalar in existing Abilities/Skills formulas, builder-aware ability adjustments through the existing Abilities & Skills controls, a derived Dragonborn Breath Weapon card with character-owned use tracking, Dragonborn Finish-time seeding of passive trait text into Features / Traits and fixed languages into Languages, active-character Short Rest / Long Rest toolbar actions that recover explicitly tagged `character.resources[]` counters, manual/custom feature-specific `manualFeatureCards[].limitedUse` counters, and derived Dragonborn Breath Weapon `featureUses`, a Resource Settings dialog that assigns Vitals resource recovery metadata from press-and-hold or keyboard activation without visible tile settings buttons, character-owned manual/freeform/custom Abilities & Features cards that can render beside derived/read-only cards, optional manual/custom limited-use controls on manual cards, Breath Weapon use controls on the derived Dragonborn card, and compact combat card HP/AC controls with manually editable AC following the existing linked-card source pattern. Abilities & Features Phase 3G limited-use tracking foundation is implemented only for feature-specific manual/custom counters, Phase 3H adds only derived Dragonborn Breath Weapon tracking through `featureUses`, Phase 3I adds only the narrow Dragonborn passive-traits/languages seeding proof, and Phase 3J only clarified Builder Summary/Builder Abilities copy and status language without hiding or retiring Builder Summary. Builder Identity remains temporary scaffolding for editing builder identity inputs, and the older roadmap checklist labels Phase 3F/3G/3H refer to completed builder-integration slices, not the Abilities & Features Phase 3F manual-card slice, Phase 3G limited-use slice, or Phase 3H Breath Weapon use slice. Builder-created characters must remain editable after creation. The future content-complete wizard may seed appropriate rules-backed editable content into existing normal sheet fields or entries at creation, while freeform/no-wizard characters may remain blank or minimally populated; level-up may later add or offer duplicate-aware rules-backed content without overwriting user-owned edits. Builder-card edit/reorder/customization support for cards that mix live-derived mechanics with user-owned content still needs an explicit future ownership model. AC derivation, armor/equipment-based AC automation, HP automation beyond existing behavior, new overrides, materialization beyond the v8 `featureUses` field except the optional nested `manualFeatureCards[].limitedUse` object, broader class/background/equipment/spell choice flows, generalized wizard seeding beyond Dragonborn passive traits/languages, level-up additive flows, subclass choices, save/skill override expansion, custom content imports, save/skill automation, spell/combat automation, partial regain behavior, spell slot recovery, combat/linked-character rest behavior, shared resource pool automation such as Sorcery Points/Ki/Metamagic/Flexible Casting, broad derived feature-use automation, and broader rest/resource automation are not shipped yet.
 

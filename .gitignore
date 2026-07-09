@@ -28,7 +28,9 @@ temp/
 
 # Archives
 *.zip
-docs/archive/
+
+# NOTE: docs/archive/ is intentionally tracked. It holds superseded plans and audits
+# kept as historical records; see docs/archive/README.md.
 
 # Private personal notes
 docs/#personal/

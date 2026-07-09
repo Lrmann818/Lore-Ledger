@@ -4,6 +4,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 The canonical coding-agent rules live in [`AGENTS.md`](./AGENTS.md). **Read that file first**, before this one and before any other doc. If anything here conflicts with `AGENTS.md`, **`AGENTS.md` wins**.
 
+Before opening any doc under `docs/`, check the [Agent Doc Map](./AGENTS.md#agent-doc-map) in `AGENTS.md`. It tells you which docs your task needs and which are historical records that no longer describe the system. Reading historical docs as if they were current is the most common way agents break things here — `docs/archive/**` in particular describes work that has already shipped.
+
 ---
 
 ## Commands
@@ -41,7 +43,7 @@ This is a quick-reference summary. The full rules and reasoning are in `AGENTS.m
 
 ```text
 app.js
-  js/state.js      canonical state object; schema v6; migrations in migrateState()
+  js/state.js      canonical state object; CURRENT_SCHEMA_VERSION; migrations in migrateState()
   js/domain/*      factories and explicit state-action helpers
   js/storage/*     persistence, save lifecycle, IndexedDB helpers
   js/ui/*          shared page-agnostic UI systems

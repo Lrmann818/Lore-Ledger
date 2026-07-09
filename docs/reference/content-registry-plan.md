@@ -73,7 +73,12 @@ The planned builtin registry files are:
 - `game-data/srd/equipment.armor.json`
 - `game-data/srd/equipment.weapons.json`
 - `game-data/srd/equipment.packs.json`
-- `game-data/srd/spells.json` _(optional/later, only if needed for granted builtin spell support or future expansion)_
+- `game-data/srd/features.json`
+- `game-data/srd/spells.json`
+
+All of the above are **shipped today**. `spells.json` carries the full SRD 5.1 spell
+registry (319 spells) and `equipment.packs.json` carries the 7 SRD packs with inline
+contents; neither is optional or deferred.
 
 These files hold **shipped builtin content only**.
 
@@ -128,8 +133,8 @@ Examples:
 
 - `dwarf`
 - `fighter`
-- `soldier`
-- `tough`
+- `acolyte`
+- `grappler`
 - `champion`
 - `studded-leather`
 - `longsword`
@@ -346,9 +351,9 @@ Notes:
 
 #### Spellcasting note for classes
 
-Lore Ledger's builder may need class records to carry structured spellcasting progression data even if the app does not yet support a full builtin spell selection registry.
+Class records carry structured spellcasting progression data. The app also ships the full builtin spell registry, so progression metadata and spell selection work together rather than one standing in for the other.
 
-Examples of class-level spellcasting fields that may be introduced when needed:
+Class-level spellcasting fields:
 
 ```json
 "spellcasting": {
@@ -374,7 +379,7 @@ The important rule is:
 
 - spellcasting progression metadata is in scope for the builder
 - automatically granted builtin spells are in scope for the builder
-- a full builtin spell compendium is still optional/later unless the project explicitly expands into that area
+- the full builtin spell registry is **shipped** (`game-data/srd/spells.json`, 319 SRD 5.1 spells); the builder offers class-list spell selection and seeds it into the spells panel at Finish
 
 ### Backgrounds
 
@@ -382,32 +387,54 @@ Stored in:
 
 - `game-data/srd/backgrounds.json`
 
-Recommended shape:
+**Acolyte is the only background in SRD 5.1**, and therefore the only shipped builtin
+background. Criminal, Sage, and Soldier are not SRD 5.1 content — if you need them, they
+are custom/homebrew content, not builtin registry records.
+
+Shipped shape, abridged from the real `acolyte` record:
 
 ```json
 {
-  "id": "soldier",
+  "id": "acolyte",
   "kind": "background",
-  "name": "Soldier",
+  "name": "Acolyte",
   "source": "srd-5.1",
-  "skillProficiencies": [
-    "athletics",
-    "intimidation"
+  "skillProficiencies": ["insight", "religion"],
+  "choices": [
+    {
+      "id": "acolyte-language",
+      "kind": "language",
+      "count": 2,
+      "from": { "type": "any" },
+      "source": "background:acolyte"
+    }
   ],
-  "toolProficiencies": [],
-  "languages": [],
-  "equipment": [
-    "uniform",
-    "insignia-of-rank"
+  "startingEquipment": [
+    { "itemId": "clothes-common", "name": "Clothes, common", "quantity": 1 }
   ],
-  "feature": "military-rank"
+  "startingEquipmentOptions": [
+    {
+      "desc": "Choose 1 from Holy Symbols",
+      "choose": 1,
+      "options": [
+        { "categoryId": "holy-symbols", "categoryName": "Holy Symbols", "itemOptions": [] }
+      ]
+    }
+  ],
+  "feature": {
+    "name": "Shelter of the Faithful",
+    "desc": "…"
+  }
 }
 ```
 
 Notes:
 
-- background equipment can start simple
-- if equipment needs richer structure later, that can evolve separately
+- `feature` is an **object** (`{ name, desc }`), not a string id
+- fixed starting gear lives in `startingEquipment`; player choices live in
+  `startingEquipmentOptions`
+- build-time choices (e.g. Acolyte's two languages) live inline in `choices`
+- read the real record in `game-data/srd/backgrounds.json` before changing this shape
 
 ### Feats
 
@@ -415,31 +442,39 @@ Stored in:
 
 - `game-data/srd/feats.json`
 
-Recommended shape:
+**Grappler is the only feat in SRD 5.1**, and therefore the only shipped builtin feat.
+Alert, Lucky, Sentinel, Tough, War Caster, and every other familiar 5E feat are **not**
+SRD 5.1 content. They are custom/homebrew content, not builtin registry records.
+
+Shipped shape, from the real `grappler` record:
 
 ```json
 {
-  "id": "tough",
+  "id": "grappler",
   "kind": "feat",
-  "name": "Tough",
+  "name": "Grappler",
   "source": "srd-5.1",
-  "category": "general",
-  "prerequisites": [],
-  "effects": [
-    {
-      "type": "hp_per_level_bonus",
-      "value": 2
-    }
-  ]
+  "prerequisites": [
+    { "ability": "str", "minimum": 13 }
+  ],
+  "desc": "…",
+  "effects": []
 }
 ```
 
 Notes:
 
-- `effects` should be structured enough for later rules-engine use
-- keep the effect model simple at first; expand only when the builder needs it
+- `prerequisites` entries are structured `{ ability, minimum }` records, not prose
+- `effects` is present but **empty** on the only shipped feat; it exists for later
+  rules-engine use and for custom content
+- keep the effect model simple; expand only when the builder actually needs it
+- read the real record in `game-data/srd/feats.json` before changing this shape
 
 #### Spell-grant note for feats
+
+No SRD 5.1 feat grants a spell — Grappler does not. The shape below is **illustrative**,
+for custom/homebrew feats and for any future approved source pack. It does not describe
+shipped builtin data.
 
 If a feat grants a spell, cantrip, or spellcasting-related effect, prefer structured fields over prose-only description.
 
@@ -1102,21 +1137,20 @@ not for maximum content volume on day one.
 
 ## Future Evolution
 
-This plan is intentionally first-pass and practical.
+Several registries listed here as "future" have since shipped: feature definitions
+(`features.json`), spell definitions (`spells.json`), trait definitions (`traits.json`),
+language definitions (`languages.json`), and equipment bundles (`equipment.packs.json`,
+as packs with inline contents).
 
-Later, Lore Ledger may introduce additional registry files or supporting registries for things like:
+Still genuinely future, and not currently in scope:
 
-- feature definitions
-- spell definitions (only if the project later chooses to support broader builtin spell workflows)
-- trait definitions
-- language definitions
 - tool definitions
-- equipment bundles
 - effect schemas
+- magic items
+- monster / NPC stat blocks
 
-That is fine, but those should be added deliberately rather than prematurely.
-
-The first version should stay simple enough to ship and maintain.
+Those should be added deliberately rather than prematurely, and only after the greenlist
+is updated to approve them.
 
 ---
 
@@ -1130,7 +1164,7 @@ Lore Ledger's content registry should be:
 - stable-ID based
 - separate from UI state and runtime state
 
-Current planned builtin registry files:
+Current shipped builtin registry files (all 14 are loaded by `js/domain/rules/builtinContent.js`):
 
 - `races.json`
 - `classes.json`
@@ -1141,7 +1175,8 @@ Current planned builtin registry files:
 - `draconic-ancestries.json`
 - `languages.json`
 - `skills.json`
-- `spells.json` _(optional/later if needed for granted builtin spell support or broader spell workflows)_
+- `features.json`
+- `spells.json`
 - `equipment.armor.json`
 - `equipment.weapons.json`
 - `equipment.packs.json`

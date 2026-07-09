@@ -1,8 +1,25 @@
 # Lore Ledger Multi-Branch Architecture and Sync Review
 
+> ## ⚠️ ARCHIVED — POINT-IN-TIME AUDIT
+>
+> **Archived 2026-07-09. Every commit hash, branch tip, test count, and conflict count
+> below was measured on 2026-07-02 and is now stale.**
+>
+> The branch topology this audit describes no longer exists. The three-way divergence
+> between `main`, `develop`, and `builder-wizard` has since been resolved: the schema was
+> unified into a single lineage and `develop` was fast-forwarded to `builder-wizard`. The
+> 18 merge conflicts, the "48 / 86 commits apart" figures, and the phased migration plan
+> at the end were all executed or superseded.
+>
+> Do not run the migration plan in this document. Do not use its commit hashes.
+>
+> For current state, read `AGENTS.md` and `docs/state-schema.md`.
+>
+> Kept for provenance: it records the reasoning behind the branch-unification work.
+
 **Date:** 2026-07-02
 **Reviewer:** Claude Code (senior staff-level architecture, test, security, and release-readiness audit)
-**Status:** Audit only — no source files were modified as part of this review.
+**Status:** Archived audit — no source files were modified as part of this review.
 
 ---
 
