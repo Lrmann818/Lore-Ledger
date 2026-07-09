@@ -30,113 +30,72 @@ Treat any data-loss, restore, offline-shell, or CSP regression as a merge/releas
 
 ## 2. Current automated coverage
 
-Vitest is the current unit test runner, and Playwright provides a focused Chromium browser smoke layer. The automated story is split intentionally:
+The automated story is split intentionally:
 
-- `npm run verify` is the canonical build-and-unit gate and is the first automated gate GitHub Pages CI runs today.
-- `npm run test:smoke` is the focused Chromium smoke pass for browser-only regressions. It now runs locally and in GitHub Pages CI after Playwright Chromium is installed.
-- PWA/offline, preview-based service-worker behavior, and broader cross-browser coverage are still manual release checks, not CI-gated automation in this version.
+- `npm run verify` is the canonical build-and-unit gate, and the first gate GitHub Pages CI runs.
+- `npm run test:smoke` is the focused Chromium smoke pass for browser-only regressions. It runs locally and in CI.
+- PWA/offline, preview-based service-worker behavior, and cross-browser coverage remain **manual release checks**, not CI-gated automation.
 
-Canonical local verification commands:
+### Commands
 
-- `npm ci`
-  Expected: installs dependencies the same way CI does on a clean runner. Use this when you want the closest local match to GitHub Actions, especially after dependency or lockfile changes.
-- `npm run verify`
-  Expected: runs the canonical automated local gate: `npm run test:run`, `npm run typecheck`, and `npm run build`.
-- `npm run typecheck`
-  Expected: runs the repo-wide CheckJS pass through the repo-pinned `typescript@5.9.3` compiler.
-- `npm run preview`
-  Expected: serves the production build for browser-only validation that CI does not cover.
-- `npm run test:smoke`
-  Expected: starts a controlled Vite server in production mode on the repo's GitHub Pages base path and runs the current local Chromium smoke suite covering app boot, Campaign Hub flows/layouts, managed splash handoff, map-shell rendering, Character-page layout regressions, reload persistence, backup export/import in a fresh browser context, invalid import feedback, tracker-page re-init safety, character-page re-init safety, targeted tracker card-panel behavior, Combat Workspace card/round/status/embedded-panel behavior, and recent dropdown/popover regression coverage.
+| Command | What it does |
+| --- | --- |
+| `npm ci` | Clean install, exactly as CI does it |
+| `npm run verify` | The canonical gate: `test:run` + `typecheck` + `build` |
+| `npm run test` | Vitest in watch mode |
+| `npm run test:run` | Vitest once; append `-- tests/state.migrate.test.js` for one suite |
+| `npm run typecheck` | Repo-wide CheckJS pass (pinned `typescript@5.9.3`) |
+| `npm run test:smoke` | Playwright Chromium smoke suite, production-mode Vite server |
+| `npm run preview` | Serves the production build — required for any PWA/offline check |
 
-Focused dev commands:
+Use `npm run verify` as the default pre-merge and pre-release check. The narrower commands
+are for faster iteration when you already know which area you changed.
 
-- `npm test`
-  Expected: starts Vitest in watch mode for local development.
-- `npm run test:run`
-  Expected: runs the current automated suite once and exits.
-- `npm run test:run -- tests/state.migrate.test.js`
-  Expected: runs only the migration-focused suite for `migrateState(...)`.
+### What is covered
 
-Current automated scope is intentionally targeted:
+**Do not maintain a per-test-file inventory here.** It goes stale on every new test file. For
+the current picture:
 
-- `tests/state.migrate.test.js` covers supported legacy migration paths, current-schema normalization, malformed or partial payload repair, inventory backfill, active-inventory clamping, and idempotence.
-- `tests/state.migrate.fixtures.test.js` covers targeted cross-lineage migration behavior on the captured real saves in `tests/fixtures/saves/`: a v7 mobile save gains the builder fields while preserving stable session/inventory/participant ids, and a v5 live-site save gains every post-v5 migration.
-- `tests/saveCompatibility.test.js` is the fixture-driven save-compatibility contract: every `tests/fixtures/saves/*.json` file automatically runs through migrate-to-current, sanitize round-trip idempotence, builder-field materialization, stable unique ids, and content-count preservation, plus explicit guards that freeform (`build: null`) characters are untouched by the builder migrations.
-- `tests/state.sanitize.test.js` covers `sanitizeForSave(...)` top-level copy behavior so save/export sanitization does not mutate the live tracker/character buckets.
-- `tests/stateActions.test.js` covers `createStateActions(...)`, including queue-save semantics, tracker-card type aliases, and prototype-pollution/path-hardening guards.
-- `tests/storage.persistence.test.js` covers `saveAllLocal(...)` sanitized writes plus `loadAll(...)` behavior for missing storage, corrupt storage, stale-bucket replacement, legacy `imgDataUrl` migration, default-map repair, hit-die alias save/load compatibility, and a representative save/load round trip.
-- `tests/storage.blobReplacement.test.js` covers the hardened blob replacement contract: write new, apply new reference, flush structured save, then delete old, with rollback on failure.
-- `tests/assetReplacementFlows.test.js` covers portrait/map replacement failure paths so old asset references remain intact when the replacement save cannot be committed.
-- `tests/storage.saveManager.test.js` covers the local save lifecycle: dirty-delay timing, debounce behavior, `flush()` results, failure banner behavior, retry after failure, repeated dirty cycles, and `init()` reset behavior.
-- `tests/storage.backup.test.js` covers backup export shape, explicit native-document-export/save-picker/direct-download strategy selection, native export success/cancel/failure handling, save-picker success/cancel behavior, referenced blob/text collection, import validation failures, staged blob/text writes before state swap, rollback attempts for touched text IDs on covered failure paths, cleanup of staged assets after pre-swap failures, and blob-ID remap fallback when an import collides with an existing blob id.
-- `tests/support.test.js` covers the focused support helpers: safe debug-info formatting, mailto generation, runtime/context capability hints, and route/query-string hardening so copied debug info stays privacy-safe.
-- `tests/dataPanel.support.test.js` covers `Data & Settings` -> `Support` wiring, support summary display, `Report Bug`, `Copy Debug Info`, hub-versus-active-campaign debug snapshots, clipboard success, and both copy/mailto fallback paths when platform features are unavailable.
-- `tests/imagePicker.test.js` covers the image picker: file selection returning the chosen File, clean cancellation via the cancel event, `image/*` accept attribute (which produces the native iOS Photo Library / Take Photo / Files action sheet), absence of any in-app source chooser overlay, and request serialization so concurrent picks do not race.
-- `tests/sessionsPanel.test.js` covers session tab click selection, drag-to-reorder (stable-id commitment, release-click suppression after drag), sub-threshold pointer movement that must not trigger reorder or click suppression, touch swipe intent staying native until a long-press reorder is armed, intentional touch reorder after the long-press gate, drag followed by rename preserving the reordered position via stable id, and drag followed by delete leaving no stale tab entries in state or DOM.
-- `tests/tabReorder.test.js` covers the shared horizontal pill-row reorder helper used outside the sessions panel, including immediate mouse drag, active-drag scroll locking, insertion-cue lifecycle, quick touch swipe fallthrough without `preventDefault()`, and deliberate touch reorder only after the long-press gate.
-- `tests/buttonStateStyles.test.js` covers the shared button-state CSS contract: `:hover` visuals stay gated to fine-pointer devices (`@media (hover: hover) and (pointer: fine)`); momentary `:active` pressed feedback for plain buttons and for collapse/expand toggles lives *outside* that query so touch/iPad taps still get a brief darker pressed state; coarse/touch-pointer resets do not neutralize `:active` (only the intentional `numStepper` exception is allowed); `:focus-visible` stays a ring (inset box-shadow) distinct from the `:active` background fill; and generic `button[aria-expanded="true"]` styling is not restored (only the intentional `button[aria-haspopup="true"][aria-expanded="true"]` open-dropdown ring), so collapse toggles never look stuck open.
-- `tests/spellsPanel.slotReset.test.js` covers the Spells panel per-level "Reset" button and the shared number stepper. The reset button copies each level's max (`total`) into current (`used`) while clearing per-spell cast flags, mirrors blank/zero max safely (blank clears current, `0` stays `0`), and leaves slot-less cantrip levels' slot fields untouched. The stepper checks cover increment/decrement updating the input value, an `input` event firing so bound save/state wiring stays in sync, and idempotent (no double-wrap) enhancement; the touch-safety half asserts the coarse/touch-pointer media block re-enables the steppers (`opacity: 1; pointer-events: auto`) that the desktop hover reveal hides by default.
-- `tests/state.migrate.test.js` also covers the v6→v7 `normalizeInventoryItems` migration: stable ID assignment, missing/duplicate ID repair, active-index clamping, and idempotence across a migrate→sanitize→migrate round trip.
-- `tests/smoke/app.smoke.js` covers top-level shell boot in Chromium, opening the Map workspace, and a campaign-title reload-persistence check against the dedicated production-mode Vite server.
-- `tests/smoke/backup.smoke.js` covers save-picker selection in a desktop installed-PWA-like runtime, direct-download export/import round trips in Chromium when the picker is unavailable, and visible failure handling for invalid JSON import input.
-- `tests/smoke/combatShell.smoke.js` covers the Combat tab shell, Combat Cards, round controls, HP/temp HP actions, AC display, status effects, turn undo, tracker writeback for HP/status labels, role/order/remove/clear flows, mobile stacking, and embedded panel selection/reorder/source-panel behavior. Death Saves visibility, checkbox interaction, long-press stabilization, and TestFlight portrait-card layout still need explicit manual QA.
-- Native/TestFlight-only tablet and desktop-width UI scaling is intentionally gated to Capacitor-style runtimes and only activates above the shared `600px` mobile shell breakpoint. Browser/PWA runs and native widths at `600px` and below should remain visually unchanged. The scale uplift (`--ui-scale: 1.08`) is app-wide and routes through CSS custom-property tokens inherited from `html.is-native-app`. It covers: all plain `button` elements (global `font-size: var(--label-font-size)` via the shared button rule), Campaign Hub shell/layout/panel gaps, campaign count badge padding, campaign card padding, empty-state padding, hero-copy/divider gaps, section-header/form gaps, map toolbar brush-size-label gap, color-picker grid cell size/gap/padding, dropdown button gap, dropdown group label padding, map bar bottom margin, vitals tile label font-size (`charTileLabel`), resource title font-size, skill-row span font-size, save-options labels/grid/row gaps, and all previously covered topbar, character, combat, tracker, settings, calculator, and dice surfaces. A second, narrowly scoped comfort layer (appended at the bottom of `styles.css` under the same `@media (min-width: 601px) and (min-height: 431px) { html.is-native-app { … } }` gate) targets only the shell surfaces that need more than 1.08× to feel intentional on tablet/desktop: topbar icon sizes (`--native-icon-size`), topbar brand sizing (`--native-topbar-title-size` for `#campaignTitle` plus `--native-topbar-status-size` for the smaller `#statusText` line), the shared topbar control-height override (`--native-btn-min-h` via `--topbar-control-height` for nav and icon buttons together), calc/dice popover widths (`--native-popover-w`) and button heights (`--native-popover-btn-h`), calculator key font size (`--native-calc-key-font`), panel/section-heading font sizes (`--native-popup-title`, `--native-section-head`), settings panel width (`--native-panel-w`), and the map toolbar control sizing/panel-title context. The Character page is deliberately excluded from this comfort layer because it already looks correct at 1.08×. Manual verification of this scaling must be done in the actual Capacitor native build or by temporarily adding `is-native-app` to the `<html>` element in DevTools at a viewport ≥ 601×431 — the class is not applied in browser or PWA mode.
-- `tests/smoke/npcPortrait.smoke.js` covers NPC portrait crop/save behavior plus incremental tracker-card patch paths for portrait toggles, search, section moves, reorder, collapse, and focus restoration.
-- `tests/smoke/partyLocationPanels.smoke.js` covers the same controller-scoped tracker-card behaviors for Party and Location panels, including location type filtering.
-- `tests/smoke/trackerPanelLifecycle.smoke.js` covers repeated `initTrackerPage(...)` calls and checks that tracker panel listeners stay single-bound after re-init.
-- `tests/smoke/sessionTabReorder.smoke.js` covers session tab drag-to-reorder in a real browser: adding a second session, dragging the first tab past the second tab's midpoint, confirming the DOM order changes, and confirming the reordered order survives a full page reload via localStorage persistence.
-- `tests/smoke/characterPanelLifecycle.smoke.js` covers repeated `initCharacterPageUI(...)` calls and checks that representative Character page panel actions stay single-bound after teardown/re-init.
-- `tests/smoke/characterMapPolish.smoke.js` covers the narrow two-column Ability card header spacing, the single-column mobile fallback for the same header, and the Map workspace title/toolbar shell staying non-overflowing at narrower widths.
-- `tests/smoke/dropdownRegression.smoke.js` covers shared dropdown/popover behavior, including enhanced select opening, tracker card menu clickability in the body-ported menu path, and dropdown wiring after rerender.
+- **Smoke suite** — [`browser-smoke-status.md`](./browser-smoke-status.md) is the canonical
+  source: which spec files exist, what each covers, and what is intentionally manual.
+- **Unit suite** — run `npm run test:run` to see the current list.
 
-For current per-test-file coverage of the Playwright smoke suite, see [`browser-smoke-status.md`](./browser-smoke-status.md).
+By theme, the Vitest suite concentrates on the things that can silently destroy user data:
 
-Critical paths currently protected by automation:
+- schema migration, load-time normalization, and the fixture-driven save-compatibility
+  contract in `tests/fixtures/saves/` (including that freeform `build: null` characters are
+  untouched by builder migrations)
+- `sanitizeForSave(...)` not mutating live state buckets
+- state-action helpers, including prototype-pollution and path hardening
+- startup load behavior for missing, partial, malformed, and legacy-shaped data
+- safe blob-replacement ordering, so a failed replacement preserves the old asset
+- save-manager lifecycle: debounce, failure banners, retry, reset
+- backup export/import invariants, staged writes, rollback, and blob-ID remap
+- rules-engine derivation, progression, builder seeding, and custom content
+- support/debug-info privacy hardening
 
-This list spans both the Vitest unit suite and the Playwright smoke layer, so some entries map to test files in the per-file inventory above and others map to smoke coverage detailed in [`browser-smoke-status.md`](./browser-smoke-status.md).
+The Playwright layer concentrates on browser-only regressions: app boot, Campaign Hub,
+reload persistence, a real file backup round trip, tracker and character page re-init
+safety, Combat Workspace, dropdown/popover behavior, tab drag-to-reorder, splash handoff,
+and the builder wizard happy path.
 
-- schema upgrades and load-time normalization for saved state
-- local save serialization that strips runtime-only fields while leaving hit-die alias normalization to migration
-- startup load behavior when stored data is missing, partial, malformed, or legacy-shaped
-- `sanitizeForSave(...)` behavior that must not mutate live top-level tracker/character buckets
-- save-aware state-action helper behavior, including prototype-pollution/path hardening on helper paths
-- safe blob replacement ordering so replacement failures preserve the previously referenced portrait/map asset
-- save-manager failure handling that keeps unsaved-state warnings and recovery behavior honest
-- backup import/export invariants, including covered failure cleanup/rollback paths and imported asset preservation on those paths
-- one representative structured save/load round trip for the current persisted state shape
-- real-browser Campaign Hub first-run, layout, rename/delete, app boot, and one simple reload-persistence path through a Vite production-mode server
-- one real file download/upload backup round trip in Chromium using the production base path
-- tracker panel lifecycle cleanup that makes repeated tracker-page init safer
-- character page lifecycle cleanup that makes repeated character-page init safer for the current destroyable panel/controller surface
-- real-browser Character-page header spacing at the narrow two-column breakpoint plus the mobile single-column fallback, and narrow-width Map workspace title/toolbar shell stability
-- tracker incremental DOM patch paths for portrait toggles, reorder, collapse, section moves, search/filter-visible lists, and focus restoration in the tracker card panels
-- Combat Workspace behavior for combat tab layout, card actions, HP/temp HP, status timing, turn undo, tracker HP/status-label writeback exceptions, mobile stacking, and embedded character panels
-- shared dropdown/popover interaction paths for enhanced selects and tracker card menus after rerender
-- session tab drag-to-reorder: stable-midpoint index calculation, commit-on-drop ordering, insertion cue rendering/cleanup, active-drag scroll locking on desktop, quick-touch native scroll intent fallthrough, long-press touch reorder, rename-after-reorder id stability, delete-after-reorder cleanup, and reload persistence
-- equipment tab drag-to-reorder: stable inventory item IDs (v7 migration), active-item identity preservation across reorder, and shared `tabReorder` long-press touch handling that leaves swipe-to-scroll native until reorder is armed while still locking row scroll once drag begins
+### What stays manual, by decision
 
-Manual release checks that remain by decision:
+The authoritative list is in
+[`browser-smoke-status.md`](./browser-smoke-status.md) → "Manual-only coverage by decision".
+In short: broader Character-page depth, `Reset Everything` full-restore runs, map
+drawing/gesture/touch behavior, PWA/service-worker/offline behavior, and cross-browser
+validation outside Chromium. Those gaps are why the manual sections below are
+release-critical. End-to-end CSP verification stays manual because it validates the
+deployed runtime boundary, not a missing test.
 
-- Broader Character-page rendering and persistence depth beyond the current repeated-init smoke check is a future automation roadmap item, not release-quality debt.
-- `Reset Everything` plus full browser restore runs that include images, drawings, and text-backed assets are a future automation roadmap item, not release-quality debt.
-- Map drawing, gesture, touch/mobile behavior beyond the current title/toolbar shell checks, and broader map background-image scenarios are a future automation roadmap item, not release-quality debt.
-- PWA install, offline shell, update-banner, cache, and service-worker behavior are a future automation roadmap item, not release-quality debt.
-- Cross-browser UI differences outside local Chromium smoke are intentionally out of scope for automated coverage in this version and stay in the manual browser/device matrix.
-- End-to-end CSP/startup verification in a real browser session remains a required manual release check because it validates the deployed browser/runtime boundary rather than a missing automated test.
-For the current list of manual-only coverage decisions and items intentionally out of scope for automated smoke, see [`browser-smoke-status.md`](./browser-smoke-status.md).
+### Local verification vs CI
 
-Those gaps are why the manual sections below remain release-critical.
-
-Use `npm run verify` as the default automated pre-merge and pre-release check. The narrower Vitest commands are for faster iteration when you already know which area you are changing.
-
-Intentional differences between local verification and CI:
-
-- CI always starts from a clean Ubuntu runner with Node `20`, runs `npm ci`, then runs `npm run verify`.
-- CI installs Playwright Chromium and runs `npm run test:smoke` before uploading the Pages artifact.
-- Local verification can reuse an existing install; run `npm ci`, `npm run verify`, and `npm run test:smoke` when you want the closest local CI match. Install Chromium once with `npx playwright install chromium` if needed.
-- CI stops after the automated browser smoke gate. It does not run `npm run preview`, install/check the PWA, force offline mode, or run the manual cross-browser/device matrix.
-- Local release validation should still include the preview/manual browser checks below.
+- CI starts from a clean Ubuntu runner with Node `20`, runs `npm ci`, then `npm run verify`.
+- CI then installs Playwright Chromium and runs `npm run test:smoke` before uploading the Pages artifact.
+- CI **stops there**. It does not run `npm run preview`, install or check the PWA, force offline mode, or run the browser/device matrix.
+- For the closest local match: `npm ci`, `npm run verify`, `npm run test:smoke`. Install Chromium once with `npx playwright install chromium`.
+- Local release validation must continue with the preview/manual sections below.
 
 ### Conventions for future automated tests
 
@@ -389,62 +348,28 @@ If caches become stale during testing:
 
 ## 11. CSP/security checks
 
-Run this when touching startup code, CSP, asset loading, imports, or browser APIs that may be blocked by policy.
+Run this when touching startup code, CSP, asset loading, imports, or browser APIs that a
+policy may block.
 
-Setup:
+**The procedure lives in [`csp-audit.md`](./csp-audit.md)** — setup, the intentional
+DEV-only violation probe, the normal-usage audit flows, and the DEV-off check. Do not
+duplicate it here.
 
-1. Serve the app from a local server.
-2. Open `http://localhost:5500/?dev=1` or the equivalent dev URL with `?dev=1`.
-3. Open DevTools Console.
+Pass criteria for release:
 
-Intentional DEV-only violation check:
+- With `?dev=1`, the intentional inline-script probe produces a clear `[DEV][CSP VIOLATION]`
+  console error including `violatedDirective` and `blockedURI`.
+- Normal usage (map draw, NPC portrait, backup export/import) produces **no**
+  `securitypolicyviolation` events and no unexpected CSP errors.
+- Without the dev flag, there is no DEV CSP audit logging and no extra status noise.
 
-```js
-const s = document.createElement("script");
-s.textContent = "window.__cspInlineProbe = 'blocked-if-csp-is-working'";
-document.head.appendChild(s);
-```
+Two related platform checks are owned elsewhere; run them from their own docs rather than
+from this section:
 
-Expected result:
-
-- Console shows a clear `[DEV][CSP VIOLATION]` error
-- The logged object includes the violation details such as directive and blocked URI
-
-Normal usage audit flows with `?dev=1`:
-
-1. Map draw flow
-   - Set a map image, draw on the map, refresh, and confirm persistence.
-2. NPC portrait flow
-   - Add an NPC, set a name, pick a portrait, refresh, and confirm persistence.
-3. Native iOS/TestFlight image-picking flow
-   - On a real iPhone native/TestFlight build, open any portrait picker and confirm the **native iOS action sheet** appears directly — `Photo Library`, `Take Photo`, and `Files` options are shown by iOS, not by a Lore Ledger modal.
-   - No Lore Ledger source chooser (no "Add image" overlay) should appear.
-   - Choose `Photo Library`, select an image, and confirm Lore Ledger opens it in the crop modal.
-   - Choose `Files`, select an image, and confirm Lore Ledger opens it in the crop modal.
-   - Cancel the picker and confirm the app returns cleanly with no stuck overlay.
-   - ⚠️ **Known issue — Take Photo**: Selecting `Take Photo` from the native WKWebView file-input action sheet may cause the app to freeze after the user captures a photo. This is a known iOS/WKWebView bug. Do not reintroduce the custom in-app source modal as a workaround; a dedicated Capacitor native-camera bridge is the correct long-term fix. Document any freeze on a real device and track it separately.
-4. Backup flow
-   - On supported macOS desktop browser/PWA, export a backup and confirm a native Save dialog lets you choose the destination and writes a real `.json` file there.
-   - On unsupported desktop browser/PWA, export a backup and confirm the fallback download still produces a real `.json` file.
-   - On an installed iPhone TestFlight build, export a backup and confirm the native Files export picker opens instead of a share popover, then save `campaign-backup-YYYY-MM-DD.json` and confirm it is visible in Files.
-   - On an installed iPad TestFlight build, repeat the same flow and confirm the native Files export picker still allows choosing a destination and saving a real `.json` file.
-   - On an Apple Silicon Mac running the iOS TestFlight build when available, export a backup and confirm Finder presents a native save/export destination flow rather than the Copy/Edit Extensions share popover.
-   - Reset everything, import the exported backup, and confirm restoration.
-
-Expected result for all normal flows:
-
-- No `securitypolicyviolation` events during normal usage
-- No unexpected CSP errors in Console
-
-DEV-off check:
-
-1. Open the app without the dev flag, for example `http://localhost:5500/` or `?dev=0`.
-2. Repeat one quick normal flow such as map drawing.
-
-Expected result:
-
-- No DEV CSP audit logging
-- No extra CSP audit status noise during normal use
+- **Native iOS image picking** (native action sheet, no in-app source chooser, and the known
+  `Take Photo` WKWebView freeze) — see [`ios-packaging.md`](./ios-packaging.md).
+- **Backup export destinations** (macOS native Save dialog, iOS/iPadOS Files export picker,
+  never a share popover) — see section 9 above.
 
 ## 12. Suggested browser/device matrix
 
@@ -456,6 +381,20 @@ Expected result:
 | PWA/offline focused changes | One installed PWA or mobile browser with service worker support | Offline shell, update prompt, and cache behavior |
 
 If only one mobile platform is available, prioritize a real touch device over a desktop emulator.
+
+### How native scaling works, and how to see it
+
+The native-only uplift is `--ui-scale: 1.08`, applied by
+`@media (min-width: 601px) and (min-height: 431px) { html.is-native-app { … } }` in
+`styles.css`. A second, narrower comfort layer under the same gate raises topbar icons,
+brand sizing, popover widths, calculator keys, and panel/section headings through
+`--native-*` tokens. The Character page is **deliberately excluded** from that comfort
+layer because it already reads correctly at 1.08×.
+
+⚠️ **`is-native-app` is never applied in browser or PWA mode.** To verify this scaling you
+must use the real Capacitor native build, or temporarily add `is-native-app` to the `<html>`
+element in DevTools at a viewport of at least `601 × 431`. Browser and PWA runs, and native
+widths at `600px` and below, must remain visually unchanged.
 
 When a change touches native/TestFlight layout scaling, add this manual matrix on top of the normal browser/device coverage:
 
