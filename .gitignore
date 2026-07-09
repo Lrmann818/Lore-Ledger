@@ -28,6 +28,7 @@ temp/
 
 # Archives
 *.zip
+docs/archive/
 
 # Private personal notes
 docs/#personal/

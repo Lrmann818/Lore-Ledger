@@ -55,8 +55,8 @@ stored fields:
 - `abilitiesPanel.js` — ability totals, saves, skills
 - `abilitiesFeaturesPanel.js` — derived feature-action cards
 
-So the spec requirement *"update proficiency bonus when total character level
-reaches the relevant thresholds"* requires **zero work**. Same for speed, hit
+So the spec requirement _"update proficiency bonus when total character level
+reaches the relevant thresholds"_ requires **zero work**. Same for speed, hit
 dice, initiative, skills, saves, and the class/level label. They follow
 `build.levels.length` automatically the moment the level is appended.
 
@@ -81,7 +81,7 @@ These are the load-bearing findings. Everything else in this spec is assembly.
 
 `hpMax`, `hpCur`, `ac`, `spellDC`, `spellAttack` are **stored, user-editable
 play-state fields**, not live-derived. `getBuilderFinishSheetSeedPatch()` fills
-them *only when empty*:
+them _only when empty_:
 
 ```js
 if (derived.hp?.max != null && finiteNumberOrNull(source.hpMax) == null) {
@@ -105,7 +105,7 @@ A wizard going 2 → 3 keeps `total: 2` on the 1st-level slot row forever.
 
 Note the naming trap: `level.used` tracks **currently available** slots, not
 spent ones (`js/domain/characterRest.js:55`, and `spellsPanel.js:416` refills
-`used = total`). Growing a slot row means raising `total` *and* raising `used`
+`used = total`). Growing a slot row means raising `total` _and_ raising `used`
 by the same delta, clamped to `[0, total]`.
 
 ### Gap C — Class resource counters are not derived at all
@@ -118,8 +118,8 @@ by the same delta, clamped to `[0, total]`.
 
 Nothing reads it. `deriveCharacter()` produces exactly one `derivedFeatureAction`
 (Dragonborn Breath Weapon). `character.resources[]` is a hand-managed counter
-list owned by the vitals panel. So *"update class resource counters when the new
-level changes them"* has the data but no code.
+list owned by the vitals panel. So _"update class resource counters when the new
+level changes them"_ has the data but no code.
 
 This is a **prerequisite task, not a level-up task** — it is item #4 on the
 handoff's next-fixes list. See §7 for the recommended split.
@@ -129,7 +129,7 @@ handoff's next-fixes list. See §7 for the recommended split.
 `renderClassChoicesStep()` writes class and multiclass skill choices with
 `levelKey: "1"` regardless of the level at which the class was taken. A
 level-scoped renderer therefore **cannot filter by `levelKey`**; it must filter
-by *what the appended level newly unlocked* (computed from the before/after
+by _what the appended level newly unlocked_ (computed from the before/after
 diff), then let `writeChoice()` place the value wherever the existing convention
 puts it.
 
@@ -159,7 +159,7 @@ Reuse as-is, no changes:
 Do **not** reuse:
 
 - `renderClassesStep()` / `renderClassChoicesStep()` / `renderSpellsStep()` —
-  they render the *entire build's* choices. Level-up needs a level-scoped view.
+  they render the _entire build's_ choices. Level-up needs a level-scoped view.
   Rather than adding filter parameters to four heavily test-pinned renderers,
   write narrow level-up-specific renderers that share the small primitives
   (`makeSelect`, `renderMultiPickChoice`, `readChoice`/`writeChoice`). Export
@@ -257,8 +257,8 @@ HP → Summary.
 | 6 | **Hit Points** | always | `setLevelHpAt` |
 | 7 | **Summary** | always | nothing — Apply commits |
 
-**Step 1 — Class.** Radio: *Continue as \<current class\>* (default, preselected)
-vs *Multiclass*. Choosing Multiclass reveals a class select. Unmet SRD multiclass
+**Step 1 — Class.** Radio: _Continue as \<current class\>_ (default, preselected)
+vs _Multiclass_. Choosing Multiclass reveals a class select. Unmet SRD multiclass
 prerequisites render as a **non-blocking warning**, matching
 `renderClassesStep()`'s existing "allowed, but house-rules territory" copy. Also
 show a new-class multiclass skill choice here when the class grants one (Gap D).
@@ -299,7 +299,7 @@ first would show a stale Con modifier.
 
 **Step 7 — Summary.** A before → after diff table, not a character sheet:
 
-```
+```text
 Level                 4 → 5
 Class                 Fighter 4 → Fighter 5
 Proficiency Bonus     +2 → +3
@@ -310,7 +310,7 @@ Spell Slots           unchanged
 ```
 
 Plus a **preserved** section listing anything the apply step will deliberately
-*not* touch (see §6): `Armor Class 18 — manual value kept`.
+_not_ touch (see §6): `Armor Class 18 — manual value kept`.
 
 Cancel at any step discards the draft entirely. Apply is the only commit.
 
@@ -326,18 +326,18 @@ draft; then a **level-up-specific patch** is applied.
 
 | Policy | Fields | Rule |
 | --- | --- | --- |
-| **Accumulate** | `hpMax`, `hpCur`, spell slot `total`/`used` | Apply the *delta* between derived-before and derived-after. Preserves any manual offset the user had. |
+| **Accumulate** | `hpMax`, `hpCur`, spell slot `total`/`used` | Apply the _delta_ between derived-before and derived-after. Preserves any manual offset the user had. |
 | **Recompute-if-untouched** | `ac`, `spellDC`, `spellAttack` | If the stored value equals derived-before, set it to derived-after. If it diverges, the user overrode it: **leave it, and surface it in the summary's Preserved list.** |
 
 Worked example for HP:
 
-```
+```sudo
 delta   = computeMaxHp(levelsAfter).max − computeMaxHp(levelsBefore).max
 hpMax  += delta
 hpCur  += delta      // gaining a level grants the HP immediately
 ```
 
-`delta` accounts for a Con-raising ASI across *all* levels, because
+`delta` accounts for a Con-raising ASI across _all_ levels, because
 `computeMaxHp()` applies the Con modifier per level. If `conModifier` is null,
 `computeMaxHp()` returns `max: null`; skip the HP patch and warn in the summary
 rather than writing garbage.
@@ -383,7 +383,7 @@ is shippable and violates nothing.
 `deriveCharacter()` as an additive `derivedResources` field, seed/update
 `character.resources[]` duplicate-aware via the `builderSeed` marker, bumping
 `max` while preserving `cur`. This is handoff item #4 and stands on its own — it
-also fixes resources for *creation*, not just level-up.
+also fixes resources for _creation_, not just level-up.
 
 **Phase 3 — Level Up consumes derived resources.** Once Phase 2 exists, the
 level-up patch bumps seeded resource `max` values by delta and the summary shows
@@ -485,9 +485,9 @@ wizard and the HP step's Max/Avg/Roll row is the most likely thing to wrap badly
 1. **Down-leveling.** Out of scope here. "Edit in Builder" already removes levels
    via `removeLevelAt()`, but it does not reverse the stored `hpMax`. Worth a
    separate look; it is an existing bug, not one this spec introduces.
-2. **Prepared casters.** This spec treats prepared-spell *lists* as play-state
+2. **Prepared casters.** This spec treats prepared-spell _lists_ as play-state
    and only reports the new capacity. Confirm that matches the intended
    at-the-table workflow before building step 5.
-3. **`used` slot semantics.** Named `used`, means *available*. Confirmed in
+3. **`used` slot semantics.** Named `used`, means _available_. Confirmed in
    `characterRest.js:55` and `spellsPanel.js:416`. Worth a rename in a separate
    cleanup change — do not rename inside the level-up work.
