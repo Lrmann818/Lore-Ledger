@@ -25,7 +25,14 @@ import {
   makeDefaultCharacterEntry
 } from "../../domain/characterHelpers.js";
 import { getBuilderFinishSheetSeedPatch } from "../../domain/builderSheetSeeding.js";
-import { recoverCharacterForRest } from "../../domain/characterRest.js";
+import {
+  applyLongRest,
+  applyShortRest,
+  getBuilderPreparedSpellOptions,
+  getLongRestHitDiceRecovery,
+  getRestHitDicePools
+} from "../../domain/characterRest.js";
+import { openCharacterRestFlow } from "./restFlow.js";
 import { notifyActiveCharacterChanged } from "../../domain/characterEvents.js";
 import { createStateActions } from "../../domain/stateActions.js";
 import { makeNpc, makePartyMember } from "../../domain/factories.js";
@@ -43,6 +50,34 @@ import { dataUrlToBlob as defaultDataUrlToBlob } from "../../storage/blobs.js";
 
 let _activeCharacterPageController = null;
 const _dismissedEmptyStateCampaignIds = new Set();
+
+/**
+ * Initial wizard selections become rest play-state at character creation.
+ * Existing per-class rest selections win during Edit in Builder, because a
+ * prepared list is no longer a guarded build choice after creation.
+ * @param {import("../../state.js").CharacterEntry} character
+ * @returns {void}
+ */
+function adoptInitialBuilderPreparedSelections(character) {
+  const build = character?.build;
+  if (!build || typeof build !== "object" || Array.isArray(build)) return;
+  const spellcasting = build.spellcasting;
+  if (!spellcasting || typeof spellcasting !== "object" || Array.isArray(spellcasting)) return;
+  if (!character.rest || typeof character.rest !== "object" || Array.isArray(character.rest)) {
+    character.rest = { hitDiceSpent: {}, preparedByClass: {} };
+  }
+  if (!character.rest.preparedByClass || typeof character.rest.preparedByClass !== "object" || Array.isArray(character.rest.preparedByClass)) {
+    character.rest.preparedByClass = {};
+  }
+  for (const [classId, rawSelection] of Object.entries(spellcasting)) {
+    if (!rawSelection || typeof rawSelection !== "object" || Array.isArray(rawSelection)) continue;
+    if (Object.prototype.hasOwnProperty.call(character.rest.preparedByClass, classId)) continue;
+    const rawIds = rawSelection.preparedIds;
+    character.rest.preparedByClass[classId] = Array.isArray(rawIds)
+      ? [...new Set(rawIds.filter((id) => typeof id === "string").map((id) => id.trim()).filter(Boolean))]
+      : [];
+  }
+}
 
 function getEmptyStateDismissalKey(state) {
   const campaignId = typeof state?.appShell?.activeCampaignId === "string"
@@ -298,6 +333,7 @@ export function initCharacterPageUI(deps) {
             if (character.id !== characterId) return false;
             character.name = name;
             character.build = build;
+            adoptInitialBuilderPreparedSelections(character);
             Object.assign(character, getBuilderFinishSheetSeedPatch(character));
             return true;
           });
@@ -307,6 +343,7 @@ export function initCharacterPageUI(deps) {
               if (!entry) return;
               entry.name = name;
               entry.build = build;
+              adoptInitialBuilderPreparedSelections(entry);
               Object.assign(entry, getBuilderFinishSheetSeedPatch(entry));
             });
           }
@@ -316,6 +353,7 @@ export function initCharacterPageUI(deps) {
         }
         const entry = makeDefaultBuilderCharacterEntry(name);
         entry.build = build;
+        adoptInitialBuilderPreparedSelections(entry);
         Object.assign(entry, getBuilderFinishSheetSeedPatch(entry));
         mutateCharactersAndNotify((s) => {
           s.characters.entries.push(entry);
@@ -388,15 +426,59 @@ export function initCharacterPageUI(deps) {
       button.setAttribute("aria-disabled", (!activeCharacterForActions).toString());
     });
 
-    function runCharacterRestAction(restType) {
+    function restErrorMessage(error) {
+      if (error === "long-rest-requires-positive-hp") return "A character needs at least 1 HP to benefit from a Long Rest.";
+      if (error === "unavailable-hit-dice") return "That Short Rest selection spends unavailable Hit Dice.";
+      if (error === "missing-hp-for-hit-dice") return "Set current and maximum HP before spending Hit Dice.";
+      if (error === "incomplete-hit-dice-allocation") return "Allocate the required recovered Hit Dice before taking a Long Rest.";
+      if (error?.startsWith?.("prepared-capacity:")) return "Prepared spell selection exceeds that class's capacity.";
+      if (error?.startsWith?.("invalid-prepared-spell:")) return "Prepared spell selection includes an unavailable spell.";
+      return "Rest could not be applied. Please review the selection and try again.";
+    }
+
+    async function runCharacterRestAction(restType) {
+      const activeCharacter = getActiveCharacter(state);
+      if (!activeCharacter) return;
+      let selection = {};
+      if (restType === "longRest") {
+        const preflight = applyLongRest(activeCharacter);
+        if (preflight.error === "long-rest-requires-positive-hp") {
+          if (typeof setStatus === "function") setStatus(restErrorMessage(preflight.error), { stickyMs: 2500 });
+          return;
+        }
+      }
+      const hasShortRestDice = restType === "shortRest" && getRestHitDicePools(activeCharacter)
+        .some((pool) => pool.available > 0);
+      const longRecovery = restType === "longRest" ? getLongRestHitDiceRecovery(activeCharacter) : null;
+      const preparedOptions = restType === "longRest" ? getBuilderPreparedSpellOptions(activeCharacter) : [];
+      const needsFlow = hasShortRestDice || !!longRecovery?.requiresAllocation || preparedOptions.length > 0;
+      if (needsFlow) {
+        const result = await openCharacterRestFlow({ type: restType, character: activeCharacter });
+        if (!result) return;
+        selection = result;
+      }
+      let restError = "";
       const updated = mutateCharacter((character) => {
-        const result = recoverCharacterForRest(character, restType);
+        const result = restType === "shortRest"
+          ? applyShortRest(character, selection)
+          : applyLongRest(character, selection);
+        if (result.error) {
+          restError = result.error;
+          return false;
+        }
         if (!result.changed) return false;
-        Object.assign(character, result.character);
+        let nextCharacter = result.character;
+        if (restType === "longRest" && selection.preparedByClass) {
+          const seededPatch = getBuilderFinishSheetSeedPatch(nextCharacter);
+          if (seededPatch) nextCharacter = { ...nextCharacter, ...seededPatch };
+        }
+        Object.assign(character, nextCharacter);
         return true;
       });
       if (!updated) {
-        if (typeof setStatus === "function") setStatus("No recoverable resources for this rest.", { stickyMs: 2000 });
+        if (typeof setStatus === "function") {
+          setStatus(restError ? restErrorMessage(restError) : "No recoverable resources for this rest.", { stickyMs: restError ? 2500 : 2000 });
+        }
         return;
       }
       rerender();
@@ -406,12 +488,15 @@ export function initCharacterPageUI(deps) {
     }
 
     restButtons.forEach((button) => {
-      addListener("actions", button, "click", (event) => {
+      addListener("actions", button, "click", safeAsync(async (event) => {
         event.preventDefault();
         const restType = button.dataset.characterRest;
         if (restType !== "shortRest" && restType !== "longRest") return;
-        runCharacterRestAction(restType);
-      });
+        await runCharacterRestAction(restType);
+      }, (error) => {
+        console.error("Character rest flow failed:", error);
+        if (typeof setStatus === "function") setStatus("Rest could not be applied. Please try again.", { stickyMs: 2500 });
+      }));
     });
 
     const setActionMenuClosed = () => {

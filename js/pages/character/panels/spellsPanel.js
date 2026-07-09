@@ -358,7 +358,8 @@ export function initSpellsPanel(deps = {}) {
       const used = document.createElement("input");
       used.classList.add("num-sum");
       used.type = "number";
-      used.placeholder = "Used";
+      used.placeholder = "Available";
+      used.setAttribute("aria-label", "Available spell slots");
       used.value = level.used ?? "";
       used.addEventListener("input", () => {
         const updated = mutateSpellLevel(levelId, levelIndex, (currentLevel) => {
@@ -573,7 +574,10 @@ export function initSpellsPanel(deps = {}) {
     };
 
     toggles.appendChild(mkToggle("Known", "known"));
-    toggles.appendChild(mkToggle("Prepared", "prepared"));
+    const preparedToggle = mkToggle("Prepared", "prepared");
+    preparedToggle.title = "Manual/DM prepared override";
+    preparedToggle.setAttribute("aria-label", "Prepared — manual or DM override");
+    toggles.appendChild(preparedToggle);
     toggles.appendChild(mkToggle("Cast", "expended", "warn"));
 
     const mini = document.createElement("div");

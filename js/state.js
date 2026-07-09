@@ -2,7 +2,13 @@
 // js/state.js — app-wide state + schema migration
 
 import { DEV_MODE } from "./utils/dev.js";
-import { isBuilderCharacter, normalizeCharacterBuild, normalizeCharacterOverrides } from "./domain/characterHelpers.js";
+import {
+  isBuilderCharacter,
+  normalizeCharacterBuild,
+  normalizeCharacterOverrides,
+  normalizeCharacterRestState,
+  normalizeDeathSaves
+} from "./domain/characterHelpers.js";
 import { normalizeManualFeatureCard } from "./domain/manualFeatureCards.js";
 import { normalizeFeatureUses } from "./domain/featureUses.js";
 
@@ -10,7 +16,7 @@ export const STORAGE_KEY = "localCampaignTracker_v1";
 export const ACTIVE_TAB_KEY = "localCampaignTracker_activeTab";
 
 // Save schema versioning
-export const CURRENT_SCHEMA_VERSION = 11;
+export const CURRENT_SCHEMA_VERSION = 12;
 
 /** @typedef {import("./domain/factories.js").NpcCard & PortraitRef} NpcCard */
 /** @typedef {import("./domain/factories.js").PartyMemberCard & PortraitRef} PartyMemberCard */
@@ -83,6 +89,11 @@ export const SCHEMA_MIGRATION_HISTORY = Object.freeze([
     version: 11,
     date: "2026-07-06",
     changes: "Added campaign custom content bucket (content.custom) and migrated builder characters to the level-by-level build model (build.version 2) with bare SRD registry ids."
+  },
+  {
+    version: 12,
+    date: "2026-07-09",
+    changes: "Added per-character rest bookkeeping (spent Hit Dice and builder prepared selections) plus death-save tracking."
   }
 ]);
 
@@ -525,6 +536,8 @@ function normalizeTrackerSessions(input) {
  *   hitDieAmt: NullableNumber,
  *   hitDieAmount?: NullableNumber,
  *   hitDieSize: NullableNumber,
+ *   deathSaves: { successes: number, failures: number },
+ *   rest: { hitDiceSpent: Record<string, number>, preparedByClass: Record<string, string[]> },
  *   ac: NullableNumber,
  *   initiative: NullableNumber,
  *   speed: NullableNumber,
@@ -1559,6 +1572,40 @@ export function migrateState(raw) {
     }
   }
 
+  // Rest play-state and death-save tracking. Existing builder spell choices
+  // seed the new authoritative prepared-by-class state once; sheet spell data
+  // remains user-owned and is intentionally not rewritten during migration.
+  function migrateToV12() {
+    const characters = data.characters && typeof data.characters === "object" && !Array.isArray(data.characters)
+      ? /** @type {CharactersCollection & Record<string, unknown>} */ (data.characters)
+      : null;
+    const entries = Array.isArray(characters?.entries) ? characters.entries : [];
+    for (const entry of entries) {
+      if (!entry || typeof entry !== "object" || Array.isArray(entry)) continue;
+      const character = /** @type {Record<string, unknown>} */ (entry);
+      const existingRest = character.rest && typeof character.rest === "object" && !Array.isArray(character.rest)
+        ? /** @type {Record<string, unknown>} */ (character.rest)
+        : null;
+      const existingPrepared = existingRest?.preparedByClass;
+      const hadPreparedRestState = !!(existingPrepared && typeof existingPrepared === "object" && !Array.isArray(existingPrepared));
+      const rest = normalizeCharacterRestState(character.rest);
+      if (!hadPreparedRestState && character.build && typeof character.build === "object" && !Array.isArray(character.build)) {
+        const spellcasting = /** @type {Record<string, unknown>} */ (character.build).spellcasting;
+        if (spellcasting && typeof spellcasting === "object" && !Array.isArray(spellcasting)) {
+          for (const [classId, rawSelection] of Object.entries(spellcasting)) {
+            if (!rawSelection || typeof rawSelection !== "object" || Array.isArray(rawSelection)) continue;
+            const preparedIds = /** @type {Record<string, unknown>} */ (rawSelection).preparedIds;
+            if (!Array.isArray(preparedIds)) continue;
+            const ids = [...new Set(preparedIds.filter((id) => typeof id === "string").map((id) => id.trim()).filter(Boolean))];
+            if (ids.length) rest.preparedByClass[classId] = ids;
+          }
+        }
+      }
+      character.rest = rest;
+      character.deathSaves = normalizeDeathSaves(character.deathSaves);
+    }
+  }
+
   const SCHEMA_MIGRATIONS = Object.freeze({
     0: migrateToV1,
     1: migrateToV2,
@@ -1570,7 +1617,8 @@ export function migrateState(raw) {
     7: migrateToV8,
     8: migrateToV9,
     9: migrateToV10,
-    10: migrateToV11
+    10: migrateToV11,
+    11: migrateToV12
   });
 
   function applyMigrationStep(version) {
@@ -1605,6 +1653,7 @@ export function migrateState(raw) {
   migrateToV9();
   migrateToV10();
   migrateToV11();
+  migrateToV12();
 
   data.schemaVersion = CURRENT_SCHEMA_VERSION;
   return normalizeState(/** @type {State} */ (data));

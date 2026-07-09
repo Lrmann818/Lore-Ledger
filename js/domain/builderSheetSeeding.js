@@ -444,26 +444,35 @@ function getSeededSpells(source, derived, registry) {
   if (!spellcasting) return null;
   const build = isPlainObject(source.build) ? source.build : {};
   const selections = isPlainObject(build.spellcasting) ? build.spellcasting : {};
+  const rest = isPlainObject(source.rest) ? source.rest : {};
+  const preparedByClass = isPlainObject(rest.preparedByClass) ? rest.preparedByClass : {};
 
-  /** @type {Map<number, { names: Map<string, { prepared: boolean }> }>} */
+  /** @type {Map<number, { names: Map<string, { prepared: boolean, builderSpellId: string, granted: boolean }> }>} */
   const seedByLevel = new Map();
-  const addSpell = (spellId, { prepared }) => {
+  const addSpell = (spellId, { prepared, granted = false }) => {
     const spellEntry = getContentByKind(registry, "spell", cleanString(spellId));
     if (!spellEntry) return;
     const level = Number(spellEntry.data?.level) || 0;
     if (!seedByLevel.has(level)) seedByLevel.set(level, { names: new Map() });
-    const bucket = /** @type {{ names: Map<string, { prepared: boolean }> }} */ (seedByLevel.get(level));
+    const bucket = /** @type {{ names: Map<string, { prepared: boolean, builderSpellId: string, granted: boolean }> }} */ (seedByLevel.get(level));
     const existingSeed = bucket.names.get(spellEntry.name);
-    bucket.names.set(spellEntry.name, { prepared: (existingSeed?.prepared ?? false) || prepared });
+    bucket.names.set(spellEntry.name, {
+      prepared: (existingSeed?.prepared ?? false) || prepared,
+      builderSpellId: existingSeed?.builderSpellId || spellEntry.id,
+      granted: (existingSeed?.granted ?? false) || granted
+    });
   };
 
-  for (const selection of Object.values(selections)) {
+  for (const [classId, selection] of Object.entries(selections)) {
     if (!isPlainObject(selection)) continue;
     for (const id of Array.isArray(selection.cantripIds) ? selection.cantripIds : []) addSpell(id, { prepared: false });
     for (const id of Array.isArray(selection.knownIds) ? selection.knownIds : []) addSpell(id, { prepared: false });
-    for (const id of Array.isArray(selection.preparedIds) ? selection.preparedIds : []) addSpell(id, { prepared: true });
+    const preparedIds = Array.isArray(preparedByClass[classId])
+      ? preparedByClass[classId]
+      : (Array.isArray(selection.preparedIds) ? selection.preparedIds : []);
+    for (const id of preparedIds) addSpell(id, { prepared: true });
   }
-  for (const grant of derived.grantedSpells) addSpell(grant.spellId, { prepared: true });
+  for (const grant of derived.grantedSpells) addSpell(grant.spellId, { prepared: true, granted: true });
 
   const slotLevels = spellcasting.slots
     .map((count, index) => ({ level: index + 1, count }))
@@ -528,18 +537,38 @@ function getSeededSpells(source, derived, registry) {
       : SPELL_LEVEL_LABELS[spellLevel];
     const level = ensureLevel(label, spellLevel > 0);
     const spells = Array.isArray(level.spells) ? level.spells : [];
-    const existingNames = new Set(
-      spells.filter(isPlainObject).map((spell) => cleanString(spell.name).toLowerCase())
-    );
     for (const [name, meta] of bucket.names) {
-      if (existingNames.has(name.toLowerCase())) continue;
+      const managedSpell = spells.find((spell) => (
+        isPlainObject(spell) && cleanString(spell.builderSpellId) === meta.builderSpellId
+      ));
+      if (managedSpell) {
+        if (managedSpell.prepared !== meta.prepared) {
+          managedSpell.prepared = meta.prepared;
+          changed = true;
+        }
+        if (meta.granted && managedSpell.builderGranted !== true) {
+          managedSpell.builderGranted = true;
+          changed = true;
+        }
+        continue;
+      }
+      // An unmarked matching name is a user-owned/manual spell. Preserve it
+      // rather than adopting or changing its prepared flag. New builder-managed
+      // rows carry a stable registry marker so later Long Rests can project
+      // selections without touching manual content.
+      const hasManualName = spells.some((spell) => (
+        isPlainObject(spell) && cleanString(spell.name).toLowerCase() === name.toLowerCase()
+      ));
+      if (hasManualName) continue;
       spells.push({
         id: newSeedId("spell"),
         name,
         notesCollapsed: true,
         known: true,
         prepared: meta.prepared,
-        expended: false
+        expended: false,
+        builderSpellId: meta.builderSpellId,
+        ...(meta.granted ? { builderGranted: true } : {})
       });
       changed = true;
     }

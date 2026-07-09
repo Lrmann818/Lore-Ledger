@@ -187,6 +187,19 @@ describe("builder finish seeding — full-sheet integration and edit preservatio
     expect(patch.weaponProf).toContain("Simple weapons");
   });
 
+  it("uses rest prepared state over legacy builder prepared ids and marks new managed spell rows", () => {
+    const character = makeCasterBuilder();
+    character.rest = { hitDiceSpent: {}, preparedByClass: { cleric: ["cure-wounds"] } };
+
+    const patch = getBuilderFinishSheetSeedPatch(character);
+    const firstLevel = patch.spells.levels.find((level) => level.label === "1st Level");
+    const cureWounds = firstLevel.spells.find((spell) => spell.name === "Cure Wounds");
+    const healingWord = firstLevel.spells.find((spell) => spell.name === "Healing Word");
+
+    expect(cureWounds).toMatchObject({ prepared: true, builderSpellId: "cure-wounds" });
+    expect(healingWord).toBeUndefined();
+  });
+
   it("preserves user data when re-seeding an edited character", () => {
     const character = makeCasterBuilder();
     // Simulate an existing sheet with user-owned values and content.

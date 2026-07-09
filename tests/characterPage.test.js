@@ -39,6 +39,9 @@ vi.mock("../js/domain/characterPortability.js", () => ({
   exportActiveCharacter: vi.fn(),
   parseAndValidateImport: vi.fn(),
 }));
+vi.mock("../js/pages/character/restFlow.js", () => ({
+  openCharacterRestFlow: vi.fn()
+}));
 
 import {
   CHARACTER_ACTION_BUTTON_CLASSES,
@@ -57,6 +60,7 @@ import {
   exportActiveCharacter,
   parseAndValidateImport
 } from "../js/domain/characterPortability.js";
+import { openCharacterRestFlow } from "../js/pages/character/restFlow.js";
 import {
   isBuilderCharacter,
   makeDefaultBuilderCharacterEntry,
@@ -1388,6 +1392,8 @@ describe("character page selector", () => {
       id: "char_builder",
       name: "Builder Rest",
       flatFields: {
+        hpCur: 4,
+        hpMax: 12,
         resources: [{ id: "builder_use", name: "Builder Use", cur: 0, max: 1, recovery: "longRest" }]
       }
     });
@@ -1414,6 +1420,92 @@ describe("character page selector", () => {
     expect(deps.state.characters.entries[1].resources[0].cur).toBe(1);
     expect(deps.SaveManager.markDirty).toHaveBeenCalledTimes(1);
 
+    controller.destroy();
+  });
+
+  it.each([
+    ["cleric", "wis", 3],
+    ["druid", "wis", 3],
+    ["paladin", "cha", 4],
+    ["wizard", "int", 3]
+  ])("opens the Long Rest prepared-spell flow for builder %s characters", async (classId, ability, level) => {
+    installCharacterSelectorDom();
+    const Popovers = createFakePopovers();
+    const deps = createCharacterPageDeps(Popovers);
+    const abilities = { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10, [ability]: 16 };
+    const builder = makeBuilderCharacter({
+      id: `char_${classId}`,
+      classId,
+      level,
+      abilities,
+      flatFields: { hpCur: 4, hpMax: 12, rest: { hitDiceSpent: {}, preparedByClass: {} } }
+    });
+    builder.build.levels = Array.from({ length: level }, () => ({ classId, hp: 4 }));
+    builder.build.spellcasting = { [classId]: { cantripIds: [], knownIds: classId === "wizard" ? ["magic-missile"] : [], preparedIds: [] } };
+    deps.state.characters = { activeId: builder.id, entries: [builder] };
+    openCharacterRestFlow.mockResolvedValue({});
+
+    const controller = initCharacterPageUI(deps);
+    document.getElementById("charLongRestBtn").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    await flushPromises();
+    await flushPromises();
+
+    expect(openCharacterRestFlow).toHaveBeenCalledWith(expect.objectContaining({ type: "longRest", character: builder }));
+    expect(builder.hpCur).toBe(12);
+    controller.destroy();
+  });
+
+  it("keeps builder prepared state on No and applies a selected prepared state atomically on Yes", async () => {
+    installCharacterSelectorDom();
+    const Popovers = createFakePopovers();
+    const deps = createCharacterPageDeps(Popovers);
+    const builder = makeBuilderCharacter({
+      id: "char_cleric_prepared",
+      classId: "cleric",
+      level: 3,
+      abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 16, cha: 10 },
+      flatFields: { hpCur: 3, hpMax: 12, rest: { hitDiceSpent: {}, preparedByClass: { cleric: ["cure-wounds"] } } }
+    });
+    builder.build.levels = Array.from({ length: 3 }, () => ({ classId: "cleric", hp: 4 }));
+    builder.build.spellcasting = { cleric: { cantripIds: [], knownIds: [], preparedIds: ["cure-wounds"] } };
+    deps.state.characters = { activeId: builder.id, entries: [builder] };
+    openCharacterRestFlow.mockResolvedValueOnce({}).mockResolvedValueOnce({ preparedByClass: { cleric: [] } });
+
+    const controller = initCharacterPageUI(deps);
+    document.getElementById("charLongRestBtn").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    await flushPromises();
+    await flushPromises();
+    expect(builder.rest.preparedByClass).toEqual({ cleric: ["cure-wounds"] });
+
+    builder.hpCur = 4;
+    document.getElementById("charLongRestBtn").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    await flushPromises();
+    await flushPromises();
+    expect(builder.rest.preparedByClass).toEqual({ cleric: [] });
+    expect(builder.hpCur).toBe(12);
+    controller.destroy();
+  });
+
+  it("does not open a prepared-spell Long Rest flow for known-spell casters", async () => {
+    installCharacterSelectorDom();
+    const Popovers = createFakePopovers();
+    const deps = createCharacterPageDeps(Popovers);
+    const bard = makeBuilderCharacter({
+      id: "char_bard_rest",
+      classId: "bard",
+      level: 3,
+      abilities: { str: 10, dex: 10, con: 10, int: 16, wis: 10, cha: 16 },
+      flatFields: { hpCur: 3, hpMax: 12 }
+    });
+    bard.build.levels = Array.from({ length: 3 }, () => ({ classId: "bard", hp: 4 }));
+    deps.state.characters = { activeId: bard.id, entries: [bard] };
+
+    const controller = initCharacterPageUI(deps);
+    document.getElementById("charLongRestBtn").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    await flushPromises();
+
+    expect(openCharacterRestFlow).not.toHaveBeenCalled();
+    expect(bard.hpCur).toBe(12);
     controller.destroy();
   });
 

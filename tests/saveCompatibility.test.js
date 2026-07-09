@@ -13,7 +13,7 @@ const fixtures = Object.entries(fixtureModules).map(([path, module]) => ({
   doc: /** @type {{ default: Record<string, unknown> }} */ (module).default
 }));
 
-const BUILDER_ENTRY_KEYS = ["build", "overrides", "manualFeatureCards", "featureUses"];
+const BUILDER_ENTRY_KEYS = ["build", "overrides", "manualFeatureCards", "featureUses", "rest", "deathSaves"];
 
 function clone(value) {
   return structuredClone(value);
@@ -77,9 +77,9 @@ describe("save compatibility contract (all captured fixtures)", () => {
 
 describe("freeform characters are untouched by builder migrations", () => {
   // The strongest guard the review asked for: on an already-id-stable v7 save,
-  // the builder migrations (v8/v9/v10) may ONLY add their four keys. Every
+  // the additive character migrations may ONLY add their owned keys. Every
   // pre-existing freeform field must survive deep-equal.
-  it("a freeform v7 character gains exactly the builder keys and nothing else changes", () => {
+  it("a freeform v7 character gains exactly the owned migration keys and nothing else changes", () => {
     const fixture = fixtures.find((entry) => entry.name === "v7-mobile.json");
     expect(fixture).toBeTruthy();
     const original = clone(fixture.doc.characters.entries[0]);
@@ -96,13 +96,17 @@ describe("freeform characters are untouched by builder migrations", () => {
     expect(migratedEntry).toEqual(original);
   });
 
-  it("an already-current v10 freeform character is completely unchanged by migration", () => {
+  it("an already-current v10 freeform character gains only later owned migration state", () => {
     const fixture = fixtures.find((entry) => entry.name === "v10-merged.json");
     expect(fixture).toBeTruthy();
     const original = clone(fixture.doc.characters.entries[0]);
     expect(original.build).toBeNull();
 
     const migrated = migrateState(clone(fixture.doc));
-    expect(characterEntries(migrated)[0]).toEqual(original);
+    expect(characterEntries(migrated)[0]).toEqual({
+      ...original,
+      rest: { hitDiceSpent: {}, preparedByClass: {} },
+      deathSaves: { successes: 0, failures: 0 }
+    });
   });
 });

@@ -704,8 +704,9 @@ Canonical: [`docs/reference/rest-rules-spec.md`](docs/reference/rest-rules-spec.
 - **Known-spell casters** (Bard, Ranger, Sorcerer, Warlock) change known spells at
   **Level Up**, not at rest.
 
-Rest is currently **partially implemented** — HP, Hit Dice, and death saves are not yet
-handled. Rest correctness is P0 work that comes before Level Up.
+Rest correctness is P0 work that comes before Level Up. The implemented rest flow handles
+tracked HP, Hit Dice, death saves, tagged recovery, normal/Pact slots, and builder
+prepared-spell changes at Long Rest; consult the canonical rest spec for the exact rules.
 
 ### Level Up Rules
 

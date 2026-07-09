@@ -9,11 +9,10 @@ changed.
 Read with [`AGENTS.md`](../../AGENTS.md) (wins on conflict) and
 [`builder-scope-greenlist.md`](./builder-scope-greenlist.md).
 
-> **Implementation status.** Rest is **partially implemented**. `recoverCharacterForRest()`
-> in `js/domain/characterRest.js` currently recovers explicitly tagged `resources[]`
-> counters, manual feature-card `limitedUse` counters, derived feature uses, and spell
-> slot usage. It does **not** currently touch HP, Hit Dice, or death saves. The gaps in
-> §5 are known and are P0 core-rules work — do not treat the current code as the spec.
+> **Implementation status.** `js/domain/characterRest.js` now applies modeled resource
+> recovery, spell slots, HP, Hit Dice, and death saves. Builder prepared casters use the
+> Long Rest flow; freeform prepared flags remain manual/DM-managed. This document still
+> defines the behavior and boundaries for any future rest change.
 
 ---
 
@@ -77,7 +76,9 @@ Long Rest constraints:
 
 - The character must have **at least 1 HP** at the start of the long rest to gain its
   benefits.
-- A character cannot benefit from **more than one long rest in a 24-hour period**.
+- A character normally cannot benefit from **more than one long rest in a 24-hour
+  period**, but that limit is table/DM-enforced in Lore Ledger. The app does **not**
+  persist a rest timestamp or block a Long Rest from a wall-clock check.
 
 ---
 
@@ -129,16 +130,14 @@ through this same flow or clearly present itself as a manual/DM override.
 
 ---
 
-## 5. Known gaps (P0 — not yet implemented)
+## 5. P0 implementation coverage
 
-These are documented expectations that current code does **not** meet. They are the
-core-rules stabilization batch, and they come **before** Level Up work.
-
-- HP is not restored on Long Rest.
-- Hit Dice are not modeled for spending on Short Rest, nor recovered on Long Rest.
-- Death saves are not reset on Long Rest.
-- The Long Rest prepared-spell flow does not exist.
-- The one-long-rest-per-24-hours and at-least-1-HP constraints are not enforced.
+- Short Rest spends available Hit Dice per class/die pool, rolls with Constitution, and
+  applies only modeled short-rest recovery plus Pact Magic.
+- Long Rest restores tracked HP, modeled slots/resources, eligible Hit Dice, and death
+  saves; it requires at least 1 tracked current HP.
+- Builder Cleric, Druid, Paladin, and Wizard prepared selections are made through the
+  Long Rest flow. Known-spell casters and freeform characters do not use that selector.
 
 ---
 
@@ -197,6 +196,7 @@ Apply semantics (`recoveryMatchesRest()`):
 - Prepared-spell changes preserve spell notes and descriptions.
 - Rest actions are character-specific and stay correct across character switching.
 - Rest is safe for both builder-created and freeform/manual characters.
+- Long Rest does not persist or enforce a 24-hour timestamp; that rule stays with the table/DM.
 
 Acceptance: no rest action silently fails, none affects the wrong character, unsupported
 recovery modes are left unchanged rather than guessed, and `npm run verify` plus

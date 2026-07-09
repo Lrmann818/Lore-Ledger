@@ -4115,6 +4115,59 @@ div.mutedSmall {
     0 16px 40px var(--shadow-drop);
 }
 
+/* Character rest flow — a narrow extension of the existing modal system. */
+.characterRestPanel {
+  max-height: min(760px, calc(100dvh - 36px));
+  overflow: auto;
+}
+
+.characterRestBody {
+  display: grid;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.characterRestSection,
+.characterRestPreparedQuestion {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  margin: 0;
+  padding: 10px;
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+}
+
+.characterRestSectionTitle {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.characterRestPoolRow,
+.characterRestSpellRow,
+.characterRestChoice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.characterRestPoolLabel {
+  flex: 1;
+}
+
+.characterRestPoolRow input {
+  width: 72px;
+}
+
+.characterRestHint,
+.characterRestValidation {
+  margin: 0;
+}
+
+.characterRestValidation {
+  color: var(--danger, #bf3434);
+}
+
 .modalTitle {
   font-weight: 700;
   /* margin: 4px 4px 10px; */

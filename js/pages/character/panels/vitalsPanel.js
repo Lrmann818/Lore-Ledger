@@ -168,6 +168,10 @@ export function initVitalsPanel(deps = {}) {
   const guard = requireMany(required, { root, setStatus, context: "Vitals panel" });
   if (!guard.ok) return guard.destroy;
   const { panelEl, wrap, addBtn } = guard.els;
+  const deathSaveSuccesses = root.querySelector(selectors.charDeathSaveSuccesses || "#charDeathSaveSuccesses");
+  const deathSaveFailures = root.querySelector(selectors.charDeathSaveFailures || "#charDeathSaveFailures");
+  if (deathSaveSuccesses) guard.els.charDeathSaveSuccesses = deathSaveSuccesses;
+  if (deathSaveFailures) guard.els.charDeathSaveFailures = deathSaveFailures;
 
   /** @type {Array<() => void>} */
   const destroyFns = [];
@@ -291,6 +295,7 @@ export function initVitalsPanel(deps = {}) {
     if (input.title === "Controlled by Builder Identity.") input.title = "";
   }
 
+  /** @type {Array<{ id: string, path: string | readonly unknown[], getValue: () => unknown, normalizeInput?: (value: unknown) => number | null }>} */
   const vitalNumberFields = [
     { id: "charHpCur", path: "hpCur", getValue: () => getCurrentCharacter()?.hpCur },
     { id: "charHpMax", path: "hpMax", getValue: () => getCurrentCharacter()?.hpMax },
@@ -303,6 +308,22 @@ export function initVitalsPanel(deps = {}) {
     { id: "charSpellAtk", path: "spellAttack", getValue: () => getCurrentCharacter()?.spellAttack },
     { id: "charSpellDC", path: "spellDC", getValue: () => getCurrentCharacter()?.spellDC },
   ];
+  if (deathSaveSuccesses && deathSaveFailures) {
+    vitalNumberFields.splice(2, 0,
+      {
+        id: "charDeathSaveSuccesses",
+        path: ["deathSaves", "successes"],
+        getValue: () => Math.max(0, Math.min(3, Number(getCurrentCharacter()?.deathSaves?.successes) || 0)),
+        normalizeInput: (value) => Math.max(0, Math.min(3, Math.floor(Number(value) || 0)))
+      },
+      {
+        id: "charDeathSaveFailures",
+        path: ["deathSaves", "failures"],
+        getValue: () => Math.max(0, Math.min(3, Number(getCurrentCharacter()?.deathSaves?.failures) || 0)),
+        normalizeInput: (value) => Math.max(0, Math.min(3, Math.floor(Number(value) || 0)))
+      }
+    );
+  }
 
   function refreshVitalNumberField(id, getValue) {
     const el = guard.els[id];
@@ -386,7 +407,7 @@ export function initVitalsPanel(deps = {}) {
   function bindVitalsNumbers() {
     refreshVitalsNumbers();
 
-    vitalNumberFields.forEach(({ id, path, getValue }) => {
+    vitalNumberFields.forEach(({ id, path, getValue, normalizeInput }) => {
       const el = guard.els[id];
       if (!el) return;
 
@@ -398,7 +419,7 @@ export function initVitalsPanel(deps = {}) {
           refreshVitalNumberField(id, getValue);
           return;
         }
-        const nextValue = numberOrNull(el.value);
+        const nextValue = typeof normalizeInput === "function" ? normalizeInput(el.value) : numberOrNull(el.value);
         const currentValue = getValue();
         if ((currentValue ?? null) === nextValue) {
           if (typeof autoSizeInput === "function") autoSizeInput(el, autosizeOpts);

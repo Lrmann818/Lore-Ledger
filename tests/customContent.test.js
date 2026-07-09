@@ -55,9 +55,9 @@ describe("custom content validation", () => {
 });
 
 describe("custom content state storage", () => {
-  it("migrateState v10 → v11 creates the content bucket", () => {
+  it("migrateState v10 advances through current schema while creating the content bucket", () => {
     const state = makeState();
-    expect(state.schemaVersion).toBe(11);
+    expect(state.schemaVersion).toBe(12);
     expect(state.content).toEqual({ custom: [] });
   });
 

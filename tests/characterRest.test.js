@@ -1,7 +1,15 @@
 import { describe, expect, it } from "vitest";
 
 import { makeDefaultBuilderCharacterEntry } from "../js/domain/characterHelpers.js";
-import { recoverCharacterForRest } from "../js/domain/characterRest.js";
+import {
+  applyLongRest,
+  applyShortRest,
+  getBuilderPreparedSpellOptions,
+  getLongRestHitDiceRecovery,
+  getPreparedSpellCapacity,
+  recoverCharacterForRest,
+  validateBuilderPreparedSpellSelections
+} from "../js/domain/characterRest.js";
 
 function makeCharacter(resources) {
   return {
@@ -305,5 +313,156 @@ describe("recoverCharacterForRest — spell slot recovery", () => {
 
     expect(result.changed).toBe(false);
     expect(result.character).toBe(character);
+  });
+});
+
+describe("rest Hit Dice and Long Rest state", () => {
+  it("spends available Hit Dice, adds Constitution, and clamps healing at maximum HP", () => {
+    const character = {
+      ...makeCharacter([]),
+      hpCur: 5,
+      hpMax: 10,
+      hitDieAmt: 3,
+      hitDieSize: 8,
+      abilities: { con: { mod: 2 } },
+      rest: { hitDiceSpent: {}, preparedByClass: {} }
+    };
+
+    const result = applyShortRest(character, { spendByPool: { manual: 2 } }, { rollDie: () => 4 });
+
+    expect(result.changed).toBe(true);
+    expect(result.character.hpCur).toBe(10);
+    expect(result.character.rest.hitDiceSpent).toEqual({ manual: 2 });
+    expect(result.summary).toMatchObject({ healing: 5, spentByPool: { manual: 2 } });
+    expect(character.hpCur).toBe(5);
+  });
+
+  it("rejects unavailable Hit Dice without recovering resources or changing HP", () => {
+    const character = {
+      ...makeCharacter([{ id: "ki", name: "Ki", cur: 0, max: 1, recovery: "shortRest" }]),
+      hpCur: 5,
+      hpMax: 10,
+      hitDieAmt: 1,
+      hitDieSize: 8,
+      rest: { hitDiceSpent: { manual: 1 }, preparedByClass: {} }
+    };
+
+    const result = applyShortRest(character, { spendByPool: { manual: 1 } });
+
+    expect(result).toMatchObject({ changed: false, error: "unavailable-hit-dice" });
+    expect(result.character).toBe(character);
+    expect(character.resources[0].cur).toBe(0);
+  });
+
+  it("auto-recovers Long Rest Hit Dice when one spent pool can receive them", () => {
+    const character = {
+      ...makeCharacter([]),
+      hpCur: 3,
+      hpMax: 12,
+      hitDieAmt: 5,
+      hitDieSize: 8,
+      deathSaves: { successes: 2, failures: 1 },
+      rest: { hitDiceSpent: { manual: 3 }, preparedByClass: {} },
+      spells: { levels: [{ id: "l1", label: "1st Level", hasSlots: true, used: 0, total: 2, spells: [] }] }
+    };
+
+    const recovery = getLongRestHitDiceRecovery(character);
+    expect(recovery).toMatchObject({ recoveryCap: 2, requiresAllocation: false, automaticRecoveryByPool: { manual: 2 } });
+
+    const result = applyLongRest(character);
+    expect(result.changed).toBe(true);
+    expect(result.character.hpCur).toBe(12);
+    expect(result.character.rest.hitDiceSpent).toEqual({ manual: 1 });
+    expect(result.character.deathSaves).toEqual({ successes: 0, failures: 0 });
+    expect(result.character.spells.levels[0].used).toBe(2);
+  });
+
+  it("requires an allocation only when multiple spent pools leave a real recovery choice", () => {
+    const character = makeDefaultBuilderCharacterEntry("Multiclass Rest");
+    character.build.levels = [
+      { classId: "fighter", hp: 10 },
+      { classId: "fighter", hp: 6 },
+      { classId: "wizard", hp: 4 },
+      { classId: "wizard", hp: 4 }
+    ];
+    character.build.abilities.base = { str: 10, dex: 10, con: 12, int: 16, wis: 10, cha: 10 };
+    character.hpCur = 4;
+    character.hpMax = 20;
+    character.rest = { hitDiceSpent: { "class:fighter": 2, "class:wizard": 2 }, preparedByClass: {} };
+
+    expect(getLongRestHitDiceRecovery(character)).toMatchObject({ recoveryCap: 2, requiresAllocation: true });
+    expect(applyLongRest(character)).toMatchObject({ changed: false, error: "incomplete-hit-dice-allocation" });
+
+    const result = applyLongRest(character, { recoverByPool: { "class:fighter": 1, "class:wizard": 1 } });
+    expect(result.changed).toBe(true);
+    expect(result.character.rest.hitDiceSpent).toEqual({ "class:fighter": 1, "class:wizard": 1 });
+  });
+
+  it("does not let a character at 0 HP gain Long Rest benefits", () => {
+    const character = {
+      ...makeCharacter([{ id: "rage", name: "Rage", cur: 0, max: 2, recovery: "longRest" }]),
+      hpCur: 0,
+      hpMax: 12,
+      deathSaves: { successes: 1, failures: 2 }
+    };
+    const result = applyLongRest(character);
+    expect(result).toMatchObject({ changed: false, error: "long-rest-requires-positive-hp" });
+    expect(result.character).toBe(character);
+  });
+});
+
+describe("builder prepared spell capacity", () => {
+  function preparedCaster(classId, ability, abilityScore, level) {
+    const character = makeDefaultBuilderCharacterEntry(`${classId} capacity`);
+    character.build.levels = Array.from({ length: level }, () => ({ classId, hp: 4 }));
+    character.build.abilities.base = { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10, [ability]: abilityScore };
+    character.build.spellcasting = { [classId]: { cantripIds: [], knownIds: [], preparedIds: [] } };
+    return character;
+  }
+
+  it.each([
+    ["cleric", "wis", 16, 3, 6],
+    ["druid", "wis", 16, 3, 6],
+    ["paladin", "cha", 16, 4, 5],
+    ["wizard", "int", 16, 3, 6]
+  ])("derives %s prepared capacity from canonical spellcasting data", (classId, ability, score, level, expected) => {
+    expect(getPreparedSpellCapacity(preparedCaster(classId, ability, score, level), classId)).toBe(expected);
+  });
+
+  it("validates wizard selections against the spellbook and capacity without touching sheet spells", () => {
+    const wizard = preparedCaster("wizard", "int", 16, 3);
+    wizard.build.spellcasting.wizard.knownIds = ["magic-missile", "shield"];
+    wizard.rest = { hitDiceSpent: {}, preparedByClass: { wizard: ["magic-missile"] } };
+    wizard.spells = {
+      levels: [{ label: "1st Level", spells: [{ name: "Magic Missile", notes: "Keep this note", known: true, prepared: true }] }]
+    };
+
+    const options = getBuilderPreparedSpellOptions(wizard).find((entry) => entry.classId === "wizard");
+    expect(options.candidateIds).toEqual(expect.arrayContaining(["magic-missile", "shield"]));
+    expect(validateBuilderPreparedSpellSelections(wizard, { wizard: ["magic-missile", "shield"] }).ok).toBe(true);
+    expect(validateBuilderPreparedSpellSelections(wizard, { wizard: ["fireball"] })).toMatchObject({ ok: false, error: "invalid-prepared-spell:wizard" });
+    expect(applyLongRest(wizard, { preparedByClass: { wizard: ["shield"] } }).character.spells).toEqual(wizard.spells);
+  });
+
+  it("rejects selections above each prepared caster's derived capacity", () => {
+    for (const [classId, ability, score, level] of [
+      ["cleric", "wis", 16, 3],
+      ["druid", "wis", 16, 3],
+      ["paladin", "cha", 16, 4],
+      ["wizard", "int", 16, 3]
+    ]) {
+      const character = preparedCaster(classId, ability, score, level);
+      if (classId === "wizard") {
+        character.build.spellcasting.wizard.knownIds = [
+          "alarm", "burning-hands", "charm-person", "detect-magic",
+          "disguise-self", "feather-fall", "find-familiar"
+        ];
+      }
+      const option = getBuilderPreparedSpellOptions(character).find((entry) => entry.classId === classId);
+      const overCapacity = option.candidateIds.slice(0, option.capacity + 1);
+      expect(overCapacity).toHaveLength(option.capacity + 1);
+      expect(validateBuilderPreparedSpellSelections(character, { [classId]: overCapacity }))
+        .toMatchObject({ ok: false, error: `prepared-capacity:${classId}` });
+    }
   });
 });

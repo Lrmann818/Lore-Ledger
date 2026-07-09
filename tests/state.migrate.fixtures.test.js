@@ -25,7 +25,7 @@ describe("captured save fixtures migrate to the merged schema", () => {
     const migrated = migrateState(cloneFixture(v7MobileFixture));
 
     expect(migrated.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
-    expect(CURRENT_SCHEMA_VERSION).toBe(11);
+    expect(CURRENT_SCHEMA_VERSION).toBe(12);
 
     // develop's v6/v7 stable ids were already present and must survive untouched.
     expect(migrated.tracker.sessions.map((session) => session.id)).toEqual(originalSessionIds);
@@ -38,6 +38,8 @@ describe("captured save fixtures migrate to the merged schema", () => {
       expect(entry.overrides).toEqual(makeDefaultCharacterOverrides());
       expect(entry.manualFeatureCards).toEqual([]);
       expect(entry.featureUses).toEqual({});
+      expect(entry.rest).toEqual({ hitDiceSpent: {}, preparedByClass: {} });
+      expect(entry.deathSaves).toEqual({ successes: 0, failures: 0 });
     }
 
     // Freeform fields pass through unchanged.

@@ -32,6 +32,23 @@ export function makeDefaultCharacterOverrides() {
 }
 
 /**
+ * Play-state rest bookkeeping. Hit Dice are stored as spent counts so a
+ * missing entry means a full pool, and prepared selections remain separate
+ * from guarded builder choices.
+ * @returns {{ hitDiceSpent: Record<string, number>, preparedByClass: Record<string, string[]> }}
+ */
+export function makeDefaultCharacterRestState() {
+  return { hitDiceSpent: {}, preparedByClass: {} };
+}
+
+/**
+ * @returns {{ successes: number, failures: number }}
+ */
+export function makeDefaultDeathSaves() {
+  return { successes: 0, failures: 0 };
+}
+
+/**
  * Creates the default level-by-level builder metadata shape (build v2).
  * This opts a character into builder mode without choosing race, class,
  * subclass, background, spells, feats, or any derived automation.
@@ -71,6 +88,49 @@ function isPlainPersistedObject(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const proto = Object.getPrototypeOf(value);
   return proto === Object.prototype || proto === null;
+}
+
+/**
+ * @param {unknown} value
+ * @returns {{ successes: number, failures: number }}
+ */
+export function normalizeDeathSaves(value) {
+  const source = isPlainPersistedObject(value) ? value : {};
+  const clamp = (candidate) => {
+    const parsed = Number(candidate);
+    if (!Number.isFinite(parsed)) return 0;
+    return Math.max(0, Math.min(3, Math.floor(parsed)));
+  };
+  return { successes: clamp(source.successes), failures: clamp(source.failures) };
+}
+
+/**
+ * @param {unknown} value
+ * @returns {{ hitDiceSpent: Record<string, number>, preparedByClass: Record<string, string[]> }}
+ */
+export function normalizeCharacterRestState(value) {
+  const source = isPlainPersistedObject(value) ? value : {};
+  const hitDiceSpentSource = isPlainPersistedObject(source.hitDiceSpent) ? source.hitDiceSpent : {};
+  /** @type {Record<string, number>} */
+  const hitDiceSpent = {};
+  for (const [poolId, rawSpent] of Object.entries(hitDiceSpentSource)) {
+    const key = poolId.trim();
+    const spent = Number(rawSpent);
+    if (!key || !Number.isFinite(spent)) continue;
+    const normalized = Math.max(0, Math.floor(spent));
+    if (normalized > 0) hitDiceSpent[key] = normalized;
+  }
+
+  const preparedSource = isPlainPersistedObject(source.preparedByClass) ? source.preparedByClass : {};
+  /** @type {Record<string, string[]>} */
+  const preparedByClass = {};
+  for (const [classId, rawIds] of Object.entries(preparedSource)) {
+    const key = classId.trim();
+    if (!key || !Array.isArray(rawIds)) continue;
+    const ids = [...new Set(rawIds.filter((id) => typeof id === "string").map((id) => id.trim()).filter(Boolean))];
+    if (ids.length) preparedByClass[key] = ids;
+  }
+  return { hitDiceSpent, preparedByClass };
 }
 
 /**
@@ -389,6 +449,8 @@ export function makeDefaultCharacterEntry(name = "New Character") {
     hpMax: null,
     hitDieAmt: null,
     hitDieSize: null,
+    deathSaves: makeDefaultDeathSaves(),
+    rest: makeDefaultCharacterRestState(),
     ac: null,
     initiative: null,
     speed: null,

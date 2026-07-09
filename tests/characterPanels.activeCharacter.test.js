@@ -502,6 +502,7 @@ function buildCharacterPanelDom(document) {
   [
     ["hp", ["charHpCur", "charHpMax"]],
     ["hitDie", ["hitDieAmt", "hitDieSize"]],
+    ["deathSaves", ["charDeathSaveSuccesses", "charDeathSaveFailures"]],
     ["ac", ["charAC"]],
     ["init", ["charInit"]],
     ["speed", ["charSpeed"]],
@@ -860,6 +861,41 @@ describe("character panels active character resolution", () => {
     expect(document.getElementById("charName").value).toBe("New Hero");
     expect(document.getElementById("charHpCur").value).toBe("9");
     apis.forEach((api) => api?.destroy?.());
+  });
+
+  it("edits death-save tracking on the active character and clamps each counter", () => {
+    const entry = makeCharacter("char_death", "Death Saves", {
+      deathSaves: { successes: 1, failures: 2 }
+    });
+    const state = { characters: { activeId: entry.id, entries: [entry] }, combat: { workspace: {} } };
+    const deps = makeDeps(state);
+    const api = initVitalsPanel(deps);
+
+    expect(document.getElementById("charDeathSaveSuccesses").value).toBe("1");
+    expect(document.getElementById("charDeathSaveFailures").value).toBe("2");
+    document.getElementById("charDeathSaveSuccesses").value = "9";
+    dispatchInput(document.getElementById("charDeathSaveSuccesses"));
+    document.getElementById("charDeathSaveFailures").value = "-2";
+    dispatchInput(document.getElementById("charDeathSaveFailures"));
+
+    expect(entry.deathSaves).toEqual({ successes: 3, failures: 0 });
+    api.destroy();
+  });
+
+  it("labels the stored spell-slot availability value accurately", () => {
+    const entry = makeCharacter("char_slots", "Slots", {
+      spells: {
+        levels: [{ id: "level_1", label: "1st Level", hasSlots: true, used: 1, total: 2, spells: [] }]
+      }
+    });
+    const state = { characters: { activeId: entry.id, entries: [entry] }, combat: { workspace: {} } };
+    const api = initSpellsPanel(makeDeps(state));
+    const availableInput = document.getElementById("spellLevels").querySelector(".spellSlots input");
+
+    expect(availableInput.placeholder).toBe("Available");
+    expect(availableInput.getAttribute("aria-label")).toBe("Available spell slots");
+    expect(entry.spells.levels[0].used).toBe(1);
+    api.destroy();
   });
 
   it("displays builder-derived Basics identity fields without materializing flat fields", () => {

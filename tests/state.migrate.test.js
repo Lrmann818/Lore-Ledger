@@ -213,7 +213,7 @@ describe("migrateState", () => {
       });
 
       expect(migrated.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
-      expect(CURRENT_SCHEMA_VERSION).toBe(11);
+      expect(CURRENT_SCHEMA_VERSION).toBe(12);
       expect(migrated.combat).toEqual(DEFAULT_COMBAT_STATE);
       expect(migrated.tracker.campaignTitle).toBe("Moonfall");
       expect(migrated.tracker.misc).toBe("Preserve this");
@@ -820,6 +820,51 @@ describe("migrateState", () => {
       expect("hitDieAmount" in activeEntry(legacyAliasOnly)).toBe(false);
       expect(activeEntry(bothPresent).hitDieAmt).toBe(6);
       expect("hitDieAmount" in activeEntry(bothPresent)).toBe(false);
+    });
+
+    it("adds normalized rest and death-save state without changing user-owned spell data", () => {
+      const migrated = migrateState({
+        schemaVersion: 11,
+        characters: {
+          activeId: "char_rest",
+          entries: [{
+            id: "char_rest",
+            name: "Legacy Cleric",
+            build: {
+              version: 2,
+              ruleset: "srd-5.1",
+              levels: [{ classId: "cleric", hp: 8 }],
+              abilities: { method: "manual", base: { str: 10, dex: 10, con: 10, int: 10, wis: 16, cha: 10 } },
+              subclassByClass: {},
+              choicesByLevel: {},
+              spellcasting: { cleric: { cantripIds: [], knownIds: [], preparedIds: ["cure-wounds"] } },
+              equipment: {}
+            },
+            rest: { hitDiceSpent: { manual: "2", junk: -4 }, preparedByClass: "bad" },
+            deathSaves: { successes: 5, failures: -1 },
+            spells: { levels: [{ label: "1st Level", spells: [{ name: "Cure Wounds", notes: "Keep note", known: true, prepared: true }] }] }
+          }]
+        }
+      });
+
+      const entry = activeEntry(migrated);
+      expect(entry.rest).toEqual({ hitDiceSpent: { manual: 2 }, preparedByClass: { cleric: ["cure-wounds"] } });
+      expect(entry.deathSaves).toEqual({ successes: 3, failures: 0 });
+      expect(entry.spells.levels[0].spells[0]).toMatchObject({ notes: "Keep note", known: true, prepared: true });
+    });
+
+    it("adds empty rest state for freeform characters without inferring prepared spells", () => {
+      const migrated = migrateState({
+        schemaVersion: 11,
+        characters: {
+          activeId: "char_freeform",
+          entries: [{ id: "char_freeform", name: "Manual", build: null, spells: { levels: [] } }]
+        }
+      });
+      expect(activeEntry(migrated)).toMatchObject({
+        rest: { hitDiceSpent: {}, preparedByClass: {} },
+        deathSaves: { successes: 0, failures: 0 }
+      });
     });
   });
 
