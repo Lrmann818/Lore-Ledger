@@ -89,151 +89,46 @@ shipped. Verify against the JSON before asserting it exists.
 
 ## Current Greenlit Builtin Categories
 
-The following categories are approved for builtin builder support, provided they are sourced from approved SRD material and represented in the project's structured data files.
+Greenlit categories: **races** (and SRD subraces), **classes**, **subclasses**,
+**backgrounds**, **feats**, **weapons**, **armor**, **equipment packs**, **spells**, and the
+supporting **languages / skills / features** registries.
 
-### 1. Race
+The exact shipped contents of each are in the glance table above. That table is the single
+enumeration in this document — do not restate it.
 
-**Greenlit as builtin category:** Yes
+### Item-level scope, where it is surprising
 
-Builtin races may be shipped if they are approved SRD races and are modeled in `game-data/srd/races.json`.
+- **Races** — the 9 SRD 5.1 base races (Dragonborn, Dwarf, Elf, Gnome, Half-Elf, Half-Orc,
+  Halfling, Human, Tiefling), plus 4 subraces as `kind: "subrace"` records (High Elf, Hill
+  Dwarf, Lightfoot Halfling, Rock Gnome).
+  **Goliath and Orc are not in scope** — they are SRD 5.2.1 races, and 5.2.1 is retired for
+  this project (see [`srd-licensing-notes.md`](./srd-licensing-notes.md)). Treat as custom.
+- **Backgrounds** — **Acolyte only.** It is the only background in SRD 5.1. Criminal, Sage,
+  and Soldier are **not** SRD 5.1 content and are not shipped; treat as custom content
+  unless a future source pack is explicitly approved.
+- **Feats** — **Grappler only.** It is the only feat in SRD 5.1. Every other feat (Alert,
+  Great Weapon Master, Lucky, Sentinel, War Caster, …) is **not** SRD 5.1 content and is not
+  shipped; treat as custom content.
+- **Subclasses** — the 12 SRD 5.1 subclasses, one per class: Berserker, Champion, Devotion,
+  Draconic, Evocation, Fiend, Hunter, Land, Life, Lore, Open Hand, Thief.
+- **Equipment packs** — 7 SRD packs. A pack is a **container**: its record carries `contents`
+  inline as `{ itemId, name, quantity }` rows, so builder Finish can seed a dedicated
+  inventory pocket listing what the pack holds. Class and background starting equipment
+  reference packs by id (`explorers-pack`, `dungeoneers-pack`, …). The individual gear items
+  inside a pack (bedroll, torch, rations, …) are captured inline and are **not** shipped as
+  standalone registry entries.
+  Deliberately out of scope: standalone adventuring gear, tools, and trade goods as their
+  own registry kind.
 
-Current shipped builtin race scope is exactly the 9 SRD 5.1 base races in `game-data/srd/races.json`:
+### The rule that applies to every greenlit category
 
-- Dragonborn
-- Dwarf
-- Elf
-- Gnome
-- Half-Elf
-- Half-Orc
-- Halfling
-- Human
-- Tiefling
-
-Plus the 4 SRD 5.1 subraces modeled as `kind: "subrace"` records: High Elf, Hill Dwarf, Lightfoot Halfling, Rock Gnome.
-
-Goliath and Orc are **not** in scope. They are SRD 5.2.1 races, and SRD 5.2.1 is retired for this project (see `docs/reference/srd-licensing-notes.md`). Treat them as custom content.
-
-Project rule:
-
-- races are part of the required shipped scope for the character builder
-- if a race is in the approved SRD scope and Lore Ledger can legally use it, it should be treated as greenlit builtin content
-- race support should remain structured and data-driven
-
-### 2. Classes
-
-**Greenlit as builtin category:** Yes
-
-Builtin classes may be shipped if they are approved SRD classes and are modeled in `game-data/srd/classes.json`.
-
-Current shipped builtin class scope is exactly the 12 SRD 5.1 classes in `game-data/srd/classes.json`:
-
-- Barbarian
-- Bard
-- Cleric
-- Druid
-- Fighter
-- Monk
-- Paladin
-- Ranger
-- Rogue
-- Sorcerer
-- Warlock
-- Wizard
-
-Project rule:
-
-- classes are part of the required shipped scope for the character builder
-- if a class is in the approved SRD scope and Lore Ledger can legally use it, it should be treated as greenlit builtin content
-- class support should be implemented in a structured, data-driven way rather than ad hoc in UI code
-
-### 3. Backgrounds
-
-**Greenlit as builtin category:** Yes
-
-Builtin backgrounds may be shipped if they are approved SRD backgrounds and are modeled in `game-data/srd/backgrounds.json`.
-
-Current shipped builtin background scope is exactly the 1 background in `game-data/srd/backgrounds.json`:
-
-- Acolyte
-
-Acolyte is the only background in SRD 5.1. Criminal, Sage, and Soldier are **not** SRD 5.1 content and are not shipped; treat them as custom content unless a future source pack is explicitly approved.
-
-Project rule:
-
-- backgrounds are part of the required shipped scope for the character builder
-- if a background is in the approved SRD scope and Lore Ledger can legally use it, it should be treated as greenlit builtin content
-- background support should remain explicit and data-driven
-
-### 4. Subclasses
-
-**Greenlit as builtin category:** Yes
-
-Builtin subclasses may be shipped if they are approved SRD subclasses and are modeled in `game-data/srd/subclasses.json`.
-
-Current shipped builtin subclass scope is the 12 SRD 5.1 subclasses — one per class: Berserker, Champion, Devotion, Draconic, Evocation, Fiend, Hunter, Land, Life, Lore, Open Hand, Thief.
-
-Project rule:
-
-- subclasses are part of the required shipped scope for the character builder
-- if a subclass is in the approved SRD scope and Lore Ledger can legally use it, it should be treated as greenlit builtin content
-- subclass support should be implemented in a structured, data-driven way rather than ad hoc in UI code
-
-### 5. Feats
-
-**Greenlit as builtin category:** Yes
-
-Builtin feats may be shipped if they are approved SRD feats and are modeled in `game-data/srd/feats.json`.
-
-Current shipped builtin feat scope is exactly the 1 feat in `game-data/srd/feats.json`:
-
-- Grappler
-
-Grappler is the only feat in SRD 5.1. Every other feat (Alert, Great Weapon Master, Lucky, Sentinel, War Caster, …) is **not** SRD 5.1 content and is not shipped; treat them as custom content.
-
-Project rule:
-
-- feats are part of the required shipped scope for the character builder
-- if a feat is in the approved SRD scope and Lore Ledger can legally use it, it should be treated as greenlit builtin content
-- feat handling should remain explicit and data-driven so prerequisites and ASI interactions stay maintainable
-
-### 6. Weapons
-
-**Greenlit as builtin category:** Yes
-
-Builtin weapons may be shipped if they are approved SRD weapons and are modeled in `game-data/srd/equipment.weapons.json`.
-
-Project rule:
-
-- weapons are part of the required shipped scope for the character builder
-- if a weapon is in the approved SRD scope and Lore Ledger can legally use it, it should be treated as greenlit builtin content
-- weapons must be represented as structured records rather than ad hoc hardcoding in UI code
-
-### 7. Armor
-
-**Greenlit as builtin category:** Yes
-
-Builtin armor may be shipped if they are approved SRD armor entries and are modeled in `game-data/srd/equipment.armor.json`.
-
-Project rule:
-
-- armor is part of the required shipped scope for the character builder
-- if an armor entry is in the approved SRD scope and Lore Ledger can legally use it, it should be treated as greenlit builtin content
-- armor must be represented in structured records so AC logic derives from registry data, not scattered UI assumptions
-
-### 8. Equipment Packs (added 2026-07-09)
-
-**Greenlit as builtin category:** Yes
-
-Builtin equipment packs may be shipped if they are approved SRD packs and are modeled in `game-data/srd/equipment.packs.json` (7 packs, generated from the 5e SRD API).
-
-Project rule:
-
-- equipment packs are part of the required shipped scope because class and background starting equipment reference them by id (`explorers-pack`, `dungeoneers-pack`, …)
-- a pack is a **container**: its record carries the pack's `contents` inline as `{ itemId, name, quantity }` rows so builder Finish can seed a dedicated inventory pocket listing what the pack actually holds
-- the individual adventuring-gear items inside a pack (bedroll, torch, rations, …) are captured inline on the pack record and are **not** shipped as standalone registry entries
-- packs must be represented as structured records; do not hardcode pack contents in seeding or UI code
-
-Deliberately still out of builtin scope: standalone adventuring gear, tools, and trade goods as their own registry kind. Only the pack containers referenced by starting equipment are shipped.
+1. The category is part of the required shipped scope for the character builder.
+2. If an item is in the approved SRD scope and Lore Ledger can legally use it, it is
+   greenlit builtin content.
+3. Support must be **structured and data-driven** — modeled in `game-data/srd/*.json`, never
+   hardcoded ad hoc in UI or seeding code. AC logic derives from armor records; pack
+   contents come from pack records; feat prerequisites and ASI interactions come from feat
+   records.
 
 ---
 
@@ -321,30 +216,21 @@ When adding or changing builder content:
 
 ---
 
-## Current Working Scope for the Builder
+## Deferred / Not Builtin
 
-At the current stage of Lore Ledger builder development, the safe working builtin scope is:
-
-### Approved current focus
-
-- races (and SRD subraces)
-- classes
-- backgrounds
-- subclasses
-- feats
-- armor
-- weapons
-- spells (full SRD 5.1 registry)
-- languages, skills, features
-- spellcasting progression metadata
-- automatically granted builtin spells
-
-### Deferred / later
+Not shipped as builtin content today:
 
 - magic items
-- monster data
+- monster / NPC stat blocks
+- standalone adventuring gear, tools, and trade goods as their own registry kind
+- any non-SRD content
 
-This scope is intentionally narrow so the builder can mature without legal ambiguity, content sprawl, or unnecessary architectural churn.
+The greenlit scope is intentionally narrow so the builder can mature without legal
+ambiguity, content sprawl, or unnecessary architectural churn.
+
+Final rule:
+
+> If it is greenlit, in approved SRD scope, legally usable, and modeled in project data, it is intended to ship as builtin content. Otherwise, treat it as deferred or custom user content.
 
 ---
 
@@ -357,35 +243,3 @@ Update this file whenever any of the following happens:
 - the project intentionally expands beyond the current greenlist
 - the licensing posture changes in a way that affects shipped builtin content
 - contributors need a clearer rule because ambiguity caused confusion during implementation
-
----
-
-## Summary
-
-Lore Ledger's current builder greenlist is conservative where it needs to be, but it does include the full core character-builder scope required for shipping.
-
-**Approved builtin direction right now:**
-
-- races (and SRD subraces)
-- classes (with level tables, multiclassing data, starting equipment)
-- backgrounds
-- subclasses (with granted spells)
-- feats
-- armor
-- weapons
-- equipment packs (with inline contents)
-- the full SRD 5.1 spell registry
-- languages, skills, features (supporting registries)
-- spellcasting progression metadata
-- automatically granted builtin spells
-
-**Not default builtin right now:**
-
-- magic items
-- monsters
-- standalone adventuring gear, tools, and trade goods
-- non-SRD content
-
-Final rule:
-
-> If it is greenlit, in approved SRD scope, legally usable, and modeled in project data, it is intended to ship as builtin content. Otherwise, treat it as deferred or custom user content.

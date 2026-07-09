@@ -582,26 +582,20 @@ Do not silently promote custom or unclear content into shipped builtin data.
 
 ### Current Greenlit Builtin Builder Scope
 
-The current intended shipped builtin builder scope includes:
+Greenlit: races (and subraces), classes, subclasses, backgrounds, feats, armor, weapons,
+equipment packs, the full SRD 5.1 spell registry, and the supporting languages / skills /
+features registries.
 
-- races (and SRD subraces)
-- classes (level tables, multiclassing data, starting equipment)
-- backgrounds
-- subclasses (with granted spells)
-- feats
-- armor
-- weapons
-- equipment packs, with their contents stored inline (added 2026-07-09)
-- the full SRD 5.1 spell registry (expanded 2026-07-06)
-- languages, skills, and features (supporting registries)
-- spellcasting progression metadata
-- automatically granted builtin spells
+Deferred: magic items, monster data, and standalone adventuring gear / tools / trade goods
+(pack contents ship inline on the pack record instead).
 
-The current deferred categories include:
+**The exact shipped contents are enumerated once, in the "Shipped Scope at a Glance" table
+of [`docs/reference/builder-scope-greenlist.md`](docs/reference/builder-scope-greenlist.md).
+Do not restate them here or anywhere else — check that table.**
 
-- magic items
-- monster data
-- standalone adventuring gear, tools, and trade goods (pack contents ship inline on the pack record instead)
+The three that agents get wrong most often: **Acolyte is the only SRD 5.1 background**,
+**Grappler is the only SRD 5.1 feat**, and **Goliath and Orc are not SRD 5.1 races** (they
+are 5.2.1, which is retired). Everything outside the greenlist is custom/homebrew content.
 
 Important spell rule:
 
