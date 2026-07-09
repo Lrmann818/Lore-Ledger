@@ -77,7 +77,7 @@ rules still live in reference docs.
 
 Design documents for shipped features. These survive shipping because they document decisions and tradeoffs that future changes need to respect.
 
-- [`features/multi-character-design.md`](./features/multi-character-design.md) — **Part 1 is canonical** (current character-architecture rules). **📜 Part 2 is historical** (Step 1–4 implementation notes; its schema versions and status lines are frozen at April 2026).
+- [`features/multi-character-design.md`](./features/multi-character-design.md) — **Canonical** current character-architecture rules (~55 lines). The Step 1–4 build notes moved to [`archive/multi-character-steps-1-4.md`](./archive/multi-character-steps-1-4.md).
 - [`features/character-portability.md`](./features/character-portability.md) — Character portability design: how character data moves between campaigns and across backups.
 
 ---
@@ -114,6 +114,7 @@ plans, completed phase trackers, and point-in-time audits, kept for provenance. 
 
 - [`archive/lore-ledger-builder-plan.md`](./archive/lore-ledger-builder-plan.md) — Phase-by-phase builder implementation tracker. The builder has shipped; every "deferred"/"future work" item is stale.
 - [`archive/lore-ledger-multi-branch-review.md`](./archive/lore-ledger-multi-branch-review.md) — 2026-07-02 audit of the `main`/`develop`/`builder-wizard` divergence. That divergence has been resolved; all commit hashes are stale.
+- [`archive/multi-character-steps-1-4.md`](./archive/multi-character-steps-1-4.md) — Step 1–4 build record for the multi-character system. Schema versions frozen at April 2026; its "SRD 5.1 green list" is wrong.
 
 ---
 
