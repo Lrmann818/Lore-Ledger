@@ -4,11 +4,11 @@ Captured real campaign-doc saves used by migration/compatibility tests. Each fil
 is a single campaign document — the exact object `migrateState()` receives when a
 campaign loads from the vault in `localStorage["localCampaignTracker_v1"]`.
 
-| File | Schema | Provenance |
-|---|---|---|
-| `v5-live.json` | 5 | Captured 2026-07-06 from the production site (lore-ledger.com, `main` build). Byte-verified against live localStorage via SHA-256 before redaction. |
-| `v7-mobile.json` | 7 | Captured 2026-07-06 from the installed iOS/Capacitor app's WKWebView localStorage (`develop` build). Richest campaign of three in the vault (14 sessions with v6 stable ids, 36 NPCs, inventory with v7 stable ids, active combat encounter with undo stack). |
-| `v10-merged.json` | 10 | Generated 2026-07-06 by running `v7-mobile.json` through the merged branch's `migrateState()` + `sanitizeForSave()` — the exact payload a merged build persists. Pins the post-merge output shape and gives future builds a v10 input for forward-compatibility checks. |
+| File              | Schema | Provenance                                                                                                                                                                                                                                                              |
+|-------------------|--------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `v5-live.json`    | 5      | Captured 2026-07-06 from the production site (lore-ledger.com, `main` build). Byte-verified against live localStorage via SHA-256 before redaction.                                                                                                                     |
+| `v7-mobile.json`  | 7      | Captured 2026-07-06 from the installed iOS/Capacitor app's WKWebView localStorage (`develop` build). Richest campaign of three in the vault (14 sessions with v6 stable ids, 36 NPCs, inventory with v7 stable ids, active combat encounter with undo stack).           |
+| `v10-merged.json` | 10     | Generated 2026-07-06 by running `v7-mobile.json` through the merged branch's `migrateState()` + `sanitizeForSave()` — the exact payload a merged build persists. Pins the post-merge output shape and gives future builds a v10 input for forward-compatibility checks. |
 
 `tests/saveCompatibility.test.js` automatically covers every `*.json` file in
 this directory (migrate-to-current, sanitize round-trip idempotence, builder

@@ -1,6 +1,6 @@
 # SRD Licensing Notes
 
-_Last updated: 2026-04-20_
+Last updated: 2026-04-20
 
 ## Purpose
 

@@ -103,7 +103,7 @@ build = {
   helpers live in `progression.js`.
 - **Migration:** legacy v1 builds (`classId` + `level`, prefixed ids like
   `class_fighter`) normalize through `normalizeCharacterBuild()` in
-  `characterHelpers.js` — the *single* v1→v2 point, invoked by
+  `characterHelpers.js` — the _single_ v1→v2 point, invoked by
   `migrateToV11()` in `js/state.js`. Derivation additionally tolerates
   un-migrated legacy ids via `getContentByFlexibleId` (strips `class_` etc.
   at lookup). Do not remove either compatibility path.
@@ -112,13 +112,13 @@ Multiclass rules implemented: per-class level totals, PB from total level,
 saves from the **first** class only, multiclass proficiency subsets from
 `class.multiclassing`, ASI slots at each class's own `asiLevels`, subclass
 at each class's `subclassLevel`, combined spell slots (below), and
-prerequisite *warnings* (guided, never blocking).
+prerequisite _warnings_ (guided, never blocking).
 
 ## 3. Rules derivation pipeline
 
 All pure functions, no state/DOM:
 
-```
+```text
 build ──normalizeBuildLevels──► levels[]
       ──flattenChoices────────► flatChoices
                  │
@@ -156,7 +156,7 @@ multiclass table (`MULTICLASS_SPELL_SLOTS`) at caster level = full levels +
 
 Rules that are intentionally code-not-data (documented in the registry
 plan): `SPELLCASTING_META` in `classesAdapter.js` (prepared/known/spellbook
-+ progression per class), `UNARMORED_AC_FORMULAS` (barbarian/monk/draconic
+- progression per class) `UNARMORED_AC_FORMULAS` (barbarian/monk/draconic
 resilience — **optional**: plain 10+Dex+shield competes and wins if
 higher), `EXPERTISE_FEATURE_IDS`, and the multiclass slot table.
 
@@ -192,7 +192,7 @@ state mutation. Guarantees, enforced by tests:
 
 Edit mode: `builderWizard.open({ character })` deep-clones and normalizes
 the build; on Finish the handler in `characterPage.js` writes `name` +
-`build` and re-runs the seed patch on the *same entry* — notes, inventory,
+`build` and re-runs the seed patch on the _same entry_ — notes, inventory,
 spell usage, combat state, death saves, manual cards, portraits, and every
 other field are untouched. Re-seeding is idempotent by construction.
 
@@ -236,7 +236,7 @@ data is a separate `srd-data` chunk via `vite.config.js` `manualChunks`).
 ## 7. Top 5 safest next fixes (value ÷ risk, best first)
 
 1. **Seed full feature descriptions.** `builderSheetSeeding.js` seeds
-   feature *names* only; `features.json` already has full `desc` text.
+   feature _names_ only; `features.json` already has full `desc` text.
    Single-module change, duplicate-aware line logic already exists.
 2. **Emit trait-embedded choices from `racesAdapter.js`** (High Elf bonus
    cantrip, Dwarf tool proficiency). The `cantrip` choice kind is already
@@ -254,7 +254,7 @@ data is a separate `srd-data` chunk via `vite.config.js` `manualChunks`).
 5. **Spells-step polish:** prepared/known over-limit warnings (counts are
    already computed), spell detail popovers from bundled `desc`. UI-only.
 
-High value but *not* low risk (do after the above): a guided level-up flow
+High value but _not_ low risk (do after the above): a guided level-up flow
 from the sheet. (Exact multiclass level order in the wizard is done — see
 §9; a drag-to-reorder affordance for existing levels is the only remaining
 polish there.)
@@ -264,7 +264,7 @@ polish there.)
 - **`game-data/srd/*.json` are generated.** Never hand-edit; change the
   adapter and re-run. (AGENTS.md rule.)
 - **Custom content array identity is the cache key.** The active registry
-  rebuilds when `state.content.custom` is a *new array*. Any mutation must
+  rebuilds when `state.content.custom` is a _new array_. Any mutation must
   replace the array (as `customContent.js` does) — an in-place `push` will
   silently not refresh the registry.
 - **`deriveCharacter`'s return shape is a panel contract.** Vitals,
@@ -313,7 +313,7 @@ is representable exactly as:
 
 Derivation is fully order-faithful: `getClassLevelAtEachCharacterLevel`,
 `getAsiSlots`, `getBuildFeatures`, and `computeMaxHp` walk the array in
-order, so feature/ASI *character-level* timing and the per-level HP
+order, so feature/ASI _character-level_ timing and the per-level HP
 breakdown (which die, and which recorded roll, at which character level)
 respect interleaving. Migration (`normalizeCharacterBuild`) preserves the
 array verbatim.

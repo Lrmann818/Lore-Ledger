@@ -234,12 +234,12 @@ Original audit verification was green at the time it was produced.
 
 Known original audit metadata:
 
-| Item | Value |
-|---|---|
+| Item   | Value            |
+|--------|------------------|
 | Branch | `builder-wizard` |
-| HEAD | `21e4264` |
-| Schema | `v11` |
-| Date | `2026-07-08` |
+| HEAD   | `21e4264`        |
+| Schema | `v11`            |
+| Date   | `2026-07-08`     |
 
 Original conclusion:
 
@@ -261,16 +261,16 @@ Docs must not imply non-SRD or unapproved content is expected shipped built-in c
 
 Current expected conservative behavior:
 
-| Content category | Expected direction |
-|---|---|
-| Races | SRD-approved races only, as modeled in `game-data/srd/races.json` |
-| Classes | SRD-approved classes, structured and data-driven |
-| Backgrounds | Acolyte for SRD 5.1 built-in scope unless later explicitly approved |
-| Feats | Grappler for SRD 5.1 built-in scope unless later explicitly approved |
-| Spells | Full SRD 5.1 spell registry is now greenlit/shipped |
-| Equipment packs | Current shipped pack registry with inline contents |
-| Magic items | Deferred/custom |
-| Monsters / NPC stat blocks | Deferred/custom |
+| Content category                              | Expected direction                                                        |
+|-----------------------------------------------|---------------------------------------------------------------------------|
+| Races                                         | SRD-approved races only, as modeled in `game-data/srd/races.json`         |
+| Classes                                       | SRD-approved classes, structured and data-driven                          |
+| Backgrounds                                   | Acolyte for SRD 5.1 built-in scope unless later explicitly approved       |
+| Feats                                         | Grappler for SRD 5.1 built-in scope unless later explicitly approved      |
+| Spells                                        | Full SRD 5.1 spell registry is now greenlit/shipped                       |
+| Equipment packs                               | Current shipped pack registry with inline contents                        |
+| Magic items                                   | Deferred/custom                                                           |
+| Monsters / NPC stat blocks                    | Deferred/custom                                                           |
 | Standalone adventuring gear/tools/trade goods | Deferred as standalone registries; pack contents may ship inline on packs |
 
 ### Data/modeling expectations
@@ -347,17 +347,17 @@ Builder data should flow into the normal sheet without making the sheet feel loc
 
 ### Expected behavior
 
-| Sheet area | Expected integration |
-|---|---|
-| Basics | Show derived class/level, race, background |
-| Vitals | Show HP, AC, initiative, speed, proficiency, hit dice, resources |
-| Abilities & Skills | Show derived ability totals, save/skill totals, proficiency/expertise/bonus indicators |
-| Weapons / Attacks | Seed and/or derive attacks where appropriate; allow custom/manual attacks |
-| Spells | Seed spell selections and slots; include descriptions and notes |
-| Equipment | Seed starting gear into clear pockets, preserving user edits |
-| Features / Traits | Seed names and descriptions; preserve user-owned edits |
-| Resources | Track rest recovery rules where modeled |
-| Combat embedded panels | Read/write canonical active character data, not snapshots |
+| Sheet area             | Expected integration                                                                   |
+|------------------------|----------------------------------------------------------------------------------------|
+| Basics                 | Show derived class/level, race, background                                             |
+| Vitals                 | Show HP, AC, initiative, speed, proficiency, hit dice, resources                       |
+| Abilities & Skills     | Show derived ability totals, save/skill totals, proficiency/expertise/bonus indicators |
+| Weapons / Attacks      | Seed and/or derive attacks where appropriate; allow custom/manual attacks              |
+| Spells                 | Seed spell selections and slots; include descriptions and notes                        |
+| Equipment              | Seed starting gear into clear pockets, preserving user edits                           |
+| Features / Traits      | Seed names and descriptions; preserve user-owned edits                                 |
+| Resources              | Track rest recovery rules where modeled                                                |
+| Combat embedded panels | Read/write canonical active character data, not snapshots                              |
 
 ---
 
@@ -418,17 +418,17 @@ These are normal play-state or override fields and should be editable from the s
 
 ### Reference-app coverage checklist
 
-| Surface | Reference behavior to preserve | Lore Ledger improvement |
-|---|---|---|
-| HP | Fast editable play-state numbers | Separate current, max, temp HP, damage/heal affordances, durable max-HP override |
-| AC | Directly editable from sheet | Derived armor/shield AC plus temporary bonuses and explicit manual override |
-| Ability scores | Tap/edit ability-related values | Keep base build scores guarded; allow save/skill misc bonuses and clear source breakdowns |
-| Skills | Proficiency/expertise-style editing | Show derived source, manual proficiency override, expertise, half proficiency, misc bonus |
-| Attacks | Editable attack rows | Derive from equipped weapons; allow custom/manual attack cards, notes, magic bonuses, ammo, descriptions |
-| Spells | Selectable/editable spell list | Include full SRD spell descriptions, casting time, range, components, duration, school, concentration, ritual, source, higher-level text, user notes |
-| Equipment | Editable inventory/equipment | Add item descriptions, weapon/armor properties, equipped state, quantity, custom notes, magic/homebrew support |
-| Features | Accessible feature text | Structured feature cards with descriptions, usage counters, reset timing, user notes |
-| Resources | Trackable counters | Derive class resource counters from class data where possible |
+| Surface        | Reference behavior to preserve      | Lore Ledger improvement                                                                                                                              |
+|----------------|-------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------|
+| HP             | Fast editable play-state numbers    | Separate current, max, temp HP, damage/heal affordances, durable max-HP override                                                                     |
+| AC             | Directly editable from sheet        | Derived armor/shield AC plus temporary bonuses and explicit manual override                                                                          |
+| Ability scores | Tap/edit ability-related values     | Keep base build scores guarded; allow save/skill misc bonuses and clear source breakdowns                                                            |
+| Skills         | Proficiency/expertise-style editing | Show derived source, manual proficiency override, expertise, half proficiency, misc bonus                                                            |
+| Attacks        | Editable attack rows                | Derive from equipped weapons; allow custom/manual attack cards, notes, magic bonuses, ammo, descriptions                                             |
+| Spells         | Selectable/editable spell list      | Include full SRD spell descriptions, casting time, range, components, duration, school, concentration, ritual, source, higher-level text, user notes |
+| Equipment      | Editable inventory/equipment        | Add item descriptions, weapon/armor properties, equipped state, quantity, custom notes, magic/homebrew support                                       |
+| Features       | Accessible feature text             | Structured feature cards with descriptions, usage counters, reset timing, user notes                                                                 |
+| Resources      | Trackable counters                  | Derive class resource counters from class data where possible                                                                                        |
 
 ---
 
@@ -510,32 +510,32 @@ User testing found these bugs:
 
 ### P0 — Fix before audit feature work
 
-| Gap | Reason |
-|---|---|
-| Docs cleanup | Prevent agents from following stale instructions |
+| Gap                                 | Reason                                                 |
+|-------------------------------------|--------------------------------------------------------|
+| Docs cleanup                        | Prevent agents from following stale instructions       |
 | Inventory/character switching state | Affects all characters and requires refresh workaround |
-| Edit in Builder crash | Blocks guarded build edit path |
-| Short/Long Rest correctness | Core D&D play feature |
-| Prepared spell Long Rest flow | Required for SRD-accurate prepared caster workflow |
+| Edit in Builder crash               | Blocks guarded build edit path                         |
+| Short/Long Rest correctness         | Core D&D play feature                                  |
+| Prepared spell Long Rest flow       | Required for SRD-accurate prepared caster workflow     |
 
 ### P1 — Fix after P0
 
-| Gap | Reason |
-|---|---|
-| Initiative display | Builder-created characters need correct combat tile |
-| Skill/proficiency display | Abilities panel must show derived proficiency/bonus state |
-| Feature/trait descriptions | Names-only entries are insufficient |
-| Spell ordering | Cantrips must appear before levels 1–9 |
-| Inventory pocket source labels | Starting gear pockets should be understandable |
+| Gap                            | Reason                                                    |
+|--------------------------------|-----------------------------------------------------------|
+| Initiative display             | Builder-created characters need correct combat tile       |
+| Skill/proficiency display      | Abilities panel must show derived proficiency/bonus state |
+| Feature/trait descriptions     | Names-only entries are insufficient                       |
+| Spell ordering                 | Cantrips must appear before levels 1–9                    |
+| Inventory pocket source labels | Starting gear pockets should be understandable            |
 
 ### P2 — Planning / later implementation
 
-| Gap | Reason |
-|---|---|
-| Revised Level Up spec | Needs stable builder edit/rest/sheet behavior first |
-| Derived class resources | Important for full rules coverage and Level Up |
-| Custom/homebrew editor | Needed but not part of stabilization |
-| Builder-only panel retirement | Should wait until state bugs are fixed |
+| Gap                           | Reason                                              |
+|-------------------------------|-----------------------------------------------------|
+| Revised Level Up spec         | Needs stable builder edit/rest/sheet behavior first |
+| Derived class resources       | Important for full rules coverage and Level Up      |
+| Custom/homebrew editor        | Needed but not part of stabilization                |
+| Builder-only panel retirement | Should wait until state bugs are fixed              |
 
 ---
 
@@ -858,16 +858,16 @@ Regression tests required:
 
 Prepared casters should not be treated like known-spell casters. Their prepared selections are normally changed after a Long Rest, while known-spell choices are mainly changed at Level Up.
 
-| Class | Spell model | Where choices should change |
-|---|---|---|
-| Cleric | Prepared caster | Prepared spell selections change through Long Rest flow |
-| Druid | Prepared caster | Prepared spell selections change through Long Rest flow |
-| Paladin | Prepared half-caster | Prepared spell selections change through Long Rest flow |
-| Wizard | Spellbook + prepared caster | Prepared spells change through Long Rest flow; spellbook additions change through Level Up/copying spells |
-| Bard | Known-spell caster | Known spells change mainly through Level Up |
-| Ranger | Known-spell caster in SRD 5.1 | Known spells change mainly through Level Up |
-| Sorcerer | Known-spell caster | Known spells change mainly through Level Up |
-| Warlock | Known-spell caster + Pact Magic | Known spells change mainly through Level Up; Pact slots recover on Short/Long Rest |
+| Class    | Spell model                     | Where choices should change                                                                               |
+|----------|---------------------------------|-----------------------------------------------------------------------------------------------------------|
+| Cleric   | Prepared caster                 | Prepared spell selections change through Long Rest flow                                                   |
+| Druid    | Prepared caster                 | Prepared spell selections change through Long Rest flow                                                   |
+| Paladin  | Prepared half-caster            | Prepared spell selections change through Long Rest flow                                                   |
+| Wizard   | Spellbook + prepared caster     | Prepared spells change through Long Rest flow; spellbook additions change through Level Up/copying spells |
+| Bard     | Known-spell caster              | Known spells change mainly through Level Up                                                               |
+| Ranger   | Known-spell caster in SRD 5.1   | Known spells change mainly through Level Up                                                               |
+| Sorcerer | Known-spell caster              | Known spells change mainly through Level Up                                                               |
+| Warlock  | Known-spell caster + Pact Magic | Known spells change mainly through Level Up; Pact slots recover on Short/Long Rest                        |
 
 ### Product shape
 
@@ -896,15 +896,15 @@ The Level Up spec should be revised after stabilization, not implemented immedia
 
 ### Decision summary
 
-| Topic | Decision |
-|---|---|
-| Down-leveling | Out of scope |
-| Prepared casters | Level Up reports capacity/new spell levels; prepared selection routes through Long Rest |
-| Known-spell casters | Choose newly known spells during Level Up |
-| Wizard | Choose spellbook additions during Level Up; prepare from spellbook during Long Rest |
-| Cantrips | Choose new cantrips during Level Up when gained |
-| Granted spells | Show/seed as granted; do not manually choose unless rules require |
-| Internal spell slot field | Do not rename `used` during Level Up; fix user-facing labels if misleading |
+| Topic                     | Decision                                                                                |
+|---------------------------|-----------------------------------------------------------------------------------------|
+| Down-leveling             | Out of scope                                                                            |
+| Prepared casters          | Level Up reports capacity/new spell levels; prepared selection routes through Long Rest |
+| Known-spell casters       | Choose newly known spells during Level Up                                               |
+| Wizard                    | Choose spellbook additions during Level Up; prepare from spellbook during Long Rest     |
+| Cantrips                  | Choose new cantrips during Level Up when gained                                         |
+| Granted spells            | Show/seed as granted; do not manually choose unless rules require                       |
+| Internal spell slot field | Do not rename `used` during Level Up; fix user-facing labels if misleading              |
 
 ### Prompt — Revise Level Up Spec After Stabilization
 

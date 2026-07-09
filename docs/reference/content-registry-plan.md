@@ -1,6 +1,6 @@
 # Content Registry Plan
 
-_Last updated: 2026-07-06_
+Last updated: 2026-07-06
 
 ## Purpose
 
@@ -1184,7 +1184,6 @@ Current shipped builtin registry files (all 14 are loaded by `js/domain/rules/bu
 Final rule:
 
 > If builtin content is approved to ship, it should live in structured registry files with stable IDs and explicit source metadata, not in scattered hardcoded UI logic.
-
 
 ---
 
