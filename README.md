@@ -310,7 +310,8 @@ Core maintainer docs:
 - [`docs/operations/storage-and-backups.md`](docs/operations/storage-and-backups.md) - current localStorage/IndexedDB responsibilities, save lifecycle, backup/import flow, and reset behavior
 - [`docs/state-schema.md`](docs/state-schema.md) - persisted state shape, schema history, migration rules, and restore compatibility notes
 - [`docs/operations/testing-guide.md`](docs/operations/testing-guide.md) - current automated test commands plus the manual release/regression checklist
-- [`docs/operations/release-process.md`](docs/operations/release-process.md) - tagging, verification, packaging, deploy, and release checklist
+- [`docs/operations/release-process.md`](docs/operations/release-process.md) - tagging, verification, deploy, and web release checklist
+- [`docs/operations/ios-packaging.md`](docs/operations/ios-packaging.md) - native iOS / App Store packaging via Capacitor
 - [`docs/operations/security-privacy.md`](docs/operations/security-privacy.md) - local-data, CSP, import/export, and privacy expectations
 - [`docs/features/character-portability.md`](docs/features/character-portability.md) - single-character export/import format and import-ordering rationale
 - [`docs/operations/troubleshooting.md`](docs/operations/troubleshooting.md) - common recovery steps for save, import, offline, and build issues

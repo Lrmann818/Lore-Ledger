@@ -44,7 +44,8 @@ Procedures and checklists for shipping and maintaining the app.
 
 ### Release and runtime concerns
 
-- [`operations/release-process.md`](./operations/release-process.md) — End-to-end release procedure for tagging and shipping new versions.
+- [`operations/release-process.md`](./operations/release-process.md) — End-to-end **web** release procedure for tagging and shipping new versions.
+- [`operations/ios-packaging.md`](./operations/ios-packaging.md) — **Native iOS / App Store / TestFlight** path (Capacitor). Separate from the web release; its 2026-05-16 legal audit is superseded — see `reference/srd-licensing-notes.md`.
 - [`operations/pwa-notes.md`](./operations/pwa-notes.md) — Progressive Web App behavior notes: service worker, Workbox precache, install/update flows.
 - [`operations/storage-and-backups.md`](./operations/storage-and-backups.md) — How localStorage is used, how backups are exported and imported, blob replacement rollback semantics.
 - [`operations/security-privacy.md`](./operations/security-privacy.md) — Security and privacy posture: what data is stored where, debug-info safety, support-flow considerations.

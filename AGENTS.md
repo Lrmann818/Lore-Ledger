@@ -40,7 +40,8 @@ restore obsolete behavior.
 | **Character sheet editing surfaces** | "Editing Model" below → `docs/reference/fifth-edition-character-sheet/` (UX only) | Any doc implying builder panels are the post-creation editing surface |
 | **Rest (short / long), prepared spells** | `docs/reference/rest-rules-spec.md` → `js/domain/characterRest.js` | — |
 | **Architecture / module boundaries** | `docs/architecture.md` | — |
-| **Release, testing, PWA** | `docs/operations/testing-guide.md` → the focused checklist it links | `docs/archive/**` |
+| **Release, testing, PWA** | `docs/operations/testing-guide.md` → the focused checklist it links → `docs/operations/release-process.md` | `docs/archive/**`, `docs/operations/ios-packaging.md` |
+| **iOS / App Store packaging** | `docs/operations/ios-packaging.md` | The web release doc, unless you are also shipping web |
 | **Levelling / level-up flow** | "Level Up Rules" below → `docs/reference/level-up-flow-spec.md` (proposal — do not implement) | — |
 | **Roadmap / what's next** | "Current Working Order" below → `docs/plans/new-features-roadmap.md` | `docs/archive/lore-ledger-builder-plan.md` |
 | **Builder gap audit / stabilization** | "Current Working Order" below, first | Do **not** start B1/B2/B3 batches from `docs/audits/**` |
