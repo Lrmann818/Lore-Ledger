@@ -25,6 +25,7 @@ provenance — they explain *why* past decisions were made — and for no other 
 | `lore-ledger-builder-plan.md` | Phase-by-phase implementation tracker for the character builder | 2026-07-09 | `docs/reference/builder-scope-greenlist.md`, `docs/reference/content-registry-plan.md`, `docs/reference/character-builder-handoff.md` |
 | `lore-ledger-multi-branch-review.md` | Audit of the `main` / `develop` / `builder-wizard` divergence | 2026-07-09 | Branch unification completed; see `AGENTS.md` and `docs/state-schema.md` |
 | `multi-character-steps-1-4.md` | Step-by-step build record of the multi-character system (April 2026) | 2026-07-09 | `docs/features/multi-character-design.md` (canonical rules); its green list is wrong — see `docs/reference/builder-scope-greenlist.md` |
+| `builder-phase-history.md` | Phase-by-phase schema changelog from `state-schema.md` | 2026-07-09 | `docs/state-schema.md`; its v7/v8 numbers predate the v8-v11 renumbering |
 
 ## When to archive a doc
 

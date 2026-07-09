@@ -115,6 +115,7 @@ plans, completed phase trackers, and point-in-time audits, kept for provenance. 
 - [`archive/lore-ledger-builder-plan.md`](./archive/lore-ledger-builder-plan.md) — Phase-by-phase builder implementation tracker. The builder has shipped; every "deferred"/"future work" item is stale.
 - [`archive/lore-ledger-multi-branch-review.md`](./archive/lore-ledger-multi-branch-review.md) — 2026-07-02 audit of the `main`/`develop`/`builder-wizard` divergence. That divergence has been resolved; all commit hashes are stale.
 - [`archive/multi-character-steps-1-4.md`](./archive/multi-character-steps-1-4.md) — Step 1–4 build record for the multi-character system. Schema versions frozen at April 2026; its "SRD 5.1 green list" is wrong.
+- [`archive/builder-phase-history.md`](./archive/builder-phase-history.md) — Phase-by-phase schema changelog lifted out of `state-schema.md`. Its v7/v8 numbers predate the v8–v11 renumbering.
 
 ---
 

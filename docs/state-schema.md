@@ -315,12 +315,10 @@ The legacy singleton `state.character` key is accepted only by migration/backwar
 ### Step 3 builder foundation
 
 > **Reading note.** The `build` / `overrides` shapes below are current and load-bearing.
-> The "Step 3 Phase 3A-3I" bullets at the end of this section are a **historical
-> changelog** of how the builder was built up, written while the builder was still a
-> Dragonborn-only vertical slice. They describe what each phase did *at the time*, not
-> today's shipped scope. The builder now ships an 8-step wizard across the full SRD 5.1
-> registry (schema v11, `build.version` 2). Do not read those bullets as a statement of
-> current capability or as a list of remaining work.
+> The builder ships an 8-step wizard across the full SRD 5.1 registry (schema v11,
+> `build.version` 2). The phase-by-phase changelog of how these fields arrived, written
+> while the builder was still a Dragonborn-only vertical slice, is archived in
+> [`docs/archive/builder-phase-history.md`](./archive/builder-phase-history.md).
 
 Every character entry now carries builder metadata, but migrated characters stay in freeform/manual mode by default:
 
@@ -351,25 +349,26 @@ Every character entry now carries builder metadata, but migrated characters stay
 Notes:
 
 - `build: null` means the character is freeform/manual.
-- Step 3 Phase 2 added the first `New Builder Character` creation path that writes this build object. The current wizard supports the shipped creation slices through Identity, supported Dragonborn Race Choices, Ability Scores, Summary, and Finish, while broader content-complete class/background/equipment/spell choice flows, generalized seeding, level-up additions, and shared-resource automation remain future work.
 - A `build` object with recognized Step 3 builder fields opts the character into builder-derived interpretation for pure rules helpers.
 - Migration never infers builder choices from existing freeform fields such as `classLevel`, `race`, `background`, abilities, or skills.
 - `overrides` is persisted JSON-safe data for first-slice derivations only: ability totals, save totals, skill totals, and initiative.
 - The first Step 3 rules derivation is pure. It is not wired into migration, passive load, or materialization flows.
-- Step 3 Phase 3A did not change the schema. The Builder Summary panel is display-only UI for builder characters. It reads derived class/level, race, background, level, proficiency bonus, and ability totals/modifiers without adding schema fields or persisting derived values back into `classLevel`, `race`, `background`, `proficiency`, abilities, or other flat fields.
-- Step 3 Phase 3B also did not change the schema. The Builder Identity panel edits only `build.raceId`, `build.classId`, `build.backgroundId`, and `build.level` for builder characters, using builtin SRD-safe content IDs from the code-shipped registry. Selecting "Not selected" stores `null` for the relevant content ID. It does not persist derived values into flat fields, and it does not add subclass choices, custom content, HP/AC/spell automation, or content-complete builder choice coverage.
-- Step 3 Phase 3C also does not change the schema. The Builder Abilities panel edits only manual base scores in `build.abilities.base` for builder characters. Those values feed builder-derived sheet values such as Abilities/Skills totals, Vitals DCs, derived feature cards, and Builder Summary review output, while remaining separate from the flat/freeform `abilities.*.score`, `abilities.*.mod`, and `abilities.*.save` fields.
-- Step 3 Phase 3D also does not change the schema. Builder characters with valid derived abilities may display `deriveCharacter(character).abilities.*.total` and `.modifier` in the normal Abilities/Skills panel, while those values remain unpersisted and are not copied into flat/freeform ability fields.
-- Step 3 Phase 3E also does not change the schema. For builder characters with a valid `build.abilities.base` shape, ability adjustments made through the existing Abilities & Skills controls write deltas to `overrides.abilities.*`, which `deriveCharacter(...)` adds to the builder base scores. Reset adjustments are neutralized as `0` through the existing override normalization shape. The flat/freeform `abilities.*.score`, `abilities.*.mod`, and `abilities.*.save` fields remain separate and are not used as storage for builder-derived totals.
-- Step 3 Phase 3F also does not change the schema. Builder characters display `deriveCharacter(character).labels.classLevel`, `.race`, and `.background` in the normal Basics panel for `charClassLevel`, `charRace`, and `charBackground`; those three Basics fields are display-only for builder characters and still do not write derived labels back into `classLevel`, `race`, or `background`. Builder Identity remains temporary scaffolding for editing the underlying `build.*` identity inputs. HP, AC, proficiency, broader saves/skills, spells, attacks, custom content, schema migration, and materialization remain future work.
-- Step 3 Phase 3G also does not change the schema. Builder characters display `deriveCharacter(character).proficiencyBonus` in the normal Vitals proficiency field as builder-owned/read-only UI, and Abilities/Skills uses that same derived proficiency scalar for builder characters only in its existing save/skill formulas. Freeform characters still edit and persist flat `proficiency` exactly as before. Save/skill automation, HP/AC automation, spell/combat automation, schema migration, and derived-field materialization remain future work.
-- Step 3 Phase 3H in the older builder-integration checklist did not change the schema. Builder characters display `deriveCharacter(character).vitals.speed`, `.hitDieAmt`, and `.hitDieSize` in the normal and embedded Vitals speed and hit-dice fields as builder-owned/read-only UI. These values come from selected builtin race `data.speed`, selected builtin class `data.hitDie`, and normalized builder level. Freeform characters still edit and persist flat `speed`, `hitDieAmt`, and `hitDieSize` exactly as before. Malformed or incomplete builder content displays blank read-only values with derivation warnings instead of falling back to stale flat fields. HP/AC automation, combat/card linking changes, new overrides, and derived-field materialization remain future work.
-- Abilities & Features Phase 3F added schema v7 `manualFeatureCards[]` for character-owned manual/custom cards.
-- Abilities & Features Phase 3G extends manual/custom cards with an optional nested `limitedUse` object for feature-specific counters only; broad shared resource pools remain `resources[]` / Vitals work.
-- Abilities & Features Phase 3H added schema v8 `featureUses` for character-owned mutable use state on derived feature-specific counters. The first shipped entry is `featureUses["dragonborn-breath-weapon"].current`; max uses, recovery, label, DC, area, damage, damage type, ancestry, feature text, and generated SRD data remain derived from build/rules data.
-- Phase 3I did not change the schema version or add new fields. Dragonborn wizard Finish seeds existing editable text fields only: selected Draconic Ancestry and Damage Resistance text into `features`, and fixed Common/Draconic language text into `languages`. Seeded text becomes user-owned sheet content after creation and is not silently synchronized with registry/rules text. Breath Weapon remains live-derived in Vitals and Abilities & Features and is not copied into `features`, `manualFeatureCards[]`, `resources[]`, or a new top-level field.
-- Builtin SRD content is code-shipped under `js/domain/rules/` and is never persisted. Custom content **is** persisted: schema v11 added the campaign-scoped `content.custom` array (default `{ custom: [] }` in `js/state.js`). Older notes in this section saying custom content persistence is out of scope describe the v8-v10 era and no longer hold.
-- Step 3 Phase 2A and Phase 2B do not persist `abilityMethod`. Ability-score entry method (manual, standard array, point buy, roll) is wizard-local draft state — only `build.abilities.base` scores are written to the persisted build on Finish, because derivation and sheet-editing paths consume the scores rather than the entry method.
+- The wizard writes `build` on Finish.
+- `build.abilities.base` holds manual base scores. It stays separate from the flat/freeform
+  `abilities.*.score`, `.mod`, and `.save` fields, which builder characters do not use as storage.
+- `overrides.abilities.*` holds **deltas**, not totals. `deriveCharacter(...)` adds them to the
+  builder base scores. A reset writes `0`, it does not delete the key.
+- Derived values (labels, proficiency bonus, speed, hit dice, ability totals) are displayed
+  read-only for builder characters and are **never** written back into flat fields.
+- `manualFeatureCards[]` was added in schema **v9**; `featureUses` in schema **v10**. (Older
+  notes said v7/v8 — those were the pre-renumber builder-branch numbers. Trust the version
+  history in §2.)
+- Builtin SRD content is code-shipped under `js/domain/rules/` and is never persisted. Custom content **is** persisted: schema v11 added the campaign-scoped `content.custom` array (default `{ custom: [] }` in `js/state.js`).
+- `abilityMethod` is **not persisted**. The ability-score entry method (manual, standard array, point buy, roll) is wizard-local draft state; only `build.abilities.base` scores are written to the persisted build on Finish, because derivation and sheet-editing paths consume the scores rather than the entry method.
+
+The phase-by-phase record of how these fields arrived is archived in
+[`docs/archive/builder-phase-history.md`](./archive/builder-phase-history.md). It is
+historical only and its schema numbers predate the v8-v11 renumbering.
 
 ### Resources
 
