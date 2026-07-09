@@ -153,3 +153,51 @@ slots, not spent ones (`used === total` means "full"). This is confirmed in
   slots.
 - An internal rename is a separate, isolated cleanup change with its own migration
   considerations.
+
+---
+
+## 7. Resource recovery vocabulary
+
+The `recovery` metadata on `resources[]`, on `manualFeatureCards[].limitedUse`, and on
+derived `featureUses` is a **closed set**, defined in `js/domain/characterRest.js`:
+
+```text
+"shortRest" | "longRest" | "shortOrLongRest" | "manual" | "none"
+```
+
+Apply semantics (`recoveryMatchesRest()`):
+
+- Short Rest resets `shortRest` and `shortOrLongRest`.
+- Long Rest resets `longRest` and `shortOrLongRest`.
+- `manual`, `none`, missing, and unrecognized values **never reset silently**. Leave them
+  unchanged rather than guessing.
+
+> There is no `anyRest` or `daily` recovery mode. Older planning prompts named them; they
+> have never existed in the code. Do not introduce them as a side effect of rest work —
+> adding a mode is a schema change and needs a migration.
+
+---
+
+## 8. Required tests when rest behavior is implemented
+
+- Short Rest can spend Hit Dice and heal without exceeding max HP.
+- Short Rest cannot spend unavailable Hit Dice.
+- Short Rest does not fully heal by default.
+- Short Rest restores Pact Magic slots and modeled short-rest resources.
+- Long Rest restores current HP to max HP.
+- Long Rest resets death saves, if tracked.
+- Long Rest restores ordinary spell slots and Pact Magic slots.
+- Long Rest restores modeled long-rest and short-or-long-rest resources.
+- Long Rest recovers spent Hit Dice up to half total, never above max.
+- Long Rest preserves notes, inventory, equipment, pockets, manual overrides, and
+  prepared/known spells unless changed through the prepared-spell flow.
+- The prepared-spell prompt appears for Cleric, Druid, Paladin, and Wizard.
+- Choosing **No** preserves prepared spells; choosing **Yes** applies prepared changes and
+  rest effects together.
+- Prepared-spell changes preserve spell notes and descriptions.
+- Rest actions are character-specific and stay correct across character switching.
+- Rest is safe for both builder-created and freeform/manual characters.
+
+Acceptance: no rest action silently fails, none affects the wrong character, unsupported
+recovery modes are left unchanged rather than guessed, and `npm run verify` plus
+`npm run test:smoke` pass.

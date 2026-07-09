@@ -164,67 +164,14 @@ Review `AGENTS.md` and reference docs for:
 
 ### Prompt — Documentation Cleanup / Stale Instruction Audit
 
-```text
-Audit the Lore Ledger documentation before implementing new builder or character-sheet changes.
+✅ **Completed 2026-07-09.** The docs cleanup and stale-instruction audit ran and landed.
+Its outcomes are the canonical docs themselves: the SRD scope corrections in
+[`../reference/builder-scope-greenlist.md`](../reference/builder-scope-greenlist.md), the
+editing model and working order in [`../../AGENTS.md`](../../AGENTS.md), and the archive
+boundary in [`../archive/README.md`](../archive/README.md).
 
-Goal:
-Find and fix stale, conflicting, or misleading instructions that could cause Codex/Claude Code to implement the wrong behavior.
-
-Do not implement app code in this batch unless a doc explicitly references a nonexistent file/path and a tiny adjacent correction is required. This is primarily a docs cleanup batch.
-
-Docs to inspect:
-- AGENTS.md
-- docs/reference/builder-scope-greenlist.md
-- docs/reference/content-registry-plan.md
-- any builder wizard, SRD 5.1, character sheet, rest, inventory, spell, feature, or level-up reference docs
-- any docs/reference/fifth-edition-character-sheet screenshot index or naming docs
-
-Required checks:
-
-1. SRD 5.1 scope accuracy
-- Confirm docs state that SRD 5.1 includes Acolyte as the only background and Grappler as the only feat.
-- Remove or correct any doc language claiming Criminal, Sage, Soldier, Goliath, Orc, or other non-SRD items are expected built-in SRD scope unless they have been explicitly approved.
-- Clarify that non-SRD content belongs in custom/homebrew content.
-
-2. Builder versus playable sheet editing
-- Docs must clearly distinguish guarded structured build choices from quick-edit play-state/sheet fields.
-- Guarded build choices:
-  race, subrace, class levels, multiclass order, subclass, background, ASI, feats, starting ability-generation method.
-- Quick-edit sheet/play-state fields:
-  HP, temp HP, AC bonuses, initiative, speed, saves, skills, attacks, spells, equipment, features, resources, notes, and manual overrides.
-- Remove stale language implying builder-only sheet panels are the preferred editing surface after creation.
-
-3. Reference app screenshots
-- Clarify that the Fifth Edition Character Sheet screenshots are UX/reference coverage only.
-- Do not copy the reference app visual design.
-- Use the screenshots to identify editable surfaces, information coverage, and interaction patterns such as tap/click/long-press to edit.
-
-4. Rest behavior
-- Add or verify docs for Short Rest and Long Rest expectations.
-- Short Rest should support spending Hit Dice and restoring short-rest resources.
-- Long Rest should restore HP, spell slots, pact slots, supported resources, death saves if tracked, and recover spent Hit Dice up to half total Hit Dice.
-- Prepared casters should normally change prepared spells after finishing a Long Rest, not freely at any time.
-- Known-spell casters generally change known spells through level-up, not Long Rest.
-
-5. Level Up planning
-- Add or verify that down-leveling is out of scope.
-- Level Up should append exactly one level and ask only for choices unlocked by that level.
-- Prepared caster spell capacity may increase on level-up, but prepared spell selection is handled through the Long Rest/prepared-spell flow.
-- Do not rename internal spell slot fields in the Level Up batch; user-facing labels should still be clear.
-
-6. Stale batch plans and old decisions
-- Find any docs that contradict the current intended order:
-  docs cleanup → stabilization bugs → rest correctness → seeded descriptions/spell ordering/skills/initiative → revised Level Up spec → Level Up implementation.
-- Update docs so future agents do not start B1/B2/B3 audit work before stabilization.
-
-Deliverables:
-- List each stale/conflicting instruction found.
-- Update the docs with corrected wording.
-- Include exact files changed.
-- Include any docs intentionally left unchanged and why.
-- Run the relevant doc/lint/test command if available.
-- Do not begin app-code implementation after the docs cleanup.
-```
+The original 60-line prompt is preserved in git history; it is not repeated here because
+re-running it would re-do finished work.
 
 ---
 
@@ -602,132 +549,17 @@ Acceptance criteria:
 
 ### Prompt 2 — P0: Short Rest and Long Rest Core Rules
 
-```text
-Investigate and fix Short Rest and Long Rest behavior as a P0 core-rules bugfix batch.
+📄 **Promoted to a canonical spec.** The full rule baseline, the prepared-spell Long Rest
+flow, the resource recovery vocabulary, and the required test list now live in
+[`../reference/rest-rules-spec.md`](../reference/rest-rules-spec.md), which owns Short Rest
+and Long Rest behavior.
 
-Context:
-The character sheet includes rest buttons, but Long Rest currently does not reset all of the things it should. Both Short Rest and Long Rest must behave correctly according to SRD 5.1 rules and the app’s modeled character resources.
+Read that document, not the prompt that used to be here. The prompt named `anyRest` and
+`daily` recovery modes, which **have never existed in the code** — the real closed set is
+`shortRest | longRest | shortOrLongRest | manual | none`.
 
-This is a core D&D feature. Do not start broader audit feature work, level-up work, or builder panel refactors in this batch.
-
-Primary goal:
-Make Short Rest and Long Rest apply the correct SRD 5.1 effects to every supported app field/resource, while preserving user notes, inventory, prepared/known spells, build choices, and manual overrides.
-
-Rule baseline:
-- Short Rest:
-  - A short rest is at least 1 hour.
-  - At the end of a short rest, a character may spend one or more available Hit Dice to regain HP.
-  - Spending a Hit Die rolls that die and adds the character’s Constitution modifier to the healing amount.
-  - The character cannot spend more Hit Dice than currently available.
-  - Short Rest should also reset class/features/resources that explicitly recover on a short rest.
-- Long Rest:
-  - A long rest is at least 8 hours.
-  - At the end of a long rest, the character regains all lost HP.
-  - The character regains spent Hit Dice up to half the character’s total Hit Dice.
-  - The character cannot benefit from more than one long rest in a 24-hour period.
-  - The character must have at least 1 HP at the start of the long rest to gain its benefits.
-  - Long Rest should reset spell slot usage and class/features/resources that recover on a long rest.
-  - Long Rest should reset resources that recover on any rest if the app models that distinction.
-
-Prepared spell handling during Long Rest:
-- For SRD 5.1 prepared casters, prepared spell selections should normally be changed as part of finishing a Long Rest, not freely at any time.
-- Affected classes:
-  Cleric, Druid, Paladin, Wizard.
-- When the user clicks Long Rest on a character with prepared spellcasting, show a prompt:
-  “Would you like to change your prepared spells?”
-- If No:
-  - Apply the Long Rest normally.
-  - Preserve current prepared spell selections.
-- If Yes:
-  - Open a prepared-spell selection step before finalizing the Long Rest.
-  - Show the class spell list/spellbook as appropriate.
-  - Show current prepared count and max prepared capacity.
-  - Allow deselecting/selecting prepared spells up to capacity.
-  - Apply prepared spell changes and Long Rest changes together.
-- If the character has multiple prepared caster classes, handle each class separately.
-- For Wizards, prepared choices come from the character’s spellbook, not the entire wizard class spell list.
-- For Clerics, Druids, and Paladins, prepared choices come from the class spell list plus any always-prepared subclass/oath/domain spells where applicable.
-- Always-prepared/granted spells should be displayed as granted/always prepared and should not count against the prepared limit unless SRD data says otherwise.
-- Prepared spell changes must not erase spell notes, custom spell notes, known spells, spellbook entries, or spell descriptions.
-
-Known-spell caster handling:
-- Bard, Ranger, Sorcerer, and Warlock do not use the Long Rest prepared-spell change flow.
-- Their known-spell choices are mainly changed during level-up, not Long Rest.
-
-Required implementation:
-- Locate Short Rest and Long Rest action handlers.
-- Locate HP, temp HP, hit dice, spell slot usage, pact slot usage, feature/resource counters, and death save state.
-- Identify which fields are currently reset, ignored, or reset incorrectly.
-- Ensure rest behavior is character-specific and safe across character switching.
-- Ensure rest behavior works for builder-created and freeform/manual characters.
-
-Short Rest expected behavior:
-- User can spend available Hit Dice if missing HP.
-- App shows available Hit Dice by class/hit die size when multiclassed.
-- User can choose which Hit Dice to spend.
-- Healing equals rolled Hit Die result + CON modifier per die, capped at max HP.
-- Spending Hit Dice reduces available Hit Dice for that character.
-- Short Rest resets supported short-rest resources/features.
-- Short Rest does not restore all HP automatically.
-- Short Rest does not restore ordinary long-rest spell slots.
-- Short Rest restores Pact Magic slots if modeled.
-- Do not silently clear temp HP unless the app has an explicit rule/system for doing so.
-
-Long Rest expected behavior:
-- Restore current HP to max HP.
-- Reset death saves if tracked.
-- Restore ordinary spell slot usage.
-- Restore Pact Magic slot usage.
-- Restore supported long-rest and short-rest resources/features.
-- Regain spent Hit Dice up to half total Hit Dice, not exceeding total.
-- Preserve notes, inventory, equipment, pockets, prepared/known spell data unless changed through the prepared-spell flow, custom attacks, personality notes, and build choices.
-- Do not overwrite manual overrides such as AC override, skill/save misc bonuses, or custom HP max override.
-- If tracking last long rest time exists, enforce or warn about the once-per-24-hours rule.
-- If current HP is 0 at the start of the rest, warn that SRD 5.1 requires at least 1 HP to benefit from a long rest.
-
-Resource reset model:
-Each resource/feature counter should have a reset type where possible:
-- shortRest
-- longRest
-- anyRest
-- daily
-- manual
-- none / unknown
-
-Apply:
-- Short Rest resets shortRest and anyRest resources.
-- Long Rest resets longRest, shortRest, anyRest, and daily resources where appropriate.
-- Manual/unknown resources should not reset silently unless explicitly modeled as rest-resettable.
-
-Tests required:
-- Short Rest can spend Hit Dice and heal without exceeding max HP.
-- Short Rest cannot spend unavailable Hit Dice.
-- Short Rest does not fully heal by default.
-- Short Rest restores Pact Magic slots if applicable.
-- Short Rest restores modeled short-rest resources.
-- Long Rest restores current HP to max HP.
-- Long Rest resets death saves if tracked.
-- Long Rest restores ordinary spell slots.
-- Long Rest restores Pact Magic slots.
-- Long Rest restores modeled long-rest/short-rest resources.
-- Long Rest recovers spent Hit Dice up to half total and never above max.
-- Long Rest preserves notes, inventory, prepared/known spells unless changed through the prepared-spell flow, equipment, pockets, and manual overrides.
-- Long Rest prepared-spell prompt appears for Cleric, Druid, Paladin, and Wizard.
-- Choosing No preserves prepared spells.
-- Choosing Yes applies selected prepared spells and the rest effects together.
-- Prepared spell changes preserve spell notes/descriptions.
-- Rest actions are character-specific across switching.
-- Builder-created and freeform/manual characters remain safe.
-
-Acceptance criteria:
-- Short Rest and Long Rest visibly do the correct thing.
-- No rest action silently fails.
-- No rest action affects the wrong character.
-- SRD 5.1 behavior is followed for supported fields.
-- Unsupported/unknown resource reset behavior is documented and left unchanged rather than guessed.
-- npm run verify passes.
-- npm run test:smoke passes, or any unrelated existing failure is clearly explained.
-```
+This remains **P0 work that comes before Level Up.** It is queued, not authorized: see
+[`AGENTS.md` → Current Working Order](../../AGENTS.md#current-working-order).
 
 ---
 
@@ -908,68 +740,13 @@ The Level Up spec should be revised after stabilization, not implemented immedia
 
 ### Prompt — Revise Level Up Spec After Stabilization
 
-```text
-Revise the Level Up Flow implementation spec using these decisions.
+📄 **Promoted to a canonical spec.** The Level Up decisions above are recorded as ratified
+decisions in [`../reference/level-up-flow-spec.md`](../reference/level-up-flow-spec.md) §10:
+down-leveling is out of scope, Level Up appends exactly one level and asks only what that
+level unlocks, prepared selection routes through the Long Rest flow, and the internal `used`
+slot field must not be renamed.
 
-Do not implement yet. Update the spec only.
-
-Decisions:
-
-1. Down-leveling is out of scope
-
-Lore Ledger does not need a normal gameplay flow for removing levels. Do not build reverse level-up logic in this batch.
-
-If a user made a major mistake, they can use Edit in Builder or create a corrected character. Do not attempt to reverse HP gains, features, spells, ASIs, feats, resource counters, or multiclass progression as part of the Level Up flow.
-
-2. Prepared caster behavior
-
-Prepared spell lists are editable play-state, not permanent level-up build choices.
-
-For prepared casters:
-- Level Up should show newly available spell levels.
-- Level Up should show prepared capacity before/after.
-- Level Up should not force the user to choose a permanent prepared spell list unless the SRD rules require a fixed choice.
-- Prepared selections should remain editable through the Long Rest prepared-spell flow.
-- If direct prepared-spell editing exists in the Spells panel, it should route through the same prepared-spell flow or clearly mark itself as a manual/DM override.
-
-For known-spell casters:
-- Level Up should ask the user to choose newly known spells when the class gains known spells.
-
-For Wizards:
-- Level Up should ask for spellbook additions when the wizard gains new spellbook spells.
-- Prepared wizard spell selection should happen through Long Rest and be limited to the spellbook.
-
-For cantrips:
-- Level Up should ask for new cantrip choices when the class gains additional cantrips.
-
-Granted spells:
-- Domain/patron/oath/subclass granted spells should be shown in the summary and seeded/displayed, but should not be manually chosen unless the data/rules specifically require a choice.
-
-3. Spell slot field naming
-
-Do not rename the internal `used` spell slot field during Level Up work, even though the field currently appears to mean available/remaining slots in code.
-
-However:
-- Verify the user-facing spell slot labels/examples are not misleading.
-- If the UI says “Used” but the stored value represents available/remaining slots, fix the visible label/example.
-- Any internal field rename should be a separate cleanup/refactor, not part of Level Up.
-
-4. Implementation order
-
-Do not implement Level Up until the current stabilization bugs are fixed:
-- Equipment/inventory state leaking or breaking across character switching.
-- Edit in Builder DataCloneError.
-- Short Rest and Long Rest correctness.
-- Missing feature/trait descriptions.
-- Spell ordering.
-- Initiative display.
-- Skill proficiency/bonus display.
-
-After revising the spec, include:
-- Any changed assumptions.
-- Any risks that remain.
-- Any tests that should be added or changed because of these decisions.
-```
+That spec is still a **proposal awaiting revision — do not implement it yet.**
 
 ---
 
