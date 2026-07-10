@@ -1,11 +1,11 @@
 # Level Up Flow — Implementation Spec
 
-_Status: **proposal awaiting revision — revise the spec only; do not implement yet.** Written 2026-07-09._
+_Status: **revised Phase 1 proposal — implementation is not authorized.** Revised 2026-07-09._
 
-> **Sequencing guard.** Docs cleanup and P0/P1 stabilization are complete. Revising this
-> proposal is the next authorized step. Level Up implementation remains blocked until the
-> revision is complete and implementation is explicitly authorized. See §11 and the
-> [Working Order](../../AGENTS.md#current-working-order).
+> **Sequencing guard.** This revision defines the future Phase 1 contract; it does not
+> authorize implementation. Do not start Level Up code or audit-feature work until
+> implementation is explicitly authorized in the binding
+> [Working Order](../../AGENTS.md#current-working-order). See §11.
 
 Adds a **Level Up** action to the character action menu for builder-created
 characters: a narrow, guided wizard that **appends exactly one level**, walks only the
@@ -32,7 +32,7 @@ This is the single most important fact in this spec: **the data model needs no
 change to represent a level-up.** Level-up is an append plus the choices that
 append unlocks.
 
-### 1.2 `js/domain/rules/progression.js` is pure and complete
+### 1.2 The progression primitives are pure and sufficient
 
 Every rule the level-up flow needs already exists as a pure function over
 `(build, registry)` — no state, no DOM:
@@ -79,13 +79,62 @@ Character entries pass through `sanitizeForSave()` **as-is** (no field
 allowlist), which is why `inventoryItems[].builderSeed` persists with no schema
 change. Any new marker field on an existing entry array behaves the same way.
 
+### 1.5 Rest and prepared-spell behavior is shipped
+
+P0 rest behavior is the baseline, not work for Level Up to rebuild:
+
+- Short Rest and Long Rest already recover their modeled HP, Hit Dice, slots, resources,
+  Pact Magic, and death-save state.
+- `rest.preparedByClass` is authoritative play-state for builder-managed prepared casters.
+- Cleric, Druid, Paladin, and Wizard prepared selections change through Long Rest.
+- Wizard `build.spellcasting.wizard.knownIds` represents the spellbook; Level Up may append
+  newly earned spellbook additions, but it must not choose the prepared subset.
+- Bard, Ranger, Sorcerer, and Warlock use known-spell choices when a newly appended level
+  actually grants additional known spells.
+- Cantrips are chosen during Level Up only when the before/after progression delta grants
+  additional cantrips.
+- A later Short or Long Rest must continue operating on the slot totals established by a
+  completed level-up without any special Level Up recovery path.
+
 ---
 
-## 2. What is missing — the four real gaps
+## 2. Phase 1 scope and current gaps
+
+### Phase 1 — in scope
+
+Phase 1 is one guarded, cancelable flow for a builder character at total level 1-19. It:
+
+- appends **exactly one** class level, either continuing a current class or multiclassing
+- asks only for subclass, feature/subfeature, expertise, ASI/feat, cantrip, known-spell, and
+  wizard spellbook choices newly unlocked by that appended level
+- collects the new level's Hit Point roll/average choice
+- derives a before/after plan and shows a summary before any state mutation
+- applies the draft atomically to the same active character that opened the flow
+- updates stored HP and spell-slot totals with level-up-specific delta semantics
+- appends newly gained sheet content duplicate-aware without overwriting user-owned edits
+- preserves rest play-state, including prepared selections and spent Hit Dice
+- supports keyboard/focus safety, cancellation, level-20 disabling, and mobile-width layout
+
+### Explicitly out of Phase 1
+
+- down-leveling or reverse progression
+- adding more than one level in one flow
+- Level Up for freeform/manual characters (`build: null`)
+- changing race, subrace, background, starting ability method, or choices from earlier levels
+- choosing or rewriting prepared-spell lists; that remains a Long Rest responsibility
+- the Wizard spell-copying workflow outside level-earned spellbook additions
+- deriving or synchronizing class resource counters from `classSpecificByLevel`
+- broad feature-use/resource automation, class-specific bespoke UI, or new recovery modes
+- expanding builtin content beyond the SRD 5.1 greenlist
+- fixing the adjacent Edit-in-Builder down-level HP issue
+- builder-only panel retirement, spell/feature audit batches, or any other audit-feature work
+- a shared modal-framework refactor
+
+### Current implementation gaps
 
 These are the load-bearing findings. Everything else in this spec is assembly.
 
-### Gap A — Stored vitals never grow after creation
+#### Gap A — Stored vitals never grow after creation
 
 `hpMax`, `hpCur`, `ac`, `spellDC`, `spellAttack` are **stored, user-editable
 play-state fields**, not live-derived. `getBuilderFinishSheetSeedPatch()` fills
@@ -101,7 +150,7 @@ On a level-up these fields are already populated, so the existing seed patch is
 a no-op for all of them. Re-running Finish-time seeding after appending a level
 will **not** change HP max. A level-up-specific patch is required.
 
-### Gap B — Spell slot totals never grow after creation
+#### Gap B — Spell slot totals never grow after creation
 
 Same shape, in `getSeededSpells()`:
 
@@ -112,11 +161,11 @@ if (finiteNumberOrNull(level.total) == null) { level.total = slot.count; ... }
 A wizard going 2 → 3 keeps `total: 2` on the 1st-level slot row forever.
 
 Note the naming trap: `level.used` tracks **currently available** slots, not
-spent ones (`js/domain/characterRest.js:55`, and `spellsPanel.js:416` refills
-`used = total`). Growing a slot row means raising `total` _and_ raising `used`
-by the same delta, clamped to `[0, total]`.
+spent ones, as confirmed by `recoverSpellSlotsForRest()` and the Spells panel's
+Reset control. Growing a slot row means raising `total` _and_ raising `used` by
+the same delta, clamped to `[0, total]`.
 
-### Gap C — Class resource counters are not derived at all
+#### Gap C — Class resource counters are not derived at all
 
 `game-data/srd/classes.json` **already ships** `classSpecificByLevel`:
 
@@ -129,10 +178,9 @@ Nothing reads it. `deriveCharacter()` produces exactly one `derivedFeatureAction
 list owned by the vitals panel. So _"update class resource counters when the new
 level changes them"_ has the data but no code.
 
-This is a **prerequisite task, not a level-up task** — it is item #4 on the
-handoff's next-fixes list. See §7 for the recommended split.
+This is a separate future task, not a Phase 1 prerequisite. See §7 for the split.
 
-### Gap D — Skill choices are stored under a hardcoded level key
+#### Gap D — Skill choices are stored under a hardcoded level key
 
 `renderClassChoicesStep()` writes class and multiclass skill choices with
 `levelKey: "1"` regardless of the level at which the class was taken. A
@@ -162,7 +210,7 @@ Reuse as-is, no changes:
   usage from `builderWizard.js`. Copy the pattern; **do not** add a modal
   framework (hard ban).
 - `requireMany()` DOM guards.
-- The `onFinish` edit branch in `characterPage.js:292-315` as the apply template.
+- The `onFinish` edit branch in `characterPage.js` as the apply template.
 
 Do **not** reuse:
 
@@ -177,7 +225,7 @@ Do **not** reuse:
 
 ---
 
-## 4. Data model changes
+## 4. Phase 1 data model and invariants
 
 **No changes to `build`.** No schema-version bump. No `migrateState()` step.
 
@@ -190,7 +238,42 @@ Level-up writes only into existing structures:
 | Fighting style / expertise | `build.choicesByLevel[<lvl>]["feature-<id>"]` |
 | ASI / feat | `build.choicesByLevel[<lvl>]["asi-<lvl>"]` |
 | Multiclass skills | `build.choicesByLevel["1"]["multiclass-skill-<classId>"]` (Gap D) |
-| New spells | `build.spellcasting[classId].{cantripIds,knownIds,preparedIds}` |
+| New cantrips | append only newly granted choices to `build.spellcasting[classId].cantripIds` |
+| New known spells | append only newly granted choices to `build.spellcasting[classId].knownIds` |
+| Wizard spellbook additions | append newly earned spells to `build.spellcasting.wizard.knownIds` |
+| Prepared capacity | no persisted choice; derive and display before/after only |
+| Prepared selections | **no write**; preserve `rest.preparedByClass` exactly |
+
+Phase 1 invariants:
+
+1. **One flow, one appended level.** The draft starts from the current build and its level
+   count must increase by exactly one. Apply refuses a level-20 character or any draft with
+   a different level-count delta.
+2. **Draft isolation.** Opening, navigating, going Back, validation failure, and Cancel do
+   not mutate character state and do not mark the save dirty.
+3. **Same-character apply.** Capture the opening character ID. If the active character
+   changes while the flow is open, cancel with a clear status message and mutate neither
+   character. Recheck the ID inside the mutation callback, matching the shipped rest guard.
+4. **Atomic commit.** Apply validates the complete draft and patch before one
+   `mutateCharacter()` call. A successful apply marks dirty once, rerenders once, and closes
+   the flow; errors leave the original character unchanged.
+5. **Prepared ownership does not move.** `rest.preparedByClass` remains authoritative.
+   Existing `build.spellcasting[classId].preparedIds` may remain for compatibility but is
+   neither the Phase 1 source of truth nor a Level Up write target.
+6. **Spell deltas are additive.** Existing cantrips, known spells, Wizard spellbook entries,
+   granted spells, prepared selections, spell notes, descriptions, and expended flags are
+   preserved. Only the exact newly granted number of choices may be appended.
+7. **Slot availability is preserved.** Internal `used` means available slots. When a slot
+   total grows, add the same delta to `used` and clamp it to the new total; do not refill
+   previously spent slots. Short/Long Rest later refills against the new totals normally.
+8. **User-owned sheet data survives.** Notes, inventory and pocket titles, equipment,
+   attacks, conditions, death saves, `rest.hitDiceSpent`, manual feature cards,
+   `featureUses` current counts, and diverged manual overrides are never overwritten.
+9. **No duplicate canonical stores.** Live-derived values remain derived; mutable play-state
+   stays in its existing canonical character fields. Phase 1 adds no parallel level-up or
+   prepared-spell store.
+10. **Content stays in scope.** Builtin options resolve through the active registry and the
+    SRD 5.1 greenlist. Phase 1 does not add or hardcode content records in UI modules.
 
 ### 4.1 One new pure function
 
@@ -206,7 +289,12 @@ Level-up writes only into existing structures:
  *   asiSlot: { characterLevel, classId, classLevel } | null,
  *   multiclassSkillChoiceId: string | null,
  *   hitDie: number | null,
- *   spellcastingDelta: Array<{ classId, cantripsGained, knownGained, preparedCapacityBefore, preparedCapacityAfter }>,
+ *   spellcastingDelta: Array<{
+ *     classId, preparationMode,
+ *     cantripsGained, knownGained, spellbookGained,
+ *     preparedCapacityBefore, preparedCapacityAfter,
+ *     newSpellLevels: number[], grantedSpellIds: string[]
+ *   }>,
  *   slotsBefore: number[], slotsAfter: number[],
  *   pactBefore: {...} | null, pactAfter: {...} | null,
  *   proficiencyBonusBefore: number, proficiencyBonusAfter: number,
@@ -217,7 +305,8 @@ export function getLevelUpPlan(build, classId, registry) { /* before/after diff 
 ```
 
 Pure, testable, no DOM, no state. This is where every "does the new level grant
-X?" question is answered exactly once.
+X?" question is answered exactly once. For prepared casters it reports capacity and new
+spell levels but never asks for or returns a prepared selection.
 
 ### 4.2 One additive marker field (only if §7 Phase 2 lands)
 
@@ -241,8 +330,8 @@ migration** — exactly the `inventoryItems[].builderSeed` precedent.
 
 Enabled only when `isBuilderCharacter(activeCharacter)` **and**
 `normalizeBuildLevels(build).length < MAX_CHARACTER_LEVEL` — mirror the existing
-`editBuilderButtons` disable logic in `characterPage.js:378-381`. At level 20 the
-item stays visible but disabled with `aria-disabled="true"`.
+`editBuilderButtons` disable logic in `characterPage.js`. At level 20 the item stays
+visible but disabled with `aria-disabled="true"`.
 
 ### The wizard
 
@@ -257,13 +346,16 @@ HP → Summary.
 
 | # | Step | Shown when | Writes |
 | --- | --- | --- | --- |
-| 1 | **Class** | always | `appendLevel` |
+| 1 | **Class** | always | draft-only `appendLevel` |
 | 2 | **Subclass** | new class level == `subclassLevel` and none stored | `subclassByClass` |
 | 3 | **Features** | new level grants features with `subfeatureOptions` or expertise; plus read-only list of unchosen new features | `choicesByLevel` |
 | 4 | **ASI / Feat** | `getAsiSlots()` gains a slot at the new level | `choicesByLevel["asi-<lvl>"]` |
-| 5 | **Spells** | any spellcasting delta (cantrips, known, spellbook, prepared capacity, new slot level) | `build.spellcasting` |
+| 5 | **Spells** | any spellcasting delta (cantrips, known, spellbook, prepared capacity, new slot level) | append cantrip/known/spellbook choices only; prepared capacity is read-only |
 | 6 | **Hit Points** | always | `setLevelHpAt` |
 | 7 | **Summary** | always | nothing — Apply commits |
+
+Every write in this table targets the isolated draft. No step mutates the active character;
+Apply is the only commit point.
 
 **Step 1 — Class.** Radio: _Continue as \<current class\>_ (default, preselected)
 vs _Multiclass_. Choosing Multiclass reveals a class select. Unmet SRD multiclass
@@ -282,12 +374,20 @@ read-only "You also gain" list of the new level's other features with their
 **Step 4 — ASI / Feat.** Reuse the exact `renderAsiSlot()` shape: mode select
 (ASI +2 total / Feat), then two +1 ability selects or a feat select.
 
-**Step 5 — Spells.** Show **only the delta**: `cantripsGained` new cantrip picks,
-`knownGained` new known-spell picks, wizard spellbook additions, and — for
-prepared casters — the new prepared capacity as an informational line (prepared
-lists are play-state, re-chosen at rest, not a level-up decision). Existing
-selections render as locked/disabled rows so the user sees context without being
-able to silently re-pick. New slot levels are announced, not chosen.
+**Step 5 — Spells.** Show **only the delta**:
+
+- a cantrip picker only when `cantripsGained > 0`
+- known-spell picks only for Bard, Ranger, Sorcerer, or Warlock when `knownGained > 0`
+- level-earned Wizard spellbook additions, stored in Wizard `knownIds`
+- prepared capacity and newly available spell levels as information only for Cleric, Druid,
+  Paladin, and Wizard
+- automatically granted subclass/domain/oath spells as read-only gained content
+
+Existing selections render as locked context so earlier choices cannot be silently re-picked.
+New slot levels are announced, not chosen. This step must not read or write
+`rest.preparedByClass` as a Level Up choice, must not open the Long Rest prepared-spell
+selector, and must not alter legacy `preparedIds`. If current prepared selections are shown
+for context, they are read-only and sourced from `rest.preparedByClass`.
 
 **Step 6 — Hit Points.** Per the reference flow: current max, the new level's
 hit die, and three affordances — **Max**, **Average** (`die/2 + 1`, the model
@@ -330,7 +430,19 @@ Apply mutates through `mutateCharacter()` (which calls `SaveManager.markDirty()`
 following the `onFinish` edit branch. The character's `build` is replaced with the
 draft; then a **level-up-specific patch** is applied.
 
-### 6.1 Two update policies, chosen per field
+### 6.1 Target guard and transaction order
+
+1. Capture the opening character ID and an immutable/plain before snapshot.
+2. Build and validate the full draft without touching live state.
+3. Before Apply, confirm the active character still has the captured ID.
+4. Inside `mutateCharacter()`, confirm the callback character has that ID again.
+5. Compute/apply the build replacement and sheet patch as one mutation.
+6. Mark dirty once, rerender once, close, and show success.
+
+If either identity check fails, close/cancel safely, show that Level Up was canceled because
+the active character changed, and mutate neither the opening nor newly active character.
+
+### 6.2 Two update policies, chosen per field
 
 | Policy | Fields | Rule |
 | --- | --- | --- |
@@ -339,7 +451,7 @@ draft; then a **level-up-specific patch** is applied.
 
 Worked example for HP:
 
-```sudo
+```text
 delta   = computeMaxHp(levelsAfter).max − computeMaxHp(levelsBefore).max
 hpMax  += delta
 hpCur  += delta      // gaining a level grants the HP immediately
@@ -350,14 +462,14 @@ hpCur  += delta      // gaining a level grants the HP immediately
 `computeMaxHp()` returns `max: null`; skip the HP patch and warn in the summary
 rather than writing garbage.
 
-### 6.2 Never overwritten
+### 6.3 Never overwritten
 
 Notes, feature notes, spell notes, inventory items and pockets, pocket titles,
 manual feature cards, `featureUses` current counts, attack rows the user edited,
-death saves, conditions, and any diverged manual override. Additive-only, per
-`content-registry-plan.md` "Seeded Editable Content Ownership".
+death saves, conditions, `rest.hitDiceSpent`, `rest.preparedByClass`, and any diverged manual
+override. Additive-only, per `content-registry-plan.md` "Seeded Editable Content Ownership".
 
-### 6.3 Idempotence
+### 6.4 Idempotence
 
 Applying the same level-up twice must be impossible (the flow appends exactly one
 level and closes), but **re-seeding** must still be safe, because
@@ -382,16 +494,16 @@ as a **separate exported function**, not a flag on the existing one.
 The spec's resource requirement (Gap C) is a different piece of work from the
 level-up flow, and bundling them makes both harder to review.
 
-**Phase 1 — Level Up flow.** Everything above except class resource counters.
-The summary's "New Features" list still names Rage / Ki / Sorcery Points changes
-as text; the user updates their counter manually, exactly as they do today. This
-is shippable and violates nothing.
+**Phase 1 — Level Up flow.** Exactly the in-scope contract in §2, excluding class resource
+counters. The summary may list a newly gained feature whose rules mention Rage, Ki, Sorcery
+Points, or another class resource, but Phase 1 makes no claim that the corresponding
+counter changed. The user continues managing existing counters manually.
 
 **Phase 2 — Derived class resources.** Consume `classSpecificByLevel` in
 `deriveCharacter()` as an additive `derivedResources` field, seed/update
 `character.resources[]` duplicate-aware via the `builderSeed` marker, bumping
-`max` while preserving `cur`. This is handoff item #4 and stands on its own — it
-also fixes resources for _creation_, not just level-up.
+`max` while preserving `cur`. This stands on its own and also fixes resources for
+_creation_, not just Level Up.
 
 **Phase 3 — Level Up consumes derived resources.** Once Phase 2 exists, the
 level-up patch bumps seeded resource `max` values by delta and the summary shows
@@ -400,6 +512,8 @@ level-up patch bumps seeded resource `max` values by delta and the summary shows
 Attempting Phase 2 inside Phase 1 would touch `deriveCharacter.js`,
 `abilitiesFeaturesPanel.js`, `vitalsPanel.js`, and `characterRest.js` on top of
 the level-up surface — well past the ~3-file scope circuit breaker.
+
+Completing Phase 1 does not authorize Phase 2 or Phase 3.
 
 ---
 
@@ -418,7 +532,7 @@ the level-up surface — well past the ~3-file scope circuit breaker.
 | `js/utils/` or `js/domain/characterHelpers.js` | Move `clonePlainBuild()` out of `builderWizard.js` so both wizards import it |
 | `styles.css` | Additive `.levelUp*` classes; narrower panel width |
 
-Seven files plus tests. `characterPage.js` and `builderWizardSteps.js` changes are
+Eight files plus tests. `characterPage.js` and `builderWizardSteps.js` changes are
 wiring and re-exports, not logic. If the level-up renderers start needing changes
 inside `builderWizardSteps.js`'s step functions, **stop** — that is the scope
 circuit breaker firing.
@@ -436,7 +550,8 @@ circuit breaker firing.
 
 - Single-class 4 → 5: `getLevelUpPlan` reports Extra Attack, no ASI, no subclass.
 - Fighter 3 → 4: reports an ASI slot; 4 → 5 does not.
-- Wizard 1 → 2: reports cantrips gained 0, known gained 2, new slot level.
+- Wizard 1 → 2: reports cantrips gained 0, two spellbook additions, prepared-capacity
+  information, and increased slot totals without returning prepared choices.
 - Cleric 1 → 2: `subclassRequired` is null (cleric picks at 1); Fighter 2 → 3
   reports `subclassRequired`.
 - Multiclass Fighter 5 → Wizard 1: `isNewClass`, multiclass skill choice id,
@@ -445,6 +560,12 @@ circuit breaker firing.
 - Proficiency bonus before/after crossing 4 → 5, 8 → 9, 12 → 13, 16 → 17.
 - Pact Magic: Warlock 1 → 2 grows pact slots, not the standard slot array.
 - Multiclass caster level: Wizard 3 / Cleric 2 uses `MULTICLASS_SPELL_SLOTS[4]`.
+- A known-spell caster asks for exactly the before/after known-cap delta and preserves all
+  earlier known IDs.
+- A class/level with no cantrip-cap increase offers no cantrip choice; a level with an
+  increase asks for exactly that delta.
+- Prepared casters report capacity/new spell levels only; no plan field contains a prepared
+  list mutation.
 
 ### New — `tests/levelUpSheetSeeding.test.js`
 
@@ -459,13 +580,19 @@ circuit breaker firing.
 - New feature lines appended once; a user-edited description is **not**
   re-appended (exercises `featureLineDedupKey`).
 - Inventory pockets, pocket titles, spell notes, and `featureUses` untouched.
+- `rest.preparedByClass`, `rest.hitDiceSpent`, death saves, conditions, and manual resource
+  current counts remain unchanged.
+- Known-spell and Wizard spellbook additions append without deleting existing IDs.
+- Cleric/Druid/Paladin/Wizard capacity changes do not modify `preparedIds` or
+  `rest.preparedByClass`.
 - Applying the patch to an already-leveled character is a no-op (idempotence).
 
 ### Extend — existing suites
 
 - `tests/characterPage.test.js` — "Level Up" appears in the action menu; disabled
   for freeform characters; disabled at level 20; opening it does not mutate state;
-  Cancel does not `markDirty()`. Mirror the existing
+  Cancel does not `markDirty()`; successful Apply appends one level and marks dirty once;
+  a double-click cannot append twice. Mirror the existing
   `"cancels Create with Builder without creating or marking dirty"` cases.
   Remember: this suite uses the `FakeElement` harness, **not** jsdom — no
   `replaceChildren`.
@@ -473,12 +600,52 @@ circuit breaker firing.
   fill-only-when-empty for `hpMax` / `ac` / slot `total`. This is the guard that
   proves the level-up patch did not leak into the create/edit path.
 - `tests/characterRest.test.js` — a short/long rest after a level-up refills to
-  the **new** slot totals.
+  the **new** slot totals and still preserves `rest.preparedByClass`.
 - `tests/data/referential-integrity.test.js` — every `subclassLevel` and
   `asiLevels` entry a level-up can reach resolves to real features.
 - `tests/smoke/builderWizard.smoke.js` or a new `tests/smoke/levelUp.smoke.js` —
   create a Fighter 1, Level Up to 2, assert the sheet shows Fighter 2, HP grew,
   and Action Surge appears in Features. Playwright, real DOM.
+
+### New — flow safety and spell-boundary coverage
+
+- Start Level Up for character A, switch active character to B while the flow is open, and
+  Apply: the flow cancels with a clear status and neither character changes.
+- Cancel from every step: build, sheet fields, rest state, and dirty state are unchanged.
+- Validation failure and malformed/missing registry data fail visibly without partial state.
+- Bard/Ranger/Sorcerer/Warlock append only newly granted known spells.
+- Wizard appends only level-earned spellbook entries; its prepared list remains unchanged.
+- Cleric/Druid/Paladin show prepared-capacity changes without a prepared picker or write.
+- Cantrip selection appears only for a positive cantrip-cap delta.
+- Granted spells are shown/seeded as granted and are not counted as manual choices unless
+  registry data explicitly requires a choice.
+- A successful Level Up followed by Long Rest restores slots to the new totals; prepared
+  Yes/No behavior remains unchanged.
+
+### Phase 1 acceptance criteria
+
+- The action is available only for valid builder characters below level 20.
+- One successful Apply appends exactly one level; no Apply path can append zero or multiple
+  levels.
+- Only choices newly unlocked by that level are editable; earlier choices are locked context.
+- Single-class and multiclass paths derive the correct subclass, feature, ASI/feat, HP,
+  proficiency, slot, Pact Magic, and spell-choice deltas.
+- Known-spell and Wizard spellbook additions are exact-delta and additive.
+- Prepared casters receive capacity/new-level information only; `rest.preparedByClass` and
+  compatibility `preparedIds` are unchanged.
+- Cancel, validation failure, active-character switching, and apply errors cause zero
+  character mutation and zero dirty-state changes.
+- Successful Apply commits atomically to the opening character, marks dirty once, rerenders,
+  and cannot be submitted twice.
+- Manual overrides and user-owned notes, spells, attacks, inventory, resources, rest state,
+  conditions, and death saves survive unchanged except for the explicitly documented HP,
+  slot-total, and additive seeded-content patches.
+- Subsequent Short/Long Rest behavior uses the new slot totals and retains all shipped P0
+  recovery and prepared-spell behavior.
+- Phase 1 adds no schema version, no parallel store, no class-resource automation, no
+  down-leveling, no builtin content expansion, and no audit-feature work.
+- `npm run verify` and `npm run test:smoke` pass, followed by a phone-width manual check of
+  every step, focus containment, validation messages, summary, Cancel, and Apply.
 
 ### Manual verification before merge
 
@@ -531,8 +698,11 @@ them, and do not implement against the alternatives._
 
 ## 11. Sequencing guard
 
-This spec is **not ready to implement**. Docs cleanup and P0/P1 stabilization have landed,
-so the next authorized work is to revise this document against those outcomes. Completing
-the revision does not itself authorize implementation: Level Up may be implemented only
-after the revised spec is complete and implementation is explicitly authorized. See the
-[Working Order](../../AGENTS.md#current-working-order) in `AGENTS.md`.
+This Phase 1 revision is complete as a planning document, but **implementation is not
+authorized**. The next implementation pass may begin only after explicit authorization and
+an update to the binding [Working Order](../../AGENTS.md#current-working-order) in
+`AGENTS.md`. Until then:
+
+- do not edit runtime code for Level Up
+- do not begin Phase 2/3 resource work
+- do not begin B1/B2/B3 or any other audit-feature batch
