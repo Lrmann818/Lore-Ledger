@@ -4423,27 +4423,27 @@ div.mutedSmall {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-#builderWizardPanel .builderWizardGrid>.builderIdentityField:first-child {
+:is(#builderWizardPanel, #levelUpPanel) .builderWizardGrid>.builderIdentityField:first-child {
   grid-column: 1 / -1;
 }
 
-#builderWizardPanel .builderIdentityField,
-#builderWizardPanel .builderAbilitiesField {
+:is(#builderWizardPanel, #levelUpPanel) .builderIdentityField,
+:is(#builderWizardPanel, #levelUpPanel) .builderAbilitiesField {
   gap: 6px;
   min-width: 0;
 }
 
-#builderWizardPanel .selectDropdown,
-#builderWizardPanel .selectDropdown.selectDropdownClamp {
+:is(#builderWizardPanel, #levelUpPanel) .selectDropdown,
+:is(#builderWizardPanel, #levelUpPanel) .selectDropdown.selectDropdownClamp {
   width: 100%;
   max-width: 100%;
 }
 
-#builderWizardPanel .builderWizardSelectBtn {
+:is(#builderWizardPanel, #levelUpPanel) .builderWizardSelectBtn {
   min-height: 36px;
 }
 
-#builderWizardPanel :is(input, select) {
+:is(#builderWizardPanel, #levelUpPanel) :is(input, select) {
   width: 100%;
   min-width: 0;
   min-height: 36px;
@@ -4463,8 +4463,8 @@ div.mutedSmall {
  * elsewhere in the app (see the .skillRow/.settingsToggleItem block). The more
  * specific .builderAbilityMethodOption rule keeps its own radio styling.
  */
-#builderWizardPanel input[type="checkbox"],
-#builderWizardPanel input[type="radio"] {
+:is(#builderWizardPanel, #levelUpPanel) input[type="checkbox"],
+:is(#builderWizardPanel, #levelUpPanel) input[type="radio"] {
   flex: none;
   width: 16px;
   height: 16px;
@@ -4478,21 +4478,21 @@ div.mutedSmall {
   cursor: pointer;
 }
 
-#builderWizardPanel input[type="checkbox"] {
+:is(#builderWizardPanel, #levelUpPanel) input[type="checkbox"] {
   border-radius: 4px;
 }
 
-#builderWizardPanel input[type="radio"] {
+:is(#builderWizardPanel, #levelUpPanel) input[type="radio"] {
   border-radius: 50%;
 }
 
-#builderWizardPanel input[type="checkbox"]:checked,
-#builderWizardPanel input[type="radio"]:checked {
+:is(#builderWizardPanel, #levelUpPanel) input[type="checkbox"]:checked,
+:is(#builderWizardPanel, #levelUpPanel) input[type="radio"]:checked {
   background: var(--skill-prof-dot);
   border-color: var(--skill-prof-dot);
 }
 
-#builderWizardPanel .builderWizardReadonlyValue {
+:is(#builderWizardPanel, #levelUpPanel) .builderWizardReadonlyValue {
   display: flex;
   align-items: center;
   width: 100%;
@@ -4506,7 +4506,7 @@ div.mutedSmall {
   font-weight: 700;
 }
 
-#builderWizardPanel select {
+:is(#builderWizardPanel, #levelUpPanel) select {
   appearance: none;
   -webkit-appearance: none;
   -moz-appearance: none;
@@ -4527,17 +4527,17 @@ div.mutedSmall {
 }
 
 @media (hover: hover) and (pointer: fine) {
-  #builderWizardPanel select:hover {
+  :is(#builderWizardPanel, #levelUpPanel) select:hover {
     background-color: var(--surface-3-hover);
   }
 }
 
-#builderWizardPanel :is(input, select):focus-visible {
+:is(#builderWizardPanel, #levelUpPanel) :is(input, select):focus-visible {
   outline: none;
   box-shadow: 0 0 0 2px var(--ring) inset;
 }
 
-#builderWizardPanel .builderAbilityMethodGroup {
+:is(#builderWizardPanel, #levelUpPanel) .builderAbilityMethodGroup {
   display: grid;
   gap: 8px;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -4548,14 +4548,14 @@ div.mutedSmall {
   background: color-mix(in srgb, var(--surface-3) 52%, transparent);
 }
 
-#builderWizardPanel .builderAbilityMethodGroup legend {
+:is(#builderWizardPanel, #levelUpPanel) .builderAbilityMethodGroup legend {
   padding: 0 4px;
   color: var(--muted);
   font-size: 0.82rem;
   font-weight: 700;
 }
 
-#builderWizardPanel .builderAbilityMethodOption {
+:is(#builderWizardPanel, #levelUpPanel) .builderAbilityMethodOption {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   gap: 4px 6px;
@@ -4567,37 +4567,37 @@ div.mutedSmall {
   background: var(--surface-2);
 }
 
-#builderWizardPanel .builderAbilityMethodOption input {
+:is(#builderWizardPanel, #levelUpPanel) .builderAbilityMethodOption input {
   width: auto;
   min-height: 0;
   box-shadow: none;
 }
 
-#builderWizardPanel .builderAbilityMethodOption span,
-#builderWizardPanel .builderAbilityMethodOption small {
+:is(#builderWizardPanel, #levelUpPanel) .builderAbilityMethodOption span,
+:is(#builderWizardPanel, #levelUpPanel) .builderAbilityMethodOption small {
   min-width: 0;
   overflow-wrap: anywhere;
 }
 
-#builderWizardPanel .builderAbilityMethodOption small {
+:is(#builderWizardPanel, #levelUpPanel) .builderAbilityMethodOption small {
   grid-column: 2;
   color: var(--muted);
   font-size: 0.74rem;
   line-height: 1.2;
 }
 
-#builderWizardPanel .builderAbilityMethodOption.isDisabled {
+:is(#builderWizardPanel, #levelUpPanel) .builderAbilityMethodOption.isDisabled {
   opacity: 0.68;
 }
 
-#builderWizardPanel .builderAbilityMethodNote {
+:is(#builderWizardPanel, #levelUpPanel) .builderAbilityMethodNote {
   margin: -4px 0 0;
   color: var(--muted);
   font-size: 0.86rem;
   line-height: 1.35;
 }
 
-#builderWizardPanel .builderAbilityBonusPreview {
+:is(#builderWizardPanel, #levelUpPanel) .builderAbilityBonusPreview {
   min-width: 0;
   padding: 9px 10px;
   border: 1px solid var(--hairline);
@@ -4610,12 +4610,12 @@ div.mutedSmall {
   overflow-wrap: anywhere;
 }
 
-#builderWizardPanel .builderAbilityBonusPreview[hidden] {
+:is(#builderWizardPanel, #levelUpPanel) .builderAbilityBonusPreview[hidden] {
   display: none;
 }
 
-#builderWizardPanel .builderWizardValidation,
-#builderWizardPanel .builderAbilityValidation {
+:is(#builderWizardPanel, #levelUpPanel) .builderWizardValidation,
+:is(#builderWizardPanel, #levelUpPanel) .builderAbilityValidation {
   margin: -4px 0 0;
   color: var(--danger);
   font-size: 0.86rem;
@@ -4623,7 +4623,7 @@ div.mutedSmall {
   line-height: 1.35;
 }
 
-#builderWizardPanel .builderWizardAbilityGrid>.builderAbilitiesField {
+:is(#builderWizardPanel, #levelUpPanel) .builderWizardAbilityGrid>.builderAbilitiesField {
   display: grid;
   gap: 7px;
   padding: 10px;
@@ -4632,7 +4632,7 @@ div.mutedSmall {
   background: color-mix(in srgb, var(--surface-3) 70%, transparent);
 }
 
-#builderWizardPanel .builderAbilityTotalPreview {
+:is(#builderWizardPanel, #levelUpPanel) .builderAbilityTotalPreview {
   min-width: 0;
   color: var(--muted);
   font-size: 0.76rem;
@@ -4641,28 +4641,28 @@ div.mutedSmall {
   overflow-wrap: anywhere;
 }
 
-#builderWizardPanel .builderWizardAbilityGrid input[type="number"] {
+:is(#builderWizardPanel, #levelUpPanel) .builderWizardAbilityGrid input[type="number"] {
   text-align: center;
   font-weight: 700;
 }
 
-#builderWizardPanel .builderStandardArrayGrid select {
+:is(#builderWizardPanel, #levelUpPanel) .builderStandardArrayGrid select {
   text-align: center;
   font-weight: 700;
 }
 
-#builderWizardPanel .builderPointBuySection {
+:is(#builderWizardPanel, #levelUpPanel) .builderPointBuySection {
   display: grid;
   gap: 12px;
 }
 
-#builderWizardPanel .builderPointBuySection[hidden],
-#builderWizardPanel .builderRollSection[hidden],
-#builderWizardPanel .builderRollAssignmentGrid[hidden] {
+:is(#builderWizardPanel, #levelUpPanel) .builderPointBuySection[hidden],
+:is(#builderWizardPanel, #levelUpPanel) .builderRollSection[hidden],
+:is(#builderWizardPanel, #levelUpPanel) .builderRollAssignmentGrid[hidden] {
   display: none;
 }
 
-#builderWizardPanel .builderPointBuyBudget {
+:is(#builderWizardPanel, #levelUpPanel) .builderPointBuyBudget {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -4676,7 +4676,7 @@ div.mutedSmall {
   font-weight: 700;
 }
 
-#builderWizardPanel .builderPointBuyBudget strong {
+:is(#builderWizardPanel, #levelUpPanel) .builderPointBuyBudget strong {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -4687,7 +4687,7 @@ div.mutedSmall {
   background: var(--surface-2);
 }
 
-#builderWizardPanel .builderPointBuyField {
+:is(#builderWizardPanel, #levelUpPanel) .builderPointBuyField {
   display: grid;
   gap: 7px;
   padding: 10px;
@@ -4696,14 +4696,14 @@ div.mutedSmall {
   background: color-mix(in srgb, var(--surface-3) 70%, transparent);
 }
 
-#builderWizardPanel .builderPointBuyControls {
+:is(#builderWizardPanel, #levelUpPanel) .builderPointBuyControls {
   display: grid;
   grid-template-columns: 36px minmax(38px, 1fr) 36px;
   align-items: center;
   gap: 6px;
 }
 
-#builderWizardPanel .builderPointBuyControls button {
+:is(#builderWizardPanel, #levelUpPanel) .builderPointBuyControls button {
   min-width: 36px;
   min-height: 36px;
   padding: 0;
@@ -4711,7 +4711,7 @@ div.mutedSmall {
   line-height: 1;
 }
 
-#builderWizardPanel .builderPointBuyControls strong {
+:is(#builderWizardPanel, #levelUpPanel) .builderPointBuyControls strong {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -4724,29 +4724,29 @@ div.mutedSmall {
   font-size: 1rem;
 }
 
-#builderWizardPanel .builderRollSection {
+:is(#builderWizardPanel, #levelUpPanel) .builderRollSection {
   display: grid;
   gap: 12px;
 }
 
-#builderWizardPanel .builderRollControls {
+:is(#builderWizardPanel, #levelUpPanel) .builderRollControls {
   display: grid;
   gap: 12px;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: end;
 }
 
-#builderWizardPanel .builderRollControls>.builderAbilitiesField {
+:is(#builderWizardPanel, #levelUpPanel) .builderRollControls>.builderAbilitiesField {
   display: grid;
   gap: 7px;
   min-width: 0;
 }
 
-#builderWizardPanel .builderRollControls .npcSmallBtn {
+:is(#builderWizardPanel, #levelUpPanel) .builderRollControls .npcSmallBtn {
   min-height: 36px;
 }
 
-#builderWizardPanel .builderRollPool {
+:is(#builderWizardPanel, #levelUpPanel) .builderRollPool {
   min-width: 0;
   padding: 10px;
   border: 1px solid var(--hairline);
@@ -4758,12 +4758,12 @@ div.mutedSmall {
   overflow-wrap: anywhere;
 }
 
-#builderWizardPanel .builderRollAssignmentGrid select {
+:is(#builderWizardPanel, #levelUpPanel) .builderRollAssignmentGrid select {
   text-align: center;
   font-weight: 700;
 }
 
-#builderWizardPanel .builderChoicePreview {
+:is(#builderWizardPanel, #levelUpPanel) .builderChoicePreview {
   display: grid;
   gap: 8px;
   min-width: 0;
@@ -4773,18 +4773,18 @@ div.mutedSmall {
   background: color-mix(in srgb, var(--surface-3) 58%, transparent);
 }
 
-#builderWizardPanel .builderChoicePreview h4 {
+:is(#builderWizardPanel, #levelUpPanel) .builderChoicePreview h4 {
   margin: 0;
   color: var(--text);
   font-size: 0.95rem;
   line-height: 1.25;
 }
 
-#builderWizardPanel .builderChoicePreviewBody {
+:is(#builderWizardPanel, #levelUpPanel) .builderChoicePreviewBody {
   min-width: 0;
 }
 
-#builderWizardPanel .builderChoicePreviewBody.isEmpty {
+:is(#builderWizardPanel, #levelUpPanel) .builderChoicePreviewBody.isEmpty {
   color: var(--muted);
   line-height: 1.4;
   overflow-wrap: anywhere;
@@ -4800,14 +4800,14 @@ div.mutedSmall {
 }
 
 #builderWizardSummary .builderWizardSummaryRows,
-#builderWizardPanel .builderChoicePreview .builderWizardSummaryRows {
+:is(#builderWizardPanel, #levelUpPanel) .builderChoicePreview .builderWizardSummaryRows {
   display: grid;
   gap: 7px;
 }
 
 #builderWizardSummary .builderSummaryRow,
 #builderWizardSummary .builderAbilityRow,
-#builderWizardPanel .builderChoicePreview .builderSummaryRow {
+:is(#builderWizardPanel, #levelUpPanel) .builderChoicePreview .builderSummaryRow {
   min-width: 0;
   padding: 7px 9px;
   border: 1px solid var(--hairline);
@@ -4818,13 +4818,13 @@ div.mutedSmall {
 #builderWizardSummary .builderSummaryLabel,
 #builderWizardSummary .builderAbilityLabel,
 #builderWizardSummary .builderSummarySubhead,
-#builderWizardPanel .builderChoicePreview .builderSummaryLabel {
+:is(#builderWizardPanel, #levelUpPanel) .builderChoicePreview .builderSummaryLabel {
   line-height: 1.25;
 }
 
 #builderWizardSummary .builderSummaryValue,
 #builderWizardSummary .builderAbilityValue,
-#builderWizardPanel .builderChoicePreview .builderSummaryValue {
+:is(#builderWizardPanel, #levelUpPanel) .builderChoicePreview .builderSummaryValue {
   min-width: 0;
   overflow-wrap: anywhere;
 }
@@ -5765,31 +5765,31 @@ select.npcField:focus {
     grid-template-columns: 1fr;
   }
 
-  #builderWizardPanel .builderAbilityMethodGroup {
+  :is(#builderWizardPanel, #levelUpPanel) .builderAbilityMethodGroup {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  #builderWizardPanel .builderWizardAbilityGrid>.builderAbilitiesField,
-  #builderWizardPanel .builderPointBuyField {
+  :is(#builderWizardPanel, #levelUpPanel) .builderWizardAbilityGrid>.builderAbilitiesField,
+  :is(#builderWizardPanel, #levelUpPanel) .builderPointBuyField {
     grid-template-columns: minmax(0, 1fr) minmax(60px, 78px);
     align-items: center;
   }
 
-  #builderWizardPanel .builderRollControls {
+  :is(#builderWizardPanel, #levelUpPanel) .builderRollControls {
     grid-template-columns: 1fr;
   }
 
-  #builderWizardPanel .builderPointBuyGrid {
+  :is(#builderWizardPanel, #levelUpPanel) .builderPointBuyGrid {
     grid-template-columns: 1fr;
   }
 
-  #builderWizardPanel .builderWizardAbilityGrid input[type="number"] {
+  :is(#builderWizardPanel, #levelUpPanel) .builderWizardAbilityGrid input[type="number"] {
     justify-self: end;
   }
 
   #builderWizardSummary .builderSummaryRow,
   #builderWizardSummary .builderAbilityRow,
-  #builderWizardPanel .builderChoicePreview .builderSummaryRow {
+  :is(#builderWizardPanel, #levelUpPanel) .builderChoicePreview .builderSummaryRow {
     grid-template-columns: 1fr;
     gap: 3px;
   }
@@ -5806,7 +5806,7 @@ select.npcField:focus {
   .builderSummaryRow,
   .builderAbilityRow,
   .builderAbilityGrid,
-  #builderWizardPanel .builderAbilityMethodGroup,
+  :is(#builderWizardPanel, #levelUpPanel) .builderAbilityMethodGroup,
   .builderWizardGrid,
   .builderWizardAbilityGrid {
     grid-template-columns: 1fr;
@@ -6751,7 +6751,7 @@ select.npcField:focus {
 .abilityStat input[type="checkbox"],
 .skillMenuRow input[type="checkbox"],
 .settingsToggleItem input[type="checkbox"],
-#builderWizardPanel .builderAbilityMethodOption input[type="radio"] {
+:is(#builderWizardPanel, #levelUpPanel) .builderAbilityMethodOption input[type="radio"] {
   appearance: none;
   -webkit-appearance: none;
   width: 14px;
@@ -6766,12 +6766,12 @@ select.npcField:focus {
 .abilityStat input[type="checkbox"]:checked,
 .skillMenuRow input[type="checkbox"]:checked,
 .settingsToggleItem input[type="checkbox"]:checked,
-#builderWizardPanel .builderAbilityMethodOption input[type="radio"]:checked {
+:is(#builderWizardPanel, #levelUpPanel) .builderAbilityMethodOption input[type="radio"]:checked {
   background: var(--skill-prof-dot);
   border-color: var(--skill-prof-dot);
 }
 
-#builderWizardPanel .builderAbilityMethodOption input[type="radio"][aria-disabled="true"] {
+:is(#builderWizardPanel, #levelUpPanel) .builderAbilityMethodOption input[type="radio"][aria-disabled="true"] {
   cursor: not-allowed;
 }
 
@@ -8786,38 +8786,38 @@ section.combatPanel[data-collapsed="true"]> :not([data-panel-header]) {
 }
 
 /* ---------- Builder wizard: multiclass-era dynamic steps ---------- */
-/* Scoped to #builderWizardPanel; complements the existing wizard styles. */
+/* Scoped to :is(#builderWizardPanel, #levelUpPanel); complements the existing wizard styles. */
 
-#builderWizardPanel .builderWizardDynamicBody {
+:is(#builderWizardPanel, #levelUpPanel) .builderWizardDynamicBody {
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
 
-#builderWizardPanel .builderWizardSubTitle {
+:is(#builderWizardPanel, #levelUpPanel) .builderWizardSubTitle {
   margin: 4px 0 2px;
   font-size: 0.95rem;
 }
 
-#builderWizardPanel .builderClassesHeadline {
+:is(#builderWizardPanel, #levelUpPanel) .builderClassesHeadline {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
 }
 
-#builderWizardPanel .builderClassesTotal {
+:is(#builderWizardPanel, #levelUpPanel) .builderClassesTotal {
   font-weight: 600;
 }
 
 /* Ordered per-character-level editor (preserves multiclass level order). */
-#builderWizardPanel .builderLevelList {
+:is(#builderWizardPanel, #levelUpPanel) .builderLevelList {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
-#builderWizardPanel .builderLevelRow {
+:is(#builderWizardPanel, #levelUpPanel) .builderLevelRow {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -8827,27 +8827,27 @@ section.combatPanel[data-collapsed="true"]> :not([data-panel-header]) {
   padding: 8px 10px;
 }
 
-#builderWizardPanel .builderLevelRowLabel {
+:is(#builderWizardPanel, #levelUpPanel) .builderLevelRowLabel {
   flex: 1 1 130px;
   min-width: 0;
   font-weight: 600;
 }
 
-#builderWizardPanel .builderLevelRow select {
+:is(#builderWizardPanel, #levelUpPanel) .builderLevelRow select {
   flex: 1 1 150px;
   min-width: 0;
 }
 
-#builderWizardPanel .builderLevelHpInput {
+:is(#builderWizardPanel, #levelUpPanel) .builderLevelHpInput {
   width: 72px;
   flex: 0 0 auto;
 }
 
-#builderWizardPanel .builderLevelRemoveBtn {
+:is(#builderWizardPanel, #levelUpPanel) .builderLevelRemoveBtn {
   flex: 0 0 auto;
 }
 
-#builderWizardPanel .builderAddLevelWrap {
+:is(#builderWizardPanel, #levelUpPanel) .builderAddLevelWrap {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -8855,19 +8855,19 @@ section.combatPanel[data-collapsed="true"]> :not([data-panel-header]) {
   margin-top: 4px;
 }
 
-#builderWizardPanel .builderAddLevelWrap select {
+:is(#builderWizardPanel, #levelUpPanel) .builderAddLevelWrap select {
   flex: 1 1 auto;
   min-width: 0;
 }
 
-#builderWizardPanel .builderSubclassSection {
+:is(#builderWizardPanel, #levelUpPanel) .builderSubclassSection {
   display: flex;
   flex-direction: column;
   gap: 8px;
   margin-top: 4px;
 }
 
-#builderWizardPanel .builderClassBlock {
+:is(#builderWizardPanel, #levelUpPanel) .builderClassBlock {
   border: 1px solid var(--border, rgba(128, 128, 128, 0.35));
   border-radius: 8px;
   padding: 10px;
@@ -8876,46 +8876,46 @@ section.combatPanel[data-collapsed="true"]> :not([data-panel-header]) {
   gap: 8px;
 }
 
-#builderWizardPanel .builderClassBlockHead {
+:is(#builderWizardPanel, #levelUpPanel) .builderClassBlockHead {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
 }
 
-#builderWizardPanel .builderClassBlockHead select {
+:is(#builderWizardPanel, #levelUpPanel) .builderClassBlockHead select {
   flex: 1 1 160px;
   min-width: 0;
 }
 
-#builderWizardPanel .builderClassLevelControls {
+:is(#builderWizardPanel, #levelUpPanel) .builderClassLevelControls {
   display: inline-flex;
   align-items: center;
   gap: 6px;
 }
 
-#builderWizardPanel .builderClassLevelValue {
+:is(#builderWizardPanel, #levelUpPanel) .builderClassLevelValue {
   min-width: 64px;
   text-align: center;
   font-weight: 600;
 }
 
-#builderWizardPanel .builderAddClassWrap {
+:is(#builderWizardPanel, #levelUpPanel) .builderAddClassWrap {
   display: flex;
 }
 
-#builderWizardPanel .builderAddClassWrap select {
+:is(#builderWizardPanel, #levelUpPanel) .builderAddClassWrap select {
   flex: 1 1 auto;
   min-width: 0;
 }
 
-#builderWizardPanel .builderHpGrid {
+:is(#builderWizardPanel, #levelUpPanel) .builderHpGrid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
   gap: 8px;
 }
 
-#builderWizardPanel .builderHpField {
+:is(#builderWizardPanel, #levelUpPanel) .builderHpField {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 64px;
   align-items: center;
@@ -8923,20 +8923,20 @@ section.combatPanel[data-collapsed="true"]> :not([data-panel-header]) {
   font-size: 0.85rem;
 }
 
-#builderWizardPanel .builderHpField input {
+:is(#builderWizardPanel, #levelUpPanel) .builderHpField input {
   width: 100%;
   min-width: 0;
 }
 
-#builderWizardPanel .builderMulticlassWarning {
+:is(#builderWizardPanel, #levelUpPanel) .builderMulticlassWarning {
   display: block;
 }
 
-#builderWizardPanel .builderChoiceField select {
+:is(#builderWizardPanel, #levelUpPanel) .builderChoiceField select {
   margin-top: 4px;
 }
 
-#builderWizardPanel .builderAsiSlot {
+:is(#builderWizardPanel, #levelUpPanel) .builderAsiSlot {
   border: 1px solid var(--border, rgba(128, 128, 128, 0.35));
   border-radius: 8px;
   padding: 10px;
@@ -8945,28 +8945,28 @@ section.combatPanel[data-collapsed="true"]> :not([data-panel-header]) {
   gap: 8px;
 }
 
-#builderWizardPanel .builderAsiBody {
+:is(#builderWizardPanel, #levelUpPanel) .builderAsiBody {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
-#builderWizardPanel .builderFeatDesc {
+:is(#builderWizardPanel, #levelUpPanel) .builderFeatDesc {
   margin: 0;
   font-size: 0.85rem;
   opacity: 0.85;
   white-space: pre-line;
 }
 
-#builderWizardPanel .builderSpellSlotsRow,
-#builderWizardPanel .builderGrantedSpells {
+:is(#builderWizardPanel, #levelUpPanel) .builderSpellSlotsRow,
+:is(#builderWizardPanel, #levelUpPanel) .builderGrantedSpells {
   display: flex;
   flex-wrap: wrap;
   gap: 6px 10px;
   align-items: baseline;
 }
 
-#builderWizardPanel .builderSpellClassSection {
+:is(#builderWizardPanel, #levelUpPanel) .builderSpellClassSection {
   border: 1px solid var(--border, rgba(128, 128, 128, 0.35));
   border-radius: 8px;
   padding: 10px;
@@ -8975,45 +8975,45 @@ section.combatPanel[data-collapsed="true"]> :not([data-panel-header]) {
   gap: 8px;
 }
 
-#builderWizardPanel .builderSpellFilterField input {
+:is(#builderWizardPanel, #levelUpPanel) .builderSpellFilterField input {
   width: 100%;
 }
 
-#builderWizardPanel .builderSpellGroup {
+:is(#builderWizardPanel, #levelUpPanel) .builderSpellGroup {
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
 
-#builderWizardPanel .builderSpellGroupHead {
+:is(#builderWizardPanel, #levelUpPanel) .builderSpellGroupHead {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   gap: 8px;
 }
 
-#builderWizardPanel .builderSpellGroupTitle {
+:is(#builderWizardPanel, #levelUpPanel) .builderSpellGroupTitle {
   font-weight: 600;
 }
 
-#builderWizardPanel .builderSpellGroupCount {
+:is(#builderWizardPanel, #levelUpPanel) .builderSpellGroupCount {
   font-size: 0.85rem;
   opacity: 0.85;
 }
 
-#builderWizardPanel .builderSpellLevelDetails summary {
+:is(#builderWizardPanel, #levelUpPanel) .builderSpellLevelDetails summary {
   cursor: pointer;
   padding: 4px 0;
 }
 
-#builderWizardPanel .builderSpellCheckList {
+:is(#builderWizardPanel, #levelUpPanel) .builderSpellCheckList {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: 4px 12px;
   padding: 4px 0 8px;
 }
 
-#builderWizardPanel .builderSpellCheckItem {
+:is(#builderWizardPanel, #levelUpPanel) .builderSpellCheckItem {
   display: flex;
   align-items: flex-start;
   gap: 8px;
@@ -9024,77 +9024,77 @@ section.combatPanel[data-collapsed="true"]> :not([data-panel-header]) {
   cursor: pointer;
 }
 
-#builderWizardPanel .builderSpellCheckItem input[type="checkbox"] {
+:is(#builderWizardPanel, #levelUpPanel) .builderSpellCheckItem input[type="checkbox"] {
   margin-top: 0.15em;
 }
 
-#builderWizardPanel .builderSpellCheckItem span {
+:is(#builderWizardPanel, #levelUpPanel) .builderSpellCheckItem span {
   min-width: 0;
   overflow-wrap: anywhere;
 }
 
-#builderWizardPanel .builderEquipmentShieldField {
+:is(#builderWizardPanel, #levelUpPanel) .builderEquipmentShieldField {
   display: inline-flex;
   align-items: center;
   gap: 8px;
 }
 
-#builderWizardPanel .builderWeaponList {
+:is(#builderWizardPanel, #levelUpPanel) .builderWeaponList {
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
 
-#builderWizardPanel .builderWeaponRow {
+:is(#builderWizardPanel, #levelUpPanel) .builderWeaponRow {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
 }
 
-#builderWizardPanel .builderWeaponName {
+:is(#builderWizardPanel, #levelUpPanel) .builderWeaponName {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-#builderWizardPanel .builderEquipmentNotes {
+:is(#builderWizardPanel, #levelUpPanel) .builderEquipmentNotes {
   width: 100%;
   resize: vertical;
 }
 
-#builderWizardPanel .builderSummaryWarnings {
+:is(#builderWizardPanel, #levelUpPanel) .builderSummaryWarnings {
   display: block;
 }
 
 @media (max-width: 640px) {
-  #builderWizardPanel .builderHpGrid {
+  :is(#builderWizardPanel, #levelUpPanel) .builderHpGrid {
     grid-template-columns: 1fr;
   }
 
-  #builderWizardPanel .builderSpellCheckList {
+  :is(#builderWizardPanel, #levelUpPanel) .builderSpellCheckList {
     grid-template-columns: 1fr;
   }
 
-  #builderWizardPanel .builderClassBlockHead {
+  :is(#builderWizardPanel, #levelUpPanel) .builderClassBlockHead {
     flex-direction: column;
     align-items: stretch;
   }
 
-  #builderWizardPanel .builderClassLevelControls {
+  :is(#builderWizardPanel, #levelUpPanel) .builderClassLevelControls {
     justify-content: space-between;
   }
 
-  #builderWizardPanel .builderLevelRow {
+  :is(#builderWizardPanel, #levelUpPanel) .builderLevelRow {
     align-items: stretch;
   }
 
-  #builderWizardPanel .builderLevelRowLabel {
+  :is(#builderWizardPanel, #levelUpPanel) .builderLevelRowLabel {
     flex-basis: 100%;
   }
 
-  #builderWizardPanel .builderLevelHpInput {
+  :is(#builderWizardPanel, #levelUpPanel) .builderLevelHpInput {
     flex: 1 1 auto;
     width: auto;
   }
