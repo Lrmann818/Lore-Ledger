@@ -723,6 +723,261 @@ function findLooseGearPocketIndex(items) {
 }
 
 /**
+ * Level-up-specific slot growth: raises each slot row's `total` by the
+ * before→after derived delta and moves `used` (which stores currently
+ * AVAILABLE slots) by the same delta, clamped to the new total — so spent
+ * slots stay spent and only the newly gained capacity arrives available.
+ * Pact Magic rows are matched separately (canonical label first, then any
+ * "pact" label) because the pact slot level itself can rise on a level-up.
+ * Rows the sheet does not have yet are left for the fill-when-empty seeding
+ * pass to create. Returns null when nothing changed.
+ *
+ * @param {Record<string, unknown>} source
+ * @param {ReturnType<typeof deriveCharacter>} derivedBefore
+ * @param {ReturnType<typeof deriveCharacter>} derivedAfter
+ * @returns {Record<string, unknown> | null}
+ */
+function accumulateSpellSlotTotals(source, derivedBefore, derivedAfter) {
+  const after = derivedAfter.spellcasting;
+  if (!after) return null;
+  const before = derivedBefore.spellcasting;
+  const existingSpells = isPlainObject(source.spells) ? source.spells : {};
+  const existingLevels = Array.isArray(existingSpells.levels) ? existingSpells.levels : [];
+  if (!existingLevels.length) return null;
+
+  const nextLevels = existingLevels.slice();
+  let changed = false;
+
+  /**
+   * @param {number} index
+   * @param {number} delta
+   * @param {string | null} nextLabel canonical label rename (pact level rise) or null
+   */
+  const growRow = (index, delta, nextLabel) => {
+    const row = nextLevels[index];
+    if (!isPlainObject(row)) return;
+    const total = finiteNumberOrNull(row.total);
+    if (total == null) return; // untracked row: fill-when-empty seeding owns it
+    const nextTotal = total + delta;
+    const used = finiteNumberOrNull(row.used);
+    /** @type {Record<string, unknown>} */
+    const nextRow = { ...row, total: nextTotal };
+    if (used != null) {
+      nextRow.used = Math.max(0, Math.min(nextTotal, used + delta));
+    }
+    if (nextLabel && cleanString(row.label) !== nextLabel) nextRow.label = nextLabel;
+    nextLevels[index] = nextRow;
+    changed = true;
+  };
+
+  const findRowByLabel = (label) => {
+    const normalized = label.toLowerCase();
+    return nextLevels.findIndex((row) =>
+      isPlainObject(row) && cleanString(row.label).toLowerCase() === normalized);
+  };
+
+  // Standard slot rows.
+  for (let slotLevel = 1; slotLevel <= 9; slotLevel += 1) {
+    const beforeCount = before?.slots[slotLevel - 1] ?? 0;
+    const afterCount = after.slots[slotLevel - 1] ?? 0;
+    const delta = afterCount - beforeCount;
+    if (!delta) continue;
+    const index = findRowByLabel(SPELL_LEVEL_LABELS[slotLevel]);
+    if (index >= 0) growRow(index, delta, null);
+  }
+
+  // Pact Magic row.
+  if (after.pact) {
+    const beforePact = before?.pact ?? null;
+    const delta = after.pact.slots - (beforePact?.slots ?? 0);
+    const labelAfter = `Pact Magic (${SPELL_LEVEL_LABELS[after.pact.slotLevel]})`;
+    let index = findRowByLabel(labelAfter);
+    if (index < 0 && beforePact) {
+      index = findRowByLabel(`Pact Magic (${SPELL_LEVEL_LABELS[beforePact.slotLevel]})`);
+    }
+    if (index < 0) {
+      index = nextLevels.findIndex((row) =>
+        isPlainObject(row) && row.hasSlots === true &&
+        cleanString(row.label).toLowerCase().includes("pact"));
+    }
+    if (index >= 0 && delta) growRow(index, delta, labelAfter);
+    else if (index >= 0 && !delta && beforePact && beforePact.slotLevel !== after.pact.slotLevel) {
+      growRow(index, 0, labelAfter);
+    }
+  }
+
+  if (!changed) return null;
+  return { ...existingSpells, levels: nextLevels };
+}
+
+/**
+ * Feature text lines gained at exactly the appended character level, plus any
+ * feat chosen at that level. Formatted identically to Finish-time seeding so
+ * `featureLineDedupKey` keeps re-appends idempotent.
+ *
+ * @param {ReturnType<typeof deriveCharacter>} derivedBefore
+ * @param {ReturnType<typeof deriveCharacter>} derivedAfter
+ * @param {number} newCharacterLevel
+ * @param {ContentRegistry} registry
+ * @returns {string[]}
+ */
+function getNewLevelFeatureLines(derivedBefore, derivedAfter, newCharacterLevel, registry) {
+  /** @type {string[]} */
+  const lines = [];
+  const seen = new Set();
+  for (const feature of derivedAfter.features) {
+    if (feature.characterLevel !== newCharacterLevel) continue;
+    if (feature.replacedBy && feature.replacedBy.length) continue;
+    if (seen.has(feature.featureId)) continue;
+    seen.add(feature.featureId);
+    const classEntry = getContentByKind(registry, "class", feature.classId);
+    const className = classEntry?.name || feature.classId;
+    lines.push(featureLine(`${feature.name} (${className} ${feature.classLevel})`, feature.desc));
+  }
+  const beforeFeatIds = new Set(derivedBefore.featIds);
+  for (const featId of derivedAfter.featIds) {
+    if (beforeFeatIds.has(featId)) continue;
+    const featEntry = getContentByKind(registry, "feat", featId);
+    if (featEntry) lines.push(featureLine(`${featEntry.name} (Feat)`, featEntry.data?.desc));
+  }
+  return lines;
+}
+
+/**
+ * The Level Up apply patch: exactly the documented level-up deltas, computed
+ * as a pure before/after diff. `before` is the character as it exists prior
+ * to Apply; `after` is the same character with the leveled-up build swapped
+ * in (sheet fields identical). Two update policies apply (level-up spec §6):
+ *
+ * - **Accumulate** — `hpMax`/`hpCur` and spell-slot `total`/`used` move by
+ *   the derived delta, preserving injury, spent slots, and manual offsets.
+ * - **Recompute-if-untouched** — `ac`/`spellDC`/`spellAttack` update only
+ *   when the stored value still matches the previous derived value; diverged
+ *   manual values are kept and reported in `preserved`.
+ *
+ * Everything else is additive and duplicate-aware: new-level feature text,
+ * multiclass proficiency labels, and newly chosen/granted spells append via
+ * the same primitives as Finish-time seeding. Nothing here rewrites
+ * user-owned content, prepared selections, rest state, or resources.
+ *
+ * This function must stay separate from `getBuilderFinishSheetSeedPatch` —
+ * the accumulate policy is correct only for the Level Up entry point, while
+ * Finish/Edit seeding must keep its fill-only-when-empty behavior.
+ *
+ * @param {unknown} before
+ * @param {unknown} after
+ * @param {ContentRegistry} [registry]
+ * @returns {{
+ *   patch: Partial<import("../state.js").CharacterEntry>,
+ *   preserved: string[],
+ *   warnings: string[]
+ * }}
+ */
+export function getLevelUpSheetSeedPatch(before, after, registry = getActiveContentRegistry()) {
+  /** @type {{ patch: Partial<import("../state.js").CharacterEntry>, preserved: string[], warnings: string[] }} */
+  const result = { patch: {}, preserved: [], warnings: [] };
+  if (!isBuilderCharacter(before) || !isBuilderCharacter(after)) return result;
+  const source = /** @type {Record<string, unknown>} */ (after);
+
+  let derivedBefore;
+  let derivedAfter;
+  try {
+    derivedBefore = deriveCharacter(before, registry);
+    derivedAfter = deriveCharacter(after, registry);
+  } catch (err) {
+    console.warn("Level Up sheet patch derivation failed:", err);
+    result.warnings.push("Derivation failed — no sheet fields were changed.");
+    return result;
+  }
+  const patch = result.patch;
+
+  // --- HP: accumulate by derived delta (covers retroactive Con increases,
+  // because computeMaxHp applies the Con modifier at every level). ---
+  const beforeMax = derivedBefore.hp?.max ?? null;
+  const afterMax = derivedAfter.hp?.max ?? null;
+  if (beforeMax != null && afterMax != null) {
+    const delta = afterMax - beforeMax;
+    const storedMax = finiteNumberOrNull(source.hpMax);
+    if (storedMax == null) {
+      patch.hpMax = afterMax;
+      if (finiteNumberOrNull(source.hpCur) == null) patch.hpCur = afterMax;
+    } else if (delta !== 0) {
+      patch.hpMax = storedMax + delta;
+      const storedCur = finiteNumberOrNull(source.hpCur);
+      if (storedCur != null) patch.hpCur = storedCur + delta;
+    }
+  } else {
+    result.warnings.push("Constitution modifier is not set — max HP was left unchanged.");
+  }
+
+  // --- AC / Spell DC / Spell Attack: recompute only when untouched. ---
+  /**
+   * @param {"ac" | "spellDC" | "spellAttack"} field
+   * @param {number | null | undefined} beforeValue
+   * @param {number | null | undefined} afterValue
+   * @param {string} label
+   */
+  const recomputeIfUntouched = (field, beforeValue, afterValue, label) => {
+    if (afterValue == null) return;
+    const stored = finiteNumberOrNull(source[field]);
+    if (stored == null) {
+      patch[field] = afterValue;
+      return;
+    }
+    if (stored === afterValue) return;
+    if (beforeValue != null && stored === beforeValue) {
+      patch[field] = afterValue;
+      return;
+    }
+    result.preserved.push(`${label} ${stored} — manual value kept`);
+  };
+  recomputeIfUntouched("ac", derivedBefore.ac?.value, derivedAfter.ac?.value, "Armor Class");
+  recomputeIfUntouched("spellDC", derivedBefore.spellcasting?.primary?.saveDc,
+    derivedAfter.spellcasting?.primary?.saveDc, "Spell Save DC");
+  recomputeIfUntouched("spellAttack", derivedBefore.spellcasting?.primary?.attackBonus,
+    derivedAfter.spellcasting?.primary?.attackBonus, "Spell Attack");
+
+  // --- Spell slots: accumulate existing rows by delta, then run the additive
+  // fill-when-empty seeding pass for new rows and newly chosen/granted spells.
+  const accumulated = accumulateSpellSlotTotals(source, derivedBefore, derivedAfter);
+  const interim = accumulated ? { ...source, spells: accumulated } : source;
+  const seededSpells = getSeededSpells(interim, derivedAfter, registry);
+  if (seededSpells) {
+    patch.spells = /** @type {import("../state.js").CharacterEntry["spells"]} */ (seededSpells);
+  } else if (accumulated) {
+    patch.spells = /** @type {import("../state.js").CharacterEntry["spells"]} */ (accumulated);
+  }
+
+  // --- Feature text: only the appended level's features (and new feats). ---
+  const newCharacterLevel = normalizeBuildLevels(
+    isPlainObject(source.build) ? source.build : {}
+  ).length;
+  const featureLines = getNewLevelFeatureLines(derivedBefore, derivedAfter, newCharacterLevel, registry);
+  if (featureLines.length) {
+    const existingFeatures = existingText(source.features);
+    const nextFeatures = appendMissingFeatureLines(existingFeatures, featureLines);
+    if (nextFeatures !== existingFeatures) patch.features = nextFeatures;
+  }
+
+  // --- Proficiency labels: additive; new entries only appear when the level
+  // added a class with multiclass proficiencies or a new skill-backed grant.
+  const proficiencyLabels = getProficiencyLabels(derivedAfter, registry);
+  const proficiencyFields = /** @type {const} */ ([
+    ["armorProf", proficiencyLabels.armor],
+    ["weaponProf", proficiencyLabels.weapons],
+    ["toolProf", proficiencyLabels.tools]
+  ]);
+  for (const [field, labels] of proficiencyFields) {
+    if (!labels.length) continue;
+    const existingValue = existingText(source[field]);
+    const nextValue = appendMissingListLabels(existingValue, labels);
+    if (nextValue !== existingValue) patch[field] = nextValue;
+  }
+
+  return result;
+}
+
+/**
  * Returns the character field values to seed at wizard Finish (create and
  * edit). Seeded values are user-owned after creation; the patch only adds
  * missing content and fills empty vitals.
