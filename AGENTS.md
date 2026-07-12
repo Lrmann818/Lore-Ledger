@@ -716,9 +716,9 @@ Canonical: [`docs/reference/level-up-flow-spec.md`](docs/reference/level-up-flow
 **Phase 1 is implemented and shipped** (2026-07-12): the Level Up action on the character
 menu appends exactly one level through `js/pages/character/levelUpWizard.js`, planned by
 `getLevelUpPlan()` (progression.js) and applied via `getLevelUpSheetSeedPatch()`
-(builderSheetSeeding.js). Phase 2 (derived class resources), Phase 3 (Level Up consuming
-derived resources), down-leveling, and broad resource automation remain **blocked** until
-separately authorized. Ratified decisions:
+(builderSheetSeeding.js). **Phase 2 (generalized derived class resources) is authorized**
+(owner authorization, 2026-07-12 second session) and covers Phase 3's Level Up resource
+deltas. Down-leveling remains ratified out of scope. Ratified decisions:
 
 - **Down-leveling is out of scope.** Do not build reverse level-up logic.
 - Level Up **appends exactly one level** and asks only for choices that level unlocks.
@@ -753,14 +753,15 @@ listed so agents do not repeat them:
 5. [x] P1 seeding/display: descriptions, spell ordering, inventory pocket labels
 6. [x] Revise the Level Up spec (completed 2026-07-09; the spec is now the canonical Phase 1 contract)
 7. [x] Level Up **Phase 1** implemented per the revised spec (authorized and completed 2026-07-12; see `docs/reference/level-up-flow-spec.md` and `js/pages/character/levelUpWizard.js`)
-8. [ ] **Blocked:** Level Up Phases 2/3 (class-resource automation), builder-panel retirement, down-leveling, builtin content expansion, and audit batches B1/B2/B3 — each requires separate explicit authorization. The recommended (not authorized) next batch is Level Up Phase 2 — see `docs/audits/builder-completion-matrix.md`
+8. [ ] **Current authorized work (owner authorization, 2026-07-12 second session):** Level Up **Phase 2** — generalized class-resource derivation and seeding — followed, in the same session, by the next highest-value coherent builder batches per `docs/audits/builder-completion-matrix.md`. Audit batches **B1, B2, and B3 are explicitly authorized** in sequence (one at a time, each fully verified before the next). Per-batch re-authorization is not required for builder-completion work this session.
+9. [ ] **Still blocked / out of scope:** down-leveling (ratified out of scope), builtin content expansion beyond the SRD 5.1 greenlist, and any work outside the character-builder system
 
 `docs/audits/srd-5-1-character-builder-gap-audit-stabilization-docs.md` is a **planning
-artifact, not a work order**. Steps 1-7 above are complete, but its batches **B1
-(builder-only panel retirement), B2 (spell detail seeding), and B3 (feature detail seeding)
-remain queued and are not authorized**. The current capability audit is
-`docs/audits/builder-completion-matrix.md` (also planning, not a work order). Do not begin
-audit feature work from either document until the batch is explicitly authorized.
+artifact, not a work order**. Steps 1-7 above are complete. Its batches **B1
+(builder-only panel retirement), B2 (spell detail seeding), and B3 (feature detail
+seeding) were explicitly authorized on 2026-07-12** to run in sequence after Level Up
+Phase 2 (one batch at a time, each fully verified and committed before the next). The
+current capability audit is `docs/audits/builder-completion-matrix.md`.
 
 ### SRD Data Fetch Pipeline
 

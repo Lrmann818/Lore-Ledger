@@ -49,15 +49,16 @@ claim · **P2** polish/depth. Status: ✅ shipped · 🟡 partial · ⬜ not bui
 - **"Architecture exists" ≠ "feature complete."** `classSpecificByLevel` ships in the
   data but nothing reads it; the matrix keeps #2 open until code consumes it.
 
-## 3. Recommended next batch (not self-authorized)
+## 3. Current authorized sequence (2026-07-12, second session)
 
-**Level Up Phase 2 — derived class resources** (level-up spec §7): consume
+**Level Up Phase 2 — derived class resources** is authorized and in progress: consume
 `classSpecificByLevel` in `deriveCharacter()` as an additive `derivedResources` field and
 seed/update `character.resources[]` duplicate-aware via a `builderSeed` marker
-(`inventoryItems[].builderSeed` precedent; no migration needed). It is the smallest batch
-that simultaneously closes the biggest rules gap (#2), unblocks Level Up Phase 3 (#3),
-and moves custom-class expressiveness (#16). B1/B2/B3 remain queued behind it per the
-working order.
+(`inventoryItems[].builderSeed` precedent; no migration needed). It closes the biggest
+rules gap (#2), covers Level Up Phase 3's resource deltas (#3), and moves custom-class
+expressiveness (#16). After Phase 2, the next coherent batches proceed per this matrix's
+priorities; **B1, B2, and B3 are authorized in sequence** (one at a time, fully verified
+between batches).
 
 ## 4. Verification basis
 

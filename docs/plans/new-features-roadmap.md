@@ -217,7 +217,8 @@ A portfolio project that accumulates silent regressions is not a portfolio proje
 - [x] **P1 — seeding/display stabilization:** feature descriptions, canonical spell ordering, and inventory pocket labels
 - [x] **Level Up spec revision** — complete 2026-07-09 (see `docs/reference/level-up-flow-spec.md`)
 - [x] **Level Up Phase 1 implementation** — authorized and shipped 2026-07-12 (flow only; no class-resource automation)
-- [ ] **Blocked —** Level Up Phases 2/3 (derived class resources), builder-panel retirement, audit batches B1/B2/B3, down-leveling, and builtin content expansion each require separate explicit authorization. Recommended (not authorized) next batch: Level Up Phase 2 — see `docs/audits/builder-completion-matrix.md`
+- [~] **Current authorized work (2026-07-12, second session) —** Level Up Phase 2 (generalized class-resource derivation and seeding), then the next coherent builder batches per `docs/audits/builder-completion-matrix.md`; audit batches B1/B2/B3 are authorized in sequence
+- [ ] **Still blocked / out of scope —** down-leveling and builtin content expansion beyond the SRD 5.1 greenlist
 
 Still-open design constraints carried forward from the original Step 3 notes:
 

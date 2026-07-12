@@ -503,9 +503,9 @@ counters. The summary may list a newly gained feature whose rules mention Rage, 
 Points, or another class resource, but Phase 1 makes no claim that the corresponding
 counter changed. The user continues managing existing counters manually.
 
-**Phase 2 — Derived class resources.** Consume `classSpecificByLevel` in
-`deriveCharacter()` as an additive `derivedResources` field, seed/update
-`character.resources[]` duplicate-aware via the `builderSeed` marker, bumping
+**Phase 2 — Derived class resources** _(authorized 2026-07-12, second session)_. Consume
+`classSpecificByLevel` in `deriveCharacter()` as an additive `derivedResources` field,
+seed/update `character.resources[]` duplicate-aware via the `builderSeed` marker, bumping
 `max` while preserving `cur`. This stands on its own and also fixes resources for
 _creation_, not just Level Up.
 
