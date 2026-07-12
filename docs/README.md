@@ -91,7 +91,7 @@ Ratified policies for content, attribution, and scope. These are authoritative �
 - [`reference/content-registry-plan.md`](./reference/content-registry-plan.md) — Plan for the content registry: how SRD-derived content is structured, validated, and surfaced in the app.
 - [`reference/builder-scope-greenlist.md`](./reference/builder-scope-greenlist.md) — Greenlist of builtin content scope for the in-app builder: what ships, what's custom, decision rationale. **Start here before assuming any SRD content exists** — SRD 5.1 is much smaller than full 5E.
 - [`reference/rest-rules-spec.md`](./reference/rest-rules-spec.md) — **Canonical rest behavior.** P0 rest correctness is complete: Short Rest Hit Dice spending; Long Rest HP, Hit Dice, slot, resource, and death-save recovery; prepared-spell changes at Long Rest; and active-character isolation.
-- [`reference/level-up-flow-spec.md`](./reference/level-up-flow-spec.md) — Level-up flow spec. Its §10 decisions are ratified (down-leveling out of scope; appends exactly one level; prepared selection routes through Long Rest; do not rename the `used` slot field). **The 2026-07-09 revision is complete and Phase 1 implementation is authorized (2026-07-12); Phases 2/3 and audit batches remain blocked.**
+- [`reference/level-up-flow-spec.md`](./reference/level-up-flow-spec.md) — Level-up flow spec. Its §10 decisions are ratified (down-leveling out of scope; appends exactly one level; prepared selection routes through Long Rest; do not rename the `used` slot field). **Phase 1 is implemented (2026-07-12); Phases 2/3 and audit batches remain blocked.**
 - 📸 **Session snapshot, optional deep-dive** — [`reference/character-builder-handoff.md`](./reference/character-builder-handoff.md) — How the builder implementation fits together. Written at the end of one session (2026-07-07); good orientation, but verify its counts and hashes against the code. **Not required reading**, and its §7 "next fixes" is not the work order.
 
 ---
@@ -103,6 +103,7 @@ order is real**; their **batch prompts are queued, not work orders**. Never self
 batch from an audit doc.
 
 - [`audits/srd-5-1-character-builder-gap-audit-stabilization-docs.md`](./audits/srd-5-1-character-builder-gap-audit-stabilization-docs.md) — SRD 5.1 builder gap audit and stabilization plan. Its P0/P1 prerequisites have landed, but **batches B1/B2/B3 remain queued and are not authorized**. The binding sequence is [`AGENTS.md` → Current Working Order](../AGENTS.md#current-working-order).
+- [`audits/builder-completion-matrix.md`](./audits/builder-completion-matrix.md) — **Current** capability matrix (2026-07-12, post Level Up Phase 1): what remains before a "complete SRD 5.1 builder with robust custom content" claim, with severity, dependencies, and the recommended (not authorized) next batch.
 
 ---
 

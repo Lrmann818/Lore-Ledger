@@ -1,11 +1,15 @@
 # Level Up Flow — Implementation Spec
 
-_Status: **revised Phase 1 contract — Phase 1 implementation authorized 2026-07-12.** Revised 2026-07-09._
+_Status: **Phase 1 implemented and shipped 2026-07-12.** Revised 2026-07-09._
 
-> **Sequencing guard.** This revision defines the Phase 1 contract. Phase 1 implementation
-> was explicitly authorized on 2026-07-12 and is recorded in the binding
-> [Working Order](../../AGENTS.md#current-working-order). Phases 2/3, down-leveling, and
-> audit-feature batches remain blocked. See §11.
+> **Sequencing guard.** Phase 1 (this document's in-scope contract) is implemented:
+> `js/pages/character/levelUpWizard.js` + `getLevelUpPlan()` in
+> `js/domain/rules/progression.js` + `getLevelUpSheetSeedPatch()` in
+> `js/domain/builderSheetSeeding.js`, covered by `tests/progression.levelUp.test.js`,
+> `tests/levelUpSheetSeeding.test.js`, the `level up flow` suite in
+> `tests/characterPage.test.js`, and `tests/smoke/levelUp.smoke.js`. Phases 2/3,
+> down-leveling, and audit-feature batches remain blocked — see §11 and the binding
+> [Working Order](../../AGENTS.md#current-working-order).
 
 Adds a **Level Up** action to the character action menu for builder-created
 characters: a narrow, guided wizard that **appends exactly one level**, walks only the
@@ -698,11 +702,18 @@ them, and do not implement against the alternatives._
 
 ## 11. Sequencing guard
 
-This Phase 1 revision is complete as a planning document, and **Phase 1 implementation was
-explicitly authorized on 2026-07-12**, recorded in the binding
-[Working Order](../../AGENTS.md#current-working-order) in `AGENTS.md`. The authorization
-covers Phase 1 only:
+**Phase 1 is implemented** (authorized and completed 2026-07-12), recorded in the binding
+[Working Order](../../AGENTS.md#current-working-order) in `AGENTS.md`. That authorization
+covered Phase 1 only, and completing it authorizes nothing further:
 
 - do not begin Phase 2/3 resource work
 - do not begin B1/B2/B3 or any other audit-feature batch
 - do not build down-leveling, builder-panel retirement, or builtin content expansion
+
+Known Phase 1 implementation notes (intentional):
+
+- Spell pickers cap selections at the exact delta but allow choosing fewer; unpicked
+  grants are recoverable via Edit in Builder.
+- Optional feature/ASI choices are not hard-required at Apply (matching the creation
+  wizard); only the newly unlocked subclass and a usable HP result are required.
+- Seeded attack rows are user-owned and are not recalculated when proficiency grows.

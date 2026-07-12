@@ -141,7 +141,7 @@ Drawing tools are expressive but imprecise for structured campaign content. Stam
 
 ### Objectives
 
-- [!] Vitest unit and regression suite (30 test files, 478 tests — all passing)
+- [!] Vitest unit and regression suite (56 test files, 957 tests — all passing as of 2026-07-12)
 - [!] Playwright smoke tests for UI / navigation / PWA behavior
 - [!] Architecture documentation in `docs/`
 - [!] `../features/multi-character-design.md` kept current with schema and panel decisions
@@ -198,7 +198,7 @@ A portfolio project that accumulates silent regressions is not a portfolio proje
 - [x] Full character creation wizard (8-step create/edit wizard across the full SRD 5.1 registry)
 - [x] Generalized wizard-created character seeding beyond the narrow Dragonborn proof (features, languages, proficiencies, attacks, spells, slot totals, and inventory pockets seed additively at Finish), with freeform/no-wizard characters allowed to start blank or minimally populated
 - [x] Content pickers beyond the minimal identity/abilities editors (race/subrace/class/background, subclass, skills, expertise, fighting styles, ASI/feat, spells, and equipment pickers in the wizard)
-- [~] Level-up flow with duplicate-aware additive/suggested rules-backed content, routed to existing sheet fields or entries without overwriting user edits (Phase 1 implementation authorized 2026-07-12)
+- [x] **Level Up Phase 1** (shipped 2026-07-12): guided one-level append for builder characters — subclass/feature/expertise/ASI-or-feat/cantrip/known-spell/spellbook choices newly unlocked by the level, Max/Average/Roll/Manual HP, atomic apply with accumulate HP/slot deltas and recompute-if-untouched AC/DC/attack, duplicate-aware additive seeding, active-character isolation, and double-submit protection. Class-resource automation is **not** included (Level Up Phases 2/3, blocked)
 - [ ] Field locking and override UI for computed fields
 - [ ] Required builder-card edit, reorder, and customization support for builder-created characters, with an explicit ownership model for cards that mix live-derived mechanics with user-owned content
 - [ ] Abilities & Features follow-ups: fuller menu keyboard accessibility pass, possible `damageEffect` / `effectText` cleanup, partial regain behavior, broader rest/resource automation, and specialized shared-resource-linked cards
@@ -216,8 +216,8 @@ A portfolio project that accumulates silent regressions is not a portfolio proje
 - [x] **P1 — display stabilization:** builder-derived initiative and skill/proficiency indicators
 - [x] **P1 — seeding/display stabilization:** feature descriptions, canonical spell ordering, and inventory pocket labels
 - [x] **Level Up spec revision** — complete 2026-07-09 (see `docs/reference/level-up-flow-spec.md`)
-- [~] **Current authorized work — Level Up Phase 1 implementation** (authorized 2026-07-12): the guided one-level append flow per the revised spec. This is the flow only — it does not automate class resources.
-- [ ] **Blocked —** Level Up Phases 2/3 (derived class resources), builder-panel retirement, audit batches B1/B2/B3, down-leveling, and builtin content expansion each require separate explicit authorization
+- [x] **Level Up Phase 1 implementation** — authorized and shipped 2026-07-12 (flow only; no class-resource automation)
+- [ ] **Blocked —** Level Up Phases 2/3 (derived class resources), builder-panel retirement, audit batches B1/B2/B3, down-leveling, and builtin content expansion each require separate explicit authorization. Recommended (not authorized) next batch: Level Up Phase 2 — see `docs/audits/builder-completion-matrix.md`
 
 Still-open design constraints carried forward from the original Step 3 notes:
 
