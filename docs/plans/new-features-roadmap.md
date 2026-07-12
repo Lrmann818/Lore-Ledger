@@ -195,10 +195,10 @@ A portfolio project that accumulates silent regressions is not a portfolio proje
 - [x] Abilities & Features Phase 3H: derived Dragonborn Breath Weapon use tracking through character-owned `featureUses`
 - [x] Phase 3I wizard seeding proof: Dragonborn passive trait text seeds into Features / Traits and fixed Dragonborn languages seed into Languages at builder Finish
 - [x] Phase 3J Builder Summary status cleanup: copy now frames Summary as temporary review/scaffolding while normal panels remain the play surface
-- [ ] Full character creation wizard
-- [ ] Generalized wizard-created character seeding beyond the narrow Dragonborn proof, with freeform/no-wizard characters allowed to start blank or minimally populated
-- [ ] Content pickers beyond the minimal identity/abilities editors and later choices
-- [ ] Level-up flow with duplicate-aware additive/suggested rules-backed content, routed to existing sheet fields or entries without overwriting user edits
+- [x] Full character creation wizard (8-step create/edit wizard across the full SRD 5.1 registry)
+- [x] Generalized wizard-created character seeding beyond the narrow Dragonborn proof (features, languages, proficiencies, attacks, spells, slot totals, and inventory pockets seed additively at Finish), with freeform/no-wizard characters allowed to start blank or minimally populated
+- [x] Content pickers beyond the minimal identity/abilities editors (race/subrace/class/background, subclass, skills, expertise, fighting styles, ASI/feat, spells, and equipment pickers in the wizard)
+- [~] Level-up flow with duplicate-aware additive/suggested rules-backed content, routed to existing sheet fields or entries without overwriting user edits (Phase 1 implementation authorized 2026-07-12)
 - [ ] Field locking and override UI for computed fields
 - [ ] Required builder-card edit, reorder, and customization support for builder-created characters, with an explicit ownership model for cards that mix live-derived mechanics with user-owned content
 - [ ] Abilities & Features follow-ups: fuller menu keyboard accessibility pass, possible `damageEffect` / `effectText` cleanup, partial regain behavior, broader rest/resource automation, and specialized shared-resource-linked cards
@@ -215,8 +215,9 @@ A portfolio project that accumulates silent regressions is not a portfolio proje
 - [x] **P0 — rest correctness:** Short Rest Hit Dice spending; Long Rest HP, Hit Dice recovery, death saves; Long Rest prepared-spell flow; and an active-character submission guard (see `docs/reference/rest-rules-spec.md`)
 - [x] **P1 — display stabilization:** builder-derived initiative and skill/proficiency indicators
 - [x] **P1 — seeding/display stabilization:** feature descriptions, canonical spell ordering, and inventory pocket labels
-- [ ] **Next authorized —** revise the Level Up spec only (see `docs/reference/level-up-flow-spec.md`)
-- [ ] **Blocked —** implement Level Up only after the spec revision is complete and implementation is explicitly authorized
+- [x] **Level Up spec revision** — complete 2026-07-09 (see `docs/reference/level-up-flow-spec.md`)
+- [~] **Current authorized work — Level Up Phase 1 implementation** (authorized 2026-07-12): the guided one-level append flow per the revised spec. This is the flow only — it does not automate class resources.
+- [ ] **Blocked —** Level Up Phases 2/3 (derived class resources), builder-panel retirement, audit batches B1/B2/B3, down-leveling, and builtin content expansion each require separate explicit authorization
 
 Still-open design constraints carried forward from the original Step 3 notes:
 

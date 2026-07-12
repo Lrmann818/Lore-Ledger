@@ -13,7 +13,7 @@ The source of truth is the code, primarily:
 
 This is intentionally a maintainer-focused document. It describes the state as it exists today, including a few legacy or duplicated fields that still appear because the app preserves backward compatibility.
 
-Current structured schema version: `11`
+Current structured schema version: `12`
 
 ## 2. Schema versioning policy
 
@@ -40,6 +40,7 @@ Current history:
 - `9`: added manual Abilities & Features card storage on character entries (renumbered from v7)
 - `10`: added character-owned derived feature-use storage on character entries (renumbered from v8)
 - `11`: added the campaign custom content bucket (`content.custom`) and migrated builder characters to the level-by-level build model (`build.version` 2) with bare SRD registry ids
+- `12`: added per-character rest bookkeeping (`rest.hitDiceSpent`, `rest.preparedByClass`) plus `deathSaves` tracking on character entries
 
 Schema numbering note: the builder branch originally claimed versions 6-8 in
 parallel with the mobile branch's 6-7. The develop numbering wins; builder
@@ -297,6 +298,12 @@ The legacy singleton `state.character` key is accepted only by migration/backwar
 - `features: string`
 - `hpCur: number | null`
 - `hpMax: number | null`
+- `deathSaves: { successes: number, failures: number }`
+  - Added in schema v12; clamped to `0..3` by `normalizeDeathSaves(...)`.
+- `rest: { hitDiceSpent: Record<string, number>, preparedByClass: Record<string, string[]> }`
+  - Added in schema v12; normalized by `normalizeCharacterRestState(...)`.
+  - `hitDiceSpent` stores spent counts per pool id (`class:<classId>` for builder pools, `manual` for freeform); a missing entry means a full pool.
+  - `preparedByClass` is the authoritative play-state prepared-spell selection for builder prepared casters; the legacy `build.spellcasting[classId].preparedIds` remains only for compatibility.
 - `hitDieAmt: number | null`
   - Canonical persisted field.
   - Seeded by `js/state.js`, written by the Vitals panel, and enforced by migration-time normalization.
@@ -899,6 +906,13 @@ Current structural migrations:
   - normalize `manualFeatureCards` storage on character entries (defaults to `[]`)
 - `9 -> 10`
   - normalize character-owned `featureUses` storage on character entries
+- `10 -> 11`
+  - ensure the campaign-scoped `content.custom` bucket exists (default `{ custom: [] }`)
+  - migrate builder characters to the level-by-level build model (`build.version` 2) via `normalizeCharacterBuild(...)`, converting legacy `kind_id` content ids to bare registry ids and expanding legacy `classId` + `level` into `build.levels`
+- `11 -> 12`
+  - normalize per-character `rest` state (`{ hitDiceSpent, preparedByClass }`) on every character entry
+  - adopt initial builder prepared selections from `build.spellcasting[classId].preparedIds` into `rest.preparedByClass` when no rest-owned prepared state existed yet
+  - normalize `deathSaves` (`{ successes: 0..3, failures: 0..3 }`) on every character entry
 
 ### Automated migration coverage
 

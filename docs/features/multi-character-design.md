@@ -22,7 +22,7 @@ read as a description of today's code.
 - **Builder characters have `build !== null`. Freeform characters have `build: null`.**
   These two modes must not be collapsed.
 - Builder characters use the level-by-level build model (`build.version` 2) with bare SRD
-  registry ids. Current schema version is `11` — see `docs/state-schema.md`, which is
+  registry ids. Current schema version is `12` — see `docs/state-schema.md`, which is
   canonical for the persisted shape.
 - Custom content is persisted per campaign in the `content.custom` bucket (schema v11).
 

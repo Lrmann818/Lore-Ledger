@@ -42,7 +42,7 @@ restore obsolete behavior.
 | **Architecture / module boundaries** | `docs/architecture.md` | — |
 | **Release, testing, PWA** | `docs/operations/testing-guide.md` → the focused checklist it links → `docs/operations/release-process.md` | `docs/archive/**`, `docs/operations/ios-packaging.md` |
 | **iOS / App Store packaging** | `docs/operations/ios-packaging.md` | The web release doc, unless you are also shipping web |
-| **Levelling / level-up flow** | "Level Up Rules" below → `docs/reference/level-up-flow-spec.md` (proposal — do not implement) | — |
+| **Levelling / level-up flow** | "Level Up Rules" below → `docs/reference/level-up-flow-spec.md` (revised Phase 1 contract — Phase 1 implementation authorized) | — |
 | **Roadmap / what's next** | "Current Working Order" below → `docs/plans/new-features-roadmap.md` | `docs/archive/lore-ledger-builder-plan.md` |
 | **Builder gap audit / stabilization** | "Current Working Order" below, first | Do **not** start B1/B2/B3 batches from `docs/audits/**` |
 
@@ -55,7 +55,7 @@ restore obsolete behavior.
 - `docs/reference/srd-licensing-notes.md`, `docs/reference/attribution-requirements.md`
 - `docs/reference/builder-scope-greenlist.md`, `docs/reference/content-registry-plan.md`
 - `docs/reference/rest-rules-spec.md`
-- `docs/reference/level-up-flow-spec.md` — canonical *decisions*, but a **proposal** for implementation; do not build from it yet
+- `docs/reference/level-up-flow-spec.md` — canonical Level Up contract; the 2026-07-09 revision is complete and **Phase 1 implementation is authorized** (Phases 2/3 remain blocked)
 - `docs/operations/**`
 - `docs/plans/new-features-roadmap.md`, `docs/plans/combat-workspace-plan.md`
 
@@ -713,9 +713,10 @@ either character. Consult the canonical rest spec for the exact rules.
 ### Level Up Rules
 
 Canonical: [`docs/reference/level-up-flow-spec.md`](docs/reference/level-up-flow-spec.md).
-That spec is a **proposal awaiting revision — do not implement it yet.** Revising the spec
-is the next authorized step. Level Up implementation remains blocked until the revision is
-complete and implementation is explicitly authorized. Ratified decisions:
+The spec revision is **complete** (2026-07-09) and **Level Up Phase 1 implementation is
+authorized** (owner authorization, 2026-07-12). Phase 2 (derived class resources), Phase 3
+(Level Up consuming derived resources), down-leveling, and broad resource automation remain
+**blocked** until separately authorized. Ratified decisions:
 
 - **Down-leveling is out of scope.** Do not build reverse level-up logic.
 - Level Up **appends exactly one level** and asks only for choices that level unlocks.
@@ -748,15 +749,15 @@ listed so agents do not repeat them:
 3. [x] P0 core rules: Short Rest / Long Rest + prepared-spell flow, including active-character isolation
 4. [x] P1 display bugs: initiative, skill/proficiency indicators
 5. [x] P1 seeding/display: descriptions, spell ordering, inventory pocket labels
-6. [ ] **Next authorized:** revise the Level Up spec only
-7. [ ] **Blocked:** implement Level Up Phase 1 only after the spec revision is complete and implementation is explicitly authorized
-8. [ ] Only then, and with explicit authorization, resume larger audit batches
+6. [x] Revise the Level Up spec (completed 2026-07-09; the spec is now the canonical Phase 1 contract)
+7. [ ] **Current authorized work:** implement Level Up **Phase 1 only**, exactly per the revised `docs/reference/level-up-flow-spec.md` (owner authorization, 2026-07-12)
+8. [ ] **Blocked:** Level Up Phases 2/3 (class-resource automation), builder-panel retirement, down-leveling, builtin content expansion, and audit batches B1/B2/B3 — each requires separate explicit authorization
 
 `docs/audits/srd-5-1-character-builder-gap-audit-stabilization-docs.md` is a **planning
-artifact, not a work order**. Steps 1-5 above are complete, but its batches **B1
+artifact, not a work order**. Steps 1-6 above are complete, but its batches **B1
 (builder-only panel retirement), B2 (spell detail seeding), and B3 (feature detail seeding)
 remain queued and are not authorized**. Do not begin audit feature work from that document
-until the working order reaches step 8 and the batch is explicitly authorized.
+until the working order clears step 7 and the batch is explicitly authorized.
 
 ### SRD Data Fetch Pipeline
 
