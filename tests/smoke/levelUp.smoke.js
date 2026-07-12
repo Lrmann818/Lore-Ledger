@@ -89,6 +89,8 @@ test("level up takes a Fighter 1 to Fighter 2 with more HP and Action Surge", as
   await expect(page.locator("#levelUpSummaryBody")).toContainText("1 → 2");
   await expect(page.locator("#levelUpSummaryBody")).toContainText("12 → 20");
   await expect(page.locator("#levelUpSummaryBody")).toContainText("Action Surge");
+  // Phase 2: the summary announces the newly unlocked resource pool.
+  await expect(page.locator("#levelUpSummaryBody")).toContainText("new (1)");
   await page.locator("#levelUpApply").click();
   await expect(page.locator("#levelUpPanel")).toBeHidden();
 
@@ -100,10 +102,19 @@ test("level up takes a Fighter 1 to Fighter 2 with more HP and Action Surge", as
   ]);
   expect(leveled.hpMax).toBe(20);
   expect(leveled.hpCur).toBe(20);
+  // Phase 2: Second Wind seeded at creation, Action Surge added by Level Up,
+  // both as canonical resources with recovery metadata and stable markers.
+  const secondWind = leveled.resources.find((resource) => resource.builderSeed === "class-resource:second-wind");
+  expect(secondWind).toMatchObject({ name: "Second Wind", cur: 1, max: 1, recovery: "shortOrLongRest" });
+  const actionSurge = leveled.resources.find((resource) => resource.builderSeed === "class-resource:action-surge");
+  expect(actionSurge).toMatchObject({ name: "Action Surge", cur: 1, max: 1, recovery: "shortOrLongRest" });
 
-  // The sheet shows Fighter 2 and the seeded Action Surge feature text.
+  // The sheet shows Fighter 2, the seeded Action Surge feature text, and the
+  // Vitals resource tiles for both pools.
   await expect(page.locator("#charClassLevel")).toHaveValue(/Fighter 2/);
   await expect(page.locator("#charFeatures")).toHaveValue(/Action Surge/);
+  await expect(page.locator(".resourceTile .resourceTitle", { hasText: "Second Wind" })).toBeVisible();
+  await expect(page.locator(".resourceTile .resourceTitle", { hasText: "Action Surge" })).toBeVisible();
 
   // Level 20 disable state is unit-tested; here we confirm the action stays
   // available for the level-2 character.

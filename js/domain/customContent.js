@@ -9,6 +9,7 @@
 
 import { CONTENT_KINDS } from "./rules/builtinContent.js";
 import { BUILTIN_CONTENT_REGISTRY, getContentByKind } from "./rules/registry.js";
+import { getClassResourceDefinitions } from "./rules/classResources.js";
 
 /** @typedef {import("../state.js").State} State */
 
@@ -64,6 +65,24 @@ export function validateCustomContentRecord(record, options = {}) {
     const existing = Array.isArray(options.existing) ? options.existing : [];
     if (existing.some((entry) => isPlainObject(entry) && entry.id === id && entry.kind === kind)) {
       errors.push(`"${kind}:${id}" already exists as custom content.`);
+    }
+  }
+  // Custom classes may declare limited-use pools via `resources: []` (see
+  // content-registry-plan.md "Class Resources"). Surface malformed
+  // definitions at import time instead of silently dropping them at
+  // derivation time.
+  if (kind === "class" && "resources" in record && record.resources !== undefined) {
+    if (!Array.isArray(record.resources)) {
+      errors.push("Class `resources` must be an array of resource definitions.");
+    } else {
+      const probe = getClassResourceDefinitions(/** @type {never} */ ({
+        id: id || "custom-class",
+        kind: "class",
+        name: name || "Custom Class",
+        source: "custom",
+        data: record
+      }));
+      errors.push(...probe.warnings.map((warning) => `${warning} (id, name, max shape, and recovery are required).`));
     }
   }
   return { ok: errors.length === 0, errors };

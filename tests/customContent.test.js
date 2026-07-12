@@ -202,3 +202,45 @@ describe("builder character migration to v11", () => {
     expect(derived.totalLevel).toBe(3);
   });
 });
+
+describe("custom class resource definitions", () => {
+  function classRecord(resources) {
+    return {
+      id: "runeweaver",
+      kind: "class",
+      name: "Runeweaver",
+      hitDie: 8,
+      ...(resources !== undefined ? { resources } : {})
+    };
+  }
+
+  it("accepts a class with well-formed resource definitions", () => {
+    const result = validateCustomContentRecord(classRecord([
+      { id: "runes", name: "Runes", max: { type: "byClassLevel", values: [2, 3] }, recovery: "longRest" }
+    ]));
+    expect(result.ok).toBe(true);
+  });
+
+  it("accepts a class without resources or with an explicit empty list", () => {
+    expect(validateCustomContentRecord(classRecord(undefined)).ok).toBe(true);
+    expect(validateCustomContentRecord(classRecord([])).ok).toBe(true);
+  });
+
+  it("rejects a non-array resources field", () => {
+    const result = validateCustomContentRecord(classRecord({ id: "runes" }));
+    expect(result.ok).toBe(false);
+    expect(result.errors.join(" ")).toContain("must be an array");
+  });
+
+  it("reports each malformed resource definition at import time", () => {
+    const result = validateCustomContentRecord(classRecord([
+      { id: "ok-pool", name: "OK", max: { type: "constant", value: 1 }, recovery: "shortRest" },
+      { id: "Bad Id", name: "Broken", max: { type: "constant", value: 1 }, recovery: "longRest" },
+      { id: "bad-recovery", name: "Broken 2", max: { type: "constant", value: 1 }, recovery: "daily" }
+    ]));
+    expect(result.ok).toBe(false);
+    expect(result.errors).toHaveLength(2);
+    expect(result.errors.join(" ")).toContain("Malformed resource definition 2");
+    expect(result.errors.join(" ")).toContain("Malformed resource definition 3");
+  });
+});

@@ -1168,6 +1168,81 @@ state, and are managed from the Data panel (import/export/list/remove).
 This is also the extension point for future licensed content packs: a pack
 is a record list with its own `source` value.
 
+## Class Resources (2026-07-12, Level Up Phase 2)
+
+A **class resource** is a shared limited-use pool granted by class levels
+(Rage, Ki Points, Sorcery Points, Channel Divinity, Lay on Hands, …).
+Derivation lives in `js/domain/rules/classResources.js`; seeding into
+`character.resources[]` lives in `js/domain/builderSheetSeeding.js`.
+
+### Definition shape (custom-class authoring)
+
+Class records may carry a `resources: []` array. When present it is
+**authoritative** for that class — including an empty array, which is a
+deliberate "this class has no pools". Each entry:
+
+```json
+{
+  "id": "runes",
+  "name": "Runes",
+  "max": { "type": "byClassLevel", "values": [2, 2, 3, 3, "unlimited"] },
+  "recovery": "longRest"
+}
+```
+
+- `id` — stable lowercase-hyphen pool id, unique within the class. Pools
+  sharing an id **across** classes merge into one tile (SRD Channel Divinity
+  multiclass rule: the highest single-class maximum wins; the most
+  permissive recovery wins).
+- `max` is one of:
+  - `{ "type": "byClassLevel", "values": [...] }` — index = class level − 1;
+    `null`/`0` = not yet unlocked; the literal string `"unlimited"` marks an
+    untracked pool (Rage at barbarian 20).
+  - `{ "type": "constant", "value": n, "startLevel": n }`
+  - `{ "type": "classLevelMultiple", "multiplier": n, "startLevel": n }`
+    (Lay on Hands is `multiplier: 5`)
+  - `{ "type": "abilityModifier", "ability": "cha", "minimum": 1, "startLevel": n }`
+- `recovery` — one mode from the closed rest vocabulary (`shortRest`,
+  `longRest`, `shortOrLongRest`, `manual`, `none`) or an array of
+  `{ "minClassLevel": n, "recovery": mode }` thresholds (Bardic Inspiration
+  upgrades to `shortOrLongRest` at bard 5).
+
+Malformed definitions are skipped with a derivation warning and rejected
+with a per-entry error at custom-content import time.
+
+### Builtin synthesis
+
+Builtin SRD classes do **not** carry `resources` arrays in
+`game-data/srd/classes.json`. Their pool definitions synthesize at runtime
+in `classResources.js` from the shipped `classSpecificByLevel` counts plus a
+closed rules-text vocabulary for what the upstream API does not model
+(recovery cadence; Second Wind, Wild Shape, Lay on Hands, Bardic
+Inspiration, and Paladin Channel Divinity counts — keyed on the class's
+`featuresByLevel` actually granting the feature). This is the same
+rules-text precedent as `UNARMORED_AC_FORMULAS`. Deliberately **not**
+resources: static progression values (Rage damage, Bardic die size, Sneak
+Attack dice), calculated recovery amounts (Arcane Recovery's slot levels —
+only its 1/day use is a pool), and feature-specific counters owned by
+`featureUses`.
+
+### Seeded resource ownership
+
+Seeded entries in `character.resources[]` carry
+`builderSeed: "class-resource:<poolId>"` (the `inventoryItems[].builderSeed`
+precedent — no schema change). Ownership:
+
+- **User-owned:** `name` (never auto-renamed), `cur` (moved only by the
+  level-up delta, rest recovery, or the user).
+- **Builder-updated:** `max` grows by the derived before→after delta on
+  Level Up (manual offsets are kept; spent uses stay spent; unlimited pools
+  stop receiving numeric updates); `recovery` follows
+  recompute-if-untouched.
+- Finish/Edit seeding is fill-only-when-empty and duplicate-aware: an
+  unmarked manual tracker whose name matches a derived pool is **adopted**
+  (marker stamped, values kept) instead of duplicated.
+- If the granting class/content is later edited or removed, seeded entries
+  degrade to inert user-owned tiles — they are never deleted automatically.
+
 ## Feat Effects Vocabulary (2026-07-06)
 
 Feat records may carry structured `effects` interpreted by
