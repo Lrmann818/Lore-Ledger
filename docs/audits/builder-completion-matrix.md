@@ -19,8 +19,8 @@ claim · **P2** polish/depth. Status: ✅ shipped · 🟡 partial · ⬜ not bui
 | # | Capability | Status | Relevant files | Builtin SRD 5.1 | Custom content | Gap | Severity | Depends on | Order | Acceptance criteria |
 |---|---|---|---|---|---|---|---|---|---|---|
 | 1 | Creation wizard (identity, origin choices, classes/levels, class choices, abilities ×4 methods, spells, equipment, summary) | ✅ | `js/pages/character/builderWizard.js`, `builderWizardSteps.js` | Full greenlist | Custom records appear in pickers via registry merge | Non-required choices (skills, fighting style, spell counts) can be skipped silently at Finish | P2 | — | 7 | Finish warns when count-bearing choices are incomplete |
-| 2 | Levels 1–20 progression per class | ✅ | `js/domain/rules/progression.js`, `classes.json`, `subclasses.json` | All 12 classes/subclasses, data-driven `featuresByLevel`/`asiLevels` | Same engine consumes custom records | Class-resource counters not derived (`classSpecificByLevel` unread — Level Up spec Gap C) | P1 | — | **1 (next)** | `deriveCharacter` emits `derivedResources`; creation and Level Up seed/update `resources[]` duplicate-aware |
-| 3 | Level Up flow (one-level append) | ✅ Phase 1 | `levelUpWizard.js`, `progression.js#getLevelUpPlan`, `builderSheetSeeding.js#getLevelUpSheetSeedPatch` | Shipped 2026-07-12 | Data-driven; works for custom classes with v2-shaped records | Phase 2/3 resource deltas; down-leveling permanently out of scope | P1 (Phase 2) | #2 | 1 | Summary shows `Rage 2 → 3`; counters grow without resetting `cur` |
+| 2 | Levels 1–20 progression per class | ✅ | `js/domain/rules/progression.js`, `rules/classResources.js`, `classes.json`, `subclasses.json` | All 12 classes/subclasses, data-driven `featuresByLevel`/`asiLevels`; class-resource pools derived from `classSpecificByLevel` + rules vocabulary (shipped 2026-07-12) | Same engine consumes custom records incl. explicit `resources[]` | None material | — | — | — | — |
+| 3 | Level Up flow (one-level append) | ✅ Phases 1–3 | `levelUpWizard.js`, `progression.js#getLevelUpPlan`, `builderSheetSeeding.js#getLevelUpSheetSeedPatch`, `rules/classResources.js` | Shipped 2026-07-12 (incl. resource growth: summary shows `Rage 2 → 3`, spent uses preserved) | Data-driven; works for custom classes with v2-shaped records | Down-leveling permanently out of scope | — | — | — | — |
 | 4 | Multiclassing (prereqs, proficiencies, skill choices, combined slots, pact separation) | ✅ | `progression.js`, `builderWizardSteps.js`, `levelUpWizard.js` | Full SRD rules; prereqs warn, never block | Custom `multiclassing` block consumed | None material | — | — | — | — |
 | 5 | ASI / feat scheduling | ✅ | `progression.js#getAsiSlots`, `collectAsiChoices` | Data-driven `asiLevels`; Grappler only builtin feat | Custom feats + structured `effects` vocabulary consumed | No 20-cap enforcement on ability totals after ASI | P2 | — | 8 | ASI editor blocks totals above 20 (SRD cap) |
 | 6 | Spellcasting models (known / prepared / spellbook / pact / granted / ritual) | ✅ | `progression.js`, `characterRest.js`, `levelUpWizard.js` | All four models + subclass granted spells; ritual flag displayed | Custom classes: models keyed off `preparationMode`/`progression` fields | Class-level `grantedSpells` (registry-plan shape) are **not consumed** — only subclass grants are; spellbook growth constants (6/+2) not per-class configurable; prepared-capacity formula fixed at `level(+half) + mod` | P2 | — | 6 | `getGrantedSpells` also walks class records; custom overrides documented |
@@ -33,7 +33,7 @@ claim · **P2** polish/depth. Status: ✅ shipped · 🟡 partial · ⬜ not bui
 | 13 | Feature detail seeding depth | 🟡 | `builderSheetSeeding.js` | One-line desc per feature line | Custom features same | **B3 queued:** structured feature cards beyond Dragonborn slice | P1 | explicit authorization | 5 | Rules-backed feature cards for class features with uses/DCs |
 | 14 | Custom content persistence & registry merge | ✅ | `js/domain/customContent.js`, `rules/registry.js`, `content.custom` (schema v11) | n/a | Same shapes as SRD records, `source: "custom"`, cannot shadow builtin | — | — | — | — | — |
 | 15 | Custom content authoring UX | ⬜ | Data panel import/export/list/remove only | n/a | JSON-file authoring only; no in-app editor, no validation feedback loop beyond import errors | No guided authoring for races/classes/spells | P1 | #14 | 2 | A user can author a working custom class without hand-writing JSON |
-| 16 | Custom class expressiveness (the hard claim) | 🟡 | whole rules engine | n/a | **Consumable today, data-driven, no per-class hardcoding:** hit die/HP, proficiencies, skill choices, multiclass prereqs+gains, subclass level+list, ASI levels, `featuresByLevel`, subfeature choices, full/half/pact/non-caster progressions, cantrip/known caps, slot tables | **Not expressible:** resources/recovery metadata (needs #2), prepared-formula variants, class-level granted spells, spellbook growth counts, expertise outside the hardcoded 4 feature-id set | P1 | #2, #6 | 2 | A custom class with resources + granted spells derives and levels correctly end-to-end with a regression test |
+| 16 | Custom class expressiveness (the hard claim) | 🟡 | whole rules engine | n/a | **Consumable today, data-driven, no per-class hardcoding:** hit die/HP, proficiencies, skill choices, multiclass prereqs+gains, subclass level+list, ASI levels, `featuresByLevel`, subfeature choices, full/half/pact/non-caster progressions, cantrip/known caps, slot tables, **resource pools with recovery metadata (shipped 2026-07-12)** | **Not expressible:** class-level granted spells, prepared-formula variants, spellbook growth counts, expertise outside the hardcoded 4 feature-id set | P2 | #6 | 6 | A custom class with granted spells derives and levels correctly end-to-end with a regression test |
 | 17 | Custom content deletion safety & dependencies | 🟡 | `customContent.js`, `deriveCharacter` warnings | n/a | Removing referenced content degrades soft (derivation warnings, no crash) | Character export does **not** bundle referenced custom records; import into another campaign loses them | P2 | #14 | 8 | `.ll-character.json` optionally embeds referenced custom records |
 | 18 | Migration & backward compatibility | ✅ | `js/state.js` (v12), `tests/state.migrate*.test.js`, `saveCompatibility.test.js` | Single lineage v0→v12 | Custom bucket migrates with campaign | None pending — Level Up Phase 1 required no schema change (verified) | — | — | — | — |
 | 19 | Accessibility & mobile | 🟡 | wizard focus traps, aria labels, phone-width smokes | Level Up + builder wizard verified at 380px | n/a | Abilities & Features menu keyboard pass still queued (roadmap); no automated a11y audit | P2 | — | 9 | Keyboard-only run of both wizards + panels documented |
@@ -51,14 +51,20 @@ claim · **P2** polish/depth. Status: ✅ shipped · 🟡 partial · ⬜ not bui
 
 ## 3. Current authorized sequence (2026-07-12, second session)
 
-**Level Up Phase 2 — derived class resources** is authorized and in progress: consume
-`classSpecificByLevel` in `deriveCharacter()` as an additive `derivedResources` field and
-seed/update `character.resources[]` duplicate-aware via a `builderSeed` marker
-(`inventoryItems[].builderSeed` precedent; no migration needed). It closes the biggest
-rules gap (#2), covers Level Up Phase 3's resource deltas (#3), and moves custom-class
-expressiveness (#16). After Phase 2, the next coherent batches proceed per this matrix's
-priorities; **B1, B2, and B3 are authorized in sequence** (one at a time, fully verified
-between batches).
+**Level Up Phase 2 — derived class resources: shipped 2026-07-12.**
+`js/domain/rules/classResources.js` derives shared pools (data-driven counts +
+closed SRD rules vocabulary), `deriveCharacter()` exposes `derivedResources`,
+Finish seeds `character.resources[]` duplicate-aware via the
+`class-resource:<poolId>` `builderSeed` marker, Level Up grows pools by delta
+with spent uses preserved, and custom classes author pools via the `resources[]`
+schema (content-registry-plan.md → Class Resources). No schema migration was
+needed.
+
+Remaining authorized sequence: **B1 (builder-only panel retirement / edit
+routing, matrix #11) → B2 (spell detail seeding, #12) → B3 (feature detail
+seeding, #13)** — one at a time, fully verified between batches — then the
+in-app CC-BY attribution release gate (#20) and remaining P2 items as coherent
+batches.
 
 ## 4. Verification basis
 

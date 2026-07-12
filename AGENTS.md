@@ -716,9 +716,10 @@ Canonical: [`docs/reference/level-up-flow-spec.md`](docs/reference/level-up-flow
 **Phase 1 is implemented and shipped** (2026-07-12): the Level Up action on the character
 menu appends exactly one level through `js/pages/character/levelUpWizard.js`, planned by
 `getLevelUpPlan()` (progression.js) and applied via `getLevelUpSheetSeedPatch()`
-(builderSheetSeeding.js). **Phase 2 (generalized derived class resources) is authorized**
-(owner authorization, 2026-07-12 second session) and covers Phase 3's Level Up resource
-deltas. Down-leveling remains ratified out of scope. Ratified decisions:
+(builderSheetSeeding.js). **Phase 2 (generalized derived class resources) is implemented**
+(2026-07-12): `js/domain/rules/classResources.js` derives shared pools, Finish seeds them
+into `character.resources[]`, and Level Up grows them by delta — covering Phase 3's
+resource deltas. Down-leveling remains ratified out of scope. Ratified decisions:
 
 - **Down-leveling is out of scope.** Do not build reverse level-up logic.
 - Level Up **appends exactly one level** and asks only for choices that level unlocks.
@@ -753,8 +754,9 @@ listed so agents do not repeat them:
 5. [x] P1 seeding/display: descriptions, spell ordering, inventory pocket labels
 6. [x] Revise the Level Up spec (completed 2026-07-09; the spec is now the canonical Phase 1 contract)
 7. [x] Level Up **Phase 1** implemented per the revised spec (authorized and completed 2026-07-12; see `docs/reference/level-up-flow-spec.md` and `js/pages/character/levelUpWizard.js`)
-8. [ ] **Current authorized work (owner authorization, 2026-07-12 second session):** Level Up **Phase 2** — generalized class-resource derivation and seeding — followed, in the same session, by the next highest-value coherent builder batches per `docs/audits/builder-completion-matrix.md`. Audit batches **B1, B2, and B3 are explicitly authorized** in sequence (one at a time, each fully verified before the next). Per-batch re-authorization is not required for builder-completion work this session.
-9. [ ] **Still blocked / out of scope:** down-leveling (ratified out of scope), builtin content expansion beyond the SRD 5.1 greenlist, and any work outside the character-builder system
+8. [x] Level Up **Phase 2** implemented (2026-07-12): generalized class-resource derivation (`js/domain/rules/classResources.js`, `deriveCharacter().derivedResources`), duplicate-aware seeding into `character.resources[]`, Level Up growth deltas with spent-use preservation, and the custom-class `resources` schema (see `docs/reference/content-registry-plan.md` → Class Resources)
+9. [ ] **Current authorized work (owner authorization, 2026-07-12 second session):** the next highest-value coherent builder batches per `docs/audits/builder-completion-matrix.md`. Audit batches **B1, B2, and B3 are explicitly authorized** in sequence (one at a time, each fully verified before the next). Per-batch re-authorization is not required for builder-completion work this session.
+10. [ ] **Still blocked / out of scope:** down-leveling (ratified out of scope), builtin content expansion beyond the SRD 5.1 greenlist, and any work outside the character-builder system
 
 `docs/audits/srd-5-1-character-builder-gap-audit-stabilization-docs.md` is a **planning
 artifact, not a work order**. Steps 1-7 above are complete. Its batches **B1
