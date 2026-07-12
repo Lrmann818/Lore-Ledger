@@ -6,10 +6,15 @@
 
 import {
   CHARACTER_ABILITY_KEYS,
+  clonePlainBuild,
   isBuilderCharacter,
   makeDefaultCharacterBuild,
   normalizeCharacterBuild
 } from "../../domain/characterHelpers.js";
+
+// Re-exported for existing callers/tests; the implementation moved to
+// characterHelpers.js so the Level Up wizard can share it.
+export { clonePlainBuild };
 import { deriveCharacter } from "../../domain/rules/deriveCharacter.js";
 import {
   getActiveContentRegistry,
@@ -118,30 +123,6 @@ const STEP_ORDER = Object.freeze([
  */
 function cleanString(value) {
   return typeof value === "string" ? value.trim() : "";
-}
-
-/**
- * Deep-clones a build object into a fresh, fully-detached plain object.
- *
- * The active character's `build` is read from `getActiveCharacter(state)`,
- * which — in dev/local/preview and `?dev=1` sessions — returns values wrapped
- * by the state-mutation guard's recursive Proxy (see js/utils/dev.js). Passing
- * such a proxied object to `structuredClone()` throws a `DataCloneError`
- * ("could not be cloned"), which is why editing a builder character used to
- * crash. A JSON round-trip reads through the proxy get-traps and produces plain
- * data, matching how the rest of the app detaches state (e.g.
- * materializeDerivedCharacterFields, campaign vault, backup). Build data is
- * always JSON-safe, so nothing is lost.
- *
- * @param {unknown} build
- * @returns {unknown}
- */
-export function clonePlainBuild(build) {
-  try {
-    return JSON.parse(JSON.stringify(build ?? null));
-  } catch {
-    return null;
-  }
 }
 
 /**

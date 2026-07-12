@@ -909,6 +909,302 @@ export function collectAsiChoices(flatChoices) {
   return { abilityIncreases, featIds };
 }
 
+// SRD wizard spellbook growth is rules text, not API data: six 1st-level
+// spells at wizard level 1, then two spells per wizard level gained. Keyed by
+// preparationMode "spellbook" so a custom spellbook class inherits the rule.
+export const SPELLBOOK_INITIAL_SPELLS = 6;
+export const SPELLBOOK_SPELLS_PER_LEVEL = 2;
+
+/**
+ * Final ability totals derived purely from the build: base scores plus race
+ * and subrace increases, ASI choices, and structured feat effects. Matches
+ * deriveCharacter()'s ability assembly with overrides at zero (progression.js
+ * cannot import deriveCharacter without a cycle).
+ * @param {Record<string, unknown>} build
+ * @param {ContentRegistry} registry
+ * @returns {Record<string, number | null>}
+ */
+export function getBuildAbilityTotals(build, registry) {
+  const abilities = isPlainObject(build.abilities) ? build.abilities : {};
+  const base = isPlainObject(abilities.base) ? abilities.base : {};
+  const flat = flattenChoices(build.choicesByLevel);
+  const { abilityIncreases, featIds } = collectAsiChoices(flat);
+  /** @type {BuiltinContentEntry[]} */
+  const featEntries = [];
+  for (const featId of featIds) {
+    const entry = getContentByKind(registry, "feat", featId);
+    if (entry) featEntries.push(entry);
+  }
+  const featEffects = collectFeatEffects(featEntries);
+  /** @type {Record<string, number>} */
+  const raceBonuses = {};
+  const raceEntry = getContentByKind(registry, "race", cleanString(build.raceId).replace(/^race_/, ""));
+  const subraceEntry = getContentByKind(registry, "subrace", cleanString(build.subraceId));
+  for (const parent of [raceEntry, subraceEntry]) {
+    const increases = Array.isArray(parent?.data?.abilityScoreIncreases) ? parent.data.abilityScoreIncreases : [];
+    for (const entry of increases) {
+      if (!isPlainObject(entry)) continue;
+      const ability = cleanString(entry.ability);
+      const bonus = finiteNumberOrNull(entry.bonus);
+      if (ability && bonus != null) raceBonuses[ability] = (raceBonuses[ability] || 0) + bonus;
+    }
+  }
+  /** @type {Record<string, number | null>} */
+  const totals = {};
+  for (const key of ["str", "dex", "con", "int", "wis", "cha"]) {
+    const baseScore = finiteNumberOrNull(base[key]);
+    totals[key] = baseScore == null
+      ? null
+      : baseScore + (raceBonuses[key] || 0) + (abilityIncreases[key] || 0) + (featEffects.abilityBonuses[key] || 0);
+  }
+  return totals;
+}
+
+/** @param {number} level @returns {number} */
+function proficiencyBonusAtLevel(level) {
+  return 2 + Math.floor((Math.max(1, Math.min(MAX_CHARACTER_LEVEL, level)) - 1) / 4);
+}
+
+/**
+ * @typedef {{
+ *   classId: string,
+ *   className: string,
+ *   preparationMode: string,
+ *   progression: string,
+ *   cantripsGained: number,
+ *   knownGained: number,
+ *   spellbookGained: number,
+ *   preparedCapacityBefore: number | null,
+ *   preparedCapacityAfter: number | null,
+ *   newSpellLevels: number[],
+ *   grantedSpellIds: string[]
+ * }} LevelUpSpellcastingDelta
+ *
+ * @typedef {{
+ *   fromLevel: number,
+ *   toLevel: number,
+ *   classId: string,
+ *   className: string,
+ *   classLevel: number,
+ *   isNewClass: boolean,
+ *   subclassRequired: { classId: string, options: string[] } | null,
+ *   newFeatureIds: string[],
+ *   featureChoiceIds: string[],
+ *   asiSlot: { characterLevel: number, classId: string, classLevel: number } | null,
+ *   multiclassSkillChoiceId: string | null,
+ *   hitDie: number | null,
+ *   spellcastingDelta: LevelUpSpellcastingDelta[],
+ *   slotsBefore: number[],
+ *   slotsAfter: number[],
+ *   pactBefore: { slots: number, slotLevel: number } | null,
+ *   pactAfter: { slots: number, slotLevel: number } | null,
+ *   proficiencyBonusBefore: number,
+ *   proficiencyBonusAfter: number,
+ *   prerequisiteWarnings: string[]
+ * }} LevelUpPlan
+ */
+
+/**
+ * Computes everything one appended `classId` level newly unlocks, as a pure
+ * before/after diff over (build, registry). This is the single place the
+ * Level Up flow asks "does the new level grant X?". It never mutates the
+ * build and never returns prepared-spell selections — prepared casters get
+ * capacity/new-spell-level information only (selection stays in Long Rest).
+ *
+ * Returns null when the level cannot be appended: the build is already at
+ * MAX_CHARACTER_LEVEL, the classId is blank, or the class is not in the
+ * registry.
+ *
+ * @param {unknown} build
+ * @param {string} classId
+ * @param {ContentRegistry} registry
+ * @returns {LevelUpPlan | null}
+ */
+export function getLevelUpPlan(build, classId, registry) {
+  if (!isPlainObject(build)) return null;
+  const id = cleanString(classId);
+  if (!id) return null;
+  const classEntry = getClassEntry(registry, id);
+  if (!classEntry) return null;
+
+  const levelsBefore = normalizeBuildLevels(build);
+  if (levelsBefore.length >= MAX_CHARACTER_LEVEL) return null;
+  const levelsAfter = [...levelsBefore, { classId: id, hp: null }];
+  const fromLevel = levelsBefore.length;
+  const toLevel = levelsAfter.length;
+
+  const subclassByClass = isPlainObject(build.subclassByClass)
+    ? /** @type {Record<string, string>} */ (build.subclassByClass)
+    : {};
+
+  const classLevel = levelsAfter.filter((row) => row.classId === id).length;
+  const isNewClass = classLevel === 1;
+
+  // Subclass unlock: asked only when the appended level is exactly the
+  // class's subclass level and no subclass is stored yet (spec §5 step 2).
+  /** @type {LevelUpPlan["subclassRequired"]} */
+  let subclassRequired = null;
+  const subclassLevel = finiteNumberOrNull(classEntry.data?.subclassLevel);
+  const subclassIds = Array.isArray(classEntry.data?.subclassIds)
+    ? classEntry.data.subclassIds.map(cleanString).filter(Boolean)
+    : [];
+  if (subclassLevel != null && classLevel === subclassLevel &&
+    !cleanString(subclassByClass[id]) && subclassIds.length) {
+    subclassRequired = { classId: id, options: subclassIds };
+  }
+
+  // Features newly gained at the appended character level, including any
+  // subclass features when the subclass is already stored on the build.
+  const newFeatures = getBuildFeatures(levelsAfter, subclassByClass, registry)
+    .filter((feature) => feature.characterLevel === toLevel);
+  const newFeatureIds = [...new Set(newFeatures.map((feature) => feature.featureId))];
+  /** @type {string[]} */
+  const featureChoiceIds = [];
+  for (const featureId of newFeatureIds) {
+    const featureEntry = getContentByKind(registry, "feature", featureId);
+    const hasSubOptions = isPlainObject(featureEntry?.data?.subfeatureOptions) &&
+      Array.isArray(featureEntry.data.subfeatureOptions.from) &&
+      featureEntry.data.subfeatureOptions.from.length > 0;
+    if (hasSubOptions || EXPERTISE_FEATURE_IDS.has(featureId)) {
+      featureChoiceIds.push(featureChoiceId(featureId));
+    }
+  }
+
+  const asiSlot = getAsiSlots(levelsAfter, registry)
+    .find((slot) => slot.characterLevel === toLevel) ?? null;
+
+  // A brand-new class contributes its SRD multiclass skill choice when the
+  // class grants one (first-class skill choices never reopen).
+  const multiclassing = isPlainObject(classEntry.data?.multiclassing) ? classEntry.data.multiclassing : null;
+  const multiclassSkills = isNewClass && fromLevel > 0 && isPlainObject(multiclassing?.skillChoices)
+    ? multiclassing.skillChoices
+    : null;
+  const multiclassSkillChoice = multiclassSkills &&
+    Number.isInteger(Number(multiclassSkills.choose)) && Number(multiclassSkills.choose) >= 1 &&
+    Array.isArray(multiclassSkills.from) && multiclassSkills.from.length
+    ? multiclassSkillChoiceId(id)
+    : null;
+
+  const hitDieRaw = finiteNumberOrNull(classEntry.data?.hitDie);
+  const hitDie = hitDieRaw != null && hitDieRaw > 0 ? hitDieRaw : null;
+
+  // Spellcasting before/after diff.
+  const castersBefore = getSpellcastingClasses(levelsBefore, registry);
+  const castersAfter = getSpellcastingClasses(levelsAfter, registry);
+  const combinedBefore = getCombinedSpellSlots(levelsBefore, registry);
+  const combinedAfter = getCombinedSpellSlots(levelsAfter, registry);
+  const grantedBefore = getGrantedSpells(levelsBefore, subclassByClass, registry);
+  const grantedAfter = getGrantedSpells(levelsAfter, subclassByClass, registry);
+  const abilityTotals = getBuildAbilityTotals(build, registry);
+  const profAfter = proficiencyBonusAtLevel(toLevel);
+
+  /**
+   * @param {ReturnType<typeof getSpellcastingClasses>[number]} caster
+   * @returns {number | null}
+   */
+  const preparedCapacity = (caster) => {
+    if (caster.preparationMode !== "prepared" && caster.preparationMode !== "spellbook") return null;
+    const total = abilityTotals[caster.ability];
+    if (total == null) return null;
+    const mod = Math.floor((total - 10) / 2);
+    const casterLevelPart = caster.progression === "half"
+      ? Math.floor(caster.classLevel / 2)
+      : caster.classLevel;
+    return Math.max(1, casterLevelPart + mod);
+  };
+
+  /** @type {LevelUpSpellcastingDelta[]} */
+  const spellcastingDelta = [];
+  for (const after of castersAfter) {
+    const before = castersBefore.find((caster) => caster.classId === after.classId) ?? null;
+    const cantripsGained = Math.max(0, (after.cantripsKnownMax ?? 0) - (before?.cantripsKnownMax ?? 0));
+    const knownGained = after.preparationMode === "known"
+      ? Math.max(0, (after.spellsKnownMax ?? 0) - (before?.spellsKnownMax ?? 0))
+      : 0;
+    const spellbookGained = after.preparationMode === "spellbook" && after.classId === id
+      ? (isNewClass ? SPELLBOOK_INITIAL_SPELLS : SPELLBOOK_SPELLS_PER_LEVEL)
+      : 0;
+    const preparedCapacityAfter = preparedCapacity(after);
+    const preparedCapacityBefore = before ? preparedCapacity(before) : null;
+
+    /** @type {number[]} */
+    const newSpellLevels = [];
+    if (after.progression === "pact") {
+      const beforeLevel = combinedBefore.pact?.slotLevel ?? 0;
+      const afterLevel = combinedAfter.pact?.slotLevel ?? 0;
+      for (let level = beforeLevel + 1; level <= afterLevel; level += 1) newSpellLevels.push(level);
+    } else {
+      combinedAfter.slots.forEach((count, index) => {
+        if (count > 0 && !(combinedBefore.slots[index] > 0)) newSpellLevels.push(index + 1);
+      });
+    }
+
+    const grantedBeforeIds = new Set(grantedBefore
+      .filter((grant) => grant.classId === after.classId)
+      .map((grant) => grant.spellId));
+    const grantedSpellIds = [...new Set(grantedAfter
+      .filter((grant) => grant.classId === after.classId && !grantedBeforeIds.has(grant.spellId))
+      .map((grant) => grant.spellId))];
+
+    const capacityChanged = (preparedCapacityBefore ?? null) !== (preparedCapacityAfter ?? null);
+    if (cantripsGained || knownGained || spellbookGained || capacityChanged ||
+      newSpellLevels.length || grantedSpellIds.length || !before) {
+      const casterClassEntry = getClassEntry(registry, after.classId);
+      spellcastingDelta.push({
+        classId: after.classId,
+        className: casterClassEntry?.name || after.classId,
+        preparationMode: after.preparationMode,
+        progression: after.progression,
+        cantripsGained,
+        knownGained,
+        spellbookGained,
+        preparedCapacityBefore,
+        preparedCapacityAfter,
+        newSpellLevels,
+        grantedSpellIds
+      });
+    }
+  }
+
+  // Multiclass prerequisite warnings: guidance only, never blocking (matches
+  // the creation wizard's "allowed, but house-rules territory" stance).
+  /** @type {string[]} */
+  const prerequisiteWarnings = [];
+  const distinctAfter = getClassLevelTotals(levelsAfter);
+  if (distinctAfter.length > 1) {
+    for (const info of distinctAfter) {
+      const check = checkMulticlassPrerequisites(info.classId, abilityTotals, registry);
+      if (!check.ok) {
+        const entry = getClassEntry(registry, info.classId);
+        prerequisiteWarnings.push(`${entry?.name || info.classId} needs ${check.unmet.join(", ")}`);
+      }
+    }
+  }
+
+  return {
+    fromLevel,
+    toLevel,
+    classId: id,
+    className: classEntry.name,
+    classLevel,
+    isNewClass,
+    subclassRequired,
+    newFeatureIds,
+    featureChoiceIds,
+    asiSlot,
+    multiclassSkillChoiceId: multiclassSkillChoice,
+    hitDie,
+    spellcastingDelta,
+    slotsBefore: combinedBefore.slots,
+    slotsAfter: combinedAfter.slots,
+    pactBefore: combinedBefore.pact,
+    pactAfter: combinedAfter.pact,
+    proficiencyBonusBefore: fromLevel >= 1 ? proficiencyBonusAtLevel(fromLevel) : profAfter,
+    proficiencyBonusAfter: profAfter,
+    prerequisiteWarnings
+  };
+}
+
 /** @param {number} characterLevel @returns {string} */
 export function asiChoiceId(characterLevel) {
   return `asi-${characterLevel}`;
