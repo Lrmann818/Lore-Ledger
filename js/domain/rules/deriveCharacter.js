@@ -8,6 +8,7 @@
 
 import { CHARACTER_ABILITY_KEYS, isBuilderCharacter, normalizeCharacterOverrides } from "../characterHelpers.js";
 import { getActiveContentRegistry, getContentById, getContentByKind, listContentByKind } from "./registry.js";
+import { getDerivedClassResources } from "./classResources.js";
 import {
   collectAsiChoices,
   collectFeatEffects,
@@ -367,6 +368,7 @@ function readChoiceValues(flatChoices, choiceId) {
  *   grantedSpells: Array<{ spellId: string, classId: string, subclassId: string, grantType: string }>,
  *   dragonbornAncestry: DragonbornAncestryDerived | null,
  *   derivedFeatureActions: DerivedFeatureAction[],
+ *   derivedResources: import("./classResources.js").DerivedClassResource[],
  *   warnings: string[]
  * }}
  */
@@ -832,6 +834,18 @@ export function deriveCharacter(character, registry = getActiveContentRegistry()
 
   const grantedSpells = build ? getGrantedSpells(levels, subclassByClass, registry) : [];
 
+  // ---- class resources (shared limited-use pools) ----
+  /** @type {import("./classResources.js").DerivedClassResource[]} */
+  let derivedResources = [];
+  if (build) {
+    /** @type {Record<string, number | null>} */
+    const abilityModifierLookup = {};
+    for (const key of CHARACTER_ABILITY_KEYS) abilityModifierLookup[key] = abilities[key]?.modifier ?? null;
+    const classResourceResult = getDerivedClassResources(levels, registry, abilityModifierLookup);
+    derivedResources = classResourceResult.resources;
+    warnings.push(...classResourceResult.warnings);
+  }
+
   // ---- Dragonborn ancestry slice (kept for existing panels) ----
   /** @type {DragonbornAncestryDerived | null} */
   let dragonbornAncestry = null;
@@ -949,6 +963,7 @@ export function deriveCharacter(character, registry = getActiveContentRegistry()
     grantedSpells,
     dragonbornAncestry,
     derivedFeatureActions,
+    derivedResources,
     warnings
   };
 }
