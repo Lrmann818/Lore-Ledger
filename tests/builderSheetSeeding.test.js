@@ -416,3 +416,74 @@ describe("builder finish seeding — inventory pockets", () => {
     expect(patch.inventoryItems.find((item) => item.id === "inv_main").notes).toBe("50 ft rope");
   });
 });
+
+describe("builder finish seeding — class resources", () => {
+  function makeBarbarian(level = 1) {
+    const character = makeDefaultBuilderCharacterEntry("Barb Mira");
+    character.build.raceId = "human";
+    character.build.backgroundId = "acolyte";
+    character.build.levels = Array.from({ length: level }, () => ({ classId: "barbarian", hp: null }));
+    character.build.abilities.base = { str: 15, dex: 14, con: 13, int: 12, wis: 10, cha: 8 };
+    return character;
+  }
+
+  it("seeds Rage full with recovery metadata and the stable marker", () => {
+    const patch = getBuilderFinishSheetSeedPatch(makeBarbarian(1));
+    const rage = patch.resources.find((resource) => resource.builderSeed === "class-resource:rage");
+    expect(rage).toMatchObject({ name: "Rage", cur: 2, max: 2, recovery: "longRest" });
+  });
+
+  it("adopts a hand-made name-matching tracker instead of duplicating it", () => {
+    const character = makeBarbarian(1);
+    character.resources = [{ id: "r1", name: "rage", cur: 1, max: 2 }];
+    const patch = getBuilderFinishSheetSeedPatch(character);
+    const rageEntries = patch.resources.filter((resource) => String(resource.name).toLowerCase() === "rage");
+    expect(rageEntries).toHaveLength(1);
+    expect(rageEntries[0]).toMatchObject({ id: "r1", cur: 1, max: 2, builderSeed: "class-resource:rage" });
+  });
+
+  it("never overwrites user-set max, cur, or recovery on re-seed", () => {
+    const character = makeBarbarian(3);
+    character.resources = [{
+      id: "r1", name: "Rage", cur: 0, max: 99, recovery: "manual", builderSeed: "class-resource:rage"
+    }];
+    const patch = getBuilderFinishSheetSeedPatch(character);
+    expect(patch.resources).toBeUndefined();
+  });
+
+  it("is idempotent once seeded", () => {
+    const character = makeBarbarian(1);
+    const first = getBuilderFinishSheetSeedPatch(character);
+    const seeded = { ...character, ...first };
+    const second = getBuilderFinishSheetSeedPatch(seeded);
+    expect(second.resources).toBeUndefined();
+  });
+
+  it("seeds ability-formula pools from the derived modifier", () => {
+    const character = makeDefaultBuilderCharacterEntry("Bard Mira");
+    character.build.raceId = "human";
+    character.build.backgroundId = "acolyte";
+    character.build.levels = [{ classId: "bard", hp: null }];
+    character.build.abilities.base = { str: 8, dex: 14, con: 13, int: 10, wis: 10, cha: 15 };
+    const patch = getBuilderFinishSheetSeedPatch(character);
+    const inspiration = patch.resources.find((resource) => resource.builderSeed === "class-resource:bardic-inspiration");
+    // Human Cha 16 → +3.
+    expect(inspiration).toMatchObject({ cur: 3, max: 3, recovery: "longRest" });
+  });
+
+  it("seeds unlimited pools without writing a false maximum", () => {
+    const patch = getBuilderFinishSheetSeedPatch(makeBarbarian(20));
+    const rage = patch.resources.find((resource) => resource.builderSeed === "class-resource:rage");
+    expect(rage).toMatchObject({ max: null, cur: null });
+  });
+
+  it("leaves unrelated manual trackers untouched", () => {
+    const character = makeBarbarian(1);
+    character.resources = [{ id: "r1", name: "Luck Points", cur: 2, max: 3 }];
+    const patch = getBuilderFinishSheetSeedPatch(character);
+    const luck = patch.resources.find((resource) => resource.name === "Luck Points");
+    expect(luck).toMatchObject({ id: "r1", cur: 2, max: 3 });
+    expect(luck.builderSeed).toBeUndefined();
+    expect(patch.resources.some((resource) => resource.builderSeed === "class-resource:rage")).toBe(true);
+  });
+});

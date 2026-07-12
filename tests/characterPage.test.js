@@ -4715,6 +4715,9 @@ describe("level up flow", () => {
     expect(updated.hpCur).toBe(17);
     expect(updated.features).toContain("Action Surge");
     expect(updated.features).toContain("(Fighter 2)");
+    // Phase 2: the newly unlocked Action Surge pool arrives full and marked.
+    const surge = updated.resources.find((resource) => resource.builderSeed === "class-resource:action-surge");
+    expect(surge).toMatchObject({ name: "Action Surge", cur: 1, max: 1, recovery: "shortOrLongRest" });
     expect(deps.SaveManager.markDirty).toHaveBeenCalledTimes(1);
     expect(document.getElementById("levelUpOverlay").hidden).toBe(true);
     expect(deps.setStatus).toHaveBeenCalledWith("Level Up applied — now level 2.", { stickyMs: 2000 });

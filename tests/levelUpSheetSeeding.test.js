@@ -390,14 +390,14 @@ describe("additive spell and feature content", () => {
 });
 
 describe("user-owned play-state is untouched", () => {
-  it("never patches inventory, resources, rest, death saves, feature uses, or attacks", () => {
+  it("never patches inventory, rest, death saves, feature uses, or attacks, and only appends resources", () => {
     const before = makeCharacter({
       levels: levelsOf("fighter", "fighter"),
       subclassByClass: { fighter: "champion" },
       sheet: {
         hpMax: 20, hpCur: 9,
         inventoryItems: [{ id: "inv1", title: "My Renamed Pocket", notes: "Torch ×10", builderSeed: "starting-gear" }],
-        resources: [{ id: "res1", name: "Rage", cur: 1, max: 3 }],
+        resources: [{ id: "res1", name: "My Homebrew Pool", cur: 1, max: 3 }],
         rest: { hitDiceSpent: { "class:fighter": 1 }, preparedByClass: {} },
         deathSaves: { successes: 2, failures: 1 },
         featureUses: { "dragonborn-breath-weapon": { current: 0 } },
@@ -408,13 +408,17 @@ describe("user-owned play-state is untouched", () => {
     const after = withAppendedLevel(before, "fighter");
     const { patch } = getLevelUpSheetSeedPatch(before, after, registry);
     expect(patch.inventoryItems).toBeUndefined();
-    expect(patch.resources).toBeUndefined();
     expect(patch.rest).toBeUndefined();
     expect(patch.deathSaves).toBeUndefined();
     expect(patch.featureUses).toBeUndefined();
     expect(patch.attacks).toBeUndefined();
     expect(patch.manualFeatureCards).toBeUndefined();
     expect(patch.personality).toBeUndefined();
+    // Resources are a documented Phase 2 delta, but the patch is additive:
+    // the user's manual tracker rides along untouched.
+    const manualPool = patch.resources.find((resource) => resource.name === "My Homebrew Pool");
+    expect(manualPool).toMatchObject({ id: "res1", cur: 1, max: 3 });
+    expect(manualPool.builderSeed).toBeUndefined();
   });
 
   it("prepared-caster capacity changes do not modify preparedIds or rest.preparedByClass", () => {
@@ -454,5 +458,142 @@ describe("user-owned play-state is untouched", () => {
     const freeform = { id: "c1", name: "Manual Mira", build: null, hpMax: 10 };
     const result = getLevelUpSheetSeedPatch(freeform, freeform, registry);
     expect(result.patch).toEqual({});
+  });
+});
+
+describe("class-resource growth on level up", () => {
+  function makeBarbarianWithRage({ level = 2, cur = 0, max = 2, name = "Rage", recovery = "longRest", extraResources = [] } = {}) {
+    const before = makeCharacter({
+      levels: Array.from({ length: level }, () => ({ classId: "barbarian", hp: null })),
+      sheet: {
+        hpMax: 30, hpCur: 30,
+        resources: [
+          { id: "r_rage", name, cur, max, recovery, builderSeed: "class-resource:rage" },
+          ...extraResources
+        ]
+      }
+    });
+    return before;
+  }
+
+  it("grows a pool by the derived delta and preserves spent uses", () => {
+    const before = makeBarbarianWithRage({ level: 2, cur: 0, max: 2 });
+    const after = withAppendedLevel(before, "barbarian");
+    const { patch } = getLevelUpSheetSeedPatch(before, after, registry);
+    const rage = patch.resources.find((resource) => resource.builderSeed === "class-resource:rage");
+    // Rage 2 → 3 at barbarian 3: both spent rages stay spent.
+    expect(rage).toMatchObject({ max: 3, cur: 1 });
+  });
+
+  it("keeps a manual maximum offset while applying the delta", () => {
+    const before = makeBarbarianWithRage({ level: 2, cur: 5, max: 5 });
+    const after = withAppendedLevel(before, "barbarian");
+    const { patch } = getLevelUpSheetSeedPatch(before, after, registry);
+    const rage = patch.resources.find((resource) => resource.builderSeed === "class-resource:rage");
+    expect(rage).toMatchObject({ max: 6, cur: 6 });
+  });
+
+  it("updates a renamed builder-seeded pool without touching its name", () => {
+    const before = makeBarbarianWithRage({ level: 2, cur: 1, max: 2, name: "Fury" });
+    const after = withAppendedLevel(before, "barbarian");
+    const { patch } = getLevelUpSheetSeedPatch(before, after, registry);
+    const rage = patch.resources.find((resource) => resource.builderSeed === "class-resource:rage");
+    expect(rage).toMatchObject({ name: "Fury", max: 3, cur: 2 });
+  });
+
+  it("adds a newly unlocked pool at full uses", () => {
+    const before = makeCharacter({
+      levels: levelsOf("fighter"),
+      sheet: { hpMax: 12, hpCur: 12, resources: [] }
+    });
+    const after = withAppendedLevel(before, "fighter");
+    const { patch } = getLevelUpSheetSeedPatch(before, after, registry);
+    const surge = patch.resources.find((resource) => resource.builderSeed === "class-resource:action-surge");
+    expect(surge).toMatchObject({ name: "Action Surge", cur: 1, max: 1, recovery: "shortOrLongRest" });
+  });
+
+  it("leaves unchanged pools and manual trackers untouched", () => {
+    const before = makeBarbarianWithRage({
+      level: 3, cur: 1, max: 3,
+      extraResources: [{ id: "r_luck", name: "Luck Points", cur: 1, max: 3 }]
+    });
+    const after = withAppendedLevel(before, "barbarian"); // barb 3 → 4: rage stays 3
+    const { patch } = getLevelUpSheetSeedPatch(before, after, registry);
+    if (patch.resources) {
+      const rage = patch.resources.find((resource) => resource.builderSeed === "class-resource:rage");
+      expect(rage).toMatchObject({ cur: 1, max: 3 });
+      const luck = patch.resources.find((resource) => resource.name === "Luck Points");
+      expect(luck).toMatchObject({ cur: 1, max: 3 });
+      expect(luck.builderSeed).toBeUndefined();
+    }
+  });
+
+  it("stops numeric updates when a pool goes unlimited", () => {
+    const before = makeBarbarianWithRage({ level: 19, cur: 2, max: 6 });
+    const after = withAppendedLevel(before, "barbarian"); // 20: unlimited
+    const { patch } = getLevelUpSheetSeedPatch(before, after, registry);
+    if (patch.resources) {
+      const rage = patch.resources.find((resource) => resource.builderSeed === "class-resource:rage");
+      expect(rage).toMatchObject({ cur: 2, max: 6 });
+    }
+  });
+
+  it("applies an ability-driven maximum change from a Charisma ASI", () => {
+    const before = makeCharacter({
+      levels: levelsOf("bard", "bard", "bard"),
+      base: { str: 8, dex: 14, con: 13, int: 10, wis: 10, cha: 15 },
+      sheet: {
+        hpMax: 20, hpCur: 20,
+        resources: [{ id: "r_bi", name: "Bardic Inspiration", cur: 0, max: 3, recovery: "longRest", builderSeed: "class-resource:bardic-inspiration" }]
+      }
+    });
+    const after = withAppendedLevel(before, "bard", {
+      mutateBuild: (build) => {
+        build.choicesByLevel["4"] = { "asi-4": { type: "asi", increases: { cha: 2 } } };
+      }
+    });
+    const { patch } = getLevelUpSheetSeedPatch(before, after, registry);
+    const inspiration = patch.resources.find((resource) => resource.builderSeed === "class-resource:bardic-inspiration");
+    // Human Cha 16 (+3) → 18 (+4): max 3 → 4; both spent uses stay spent.
+    expect(inspiration).toMatchObject({ max: 4, cur: 1 });
+  });
+
+  it("upgrades recovery at bard 5 only while the stored cadence is untouched", () => {
+    const untouched = makeCharacter({
+      levels: levelsOf("bard", "bard", "bard", "bard"),
+      base: { str: 8, dex: 14, con: 13, int: 10, wis: 10, cha: 15 },
+      sheet: {
+        hpMax: 24, hpCur: 24,
+        resources: [{ id: "r_bi", name: "Bardic Inspiration", cur: 3, max: 3, recovery: "longRest", builderSeed: "class-resource:bardic-inspiration" }]
+      }
+    });
+    const upgraded = getLevelUpSheetSeedPatch(untouched, withAppendedLevel(untouched, "bard"), registry);
+    const inspiration = upgraded.patch.resources.find((resource) => resource.builderSeed === "class-resource:bardic-inspiration");
+    expect(inspiration.recovery).toBe("shortOrLongRest");
+
+    const diverged = JSON.parse(JSON.stringify(untouched));
+    diverged.resources[0].recovery = "manual";
+    const preservedResult = getLevelUpSheetSeedPatch(diverged, withAppendedLevel(diverged, "bard"), registry);
+    const divergedRow = preservedResult.patch.resources
+      ? preservedResult.patch.resources.find((resource) => resource.builderSeed === "class-resource:bardic-inspiration")
+      : diverged.resources[0];
+    expect(divergedRow.recovery).toBe("manual");
+    expect(preservedResult.preserved.join(" ")).toContain("Bardic Inspiration recovery");
+  });
+
+  it("grows a merged multiclass pool from the class that actually advanced", () => {
+    const before = makeCharacter({
+      levels: [...levelsOf("cleric", "cleric", "cleric", "cleric", "cleric"), ...levelsOf("paladin", "paladin", "paladin")],
+      base: { str: 15, dex: 10, con: 13, int: 8, wis: 15, cha: 14 },
+      subclassByClass: { cleric: "life", paladin: "devotion" },
+      sheet: {
+        hpMax: 60, hpCur: 60,
+        resources: [{ id: "r_cd", name: "Channel Divinity", cur: 0, max: 1, recovery: "shortOrLongRest", builderSeed: "class-resource:channel-divinity" }]
+      }
+    });
+    const after = withAppendedLevel(before, "cleric"); // cleric 6: CD 1 → 2
+    const { patch } = getLevelUpSheetSeedPatch(before, after, registry);
+    const channelDivinity = patch.resources.find((resource) => resource.builderSeed === "class-resource:channel-divinity");
+    expect(channelDivinity).toMatchObject({ max: 2, cur: 1 });
   });
 });

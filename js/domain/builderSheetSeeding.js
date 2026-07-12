@@ -12,6 +12,7 @@ import { isBuilderCharacter } from "./characterHelpers.js";
 import { deriveCharacter } from "./rules/deriveCharacter.js";
 import { getActiveContentRegistry, getContentByKind, listContentByKind } from "./rules/registry.js";
 import { normalizeBuildLevels } from "./rules/progression.js";
+import { classResourceSeedMarker } from "./rules/classResources.js";
 
 /** @typedef {import("./rules/registry.js").ContentRegistry} ContentRegistry */
 
@@ -723,6 +724,170 @@ function findLooseGearPocketIndex(items) {
 }
 
 /**
+ * Locates the resource entry that owns one derived class pool: the stable
+ * `builderSeed` marker first (survives a user rename), then an unmarked
+ * entry whose name matches case-insensitively — adopting a hand-made "Rage"
+ * tracker instead of duplicating it. User-created entries with other names
+ * and entries carrying a different marker are never matched.
+ * @param {unknown[]} items
+ * @param {{ id: string, name: string }} resource
+ * @returns {number}
+ */
+function findClassResourceIndex(items, resource) {
+  const marker = classResourceSeedMarker(resource.id);
+  const marked = items.findIndex((item) =>
+    isPlainObject(item) && cleanString(item.builderSeed) === marker);
+  if (marked >= 0) return marked;
+  const nameKey = resource.name.toLowerCase();
+  return items.findIndex((item) =>
+    isPlainObject(item) && !cleanString(item.builderSeed) &&
+    cleanString(item.name).toLowerCase() === nameKey);
+}
+
+/**
+ * Finish/Edit-time class-resource seeding: appends missing pools and fills
+ * only empty fields on existing ones. Stored `name`, `cur`, a user-set
+ * `max`, and a user-set `recovery` are never overwritten here — the
+ * fill-only-when-empty contract that all Finish seeding follows. Unlimited
+ * pools (Rage at barbarian 20) seed with `max: null` so nothing false is
+ * written. Returns a full replacement array or null when unchanged.
+ * @param {Record<string, unknown>} source
+ * @param {ReturnType<typeof deriveCharacter>} derived
+ * @returns {Array<Record<string, unknown>> | null}
+ */
+function getSeededResources(source, derived) {
+  const derivedResources = Array.isArray(derived.derivedResources) ? derived.derivedResources : [];
+  if (!derivedResources.length) return null;
+  const existing = Array.isArray(source.resources) ? source.resources : [];
+  const next = existing.slice();
+  let changed = false;
+
+  for (const resource of derivedResources) {
+    const marker = classResourceSeedMarker(resource.id);
+    const index = findClassResourceIndex(next, resource);
+    if (index < 0) {
+      const max = resource.unlimited ? null : resource.max;
+      next.push({
+        id: newSeedId("res"),
+        name: resource.name,
+        cur: max,
+        max,
+        recovery: resource.recovery,
+        builderSeed: marker
+      });
+      changed = true;
+      continue;
+    }
+    const item = /** @type {Record<string, unknown>} */ ({ ...next[index] });
+    let itemChanged = false;
+    if (cleanString(item.builderSeed) !== marker) {
+      item.builderSeed = marker;
+      itemChanged = true;
+    }
+    if (!resource.unlimited && resource.max != null && finiteNumberOrNull(item.max) == null) {
+      item.max = resource.max;
+      itemChanged = true;
+      if (finiteNumberOrNull(item.cur) == null) item.cur = resource.max;
+    }
+    if (!cleanString(item.recovery)) {
+      item.recovery = resource.recovery;
+      itemChanged = true;
+    }
+    if (itemChanged) {
+      next[index] = item;
+      changed = true;
+    }
+  }
+  return changed ? next : null;
+}
+
+/**
+ * Level-up-specific class-resource growth. Newly unlocked pools arrive full;
+ * pools the character already has move by the derived before→after delta so
+ * spent uses stay spent (Rage 0/2 → 1/3, never 3/3). A manually offset
+ * maximum keeps its offset. Recovery follows recompute-if-untouched: it
+ * updates only while the stored value still matches the previous derived
+ * cadence (the Bardic Inspiration upgrade at bard 5), otherwise the manual
+ * setting is kept and reported. Unlimited pools stop receiving numeric
+ * updates. Returns a full replacement array or null when unchanged.
+ * @param {Record<string, unknown>} source
+ * @param {ReturnType<typeof deriveCharacter>} derivedBefore
+ * @param {ReturnType<typeof deriveCharacter>} derivedAfter
+ * @param {{ preserved: string[] }} report
+ * @returns {Array<Record<string, unknown>> | null}
+ */
+function accumulateClassResources(source, derivedBefore, derivedAfter, report) {
+  const afterResources = Array.isArray(derivedAfter.derivedResources) ? derivedAfter.derivedResources : [];
+  if (!afterResources.length) return null;
+  const beforeById = new Map(
+    (Array.isArray(derivedBefore.derivedResources) ? derivedBefore.derivedResources : [])
+      .map((resource) => [resource.id, resource])
+  );
+  const existing = Array.isArray(source.resources) ? source.resources : [];
+  const next = existing.slice();
+  let changed = false;
+
+  for (const after of afterResources) {
+    const before = beforeById.get(after.id) ?? null;
+    const marker = classResourceSeedMarker(after.id);
+    const index = findClassResourceIndex(next, after);
+    if (index < 0) {
+      const max = after.unlimited ? null : after.max;
+      next.push({
+        id: newSeedId("res"),
+        name: after.name,
+        cur: max,
+        max,
+        recovery: after.recovery,
+        builderSeed: marker
+      });
+      changed = true;
+      continue;
+    }
+    const item = /** @type {Record<string, unknown>} */ ({ ...next[index] });
+    let itemChanged = false;
+    if (cleanString(item.builderSeed) !== marker) {
+      item.builderSeed = marker;
+      itemChanged = true;
+    }
+    if (!after.unlimited && after.max != null) {
+      const storedMax = finiteNumberOrNull(item.max);
+      if (storedMax == null) {
+        item.max = after.max;
+        itemChanged = true;
+        if (finiteNumberOrNull(item.cur) == null) item.cur = after.max;
+      } else if (before && !before.unlimited && before.max != null) {
+        const delta = after.max - before.max;
+        if (delta !== 0) {
+          const nextMax = storedMax + delta;
+          item.max = nextMax;
+          itemChanged = true;
+          const storedCur = finiteNumberOrNull(item.cur);
+          if (storedCur != null) item.cur = Math.max(0, Math.min(nextMax, storedCur + delta));
+        }
+      }
+      // No derived-before value (adopted manual pool or content that changed
+      // out from under the character): leave the stored maximum alone.
+    }
+    const storedRecovery = cleanString(item.recovery);
+    if (after.recovery && storedRecovery !== after.recovery) {
+      const beforeRecovery = before ? before.recovery : "";
+      if (!storedRecovery || storedRecovery === beforeRecovery) {
+        item.recovery = after.recovery;
+        itemChanged = true;
+      } else {
+        report.preserved.push(`${cleanString(item.name) || after.name} recovery — manual setting kept`);
+      }
+    }
+    if (itemChanged) {
+      next[index] = item;
+      changed = true;
+    }
+  }
+  return changed ? next : null;
+}
+
+/**
  * Level-up-specific slot growth: raises each slot row's `total` by the
  * before→after derived delta and moves `used` (which stores currently
  * AVAILABLE slots) by the same delta, clamped to the new total — so spent
@@ -948,6 +1113,13 @@ export function getLevelUpSheetSeedPatch(before, after, registry = getActiveCont
     patch.spells = /** @type {import("../state.js").CharacterEntry["spells"]} */ (accumulated);
   }
 
+  // --- Class resources: new pools arrive full; existing seeded pools grow by
+  // the derived delta with spent uses preserved.
+  const accumulatedResources = accumulateClassResources(source, derivedBefore, derivedAfter, result);
+  if (accumulatedResources) {
+    patch.resources = /** @type {import("../state.js").CharacterEntry["resources"]} */ (accumulatedResources);
+  }
+
   // --- Feature text: only the appended level's features (and new feats). ---
   const newCharacterLevel = normalizeBuildLevels(
     isPlainObject(source.build) ? source.build : {}
@@ -1071,6 +1243,12 @@ export function getBuilderFinishSheetSeedPatch(character, registry = getActiveCo
   // Spell slots + chosen/granted spells → sheet spells model.
   const seededSpells = getSeededSpells(source, derived, registry);
   if (seededSpells) patch.spells = /** @type {import("../state.js").CharacterEntry["spells"]} */ (seededSpells);
+
+  // Class-resource pools → Vitals resource tiles (additive, fill-when-empty).
+  const seededResources = getSeededResources(source, derived);
+  if (seededResources) {
+    patch.resources = /** @type {import("../state.js").CharacterEntry["resources"]} */ (seededResources);
+  }
 
   // Starting equipment → inventory pockets. Loose gear joins the general
   // inventory pocket; each equipment pack becomes its own pocket listing that

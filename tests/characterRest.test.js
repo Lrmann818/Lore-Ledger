@@ -533,3 +533,28 @@ describe("rest after a Level Up", () => {
     expect(regular).toMatchObject({ used: 0, total: 1 });
   });
 });
+
+describe("builder-seeded class resources and rest", () => {
+  it("short rest recovers seeded shortOrLongRest pools and skips longRest pools", () => {
+    const character = makeCharacter([
+      { id: "r_ki", name: "Ki Points", cur: 1, max: 5, recovery: "shortOrLongRest", builderSeed: "class-resource:ki-points" },
+      { id: "r_rage", name: "Rage", cur: 0, max: 3, recovery: "longRest", builderSeed: "class-resource:rage" }
+    ]);
+
+    const result = recoverCharacterForRest(character, "shortRest");
+
+    expect(result.changed).toBe(true);
+    expect(result.character.resources[0]).toMatchObject({ cur: 5, builderSeed: "class-resource:ki-points" });
+    expect(result.character.resources[1]).toMatchObject({ cur: 0, builderSeed: "class-resource:rage" });
+  });
+
+  it("long rest recovers seeded longRest pools", () => {
+    const character = makeCharacter([
+      { id: "r_rage", name: "Rage", cur: 1, max: 3, recovery: "longRest", builderSeed: "class-resource:rage" }
+    ]);
+
+    const result = recoverCharacterForRest(character, "longRest");
+
+    expect(result.character.resources[0]).toMatchObject({ cur: 3, max: 3 });
+  });
+});

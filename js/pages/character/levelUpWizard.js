@@ -952,6 +952,19 @@ export function initLevelUpWizard(deps = {}) {
       addRow("Pact Magic", `${describePact(plan.pactBefore)} → ${describePact(plan.pactAfter)}`);
     }
 
+    // Class-resource pools that change with this level (Rage 2 → 3, new Ki).
+    const beforeResources = new Map(beforeDerived.derivedResources.map((resource) => [resource.id, resource]));
+    /** @param {{ max: number | null, unlimited: boolean }} resource */
+    const describeResource = (resource) => (resource.unlimited ? "unlimited" : String(resource.max ?? "—"));
+    for (const after of afterDerived.derivedResources) {
+      const beforeResource = beforeResources.get(after.id) ?? null;
+      if (!beforeResource) {
+        addRow(after.name, `new (${describeResource(after)})`);
+      } else if (describeResource(beforeResource) !== describeResource(after)) {
+        addRow(after.name, `${describeResource(beforeResource)} → ${describeResource(after)}`);
+      }
+    }
+
     if (preview.preserved.length) {
       el(summaryBody, "h4", "builderWizardSubTitle", "Preserved");
       const list = el(summaryBody, "ul", "levelUpPreservedList");
