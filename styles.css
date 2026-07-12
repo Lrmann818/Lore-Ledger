@@ -4295,6 +4295,80 @@ div.mutedSmall {
   overflow: hidden;
 }
 
+/* Level Up wizard: same modal skeleton as the builder wizard, narrower
+   because it only ever shows the appended level's choices. */
+.levelUpPanel {
+  width: min(560px, 100%);
+}
+
+.levelUpLockedContext {
+  font-size: 0.85em;
+  opacity: 0.75;
+  margin: 4px 0 8px;
+}
+
+.levelUpGainList {
+  margin: 6px 0;
+  display: grid;
+  gap: 6px;
+}
+
+.levelUpGainItem {
+  border-left: 2px solid var(--hairline);
+  padding-left: 8px;
+}
+
+.levelUpGainName {
+  font-weight: 600;
+}
+
+.levelUpGainDesc {
+  font-size: 0.85em;
+  opacity: 0.8;
+  white-space: pre-wrap;
+}
+
+.levelUpInfoRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 2px 0;
+}
+
+.levelUpHpModeRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 8px 0;
+}
+
+.levelUpHpModeRow .npcSmallBtn[aria-pressed="true"] {
+  outline: 2px solid var(--accent, currentColor);
+  outline-offset: 1px;
+}
+
+.levelUpHpMath {
+  margin: 6px 0;
+  font-size: 0.9em;
+}
+
+.levelUpManualHpField {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.levelUpManualHpField input {
+  width: 84px;
+}
+
+.levelUpPreservedList {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  font-size: 0.85em;
+  opacity: 0.85;
+}
+
 .builderWizardHeader,
 .builderWizardFooter {
   display: flex;

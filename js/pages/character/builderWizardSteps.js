@@ -96,13 +96,14 @@ function el(parent, tag, className, text) {
 }
 
 /**
+ * Shared primitive (also used by the Level Up wizard).
  * @param {HTMLElement} parent
  * @param {Array<{ value: string, label: string }>} options
  * @param {string} selected
  * @param {string} emptyLabel
  * @returns {HTMLSelectElement}
  */
-function makeSelect(parent, options, selected, emptyLabel) {
+export function makeSelect(parent, options, selected, emptyLabel) {
   const select = /** @type {HTMLSelectElement} */ (document.createElement("select"));
   select.className = "settingsSelect builderWizardSelect";
   const empty = document.createElement("option");
@@ -135,11 +136,12 @@ function ensureLevelChoices(build, levelKey) {
 
 /**
  * Reads a stored choice value from any level bucket.
+ * Shared primitive (also used by the Level Up wizard).
  * @param {CharacterBuildState} build
  * @param {string} choiceId
  * @returns {unknown}
  */
-function readChoice(build, choiceId) {
+export function readChoice(build, choiceId) {
   if (!isPlainObject(build.choicesByLevel)) return undefined;
   for (const levelChoices of Object.values(build.choicesByLevel)) {
     if (isPlainObject(levelChoices) && choiceId in levelChoices) return levelChoices[choiceId];
@@ -149,12 +151,13 @@ function readChoice(build, choiceId) {
 
 /**
  * Writes (or deletes, when value is undefined) a choice value at a level.
+ * Shared primitive (also used by the Level Up wizard).
  * @param {CharacterBuildState} build
  * @param {string} levelKey
  * @param {string} choiceId
  * @param {unknown} value
  */
-function writeChoice(build, levelKey, choiceId, value) {
+export function writeChoice(build, levelKey, choiceId, value) {
   // Remove any stale copy stored under another level first.
   if (isPlainObject(build.choicesByLevel)) {
     for (const [key, levelChoices] of Object.entries(build.choicesByLevel)) {
@@ -297,6 +300,7 @@ export function getRequiredAncestryChoice(build, registry) {
 /**
  * Renders `count` linked selects that prevent duplicate picks.
  * Stored value is a string (count 1) or string array (count > 1).
+ * Shared primitive (also used by the Level Up wizard).
  *
  * @param {WizardStepContext} ctx
  * @param {HTMLElement} parent
@@ -309,7 +313,7 @@ export function getRequiredAncestryChoice(build, registry) {
  *   emptyLabel?: string
  * }} config
  */
-function renderMultiPickChoice(ctx, parent, config) {
+export function renderMultiPickChoice(ctx, parent, config) {
   const { label, count, options, choiceId, levelKey } = config;
   const build = ctx.getDraft().build;
   const stored = readChoice(build, choiceId);
@@ -727,13 +731,15 @@ export function renderClassChoicesStep(ctx, container) {
 }
 
 /**
+ * Renders one ASI-or-feat slot editor. Shared with the Level Up wizard so
+ * both flows keep the identical stored-choice shape.
  * @param {WizardStepContext} ctx
  * @param {HTMLElement} container
  * @param {{ characterLevel: number, classId: string, classLevel: number }} slot
  * @param {Array<{ value: string, label: string }>} featOptions
  * @param {Array<{ value: string, label: string }>} abilityOptions
  */
-function renderAsiSlot(ctx, container, slot, featOptions, abilityOptions) {
+export function renderAsiSlot(ctx, container, slot, featOptions, abilityOptions) {
   const registry = ctx.getRegistry();
   const build = ctx.getDraft().build;
   const choiceId = asiChoiceId(slot.characterLevel);

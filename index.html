@@ -539,6 +539,8 @@
               data-char-action="new-builder">Create with Builder</button>
             <button type="button" class="swatchOption charActionMenuItem" id="charActionEditBuilderBtn"
               data-char-action="edit-builder">Edit in Builder</button>
+            <button type="button" class="swatchOption charActionMenuItem" id="charActionLevelUpBtn"
+              data-char-action="level-up">Level Up</button>
             <button type="button" class="swatchOption charActionMenuItem" id="charActionRenameBtn"
               data-char-action="rename">Rename Character</button>
             <button type="button" class="swatchOption charActionMenuItem" id="charActionAddNpcBtn"
@@ -1478,6 +1480,65 @@
         <button type="button" class="npcSmallBtn" id="builderWizardBack" hidden>Back</button>
         <button type="button" class="npcSmallBtn" id="builderWizardNext">Next</button>
         <button type="button" class="npcSmallBtn" id="builderWizardFinish" hidden>Finish</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Level Up wizard -->
+  <div id="levelUpOverlay" class="modalOverlay" hidden aria-hidden="true">
+    <div class="modalPanel builderWizardPanel levelUpPanel" id="levelUpPanel" role="dialog" aria-modal="true"
+      aria-labelledby="levelUpTitle" tabindex="-1">
+      <div class="builderWizardHeader">
+        <div class="modalTitle" id="levelUpTitle">Level Up</div>
+        <button type="button" class="npcSmallBtn" id="levelUpClose" aria-label="Close">✕</button>
+      </div>
+
+      <div class="builderWizardBody levelUpBody">
+        <section class="builderWizardStep" id="levelUpStepClass" aria-labelledby="levelUpClassTitle">
+          <h3 class="builderWizardStepTitle" id="levelUpClassTitle">Class</h3>
+          <div id="levelUpClassBody" class="builderWizardDynamicBody"></div>
+          <div class="builderWizardValidation" id="levelUpClassValidation" role="status" aria-live="polite" hidden></div>
+        </section>
+
+        <section class="builderWizardStep" id="levelUpStepSubclass" aria-labelledby="levelUpSubclassTitle" hidden>
+          <h3 class="builderWizardStepTitle" id="levelUpSubclassTitle">Subclass</h3>
+          <div id="levelUpSubclassBody" class="builderWizardDynamicBody"></div>
+          <div class="builderWizardValidation" id="levelUpSubclassValidation" role="status" aria-live="polite" hidden></div>
+        </section>
+
+        <section class="builderWizardStep" id="levelUpStepFeatures" aria-labelledby="levelUpFeaturesTitle" hidden>
+          <h3 class="builderWizardStepTitle" id="levelUpFeaturesTitle">Features</h3>
+          <div id="levelUpFeaturesBody" class="builderWizardDynamicBody"></div>
+        </section>
+
+        <section class="builderWizardStep" id="levelUpStepAsi" aria-labelledby="levelUpAsiTitle" hidden>
+          <h3 class="builderWizardStepTitle" id="levelUpAsiTitle">Ability Score Improvement</h3>
+          <div id="levelUpAsiBody" class="builderWizardDynamicBody"></div>
+        </section>
+
+        <section class="builderWizardStep" id="levelUpStepSpells" aria-labelledby="levelUpSpellsTitle" hidden>
+          <h3 class="builderWizardStepTitle" id="levelUpSpellsTitle">Spells</h3>
+          <div id="levelUpSpellsBody" class="builderWizardDynamicBody"></div>
+          <div class="builderWizardValidation" id="levelUpSpellsValidation" role="status" aria-live="polite" hidden></div>
+        </section>
+
+        <section class="builderWizardStep" id="levelUpStepHp" aria-labelledby="levelUpHpTitle" hidden>
+          <h3 class="builderWizardStepTitle" id="levelUpHpTitle">Hit Points</h3>
+          <div id="levelUpHpBody" class="builderWizardDynamicBody"></div>
+          <div class="builderWizardValidation" id="levelUpHpValidation" role="status" aria-live="polite" hidden></div>
+        </section>
+
+        <section class="builderWizardStep" id="levelUpStepSummary" aria-labelledby="levelUpSummaryTitle" hidden>
+          <h3 class="builderWizardStepTitle" id="levelUpSummaryTitle">Summary</h3>
+          <div id="levelUpSummaryBody" class="builderSummaryContent"></div>
+        </section>
+      </div>
+
+      <div class="builderWizardFooter">
+        <button type="button" class="npcSmallBtn" id="levelUpCancel">Cancel</button>
+        <button type="button" class="npcSmallBtn" id="levelUpBack" hidden>Back</button>
+        <button type="button" class="npcSmallBtn" id="levelUpNext">Next</button>
+        <button type="button" class="npcSmallBtn" id="levelUpApply" hidden>Apply</button>
       </div>
     </div>
   </div>

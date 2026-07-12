@@ -11,6 +11,7 @@ import { initBuilderIdentityPanel } from "../character/panels/builderIdentityPan
 import { initBuilderAbilitiesPanel } from "../character/panels/builderAbilitiesPanel.js";
 import { initBuilderSummaryPanel } from "../character/panels/builderSummaryPanel.js";
 import { initBuilderWizard } from "../character/builderWizard.js";
+import { initLevelUpWizard } from "../character/levelUpWizard.js";
 import { initProficienciesPanel } from "../character/panels/proficienciesPanel.js";
 import { initAbilitiesPanel } from "../character/panels/abilitiesPanel.js";
 import { initAbilitiesFeaturesPanel } from "../character/panels/abilitiesFeaturesPanel.js";
@@ -24,7 +25,8 @@ import {
   makeDefaultBuilderCharacterEntry,
   makeDefaultCharacterEntry
 } from "../../domain/characterHelpers.js";
-import { getBuilderFinishSheetSeedPatch } from "../../domain/builderSheetSeeding.js";
+import { getBuilderFinishSheetSeedPatch, getLevelUpSheetSeedPatch } from "../../domain/builderSheetSeeding.js";
+import { MAX_CHARACTER_LEVEL, normalizeBuildLevels } from "../../domain/rules/progression.js";
 import {
   applyLongRest,
   applyShortRest,
@@ -364,6 +366,63 @@ export function initCharacterPageUI(deps) {
     });
     addDestroy(() => builderWizard.destroy());
 
+    const levelUpWizard = initLevelUpWizard({
+      root: document,
+      Popovers,
+      setStatus,
+      onApply: ({ characterId, build, toLevel }) => {
+        // Same-character apply guard, mirroring the shipped rest guard: check
+        // the active id before mutating and again inside the mutation.
+        if (!characterId || getActiveCharacter(state)?.id !== characterId) {
+          if (typeof setStatus === "function") {
+            setStatus("Level Up was canceled because the active character changed.", { stickyMs: 2500 });
+          }
+          return;
+        }
+        let applyError = "";
+        const updated = mutateCharacter((character) => {
+          if (character.id !== characterId) {
+            applyError = "active-character-changed";
+            return false;
+          }
+          /** @type {Record<string, unknown>} */
+          let beforeSnapshot;
+          try {
+            beforeSnapshot = JSON.parse(JSON.stringify(character));
+          } catch {
+            applyError = "snapshot-failed";
+            return false;
+          }
+          const levelsBefore = normalizeBuildLevels(beforeSnapshot.build);
+          const levelsAfter = normalizeBuildLevels(build);
+          if (levelsAfter.length !== levelsBefore.length + 1 || levelsAfter.length > MAX_CHARACTER_LEVEL) {
+            applyError = "invalid-level-up";
+            return false;
+          }
+          // Compute the entire sheet patch before writing anything so the
+          // build replacement and the patch commit as one atomic mutation.
+          const afterCharacter = { ...beforeSnapshot, build };
+          const { patch } = getLevelUpSheetSeedPatch(beforeSnapshot, afterCharacter);
+          character.build = build;
+          Object.assign(character, patch);
+          return true;
+        });
+        if (!updated) {
+          if (typeof setStatus === "function") {
+            setStatus(applyError === "active-character-changed"
+              ? "Level Up was canceled because the active character changed."
+              : "Level Up could not be applied. No changes were made.", { stickyMs: 2500 });
+          }
+          return;
+        }
+        rerender();
+        if (typeof setStatus === "function") {
+          setStatus(`Level Up applied — now level ${toLevel}.`, { stickyMs: 2000 });
+        }
+      }
+    });
+    addDestroy(() => levelUpWizard.destroy());
+
     // --- populate selector ---
     const entries = state.characters?.entries ?? [];
     const activeId = state.characters?.activeId ?? null;
@@ -408,6 +467,7 @@ export function initCharacterPageUI(deps) {
     ));
     const exportButtons = actionButtons.filter((button) => button.dataset.charAction === "export");
     const editBuilderButtons = actionButtons.filter((button) => button.dataset.charAction === "edit-builder");
+    const levelUpButtons = actionButtons.filter((button) => button.dataset.charAction === "level-up");
     const activeCharacterForActions = getActiveCharacter(state);
     const activeIsBuilder = isBuilderCharacter(activeCharacterForActions);
     if (builderBadgeEl) {
@@ -416,6 +476,14 @@ export function initCharacterPageUI(deps) {
     editBuilderButtons.forEach((button) => {
       button.disabled = !activeIsBuilder;
       button.setAttribute("aria-disabled", (!activeIsBuilder).toString());
+    });
+    // Level Up: builder characters below total level 20 only. At level 20 the
+    // item stays visible but disabled; freeform characters cannot enter.
+    const canLevelUp = activeIsBuilder &&
+      normalizeBuildLevels(activeCharacterForActions?.build).length < MAX_CHARACTER_LEVEL;
+    levelUpButtons.forEach((button) => {
+      button.disabled = !canLevelUp;
+      button.setAttribute("aria-disabled", (!canLevelUp).toString());
     });
     restButtons.forEach((button) => {
       button.disabled = !activeCharacterForActions;
@@ -610,6 +678,13 @@ export function initCharacterPageUI(deps) {
       const activeChar = getActiveCharacter(state);
       if (!activeChar || !isBuilderCharacter(activeChar)) return;
       builderWizard.open({ character: activeChar });
+    }
+
+    async function runLevelUpCharacterAction() {
+      const activeChar = getActiveCharacter(state);
+      if (!activeChar || !isBuilderCharacter(activeChar)) return;
+      if (normalizeBuildLevels(activeChar.build).length >= MAX_CHARACTER_LEVEL) return;
+      levelUpWizard.open({ character: activeChar });
     }
 
     async function runRenameCharacterAction() {
@@ -833,6 +908,8 @@ export function initCharacterPageUI(deps) {
         await runNewBuilderCharacterAction();
       } else if (action === "edit-builder") {
         await runEditBuilderCharacterAction();
+      } else if (action === "level-up") {
+        await runLevelUpCharacterAction();
       } else if (action === "rename") {
         await runRenameCharacterAction();
       } else if (action === "add-npc") {
