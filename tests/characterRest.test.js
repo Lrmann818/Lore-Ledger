@@ -466,3 +466,70 @@ describe("builder prepared spell capacity", () => {
     }
   });
 });
+
+describe("rest after a Level Up", () => {
+  function leveledCaster() {
+    // Wizard 2 → 3 applied through the Level Up sheet patch: 1st-level slots
+    // grew 3 → 4 with two spent, and 2nd-level slots arrived as a new row.
+    const character = makeDefaultBuilderCharacterEntry("Leveled Wizard");
+    character.id = "char_leveled_wizard";
+    character.build.raceId = "human";
+    character.build.backgroundId = "acolyte";
+    character.build.levels = [
+      { classId: "wizard", hp: null },
+      { classId: "wizard", hp: null },
+      { classId: "wizard", hp: null }
+    ];
+    character.build.abilities.base = { str: 8, dex: 14, con: 13, int: 16, wis: 10, cha: 10 };
+    character.hpCur = 10;
+    character.hpMax = 17;
+    character.rest = { hitDiceSpent: {}, preparedByClass: { wizard: ["magic-missile"] } };
+    character.spells = {
+      levels: [
+        { id: "l1", label: "1st Level", hasSlots: true, used: 2, total: 4, collapsed: false, spells: [] },
+        { id: "l2", label: "2nd Level", hasSlots: true, used: 0, total: 2, collapsed: false, spells: [] }
+      ]
+    };
+    return character;
+  }
+
+  it("Long Rest refills to the new post-level-up slot totals and keeps prepared state", () => {
+    const character = leveledCaster();
+    const result = applyLongRest(character);
+
+    expect(result.changed).toBe(true);
+    const first = result.character.spells.levels.find((level) => level.label === "1st Level");
+    const second = result.character.spells.levels.find((level) => level.label === "2nd Level");
+    expect(first).toMatchObject({ used: 4, total: 4 });
+    expect(second).toMatchObject({ used: 2, total: 2 });
+    expect(result.character.rest.preparedByClass).toEqual({ wizard: ["magic-missile"] });
+    expect(result.character.hpCur).toBe(17);
+  });
+
+  it("Short Rest refills grown Pact Magic slots but not regular slots", () => {
+    // Warlock 1 → 2 applied: pact row grew to 2 slots, both spent.
+    const character = makeDefaultBuilderCharacterEntry("Leveled Warlock");
+    character.id = "char_leveled_warlock";
+    character.build.raceId = "human";
+    character.build.backgroundId = "acolyte";
+    character.build.levels = [
+      { classId: "warlock", hp: null },
+      { classId: "warlock", hp: null }
+    ];
+    character.build.abilities.base = { str: 8, dex: 14, con: 13, int: 10, wis: 10, cha: 16 };
+    character.spells = {
+      levels: [
+        { id: "pact", label: "Pact Magic (1st Level)", hasSlots: true, used: 0, total: 2, collapsed: false, spells: [] },
+        { id: "l1", label: "1st Level", hasSlots: true, used: 0, total: 1, collapsed: false, spells: [] }
+      ]
+    };
+
+    const result = applyShortRest(character);
+
+    expect(result.changed).toBe(true);
+    const pact = result.character.spells.levels.find((level) => level.label.includes("Pact"));
+    const regular = result.character.spells.levels.find((level) => level.label === "1st Level");
+    expect(pact).toMatchObject({ used: 2, total: 2 });
+    expect(regular).toMatchObject({ used: 0, total: 1 });
+  });
+});

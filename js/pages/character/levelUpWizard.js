@@ -473,10 +473,6 @@ export function initLevelUpWizard(deps = {}) {
     if (plan?.prerequisiteWarnings.length) {
       el(classBody, "div", "builderWizardValidation builderMulticlassWarning",
         `Multiclass prerequisites not met (allowed, but house-rules territory): ${plan.prerequisiteWarnings.join("; ")}.`);
-      const warning = classBody.lastChild;
-      if (warning && /** @type {HTMLElement} */ (warning).hidden !== undefined) {
-        /** @type {HTMLElement} */ (warning).hidden = false;
-      }
     }
 
     if (plan) {

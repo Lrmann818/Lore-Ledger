@@ -708,6 +708,72 @@ function installBuilderWizardDom(document) {
   return overlay;
 }
 
+function installLevelUpWizardDom(document) {
+  const overlay = appendWithId(document, document.body, "div", "levelUpOverlay", "modalOverlay");
+  overlay.hidden = true;
+  overlay.setAttribute("aria-hidden", "true");
+  const panel = appendWithId(document, overlay, "div", "levelUpPanel", "modalPanel builderWizardPanel levelUpPanel");
+  panel.setAttribute("role", "dialog");
+  panel.setAttribute("aria-modal", "true");
+  panel.setAttribute("aria-labelledby", "levelUpTitle");
+  panel.setAttribute("tabindex", "-1");
+  const header = appendWithId(document, panel, "div", "levelUpHeader", "builderWizardHeader");
+  appendWithId(document, header, "div", "levelUpTitle", "modalTitle").textContent = "Level Up";
+  appendWithId(document, header, "button", "levelUpClose", "npcSmallBtn").type = "button";
+
+  const body = appendWithId(document, panel, "div", "levelUpBody", "builderWizardBody levelUpBody");
+  const steps = [
+    ["levelUpStepClass", "levelUpClassBody", "levelUpClassValidation"],
+    ["levelUpStepSubclass", "levelUpSubclassBody", "levelUpSubclassValidation"],
+    ["levelUpStepFeatures", "levelUpFeaturesBody", null],
+    ["levelUpStepAsi", "levelUpAsiBody", null],
+    ["levelUpStepSpells", "levelUpSpellsBody", "levelUpSpellsValidation"],
+    ["levelUpStepHp", "levelUpHpBody", "levelUpHpValidation"],
+    ["levelUpStepSummary", "levelUpSummaryBody", null],
+  ];
+  steps.forEach(([stepId, bodyId, validationId], index) => {
+    const step = appendWithId(document, body, "section", stepId, "builderWizardStep");
+    step.hidden = index !== 0;
+    appendWithId(document, step, "div", bodyId, "builderWizardDynamicBody");
+    if (validationId) {
+      const validation = appendWithId(document, step, "div", validationId, "builderWizardValidation");
+      validation.hidden = true;
+    }
+  });
+
+  const footer = appendWithId(document, panel, "div", "levelUpFooter", "builderWizardFooter");
+  appendWithId(document, footer, "button", "levelUpCancel", "npcSmallBtn").type = "button";
+  const back = appendWithId(document, footer, "button", "levelUpBack", "npcSmallBtn");
+  back.type = "button";
+  back.hidden = true;
+  appendWithId(document, footer, "button", "levelUpNext", "npcSmallBtn").type = "button";
+  const apply = appendWithId(document, footer, "button", "levelUpApply", "npcSmallBtn");
+  apply.type = "button";
+  apply.hidden = true;
+  return overlay;
+}
+
+function makeLeveledBuilderCharacter({
+  id = "char_levelup",
+  name = "Level Up Mira",
+  levels = [{ classId: "fighter", hp: null }],
+  base = { str: 15, dex: 14, con: 13, int: 12, wis: 10, cha: 8 },
+  subclassByClass = {},
+  flatFields = {}
+} = {}) {
+  const build = makeDefaultCharacterBuild();
+  build.raceId = "human";
+  build.backgroundId = "acolyte";
+  build.levels = levels;
+  build.subclassByClass = subclassByClass;
+  build.abilities.base = { ...base };
+  return { id, name, ...flatFields, build };
+}
+
+function clickLevelUp(document, elementId) {
+  document.getElementById(elementId).dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+}
+
 function installFlatAbilitiesDom(document) {
   const root = document.getElementById("page-character");
   let columns = document.getElementById("charColumns");
@@ -4531,6 +4597,245 @@ describe("builder wizard preserves interleaved multiclass level order", () => {
     // The ASI/feat choice id survived (order unchanged → not pruned/moved).
     expect(updated.build.choicesByLevel["5"]["asi-5"]).toEqual({ type: "feat", featId: "grappler" });
     expect(deriveCharacter(updated).featIds).toContain("grappler");
+
+    controller.destroy();
+  });
+});
+
+describe("level up flow", () => {
+  function setupLevelUp(character, { extraEntries = [] } = {}) {
+    const dom = installCharacterSelectorDom();
+    installLevelUpWizardDom(dom.document);
+    const Popovers = createFakePopovers();
+    const deps = createCharacterPageDeps(Popovers);
+    deps.state.characters.entries = [character, ...extraEntries];
+    deps.state.characters.activeId = character.id;
+    const controller = initCharacterPageUI(deps);
+    return { ...dom, deps, controller };
+  }
+
+  function openLevelUp(actionMenuButton) {
+    actionMenuButton.dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    clickLevelUp(document, "charActionLevelUpBtn");
+  }
+
+  it("disables Level Up for freeform characters and at level 20, enables below 20", () => {
+    const freeform = { id: "char_free", name: "Manual Mira", build: null };
+    const first = setupLevelUp(freeform);
+    expect(document.getElementById("charActionLevelUpBtn").disabled).toBe(true);
+    expect(document.getElementById("charActionLevelUpBtn").getAttribute("aria-disabled")).toBe("true");
+    first.controller.destroy();
+
+    const twenty = makeLeveledBuilderCharacter({
+      id: "char_twenty",
+      levels: Array.from({ length: 20 }, () => ({ classId: "fighter", hp: null })),
+      subclassByClass: { fighter: "champion" }
+    });
+    const second = setupLevelUp(twenty);
+    expect(document.getElementById("charActionLevelUpBtn").disabled).toBe(true);
+    second.controller.destroy();
+
+    const five = makeLeveledBuilderCharacter({
+      id: "char_five",
+      levels: Array.from({ length: 5 }, () => ({ classId: "fighter", hp: null })),
+      subclassByClass: { fighter: "champion" }
+    });
+    const third = setupLevelUp(five);
+    expect(document.getElementById("charActionLevelUpBtn").disabled).toBe(false);
+    third.controller.destroy();
+  });
+
+  it("opening Level Up mutates nothing and does not mark dirty", () => {
+    const character = makeLeveledBuilderCharacter();
+    const snapshot = JSON.stringify(character);
+    const { deps, controller, actionMenuButton } = setupLevelUp(character);
+
+    openLevelUp(actionMenuButton);
+
+    expect(document.getElementById("levelUpOverlay").hidden).toBe(false);
+    expect(JSON.stringify(deps.state.characters.entries[0])).toBe(snapshot);
+    expect(deps.SaveManager.markDirty).not.toHaveBeenCalled();
+
+    controller.destroy();
+  });
+
+  it("cancels from any step without mutating or marking dirty", () => {
+    const character = makeLeveledBuilderCharacter({ flatFields: { hpMax: 12, hpCur: 12 } });
+    const snapshot = JSON.stringify(character);
+    const { deps, controller, actionMenuButton } = setupLevelUp(character);
+
+    openLevelUp(actionMenuButton);
+    clickLevelUp(document, "levelUpNext"); // class → features
+    clickLevelUp(document, "levelUpNext"); // features → hp
+    clickLevelUp(document, "levelUpCancel");
+
+    expect(document.getElementById("levelUpOverlay").hidden).toBe(true);
+    expect(JSON.stringify(deps.state.characters.entries[0])).toBe(snapshot);
+    expect(deps.SaveManager.markDirty).not.toHaveBeenCalled();
+
+    controller.destroy();
+  });
+
+  it("closes on Escape without mutating or marking dirty", () => {
+    const character = makeLeveledBuilderCharacter();
+    const snapshot = JSON.stringify(character);
+    const { deps, controller, actionMenuButton } = setupLevelUp(character);
+
+    openLevelUp(actionMenuButton);
+    const event = new Event("keydown", { bubbles: true, cancelable: true });
+    event.key = "Escape";
+    document.dispatchEvent(event);
+
+    expect(document.getElementById("levelUpOverlay").hidden).toBe(true);
+    expect(JSON.stringify(deps.state.characters.entries[0])).toBe(snapshot);
+    expect(deps.SaveManager.markDirty).not.toHaveBeenCalled();
+
+    controller.destroy();
+  });
+
+  it("applies exactly one level, marks dirty once, and seeds the sheet", async () => {
+    const character = makeLeveledBuilderCharacter({
+      flatFields: { hpMax: 12, hpCur: 9, features: "" }
+    });
+    const { deps, controller, actionMenuButton } = setupLevelUp(character);
+
+    openLevelUp(actionMenuButton);
+    clickLevelUp(document, "levelUpNext"); // class → features (Action Surge)
+    clickLevelUp(document, "levelUpNext"); // features → hp (average default)
+    clickLevelUp(document, "levelUpNext"); // hp → summary
+    expect(document.getElementById("levelUpStepSummary").hidden).toBe(false);
+    clickLevelUp(document, "levelUpApply");
+    await flushPromises();
+
+    const updated = deps.state.characters.entries.find((e) => e.id === "char_levelup");
+    expect(updated.build.levels).toHaveLength(2);
+    expect(updated.build.levels[1]).toEqual({ classId: "fighter", hp: null });
+    // Human Con 14 (+2): 12 → 20; wounded gap preserved (9 → 17).
+    expect(updated.hpMax).toBe(20);
+    expect(updated.hpCur).toBe(17);
+    expect(updated.features).toContain("Action Surge");
+    expect(updated.features).toContain("(Fighter 2)");
+    expect(deps.SaveManager.markDirty).toHaveBeenCalledTimes(1);
+    expect(document.getElementById("levelUpOverlay").hidden).toBe(true);
+    expect(deps.setStatus).toHaveBeenCalledWith("Level Up applied — now level 2.", { stickyMs: 2000 });
+
+    controller.destroy();
+  });
+
+  it("a double-click on Apply cannot append two levels", async () => {
+    const character = makeLeveledBuilderCharacter({ flatFields: { hpMax: 12, hpCur: 12 } });
+    const { deps, controller, actionMenuButton } = setupLevelUp(character);
+
+    openLevelUp(actionMenuButton);
+    clickLevelUp(document, "levelUpNext");
+    clickLevelUp(document, "levelUpNext");
+    clickLevelUp(document, "levelUpNext");
+    clickLevelUp(document, "levelUpApply");
+    clickLevelUp(document, "levelUpApply");
+    await flushPromises();
+
+    const updated = deps.state.characters.entries.find((e) => e.id === "char_levelup");
+    expect(updated.build.levels).toHaveLength(2);
+    expect(deps.SaveManager.markDirty).toHaveBeenCalledTimes(1);
+
+    controller.destroy();
+  });
+
+  it("requires the newly unlocked subclass before applying", async () => {
+    const character = makeLeveledBuilderCharacter({
+      levels: [
+        { classId: "fighter", hp: null },
+        { classId: "fighter", hp: null }
+      ],
+      flatFields: { hpMax: 20, hpCur: 20 }
+    });
+    const { deps, controller, actionMenuButton } = setupLevelUp(character);
+
+    openLevelUp(actionMenuButton);
+    clickLevelUp(document, "levelUpNext"); // class → subclass
+    expect(document.getElementById("levelUpStepSubclass").hidden).toBe(false);
+    clickLevelUp(document, "levelUpNext"); // blocked: no subclass chosen
+    expect(document.getElementById("levelUpStepSubclass").hidden).toBe(false);
+    expect(document.getElementById("levelUpSubclassValidation").hidden).toBe(false);
+
+    const select = document.getElementById("levelUpSubclassSelect");
+    select.value = "champion";
+    dispatchChange(select);
+    clickLevelUp(document, "levelUpNext"); // subclass → features
+    clickLevelUp(document, "levelUpNext"); // features → hp
+    clickLevelUp(document, "levelUpNext"); // hp → summary
+    clickLevelUp(document, "levelUpApply");
+    await flushPromises();
+
+    const updated = deps.state.characters.entries.find((e) => e.id === "char_levelup");
+    expect(updated.build.levels).toHaveLength(3);
+    expect(updated.build.subclassByClass.fighter).toBe("champion");
+    expect(updated.features).toContain("Improved Critical");
+
+    controller.destroy();
+  });
+
+  it("cancels safely when the active character changes while the flow is open", () => {
+    const character = makeLeveledBuilderCharacter();
+    const other = { id: "char_other", name: "Other", build: null };
+    const snapshotA = JSON.stringify(character);
+    const snapshotB = JSON.stringify(other);
+    const { deps, controller, actionMenuButton } = setupLevelUp(character, { extraEntries: [other] });
+
+    openLevelUp(actionMenuButton);
+    expect(document.getElementById("levelUpOverlay").hidden).toBe(false);
+
+    deps.state.characters.activeId = "char_other";
+    notifyActiveCharacterChanged({ previousId: "char_levelup", activeId: "char_other" });
+
+    expect(document.getElementById("levelUpOverlay").hidden).toBe(true);
+    expect(JSON.stringify(deps.state.characters.entries[0])).toBe(snapshotA);
+    expect(JSON.stringify(deps.state.characters.entries[1])).toBe(snapshotB);
+    expect(deps.SaveManager.markDirty).not.toHaveBeenCalled();
+    expect(deps.setStatus).toHaveBeenCalledWith(
+      "Level Up was canceled because the active character changed.", { stickyMs: 2500 });
+
+    controller.destroy();
+  });
+
+  it("refuses to apply to a different character even without the change event", async () => {
+    const character = makeLeveledBuilderCharacter({ flatFields: { hpMax: 12, hpCur: 12 } });
+    const other = { id: "char_other", name: "Other", build: null };
+    const { deps, controller, actionMenuButton } = setupLevelUp(character, { extraEntries: [other] });
+
+    openLevelUp(actionMenuButton);
+    clickLevelUp(document, "levelUpNext");
+    clickLevelUp(document, "levelUpNext");
+    clickLevelUp(document, "levelUpNext");
+    // Simulate a silent switch (no event) between Summary and Apply.
+    deps.state.characters.activeId = "char_other";
+    clickLevelUp(document, "levelUpApply");
+    await flushPromises();
+
+    expect(deps.state.characters.entries[0].build.levels).toHaveLength(1);
+    expect(deps.state.characters.entries[1].build).toBeNull();
+    expect(deps.SaveManager.markDirty).not.toHaveBeenCalled();
+    expect(deps.setStatus).toHaveBeenCalledWith(
+      "Level Up was canceled because the active character changed.", { stickyMs: 2500 });
+
+    controller.destroy();
+  });
+
+  it("blocks the flow with a validation message when the class is not in the registry", () => {
+    const character = makeLeveledBuilderCharacter({
+      levels: [{ classId: "mystery-class", hp: null }]
+    });
+    const snapshot = JSON.stringify(character);
+    const { deps, controller, actionMenuButton } = setupLevelUp(character);
+
+    openLevelUp(actionMenuButton);
+    clickLevelUp(document, "levelUpNext");
+
+    // The malformed class cannot produce a plan; the flow refuses to advance.
+    expect(document.getElementById("levelUpStepClass").hidden).toBe(false);
+    expect(document.getElementById("levelUpClassValidation").hidden).toBe(false);
+    expect(JSON.stringify(deps.state.characters.entries[0])).toBe(snapshot);
+    expect(deps.SaveManager.markDirty).not.toHaveBeenCalled();
 
     controller.destroy();
   });

@@ -3,8 +3,10 @@ import { describe, expect, it } from "vitest";
 import backgrounds from "../../game-data/srd/backgrounds.json";
 import classes from "../../game-data/srd/classes.json";
 import draconicAncestries from "../../game-data/srd/draconic-ancestries.json";
+import features from "../../game-data/srd/features.json";
 import packs from "../../game-data/srd/equipment.packs.json";
 import races from "../../game-data/srd/races.json";
+import subclasses from "../../game-data/srd/subclasses.json";
 import traits from "../../game-data/srd/traits.json";
 
 const ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -213,6 +215,52 @@ describe("generated SRD registry integrity", () => {
         if (!Number.isInteger(item.quantity) || item.quantity < 1) problems.push(`${pack.id}:${item.itemId}:qty`);
         // A pack never contains another pack (would recurse during seeding).
         if (packIds.has(item.itemId)) problems.push(`${pack.id}:${item.itemId}:nested-pack`);
+      }
+    }
+
+    expect(problems).toEqual([]);
+  });
+
+  it("resolves every level a Level Up can reach to real progression features", () => {
+    // Level Up walks class asiLevels, subclassLevel, and per-level feature
+    // lists directly; a dangling id would surface mid-flow as a blank choice.
+    const featureIds = new Set(features.map((feature) => feature.id));
+    const subclassIds = new Set(subclasses.map((subclass) => subclass.id));
+    const problems = [];
+
+    for (const classEntry of classes) {
+      const featuresByLevel = classEntry.featuresByLevel ?? {};
+      for (const [level, ids] of Object.entries(featuresByLevel)) {
+        const levelNumber = Number(level);
+        if (!Number.isInteger(levelNumber) || levelNumber < 1 || levelNumber > 20) {
+          problems.push(`${classEntry.id}:featuresByLevel:${level}`);
+        }
+        for (const featureId of ids) {
+          if (!featureIds.has(featureId)) problems.push(`${classEntry.id}:${level}:${featureId}`);
+        }
+      }
+      for (const asiLevel of classEntry.asiLevels ?? []) {
+        const ids = featuresByLevel[String(asiLevel)] ?? [];
+        if (!ids.length) problems.push(`${classEntry.id}:asi-level-${asiLevel}:no-features`);
+      }
+      if (classEntry.subclassLevel != null) {
+        const ids = featuresByLevel[String(classEntry.subclassLevel)] ?? [];
+        if (!ids.length) problems.push(`${classEntry.id}:subclass-level-${classEntry.subclassLevel}:no-features`);
+        for (const subclassId of classEntry.subclassIds ?? []) {
+          if (!subclassIds.has(subclassId)) problems.push(`${classEntry.id}:subclass:${subclassId}`);
+        }
+      }
+    }
+
+    for (const subclass of subclasses) {
+      for (const [level, ids] of Object.entries(subclass.featuresByLevel ?? {})) {
+        const levelNumber = Number(level);
+        if (!Number.isInteger(levelNumber) || levelNumber < 1 || levelNumber > 20) {
+          problems.push(`${subclass.id}:featuresByLevel:${level}`);
+        }
+        for (const featureId of ids) {
+          if (!featureIds.has(featureId)) problems.push(`${subclass.id}:${level}:${featureId}`);
+        }
       }
     }
 
