@@ -681,11 +681,12 @@ through a focused popover or modal:
 The practical pattern: tap/click or long-press a visible sheet field, open a focused edit
 popover/modal, apply, and return to the same sheet or combat context.
 
-**Do not treat builder-only sheet panels as the preferred editing surface after character
-creation.** After a character exists, the normal sheet is the primary editing surface for
-play-state. Builder flows exist to guard *structural* choices, not to be the everyday way
-a player edits HP or adds a weapon. Builder-only panel retirement / edit-routing work is
-tracked but **not yet in scope** — see the working order below.
+**Builder-only sheet panels are read-only routing surfaces** (B1, shipped 2026-07-13):
+the Builder Identity and Builder Abilities panels display the guarded choices and route
+edits through "Edit in Builder" — they never write build data directly. After a character
+exists, the normal sheet is the primary editing surface for play-state. Builder flows
+exist to guard *structural* choices, not to be the everyday way a player edits HP or adds
+a weapon.
 
 Prepared spell lists are **play-state**, not build choices. See rest rules below.
 
@@ -755,8 +756,9 @@ listed so agents do not repeat them:
 6. [x] Revise the Level Up spec (completed 2026-07-09; the spec is now the canonical Phase 1 contract)
 7. [x] Level Up **Phase 1** implemented per the revised spec (authorized and completed 2026-07-12; see `docs/reference/level-up-flow-spec.md` and `js/pages/character/levelUpWizard.js`)
 8. [x] Level Up **Phase 2** implemented (2026-07-12): generalized class-resource derivation (`js/domain/rules/classResources.js`, `deriveCharacter().derivedResources`), duplicate-aware seeding into `character.resources[]`, Level Up growth deltas with spent-use preservation, and the custom-class `resources` schema (see `docs/reference/content-registry-plan.md` → Class Resources)
-9. [ ] **Current authorized work (owner authorization, 2026-07-12 second session):** the next highest-value coherent builder batches per `docs/audits/builder-completion-matrix.md`. Audit batches **B1, B2, and B3 are explicitly authorized** in sequence (one at a time, each fully verified before the next). Per-batch re-authorization is not required for builder-completion work this session.
-10. [ ] **Still blocked / out of scope:** down-leveling (ratified out of scope), builtin content expansion beyond the SRD 5.1 greenlist, and any work outside the character-builder system
+9. [x] **B1** implemented (2026-07-13): Builder Identity / Builder Abilities panels are read-only routing surfaces; structural edits route through the guarded wizard only
+10. [ ] **Current authorized work (owner authorization, 2026-07-12 second session):** the next builder batches per `docs/audits/builder-completion-matrix.md` — **B2 (spell detail seeding), then B3 (feature detail seeding)**, one at a time, each fully verified before the next. Per-batch re-authorization is not required for builder-completion work this session.
+11. [ ] **Still blocked / out of scope:** down-leveling (ratified out of scope), builtin content expansion beyond the SRD 5.1 greenlist, and any work outside the character-builder system
 
 `docs/audits/srd-5-1-character-builder-gap-audit-stabilization-docs.md` is a **planning
 artifact, not a work order**. Steps 1-7 above are complete. Its batches **B1

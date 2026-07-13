@@ -218,7 +218,8 @@ A portfolio project that accumulates silent regressions is not a portfolio proje
 - [x] **Level Up spec revision** — complete 2026-07-09 (see `docs/reference/level-up-flow-spec.md`)
 - [x] **Level Up Phase 1 implementation** — authorized and shipped 2026-07-12 (flow only; no class-resource automation)
 - [x] **Level Up Phase 2** — shipped 2026-07-12: generalized class-resource derivation (Rage, Bardic Inspiration, Channel Divinity, Wild Shape, Second Wind, Action Surge, Indomitable, Ki, Lay on Hands, Sorcery Points, Mystic Arcanum, Arcane Recovery), duplicate-aware seeding into `character.resources[]` with rest recovery metadata, Level Up growth with spent-use preservation, and the custom-class `resources` authoring schema
-- [~] **Current authorized work (2026-07-12, second session) —** the next coherent builder batches per `docs/audits/builder-completion-matrix.md`; audit batches B1/B2/B3 are authorized in sequence
+- [x] **B1 — builder-only panel retirement / edit routing** — shipped 2026-07-13: Builder Identity and Builder Abilities are read-only routing surfaces; structural edits go through the guarded wizard only
+- [~] **Current authorized work (2026-07-12, second session) —** the next coherent builder batches per `docs/audits/builder-completion-matrix.md`; B2 (spell detail seeding) then B3 (feature detail seeding), in sequence
 - [ ] **Still blocked / out of scope —** down-leveling and builtin content expansion beyond the SRD 5.1 greenlist
 
 Still-open design constraints carried forward from the original Step 3 notes:
