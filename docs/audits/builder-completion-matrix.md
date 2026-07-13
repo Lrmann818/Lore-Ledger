@@ -1,6 +1,6 @@
 # SRD 5.1 Builder Completion Matrix
 
-_Status: **planning artifact — audited against code 2026-07-12** (post Level Up Phase 1)._
+_Status: **planning artifact — audited against code 2026-07-13** (post Level Up Phases 1–3, B1–B3, attribution gate, class granted spells, ASI cap guidance)._
 
 This is the canonical capability matrix for the question: *what remains before Lore
 Ledger can accurately claim a fully functioning SRD 5.1 character builder with robust
@@ -60,11 +60,19 @@ with spent uses preserved, and custom classes author pools via the `resources[]`
 schema (content-registry-plan.md → Class Resources). No schema migration was
 needed.
 
-Remaining authorized sequence: **B1 (builder-only panel retirement / edit
-routing, matrix #11) → B2 (spell detail seeding, #12) → B3 (feature detail
-seeding, #13)** — one at a time, fully verified between batches — then the
-in-app CC-BY attribution release gate (#20) and remaining P2 items as coherent
-batches.
+**B1, B2, B3, and the attribution gate all shipped 2026-07-13**, plus
+class-level granted spells (#6/#16) and the ASI 20-cap guidance (#5).
+
+**Recommended next batch (requires its own session-scale plan): #15 custom
+content authoring UX** — the last P1: a guided, form-based editor so users can
+author custom races/classes/spells (including `resources[]` pools and
+`grantedSpells`) without hand-writing JSON, building on the existing
+import-time validation. Remaining P2 items in rough order: Finish-step
+count-warnings (#1), attack recalculate-from-build affordance (#9), character
+export bundling of referenced custom records (#17), subclass 1-use
+feature-action counters (#13 follow-up), partial-regain recovery modes (#8),
+prepared-formula/spellbook-growth overrides (#16), equipment depth (#10), and
+the keyboard-only a11y pass (#19).
 
 ## 4. Verification basis
 
