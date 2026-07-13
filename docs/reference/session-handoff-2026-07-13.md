@@ -8,7 +8,7 @@ and the live audit is [`docs/audits/builder-completion-matrix.md`](../audits/bui
 ## Branch and state
 
 - **Branch:** `builder-wizard` (local only — not pushed, matching the branch's existing posture)
-- **Head:** `5355244` (session started from `730a5df`)
+- **Head:** the latest `docs: pin final session head…`/handoff commit on `builder-wizard` (session started from `730a5df`; last feature commit `3aaa6d6`, followed only by documentation commits)
 - **Working tree:** clean; every batch fully committed
 - **Schema:** v12 (no migrations added this session — verified none were needed)
 
@@ -50,7 +50,7 @@ None — no partial batches; the tree is clean.
 ## Exact next commands / task
 
 ```bash
-git status            # expect clean, builder-wizard @ 5355244
+git status            # expect a clean tree on builder-wizard
 npm run verify        # expect green before starting
 ```
 
