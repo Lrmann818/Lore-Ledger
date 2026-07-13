@@ -379,5 +379,25 @@ test("builder wizard spells step renders compact checkbox rows", async ({ page }
   );
   expect(overflow).toBeLessThanOrEqual(1);
 
+  // B2: finish the wizard and expand the seeded cantrip — the sheet row shows
+  // the live-derived SRD detail block above the user notes textarea, with no
+  // horizontal overflow at phone width.
+  await page.locator("#builderWizardNext").click(); // spells → equipment
+  await expect(page.locator("#builderWizardStepEquipment")).toBeVisible();
+  await page.locator("#builderWizardNext").click();
+  await expect(page.locator("#builderWizardStepSummary")).toBeVisible();
+  await page.locator("#builderWizardFinish").click();
+  await expect(page.locator("#builderWizardPanel")).toBeHidden();
+
+  const seededRow = page.locator("#spellLevels .spellRow").first();
+  await seededRow.locator(".spellSpellCollapseBtn").click();
+  const details = page.locator(".spellSrdDetails").first();
+  await expect(details).toBeVisible();
+  await expect(details).toContainText("Casting Time");
+  await expect(details).toContainText("Range");
+  await expect(page.locator(".spellNotes textarea").first()).toBeVisible();
+  const detailsOverflow = await details.evaluate((node) => node.scrollWidth - node.clientWidth);
+  expect(detailsOverflow).toBeLessThanOrEqual(1);
+
   await expectNoFatalSignals(page, fatalSignals);
 });

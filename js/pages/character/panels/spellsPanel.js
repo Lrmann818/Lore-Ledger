@@ -3,6 +3,7 @@ import { notifyPanelDataChanged, subscribePanelDataChanged } from "../../../ui/p
 import { requireMany } from "../../../utils/domGuards.js";
 import { getActiveCharacter } from "../../../domain/characterHelpers.js";
 import { createStateActions } from "../../../domain/stateActions.js";
+import { getActiveContentRegistry, getContentByKind } from "../../../domain/rules/registry.js";
 
 const SPELL_NOTES_SAVE_DEBOUNCE_MS = 250;
 
@@ -90,6 +91,93 @@ function notifyStatus(setStatus, message) {
     return;
   }
   console.warn(message);
+}
+
+/**
+ * @param {unknown} value
+ * @returns {string}
+ */
+function titleCaseWord(value) {
+  const text = String(value || "").trim();
+  return text ? text.charAt(0).toUpperCase() + text.slice(1) : "";
+}
+
+/**
+ * Renders the live-derived SRD detail block for a builder-managed spell row
+ * (B2 spell detail seeding). Details resolve from the active registry via the
+ * row's stable `builderSpellId` at render time — nothing is copied into
+ * character state, and the user's notes textarea below stays purely
+ * user-owned. Manual rows (no marker) and rows whose registry record is gone
+ * render no block. Returns null when there is nothing to show.
+ *
+ * @param {unknown} builderSpellId
+ * @returns {HTMLElement | null}
+ */
+function renderSpellSrdDetails(builderSpellId) {
+  const spellId = String(builderSpellId || "").trim();
+  if (!spellId) return null;
+  const entry = getContentByKind(getActiveContentRegistry(), "spell", spellId);
+  if (!entry) return null;
+  const data = entry.data || {};
+
+  const wrap = document.createElement("div");
+  wrap.className = "spellSrdDetails";
+
+  const level = Number(data.level) || 0;
+  const school = titleCaseWord(data.school);
+  const tags = [];
+  if (data.ritual === true) tags.push("Ritual");
+  if (data.concentration === true) tags.push("Concentration");
+  const headParts = [
+    level === 0 ? `${school} cantrip`.trim() : `Level ${level}${school ? ` ${school}` : ""}`,
+    ...tags
+  ].filter(Boolean);
+  const head = document.createElement("div");
+  head.className = "spellSrdHead";
+  head.textContent = headParts.join(" · ");
+  wrap.appendChild(head);
+
+  const meta = document.createElement("div");
+  meta.className = "spellSrdMeta";
+  const components = Array.isArray(data.components) ? data.components.join(", ") : "";
+  const material = String(data.material || "").trim();
+  const metaRows = [
+    ["Casting Time", String(data.castingTime || "").trim()],
+    ["Range", String(data.range || "").trim()],
+    ["Components", components && material ? `${components} (${material})` : components],
+    ["Duration", String(data.duration || "").trim()]
+  ].filter(([, value]) => value);
+  for (const [label, value] of metaRows) {
+    const row = document.createElement("div");
+    row.className = "spellSrdMetaRow";
+    const labelEl = document.createElement("span");
+    labelEl.className = "spellSrdMetaLabel";
+    labelEl.textContent = label;
+    const valueEl = document.createElement("span");
+    valueEl.className = "spellSrdMetaValue";
+    valueEl.textContent = value;
+    row.appendChild(labelEl);
+    row.appendChild(valueEl);
+    meta.appendChild(row);
+  }
+  if (metaRows.length) wrap.appendChild(meta);
+
+  const desc = String(data.desc || "").trim();
+  if (desc) {
+    const descEl = document.createElement("div");
+    descEl.className = "spellSrdDesc";
+    descEl.textContent = desc;
+    wrap.appendChild(descEl);
+  }
+  const higherLevel = String(data.higherLevel || "").trim();
+  if (higherLevel) {
+    const higherEl = document.createElement("div");
+    higherEl.className = "spellSrdHigher";
+    higherEl.textContent = `At Higher Levels. ${higherLevel}`;
+    wrap.appendChild(higherEl);
+  }
+
+  return wrap;
 }
 
 export function initSpellsPanel(deps = {}) {
@@ -671,6 +759,11 @@ export function initSpellsPanel(deps = {}) {
     row.appendChild(top);
 
     if (!spell.notesCollapsed) {
+      // B2: builder-managed rows show live-derived SRD details above the
+      // user-owned notes textarea.
+      const srdDetails = renderSpellSrdDetails(spell.builderSpellId);
+      if (srdDetails) row.appendChild(srdDetails);
+
       const notesWrap = document.createElement("div");
       notesWrap.className = "spellNotes";
       const ta = document.createElement("textarea");

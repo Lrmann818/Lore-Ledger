@@ -5693,6 +5693,55 @@ select.npcField:focus {
   grid-template-columns: repeat(6, minmax(0, 1fr));
 }
 
+/* B2 spell detail seeding: live-derived SRD details on builder-managed
+   spell rows, rendered above the user-owned notes textarea. */
+.spellSrdDetails {
+  display: grid;
+  gap: 6px;
+  margin: 6px 0 4px;
+  padding: 8px 10px;
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+.spellSrdHead {
+  color: var(--muted);
+  font-style: italic;
+}
+
+.spellSrdMeta {
+  display: grid;
+  gap: 2px;
+}
+
+.spellSrdMetaRow {
+  display: flex;
+  gap: 6px;
+  min-width: 0;
+}
+
+.spellSrdMetaLabel {
+  color: var(--muted);
+  font-weight: 700;
+  flex: none;
+}
+
+.spellSrdMetaValue {
+  overflow-wrap: anywhere;
+}
+
+.spellSrdDesc,
+.spellSrdHigher {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.spellSrdHigher {
+  color: var(--muted);
+}
+
 /* B1 read-only builder panels: value rows + the Edit in Builder action. */
 .builderIdentityValue {
   color: var(--text);
