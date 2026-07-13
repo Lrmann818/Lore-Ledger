@@ -145,6 +145,16 @@ export function initCharacterPageUI(deps) {
   const addDestroy = (destroyFn) => {
     if (typeof destroyFn === "function") destroyFns.push(destroyFn);
   };
+
+  // The builder wizard is created in initCharacterSelectorBar (which runs
+  // before the panels); read-only builder panels route structural edits back
+  // through it via this lazy handle (B1 guarded edit routing).
+  /** @type {{ open: (options?: { character?: import("../../state.js").CharacterEntry | null }) => void } | null} */
+  let builderWizardApi = null;
+  const openBuilderWizard = (character) => {
+    if (!character || !isBuilderCharacter(character)) return;
+    builderWizardApi?.open({ character });
+  };
   const listenerControllers = {
     fields: new AbortController(),
     chrome: new AbortController(),
@@ -269,9 +279,9 @@ export function initCharacterPageUI(deps) {
       setStatus,
     }));
 
-    runPanelInit("Builder identity panel", () => initBuilderIdentityPanel(deps));
+    runPanelInit("Builder identity panel", () => initBuilderIdentityPanel({ ...deps, openBuilderWizard }));
 
-    runPanelInit("Builder abilities panel", () => initBuilderAbilitiesPanel(deps));
+    runPanelInit("Builder abilities panel", () => initBuilderAbilitiesPanel({ ...deps, openBuilderWizard }));
 
     runPanelInit("Builder summary panel", () => initBuilderSummaryPanel(deps));
 
@@ -364,6 +374,7 @@ export function initCharacterPageUI(deps) {
         rerender();
       }
     });
+    builderWizardApi = builderWizard;
     addDestroy(() => builderWizard.destroy());
 
     const levelUpWizard = initLevelUpWizard({

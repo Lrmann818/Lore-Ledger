@@ -601,34 +601,29 @@
             </div>
             <div id="charBuilderIdentityContent" class="builderIdentityContent">
               <p class="builderIdentityNote" id="charBuilderIdentityNote">
-                Choose race, class, background, and level here. Basics uses those builder choices for identity text.
+                Race, class, background, and level are guarded build choices. Edit them with the builder wizard.
               </p>
-              <p class="builderIdentityNote" id="charBuilderIdentityUnavailable" hidden>
-                Builder Mode is active, but this character's builder data is not editable by the current identity editor.
-              </p>
-              <div class="builderIdentityGrid" id="charBuilderIdentityGrid">
-                <label class="builderIdentityField" for="charBuilderRaceSelect">
+              <div class="builderIdentityGrid builderIdentityReadonlyGrid" id="charBuilderIdentityGrid">
+                <div class="builderIdentityField">
                   <span id="charBuilderRaceLabel">Race</span>
-                  <select id="charBuilderRaceSelect" aria-labelledby="charBuilderRaceLabel"></select>
-                </label>
-                <label class="builderIdentityField" for="charBuilderClassSelect">
+                  <span class="builderIdentityValue" id="charBuilderRaceValue" aria-labelledby="charBuilderRaceLabel">—</span>
+                </div>
+                <div class="builderIdentityField">
                   <span id="charBuilderClassLabel">Class</span>
-                  <select id="charBuilderClassSelect" aria-labelledby="charBuilderClassLabel"></select>
-                </label>
-                <label class="builderIdentityField" for="charBuilderBackgroundSelect">
+                  <span class="builderIdentityValue" id="charBuilderClassValue" aria-labelledby="charBuilderClassLabel">—</span>
+                </div>
+                <div class="builderIdentityField">
                   <span id="charBuilderBackgroundLabel">Background</span>
-                  <select id="charBuilderBackgroundSelect" aria-labelledby="charBuilderBackgroundLabel"></select>
-                </label>
-                <label class="builderIdentityField" for="charBuilderLevelInput">
+                  <span class="builderIdentityValue" id="charBuilderBackgroundValue" aria-labelledby="charBuilderBackgroundLabel">—</span>
+                </div>
+                <div class="builderIdentityField">
                   <span id="charBuilderLevelLabel">Level</span>
-                  <input id="charBuilderLevelInput" type="number" min="1" max="20" step="1" inputmode="numeric"
-                    aria-labelledby="charBuilderLevelLabel" />
-                </label>
+                  <span class="builderIdentityValue" id="charBuilderLevelValue" aria-labelledby="charBuilderLevelLabel">—</span>
+                </div>
               </div>
-              <p class="builderIdentityNote" id="charBuilderMulticlassHint" hidden>
-                This character multiclasses. Edit class levels and their order in the character builder to
-                keep the exact level history intact.
-              </p>
+              <div class="builderPanelActions">
+                <button type="button" class="npcSmallBtn builderEditRouteBtn" id="charBuilderIdentityEditBtn">Edit in Builder</button>
+              </div>
             </div>
           </section>
 
@@ -639,42 +634,36 @@
             </div>
             <div id="charBuilderAbilitiesContent" class="builderAbilitiesContent">
               <p class="builderAbilitiesNote" id="charBuilderAbilitiesNote">
-                Edit builder base scores. Base scores drive builder-derived values across the character sheet, including Abilities/Skills totals, Vitals DCs, and derived feature cards. These do not overwrite the freeform ability fields below.
+                Base ability scores are guarded build choices set with the builder wizard. Play-state adjustments stay quick-editable in Abilities &amp; Skills below.
               </p>
-              <p class="builderAbilitiesNote" id="charBuilderAbilitiesUnavailable" hidden>
-                Builder Mode is active, but this character's ability data is not editable by the current abilities editor.
-              </p>
-              <div class="builderAbilitiesGrid" id="charBuilderAbilitiesGrid">
-                <label class="builderAbilitiesField" for="charBuilderAbilityStr">
+              <div class="builderAbilitiesGrid builderAbilitiesReadonlyGrid" id="charBuilderAbilitiesGrid">
+                <div class="builderAbilitiesField">
                   <span id="charBuilderAbilityStrLabel">Strength</span>
-                  <input id="charBuilderAbilityStr" type="number" min="1" max="20" step="1" inputmode="numeric"
-                    aria-labelledby="charBuilderAbilityStrLabel" />
-                </label>
-                <label class="builderAbilitiesField" for="charBuilderAbilityDex">
+                  <span class="builderIdentityValue" id="charBuilderAbilityStrValue" aria-labelledby="charBuilderAbilityStrLabel">—</span>
+                </div>
+                <div class="builderAbilitiesField">
                   <span id="charBuilderAbilityDexLabel">Dexterity</span>
-                  <input id="charBuilderAbilityDex" type="number" min="1" max="20" step="1" inputmode="numeric"
-                    aria-labelledby="charBuilderAbilityDexLabel" />
-                </label>
-                <label class="builderAbilitiesField" for="charBuilderAbilityCon">
+                  <span class="builderIdentityValue" id="charBuilderAbilityDexValue" aria-labelledby="charBuilderAbilityDexLabel">—</span>
+                </div>
+                <div class="builderAbilitiesField">
                   <span id="charBuilderAbilityConLabel">Constitution</span>
-                  <input id="charBuilderAbilityCon" type="number" min="1" max="20" step="1" inputmode="numeric"
-                    aria-labelledby="charBuilderAbilityConLabel" />
-                </label>
-                <label class="builderAbilitiesField" for="charBuilderAbilityInt">
+                  <span class="builderIdentityValue" id="charBuilderAbilityConValue" aria-labelledby="charBuilderAbilityConLabel">—</span>
+                </div>
+                <div class="builderAbilitiesField">
                   <span id="charBuilderAbilityIntLabel">Intelligence</span>
-                  <input id="charBuilderAbilityInt" type="number" min="1" max="20" step="1" inputmode="numeric"
-                    aria-labelledby="charBuilderAbilityIntLabel" />
-                </label>
-                <label class="builderAbilitiesField" for="charBuilderAbilityWis">
+                  <span class="builderIdentityValue" id="charBuilderAbilityIntValue" aria-labelledby="charBuilderAbilityIntLabel">—</span>
+                </div>
+                <div class="builderAbilitiesField">
                   <span id="charBuilderAbilityWisLabel">Wisdom</span>
-                  <input id="charBuilderAbilityWis" type="number" min="1" max="20" step="1" inputmode="numeric"
-                    aria-labelledby="charBuilderAbilityWisLabel" />
-                </label>
-                <label class="builderAbilitiesField" for="charBuilderAbilityCha">
+                  <span class="builderIdentityValue" id="charBuilderAbilityWisValue" aria-labelledby="charBuilderAbilityWisLabel">—</span>
+                </div>
+                <div class="builderAbilitiesField">
                   <span id="charBuilderAbilityChaLabel">Charisma</span>
-                  <input id="charBuilderAbilityCha" type="number" min="1" max="20" step="1" inputmode="numeric"
-                    aria-labelledby="charBuilderAbilityChaLabel" />
-                </label>
+                  <span class="builderIdentityValue" id="charBuilderAbilityChaValue" aria-labelledby="charBuilderAbilityChaLabel">—</span>
+                </div>
+              </div>
+              <div class="builderPanelActions">
+                <button type="button" class="npcSmallBtn builderEditRouteBtn" id="charBuilderAbilitiesEditBtn">Edit in Builder</button>
               </div>
             </div>
           </section>

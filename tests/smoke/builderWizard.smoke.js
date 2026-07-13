@@ -92,6 +92,18 @@ test("builder wizard dragonborn happy path seeds the character sheet", async ({ 
   await expect(page.locator("#charAbilitiesFeaturesList")).toContainText("Breath Weapon");
   await expect(page.locator("#charBuilderSummaryPanel")).toBeVisible();
 
+  // B1: the Builder Identity panel is a read-only routing surface — values
+  // derive from the build and the Edit action reopens the guarded wizard.
+  await expect(page.locator("#charBuilderIdentityPanel")).toBeVisible();
+  await expect(page.locator("#charBuilderRaceValue")).toHaveText("Dragonborn");
+  await expect(page.locator("#charBuilderClassValue")).toHaveText("Fighter 1");
+  await expect(page.locator("#charBuilderAbilityStrValue")).toHaveText("15");
+  await page.locator("#charBuilderIdentityEditBtn").click();
+  await expect(page.locator("#builderWizardPanel")).toBeVisible();
+  await expect(page.locator("#builderWizardTitle")).toHaveText("Edit with Builder");
+  await page.locator("#builderWizardCancel").click();
+  await expect(page.locator("#builderWizardPanel")).toBeHidden();
+
   // The seeded sheet survives a full reload (persistence round trip).
   await page.waitForTimeout(1500);
   await page.reload();

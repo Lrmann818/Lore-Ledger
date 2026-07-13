@@ -1,5 +1,9 @@
 // @ts-check
-// Manual builder ability editor for Step 3 Phase 3C builder characters.
+// Builder Abilities panel (B1 rework): a read-only view of the guarded base
+// ability scores with an "Edit in Builder" action routing to the wizard.
+// Base scores are structural build data (the output of the guarded
+// ability-generation choice); play-state adjustments remain quick-editable
+// through the Abilities & Skills panel's override controls.
 
 import {
   ACTIVE_CHARACTER_CHANGED_EVENT
@@ -9,21 +13,19 @@ import {
   getActiveCharacter,
   isBuilderCharacter
 } from "../../../domain/characterHelpers.js";
-import { createStateActions } from "../../../domain/stateActions.js";
-import { notifyPanelDataChanged, subscribePanelDataChanged } from "../../../ui/panelInvalidation.js";
+import { subscribePanelDataChanged } from "../../../ui/panelInvalidation.js";
 import { getNoopDestroyApi, requireMany } from "../../../utils/domGuards.js";
 
-const MIN_ABILITY_SCORE = 1;
-const MAX_ABILITY_SCORE = 20;
+const EMPTY_VALUE = "—";
 
 /** @type {Readonly<Record<string, string>>} */
-const INPUT_ID_BY_ABILITY = Object.freeze({
-  str: "charBuilderAbilityStr",
-  dex: "charBuilderAbilityDex",
-  con: "charBuilderAbilityCon",
-  int: "charBuilderAbilityInt",
-  wis: "charBuilderAbilityWis",
-  cha: "charBuilderAbilityCha"
+const VALUE_ID_BY_ABILITY = Object.freeze({
+  str: "#charBuilderAbilityStrValue",
+  dex: "#charBuilderAbilityDexValue",
+  con: "#charBuilderAbilityConValue",
+  int: "#charBuilderAbilityIntValue",
+  wis: "#charBuilderAbilityWisValue",
+  cha: "#charBuilderAbilityChaValue"
 });
 
 /**
@@ -35,60 +37,20 @@ function isPlainObject(value) {
 }
 
 /**
- * @param {unknown} value
- * @returns {value is number}
- */
-function isEditableAbilityScore(value) {
-  return typeof value === "number" &&
-    Number.isFinite(value) &&
-    Number.isInteger(value) &&
-    value >= MIN_ABILITY_SCORE &&
-    value <= MAX_ABILITY_SCORE;
-}
-
-/**
- * @param {unknown} value
- * @returns {number | null}
- */
-function parseAbilityInput(value) {
-  const text = String(value ?? "").trim();
-  if (!/^\d+$/.test(text)) return null;
-  const n = Number(text);
-  return isEditableAbilityScore(n) ? n : null;
-}
-
-/**
- * @param {unknown} character
- * @returns {Record<string, number> | null}
- */
-function getEditableAbilityBase(character) {
-  if (!isBuilderCharacter(character) || !isPlainObject(character)) return null;
-  const build = character.build;
-  if (!isPlainObject(build) || !isPlainObject(build.abilities)) return null;
-  const base = build.abilities.base;
-  if (!isPlainObject(base)) return null;
-
-  for (const key of CHARACTER_ABILITY_KEYS) {
-    if (!isEditableAbilityScore(base[key])) return null;
-  }
-  return /** @type {Record<string, number>} */ (base);
-}
-
-/**
  * @param {{
  *   state?: import("../../../state.js").State,
- *   SaveManager?: { markDirty?: () => void },
  *   root?: ParentNode,
- *   setStatus?: (message: string, options?: Record<string, unknown>) => void
+ *   setStatus?: (message: string, options?: Record<string, unknown>) => void,
+ *   openBuilderWizard?: (character: import("../../../state.js").CharacterEntry) => void
  * }} [deps]
  * @returns {{ destroy: () => void }}
  */
 export function initBuilderAbilitiesPanel(deps = {}) {
   const {
     state,
-    SaveManager,
     root = document,
-    setStatus
+    setStatus,
+    openBuilderWizard
   } = deps;
 
   if (!state) return getNoopDestroyApi();
@@ -96,15 +58,13 @@ export function initBuilderAbilitiesPanel(deps = {}) {
   const guard = requireMany(
     {
       panel: "#charBuilderAbilitiesPanel",
-      content: "#charBuilderAbilitiesContent",
-      unavailable: "#charBuilderAbilitiesUnavailable",
-      grid: "#charBuilderAbilitiesGrid",
-      str: "#charBuilderAbilityStr",
-      dex: "#charBuilderAbilityDex",
-      con: "#charBuilderAbilityCon",
-      int: "#charBuilderAbilityInt",
-      wis: "#charBuilderAbilityWis",
-      cha: "#charBuilderAbilityCha"
+      str: VALUE_ID_BY_ABILITY.str,
+      dex: VALUE_ID_BY_ABILITY.dex,
+      con: VALUE_ID_BY_ABILITY.con,
+      int: VALUE_ID_BY_ABILITY.int,
+      wis: VALUE_ID_BY_ABILITY.wis,
+      cha: VALUE_ID_BY_ABILITY.cha,
+      editBtn: "#charBuilderAbilitiesEditBtn"
     },
     {
       root,
@@ -117,128 +77,52 @@ export function initBuilderAbilitiesPanel(deps = {}) {
   if (!guard.ok) return guard.destroy;
 
   const panelEl = /** @type {HTMLElement} */ (guard.els.panel);
-  const contentEl = /** @type {HTMLElement} */ (guard.els.content);
-  const unavailableEl = /** @type {HTMLElement} */ (guard.els.unavailable);
-  const gridEl = /** @type {HTMLElement} */ (guard.els.grid);
-  /** @type {Record<string, HTMLInputElement>} */
-  const inputs = {
-    str: /** @type {HTMLInputElement} */ (guard.els.str),
-    dex: /** @type {HTMLInputElement} */ (guard.els.dex),
-    con: /** @type {HTMLInputElement} */ (guard.els.con),
-    int: /** @type {HTMLInputElement} */ (guard.els.int),
-    wis: /** @type {HTMLInputElement} */ (guard.els.wis),
-    cha: /** @type {HTMLInputElement} */ (guard.els.cha)
+  const editBtn = /** @type {HTMLButtonElement} */ (guard.els.editBtn);
+  /** @type {Record<string, HTMLElement>} */
+  const valueEls = {
+    str: /** @type {HTMLElement} */ (guard.els.str),
+    dex: /** @type {HTMLElement} */ (guard.els.dex),
+    con: /** @type {HTMLElement} */ (guard.els.con),
+    int: /** @type {HTMLElement} */ (guard.els.int),
+    wis: /** @type {HTMLElement} */ (guard.els.wis),
+    cha: /** @type {HTMLElement} */ (guard.els.cha)
   };
 
-  const { updateCharacterField } = createStateActions({ state, SaveManager });
   const destroyFns = [];
   const listenerController = new AbortController();
   const listenerSignal = listenerController.signal;
-  const panelSource = { panelId: "builder-abilities" };
   let destroyed = false;
-
   destroyFns.push(() => listenerController.abort());
-
-  function resetControls() {
-    for (const key of CHARACTER_ABILITY_KEYS) {
-      inputs[key].value = "";
-    }
-  }
-
-  /**
-   * @param {Record<string, number>} base
-   */
-  function syncControls(base) {
-    for (const key of CHARACTER_ABILITY_KEYS) {
-      const input = inputs[key];
-      input.value = String(base[key]);
-      input.min = String(MIN_ABILITY_SCORE);
-      input.max = String(MAX_ABILITY_SCORE);
-      input.step = "1";
-    }
-  }
-
-  function showPanel() {
-    panelEl.hidden = false;
-    panelEl.setAttribute("aria-hidden", "false");
-  }
 
   function hide() {
     panelEl.hidden = true;
     panelEl.setAttribute("aria-hidden", "true");
-    unavailableEl.hidden = true;
-    gridEl.hidden = true;
-    contentEl.removeAttribute("aria-disabled");
-    resetControls();
-  }
-
-  function showUnavailable() {
-    resetControls();
-    unavailableEl.hidden = false;
-    gridEl.hidden = true;
-    contentEl.setAttribute("aria-disabled", "true");
-    showPanel();
-  }
-
-  /**
-   * @param {Record<string, number>} base
-   */
-  function showEditable(base) {
-    unavailableEl.hidden = true;
-    gridEl.hidden = false;
-    contentEl.removeAttribute("aria-disabled");
-    syncControls(base);
-    showPanel();
   }
 
   function refresh() {
     if (destroyed) return;
     const character = getActiveCharacter(state);
-    const base = getEditableAbilityBase(character);
-    if (base) {
-      showEditable(base);
+    if (!isBuilderCharacter(character)) {
+      hide();
       return;
     }
-    if (isBuilderCharacter(character)) {
-      showUnavailable();
-      return;
+    const build = isPlainObject(character) && isPlainObject(character.build) ? character.build : {};
+    const abilities = isPlainObject(build.abilities) ? build.abilities : {};
+    const base = isPlainObject(abilities.base) ? abilities.base : {};
+    for (const key of CHARACTER_ABILITY_KEYS) {
+      const value = Number(base[key]);
+      valueEls[key].textContent = Number.isFinite(value) ? String(value) : EMPTY_VALUE;
     }
-    hide();
+    editBtn.disabled = typeof openBuilderWizard !== "function";
+    panelEl.hidden = false;
+    panelEl.setAttribute("aria-hidden", "false");
   }
 
-  /**
-   * @param {string} key
-   * @param {unknown} rawValue
-   */
-  function updateAbility(key, rawValue) {
-    const base = getEditableAbilityBase(getActiveCharacter(state));
-    if (!base || !Object.hasOwn(INPUT_ID_BY_ABILITY, key)) {
-      refresh();
-      return;
-    }
-
-    const nextValue = parseAbilityInput(rawValue);
-    if (nextValue == null) {
-      refresh();
-      return;
-    }
-
-    const updated = updateCharacterField(`build.abilities.base.${key}`, nextValue, { queueSave: false });
-    if (!updated) {
-      refresh();
-      return;
-    }
-
-    SaveManager?.markDirty?.();
-    notifyPanelDataChanged("character-fields", { source: panelSource });
-    refresh();
-  }
-
-  for (const key of CHARACTER_ABILITY_KEYS) {
-    inputs[key].addEventListener("change", () => updateAbility(key, inputs[key].value), {
-      signal: listenerSignal
-    });
-  }
+  editBtn.addEventListener("click", () => {
+    const character = getActiveCharacter(state);
+    if (!character || !isBuilderCharacter(character)) return;
+    openBuilderWizard?.(character);
+  }, { signal: listenerSignal });
 
   if (typeof window !== "undefined" && typeof window.addEventListener === "function") {
     window.addEventListener(ACTIVE_CHARACTER_CHANGED_EVENT, refresh, {

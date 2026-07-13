@@ -6,8 +6,6 @@ import { resolve } from "node:path";
 import { makeDefaultBuilderCharacterEntry, makeDefaultCharacterEntry } from "../js/domain/characterHelpers.js";
 import { initAbilitiesPanel } from "../js/pages/character/panels/abilitiesPanel.js";
 import { initAttacksPanel } from "../js/pages/character/panels/attackPanel.js";
-import { initBuilderAbilitiesPanel } from "../js/pages/character/panels/builderAbilitiesPanel.js";
-import { initBuilderIdentityPanel } from "../js/pages/character/panels/builderIdentityPanel.js";
 import { initBuilderSummaryPanel } from "../js/pages/character/panels/builderSummaryPanel.js";
 import { initBasicsPanel } from "../js/pages/character/panels/basicsPanel.js";
 import { initAbilitiesFeaturesPanel } from "../js/pages/character/panels/abilitiesFeaturesPanel.js";
@@ -588,45 +586,6 @@ function installAbilityBlocks(document, root = document) {
   });
 }
 
-function installBuilderAbilitiesPanelDom(document) {
-  const panel = append(document.body, "section", { id: "charBuilderAbilitiesPanel" });
-  panel.hidden = true;
-  panel.setAttribute("aria-hidden", "true");
-  const content = append(panel, "div", { id: "charBuilderAbilitiesContent" });
-  const unavailable = append(content, "p", { id: "charBuilderAbilitiesUnavailable" });
-  unavailable.hidden = true;
-  const grid = append(content, "div", { id: "charBuilderAbilitiesGrid" });
-  [
-    ["Str", "str"],
-    ["Dex", "dex"],
-    ["Con", "con"],
-    ["Int", "int"],
-    ["Wis", "wis"],
-    ["Cha", "cha"]
-  ].forEach(([suffix]) => {
-    const label = append(grid, "label", { id: `charBuilderAbility${suffix}Field` });
-    append(label, "input", { id: `charBuilderAbility${suffix}`, type: "number" });
-  });
-}
-
-function installBuilderIdentityPanelDom(document) {
-  const panel = append(document.body, "section", { id: "charBuilderIdentityPanel" });
-  panel.hidden = true;
-  panel.setAttribute("aria-hidden", "true");
-  const content = append(panel, "div", { id: "charBuilderIdentityContent" });
-  const unavailable = append(content, "p", { id: "charBuilderIdentityUnavailable" });
-  unavailable.hidden = true;
-  const grid = append(content, "div", { id: "charBuilderIdentityGrid" });
-  [
-    ["Race", "charBuilderRaceSelect"],
-    ["Class", "charBuilderClassSelect"],
-    ["Background", "charBuilderBackgroundSelect"]
-  ].forEach(([, id]) => {
-    append(grid, "select", { id });
-  });
-  append(grid, "input", { id: "charBuilderLevelInput", type: "number" });
-}
-
 function installBuilderSummaryPanelDom(document) {
   const panel = append(document.body, "section", { id: "charBuilderSummaryPanel" });
   panel.hidden = true;
@@ -945,8 +904,7 @@ describe("character panels active character resolution", () => {
     api.destroy();
   });
 
-  it("refreshes normal Basics display after Builder Identity edits", () => {
-    installBuilderIdentityPanelDom(document);
+  it("refreshes normal Basics display after guarded build edits", () => {
     const builder = makeBuilder("char_builder", { str: 16, dex: 14, con: 13, int: 12, wis: 10, cha: 8 });
     builder.classLevel = "Persisted Class";
     builder.race = "Persisted Race";
@@ -959,22 +917,15 @@ describe("character panels active character resolution", () => {
     const deps = makeDeps(state);
 
     const basicsApi = initBasicsPanel(deps);
-    const identityApi = initBuilderIdentityPanel(deps);
 
     expect(document.getElementById("charClassLevel").value).toBe("Fighter 5");
 
-    const classSelect = document.getElementById("charBuilderClassSelect");
-    classSelect.value = "wizard";
-    dispatchChange(classSelect);
-    const raceSelect = document.getElementById("charBuilderRaceSelect");
-    raceSelect.value = "human";
-    dispatchChange(raceSelect);
-    const backgroundSelect = document.getElementById("charBuilderBackgroundSelect");
-    backgroundSelect.value = "acolyte";
-    dispatchChange(backgroundSelect);
-    const levelInput = document.getElementById("charBuilderLevelInput");
-    levelInput.value = "6";
-    dispatchChange(levelInput);
+    // B1: structural edits happen only through the guarded wizard, which
+    // rewrites the build and broadcasts the same invalidation used here.
+    builder.build.classId = "wizard";
+    builder.build.raceId = "human";
+    builder.build.level = 6;
+    notifyPanelDataChanged("character-fields");
 
     expect(document.getElementById("charClassLevel").value).toBe("Wizard 6");
     expect(document.getElementById("charRace").value).toBe("Human");
@@ -983,7 +934,6 @@ describe("character panels active character resolution", () => {
     expect(builder.race).toBe("Persisted Race");
     expect(builder.background).toBe("Persisted Background");
 
-    identityApi.destroy();
     basicsApi.destroy();
   });
 
@@ -1269,8 +1219,7 @@ describe("character panels active character resolution", () => {
     api.destroy();
   });
 
-  it("refreshes builder-derived Vitals speed and hit dice after Builder Identity edits", () => {
-    installBuilderIdentityPanelDom(document);
+  it("refreshes builder-derived Vitals speed and hit dice after guarded build edits", () => {
     const builder = makeBuilder("char_builder", { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 });
     builder.build.raceId = null;
     builder.build.classId = "fighter";
@@ -1282,25 +1231,18 @@ describe("character panels active character resolution", () => {
     const deps = makeDeps(state);
 
     const vitalsApi = initVitalsPanel(deps);
-    const identityApi = initBuilderIdentityPanel(deps);
 
     expect(document.getElementById("charSpeed").value).toBe("");
     expect(document.getElementById("hitDieAmt").value).toBe("5");
     expect(document.getElementById("hitDieSize").value).toBe("10");
 
-    const raceSelect = document.getElementById("charBuilderRaceSelect");
-    raceSelect.value = "human";
-    dispatchChange(raceSelect);
-    const classSelect = document.getElementById("charBuilderClassSelect");
-    classSelect.value = "wizard";
-    dispatchChange(classSelect);
-    const levelInput = document.getElementById("charBuilderLevelInput");
-    levelInput.value = "9";
-    dispatchChange(levelInput);
+    // B1: the guarded wizard rewrites the build; the panel refreshes off the
+    // broadcast invalidation.
+    builder.build.raceId = "human";
+    builder.build.classId = "wizard";
+    builder.build.level = 9;
+    notifyPanelDataChanged("character-fields");
 
-    expect(builder.build.raceId).toBe("human");
-    expect(builder.build.levels).toHaveLength(9);
-    expect(builder.build.levels.every((row) => row.classId === "wizard")).toBe(true);
     expect(document.getElementById("charSpeed").value).toBe("30");
     expect(document.getElementById("hitDieAmt").value).toBe("9");
     expect(document.getElementById("hitDieSize").value).toBe("6");
@@ -1308,7 +1250,6 @@ describe("character panels active character resolution", () => {
     expect(builder.hitDieAmt).toBe(99);
     expect(builder.hitDieSize).toBe(99);
 
-    identityApi.destroy();
     vitalsApi.destroy();
   });
 
@@ -2686,8 +2627,7 @@ describe("character panels active character resolution", () => {
     api.destroy();
   });
 
-  it("refreshes builder-derived Vitals proficiency after Builder Identity level edits", () => {
-    installBuilderIdentityPanelDom(document);
+  it("refreshes builder-derived Vitals proficiency after guarded level edits", () => {
     const builder = makeBuilder("char_builder", { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 });
     builder.build.level = 5;
     builder.proficiency = 1;
@@ -2695,19 +2635,16 @@ describe("character panels active character resolution", () => {
     const deps = makeDeps(state);
 
     const vitalsApi = initVitalsPanel(deps);
-    const identityApi = initBuilderIdentityPanel(deps);
 
     expect(document.getElementById("charProf").value).toBe("3");
 
-    const levelInput = document.getElementById("charBuilderLevelInput");
-    levelInput.value = "9";
-    dispatchChange(levelInput);
+    // B1: level changes route through the wizard/Level Up flows.
+    builder.build.level = 9;
+    notifyPanelDataChanged("character-fields");
 
-    expect(builder.build.level).toBe(9);
     expect(document.getElementById("charProf").value).toBe("4");
     expect(builder.proficiency).toBe(1);
 
-    identityApi.destroy();
     vitalsApi.destroy();
   });
 
@@ -3264,9 +3201,8 @@ describe("character panels active character resolution", () => {
     api.destroy();
   });
 
-  it("refreshes normal Abilities display when Builder Abilities edits base scores", () => {
+  it("refreshes normal Abilities display when guarded base scores change", () => {
     installAbilityBlocks(document);
-    installBuilderAbilitiesPanelDom(document);
     const builder = makeBuilder(
       "char_builder",
       { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
@@ -3277,21 +3213,18 @@ describe("character panels active character resolution", () => {
     const deps = makeDeps(state);
 
     const abilitiesApi = initAbilitiesPanel(deps);
-    const builderAbilitiesApi = initBuilderAbilitiesPanel(deps);
 
     expect(abilityScoreInput(document, "str").value).toBe("10");
     expect(abilityModText(document, "str")).toBe("+0");
 
-    const builderStr = document.getElementById("charBuilderAbilityStr");
-    builderStr.value = "15";
-    builderStr.dispatchEvent(new Event("change", { bubbles: true, cancelable: true }));
+    // B1: base scores change only through the guarded wizard flow.
+    builder.build.abilities.base.str = 15;
+    notifyPanelDataChanged("character-fields");
 
-    expect(builder.build.abilities.base.str).toBe(15);
     expect(abilityScoreInput(document, "str").value).toBe("15");
     expect(abilityModText(document, "str")).toBe("+2");
     expect(builder.abilities).toEqual(beforeFlat);
 
-    builderAbilitiesApi.destroy();
     abilitiesApi.destroy();
   });
 
