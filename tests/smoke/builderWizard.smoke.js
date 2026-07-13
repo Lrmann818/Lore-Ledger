@@ -92,6 +92,15 @@ test("builder wizard dragonborn happy path seeds the character sheet", async ({ 
   await expect(page.locator("#charAbilitiesFeaturesList")).toContainText("Breath Weapon");
   await expect(page.locator("#charBuilderSummaryPanel")).toBeVisible();
 
+  // B3: display-only rules-reference cards render for class features and
+  // race traits; they start collapsed and expand to the full description.
+  const secondWindRef = page.locator('[data-feature-id="ref:feature:second-wind"]');
+  await expect(secondWindRef).toBeVisible();
+  await expect(secondWindRef).toHaveAttribute("data-feature-collapsed", "true");
+  await secondWindRef.locator("[data-feature-collapse-header]").click();
+  await expect(secondWindRef).toHaveAttribute("data-feature-collapsed", "false");
+  await expect(secondWindRef.locator(".featureReferenceDescription")).toContainText("1d10");
+
   // B1: the Builder Identity panel is a read-only routing surface — values
   // derive from the build and the Edit action reopens the guarded wizard.
   await expect(page.locator("#charBuilderIdentityPanel")).toBeVisible();

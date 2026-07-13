@@ -5693,6 +5693,22 @@ select.npcField:focus {
   grid-template-columns: repeat(6, minmax(0, 1fr));
 }
 
+/* B3 feature detail seeding: display-only rules-reference cards. */
+.featureReferenceCard {
+  border-style: dashed;
+}
+
+.featureReferenceCard .featureActionTitle {
+  font-size: 13.5px;
+}
+
+.featureReferenceDescription {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
 /* B2 spell detail seeding: live-derived SRD details on builder-managed
    spell rows, rendered above the user-owned notes textarea. */
 .spellSrdDetails {

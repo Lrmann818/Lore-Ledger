@@ -18,6 +18,7 @@ import {
 } from "../../../domain/featureUses.js";
 import { requireMany, getNoopDestroyApi } from "../../../utils/domGuards.js";
 import { subscribePanelDataChanged } from "../../../ui/panelInvalidation.js";
+import { getActiveContentRegistry, getContentByKind } from "../../../domain/rules/registry.js";
 
 const ABILITY_SAVE_LABELS = Object.freeze({
   str: "Str",
@@ -248,6 +249,90 @@ function renderDerivedFeatureCard(list, feature, collapsedCards, collapsedNotes,
 }
 
 /**
+ * @typedef {{ id: string, name: string, source: string, description: string }} ReferenceFeatureEntry
+ */
+
+/**
+ * Renders a display-only rules-reference card (B3 feature detail seeding):
+ * a class/subclass feature, chosen feat, or race trait with its full SRD
+ * description. Reference cards are live-derived from the build and registry
+ * at render time — no state writes, no edit/move/use controls; the seeded
+ * one-liners in the Features text field remain the editable user-owned copy.
+ * @param {HTMLElement} list
+ * @param {ReferenceFeatureEntry} entry
+ * @param {Set<string>} collapsedCards
+ */
+function renderReferenceFeatureCard(list, entry, collapsedCards) {
+  const isCollapsed = collapsedCards.has(entry.id);
+
+  const card = appendDiv(list, "featureActionCard featureReferenceCard");
+  card.dataset.featureId = entry.id;
+  card.dataset.featureKind = "reference";
+  card.dataset.featureCollapsed = isCollapsed ? "true" : "false";
+
+  const header = appendDiv(card, "featureActionHeader panelHeaderClickable");
+  header.dataset.featureCollapseHeader = entry.id;
+  header.setAttribute("aria-expanded", isCollapsed ? "false" : "true");
+  const titleWrap = appendDiv(header, "featureActionTitleWrap");
+  appendDiv(titleWrap, "featureActionTitle", entry.name);
+  if (entry.source) appendDiv(titleWrap, "featureActionSource", entry.source);
+
+  const body = appendDiv(card, "featureCardBody");
+  const description = appendDiv(body, "featureCardNotesArea featureReferenceDescription");
+  description.textContent = entry.description || "No description in the registry.";
+}
+
+/**
+ * Collects the display-only reference entries for one derived builder
+ * character: class/subclass features (chosen subfeatures replace their
+ * parent), chosen feats, and race/subrace traits.
+ * @param {ReturnType<typeof deriveCharacter>} derived
+ * @returns {ReferenceFeatureEntry[]}
+ */
+function collectReferenceFeatures(derived) {
+  /** @type {ReferenceFeatureEntry[]} */
+  const entries = [];
+  const registry = getActiveContentRegistry();
+  const classNameById = new Map(derived.classLevels.map((info) => [info.classId, info.className]));
+
+  const seen = new Set();
+  for (const feature of derived.features) {
+    if (feature.replacedBy && feature.replacedBy.length) continue;
+    if (seen.has(feature.featureId)) continue;
+    seen.add(feature.featureId);
+    const className = classNameById.get(feature.classId) || feature.classId;
+    entries.push({
+      id: `ref:feature:${feature.featureId}`,
+      name: feature.name,
+      source: `${className} ${feature.classLevel}`,
+      description: feature.desc
+    });
+  }
+
+  for (const featId of derived.featIds) {
+    const featEntry = getContentByKind(registry, "feat", featId);
+    if (!featEntry) continue;
+    entries.push({
+      id: `ref:feat:${featEntry.id}`,
+      name: featEntry.name,
+      source: "Feat",
+      description: typeof featEntry.data?.desc === "string" ? featEntry.data.desc : ""
+    });
+  }
+
+  for (const trait of derived.raceTraits) {
+    entries.push({
+      id: `ref:trait:${trait.id}`,
+      name: trait.name,
+      source: trait.source,
+      description: trait.description
+    });
+  }
+
+  return entries;
+}
+
+/**
  * @param {HTMLElement} list
  * @param {import("../../../state.js").ManualFeatureCard} feature
  * @param {number} index
@@ -396,6 +481,10 @@ export function initAbilitiesFeaturesPanel(deps = {}) {
   const collapsedCards = new Set();
   /** @type {Set<string>} */
   const collapsedNotes = new Set();
+  // Reference cards start collapsed (they can be numerous at high level);
+  // this tracks which ids already received their initial collapse.
+  /** @type {Set<string>} */
+  const seenReferenceIds = new Set();
 
   function markChanged(message = "") {
     try { SaveManager?.markDirty?.(); } catch { /* noop */ }
@@ -768,11 +857,15 @@ export function initAbilitiesFeaturesPanel(deps = {}) {
     if (destroyed) return;
     list.replaceChildren();
     const character = getActiveCharacter(state);
-    const derivedFeatures = character ? deriveCharacter(character).derivedFeatureActions : [];
+    const derived = character ? deriveCharacter(character) : null;
+    const derivedFeatures = derived ? derived.derivedFeatureActions : [];
+    const referenceFeatures = derived && derived.mode === "builder"
+      ? collectReferenceFeatures(derived)
+      : [];
     const manualFeatures = character ? normalizeManualFeatureCards(character.manualFeatureCards) : [];
     const featureUses = character ? normalizeFeatureUses(character.featureUses) : {};
     addButton.disabled = !character;
-    empty.hidden = derivedFeatures.length + manualFeatures.length > 0;
+    empty.hidden = derivedFeatures.length + referenceFeatures.length + manualFeatures.length > 0;
     for (const feature of derivedFeatures) {
       renderDerivedFeatureCard(
         list,
@@ -781,6 +874,13 @@ export function initAbilitiesFeaturesPanel(deps = {}) {
         collapsedNotes,
         getFeatureUseCurrent(featureUses, feature)
       );
+    }
+    for (const entry of referenceFeatures) {
+      if (!seenReferenceIds.has(entry.id)) {
+        seenReferenceIds.add(entry.id);
+        collapsedCards.add(entry.id);
+      }
+      renderReferenceFeatureCard(list, entry, collapsedCards);
     }
     for (let i = 0; i < manualFeatures.length; i++) {
       renderManualFeatureCard(list, manualFeatures[i], i, manualFeatures.length, collapsedCards, collapsedNotes);

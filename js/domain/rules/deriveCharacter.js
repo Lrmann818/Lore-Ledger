@@ -369,6 +369,7 @@ function readChoiceValues(flatChoices, choiceId) {
  *   dragonbornAncestry: DragonbornAncestryDerived | null,
  *   derivedFeatureActions: DerivedFeatureAction[],
  *   derivedResources: import("./classResources.js").DerivedClassResource[],
+ *   raceTraits: Array<{ id: string, name: string, description: string, source: string }>,
  *   warnings: string[]
  * }}
  */
@@ -834,6 +835,28 @@ export function deriveCharacter(character, registry = getActiveContentRegistry()
 
   const grantedSpells = build ? getGrantedSpells(levels, subclassByClass, registry) : [];
 
+  // ---- race/subrace traits (descriptive; choice-derived traits stay
+  // live-derived through their feature-action cards, not listed here) ----
+  /** @type {ReturnType<typeof deriveCharacter>["raceTraits"]} */
+  const raceTraits = [];
+  if (build) {
+    for (const parent of [raceEntry, subraceEntry]) {
+      if (!parent) continue;
+      const traitIds = Array.isArray(parent.data?.traits) ? parent.data.traits : [];
+      for (const traitId of traitIds) {
+        const traitEntry = getContentByKind(registry, "trait", cleanString(traitId));
+        if (!traitEntry) continue;
+        if (cleanString(traitEntry.data?.derivedFrom)) continue;
+        raceTraits.push({
+          id: traitEntry.id,
+          name: traitEntry.name,
+          description: cleanString(traitEntry.data?.description),
+          source: parent.name
+        });
+      }
+    }
+  }
+
   // ---- class resources (shared limited-use pools) ----
   /** @type {import("./classResources.js").DerivedClassResource[]} */
   let derivedResources = [];
@@ -964,6 +987,7 @@ export function deriveCharacter(character, registry = getActiveContentRegistry()
     dragonbornAncestry,
     derivedFeatureActions,
     derivedResources,
+    raceTraits,
     warnings
   };
 }
