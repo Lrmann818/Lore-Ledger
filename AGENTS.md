@@ -757,8 +757,9 @@ listed so agents do not repeat them:
 7. [x] Level Up **Phase 1** implemented per the revised spec (authorized and completed 2026-07-12; see `docs/reference/level-up-flow-spec.md` and `js/pages/character/levelUpWizard.js`)
 8. [x] Level Up **Phase 2** implemented (2026-07-12): generalized class-resource derivation (`js/domain/rules/classResources.js`, `deriveCharacter().derivedResources`), duplicate-aware seeding into `character.resources[]`, Level Up growth deltas with spent-use preservation, and the custom-class `resources` schema (see `docs/reference/content-registry-plan.md` → Class Resources)
 9. [x] **B1** implemented (2026-07-13): Builder Identity / Builder Abilities panels are read-only routing surfaces; structural edits route through the guarded wizard only
-10. [ ] **Current authorized work (owner authorization, 2026-07-12 second session):** the next builder batches per `docs/audits/builder-completion-matrix.md` — **B2 (spell detail seeding), then B3 (feature detail seeding)**, one at a time, each fully verified before the next. Per-batch re-authorization is not required for builder-completion work this session.
-11. [ ] **Still blocked / out of scope:** down-leveling (ratified out of scope), builtin content expansion beyond the SRD 5.1 greenlist, and any work outside the character-builder system
+10. [x] **B2** implemented (2026-07-13): builder-managed spell rows show live-derived SRD detail blocks (spellsPanel.js); user notes stay purely user-owned
+11. [ ] **Current authorized work (owner authorization, 2026-07-12 second session):** **B3 (feature detail seeding)**, then the remaining coherent builder batches per `docs/audits/builder-completion-matrix.md`. Per-batch re-authorization is not required for builder-completion work this session.
+12. [ ] **Still blocked / out of scope:** down-leveling (ratified out of scope), builtin content expansion beyond the SRD 5.1 greenlist, and any work outside the character-builder system
 
 `docs/audits/srd-5-1-character-builder-gap-audit-stabilization-docs.md` is a **planning
 artifact, not a work order**. Steps 1-7 above are complete. Its batches **B1
