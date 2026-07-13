@@ -8,7 +8,7 @@ and the live audit is [`docs/audits/builder-completion-matrix.md`](../audits/bui
 ## Branch and state
 
 - **Branch:** `builder-wizard` (local only — not pushed, matching the branch's existing posture)
-- **Head:** the latest `docs: pin final session head…`/handoff commit on `builder-wizard` (session started from `730a5df`; last feature commit `3aaa6d6`, followed only by documentation commits)
+- **Head:** the latest handoff-refresh commit on `builder-wizard` (session started from `730a5df`; last feature commit `8dc0a17` — custom-content export bundling)
 - **Working tree:** clean; every batch fully committed
 - **Schema:** v12 (no migrations added this session — verified none were needed)
 
@@ -25,7 +25,7 @@ and the live audit is [`docs/audits/builder-completion-matrix.md`](../audits/bui
 | Granted spells + ASI cap | `3aaa6d6` | `getGrantedSpells()` walks class-record `grantedSpells` (custom-class extension point); shared ASI editor warns above the SRD 20 cap (guidance-only) |
 | Doc sweeps | `d0bcdde`, `5355244` | AGENTS doc-map staleness; matrix reassessment |
 | Finish guidance (#1) | `bd4bb30` | Wizard Summary lists incomplete count-bearing choices (`getIncompleteChoiceSummaries`), guidance-only; 8 new tests |
-| Custom-content bundling (#17) | (final commit) | Exports bundle referenced custom records; import adopts missing ones, destination wins on conflicts; 6 new tests |
+| Custom-content bundling (#17) | `8dc0a17` | Exports bundle referenced custom records; import adopts missing ones, destination wins on conflicts; 6 new tests |
 
 ## Verification results (final state)
 
