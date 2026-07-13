@@ -141,3 +141,19 @@ Character portability is narrower than backup import/export:
 - character import only appends one new character to the current campaign
 
 Do not use character portability as a schema migration path. It is a user-facing copy/share feature at the file boundary.
+
+## Bundled custom content (2026-07-13, matrix #17)
+
+Character exports include a `customContent` array holding the campaign custom
+records the character actually references (race/subrace/background, class and
+subclass ids, chosen feats, spell selections including prepared play-state and
+builder-managed sheet rows, and equipment ids). The field is omitted when
+nothing custom is referenced, and `formatVersion` stays `1` — older files
+import unchanged and older app versions ignore the field.
+
+Import semantics (destination wins): inside the same rollback-protected
+mutation that adds the character, missing bundled records are adopted via the
+standard custom-content validation; records that already exist (same
+`kind:id`) or would shadow builtin content are skipped silently, and malformed
+records are skipped with a console warning. A failed import restores both the
+character collection and the custom-content bucket.

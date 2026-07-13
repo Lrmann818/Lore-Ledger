@@ -4,6 +4,7 @@
 import { blobToDataUrl, dataUrlToBlob as defaultDataUrlToBlob } from "../storage/blobs.js";
 import { textKey_spellNotes } from "../storage/texts-idb.js";
 import { getActiveCharacter, makeDefaultCharacterEntry } from "./characterHelpers.js";
+import { addCustomContentRecords, listCustomContent } from "./customContent.js";
 
 export const EXPORT_FORMAT_VERSION = 1;
 export const EXPORT_FORMAT_TYPE = "lore-ledger-character";
@@ -23,7 +24,8 @@ export const MAX_IMPORT_FILE_SIZE = 10 * 1024 * 1024;
  *   type: string,
  *   character: CharacterEntry,
  *   portrait: { dataUrl: string, mimeType: string } | null,
- *   spellNotes: SpellNotesMap
+ *   spellNotes: SpellNotesMap,
+ *   customContent?: Array<Record<string, unknown>>
  * }} CharacterExportObject
  */
 
@@ -124,9 +126,12 @@ function normalizeSpellNotes(notes) {
  * @param {CharacterEntry} character
  * @param {Blob | null | undefined} portraitBlob
  * @param {SpellNotesMap | null | undefined} spellNotes
+ * @param {Array<Record<string, unknown>>} [customContent] referenced campaign
+ *   custom records to bundle so the character survives import into a
+ *   campaign that lacks them (matrix #17)
  * @returns {Promise<CharacterExportObject>}
  */
-export async function exportCharacterToObject(character, portraitBlob = null, spellNotes = {}) {
+export async function exportCharacterToObject(character, portraitBlob = null, spellNotes = {}, customContent = []) {
   const clonedCharacter = /** @type {CharacterEntry} */ (normalizePortableData(character) || {});
   const clonedNotes = cloneJsonSafe(normalizeSpellNotes(spellNotes));
   const portrait = portraitBlob
@@ -141,8 +146,92 @@ export async function exportCharacterToObject(character, portraitBlob = null, sp
     type: EXPORT_FORMAT_TYPE,
     character: clonedCharacter,
     portrait,
-    spellNotes: clonedNotes
+    spellNotes: clonedNotes,
+    ...(Array.isArray(customContent) && customContent.length ? { customContent } : {})
   };
+}
+
+/**
+ * The campaign custom records this character's build/play-state actually
+ * references: race/subrace/background/class/subclass ids, chosen feats,
+ * spell selections (build, prepared play-state, and builder-managed sheet
+ * rows), and equipment ids. Only records persisted in `state.content.custom`
+ * are returned — builtin SRD content never needs bundling.
+ *
+ * @param {unknown} character
+ * @param {unknown} state
+ * @returns {Array<Record<string, unknown>>}
+ */
+export function collectReferencedCustomContent(character, state) {
+  const custom = listCustomContent(/** @type {import("../state.js").State} */ (state));
+  if (!custom.length || !isPlainObject(character)) return [];
+
+  /** @type {Set<string>} */
+  const refs = new Set();
+  /**
+   * @param {string} kind
+   * @param {unknown} id
+   */
+  const add = (kind, id) => {
+    const clean = typeof id === "string" ? id.trim() : "";
+    if (clean) refs.add(`${kind}:${clean}`);
+  };
+
+  const build = isPlainObject(character.build) ? character.build : null;
+  if (build) {
+    add("race", build.raceId);
+    add("subrace", build.subraceId);
+    add("background", build.backgroundId);
+    add("class", build.classId); // legacy v1 builds
+    for (const row of Array.isArray(build.levels) ? build.levels : []) {
+      if (isPlainObject(row)) add("class", row.classId);
+    }
+    if (isPlainObject(build.subclassByClass)) {
+      for (const subclassId of Object.values(build.subclassByClass)) add("subclass", subclassId);
+    }
+    if (isPlainObject(build.choicesByLevel)) {
+      for (const levelChoices of Object.values(build.choicesByLevel)) {
+        if (!isPlainObject(levelChoices)) continue;
+        for (const [choiceId, value] of Object.entries(levelChoices)) {
+          if (choiceId.startsWith("asi-") && isPlainObject(value) && value.type === "feat") {
+            add("feat", value.featId);
+          }
+        }
+      }
+    }
+    if (isPlainObject(build.spellcasting)) {
+      for (const selection of Object.values(build.spellcasting)) {
+        if (!isPlainObject(selection)) continue;
+        for (const key of ["cantripIds", "knownIds", "preparedIds"]) {
+          const ids = selection[key];
+          for (const id of Array.isArray(ids) ? ids : []) add("spell", id);
+        }
+      }
+    }
+    if (isPlainObject(build.equipment)) {
+      add("armor", build.equipment.armorId);
+      const weaponIds = build.equipment.weaponIds;
+      for (const id of Array.isArray(weaponIds) ? weaponIds : []) add("weapon", id);
+    }
+  }
+
+  const rest = isPlainObject(character.rest) ? character.rest : null;
+  if (rest && isPlainObject(rest.preparedByClass)) {
+    for (const ids of Object.values(rest.preparedByClass)) {
+      for (const id of Array.isArray(ids) ? ids : []) add("spell", id);
+    }
+  }
+  const spells = isPlainObject(character.spells) ? character.spells : null;
+  for (const level of Array.isArray(spells?.levels) ? spells.levels : []) {
+    if (!isPlainObject(level) || !Array.isArray(level.spells)) continue;
+    for (const spell of level.spells) {
+      if (isPlainObject(spell)) add("spell", spell.builderSpellId);
+    }
+  }
+
+  return custom
+    .filter((record) => refs.has(`${record.kind}:${record.id}`))
+    .map((record) => /** @type {Record<string, unknown>} */ (normalizePortableData(record)));
 }
 
 /**
@@ -224,6 +313,12 @@ export function validateImportFile(json) {
     }
   }
 
+  if (json.customContent !== undefined) {
+    if (!Array.isArray(json.customContent) || json.customContent.some((record) => !isPlainObject(record))) {
+      return { valid: false, reason: "Bundled custom content must be an array of records." };
+    }
+  }
+
   return { valid: true };
 }
 
@@ -289,7 +384,8 @@ export async function exportActiveCharacter({ state, getBlob, getText }) {
     }
   }
 
-  return exportCharacterToObject(character, portraitBlob, spellNotes);
+  const customContent = collectReferencedCustomContent(character, state);
+  return exportCharacterToObject(character, portraitBlob, spellNotes, customContent);
 }
 
 /**
@@ -404,9 +500,32 @@ export async function commitImport(importObject, deps) {
   });
 
   const previousCharacters = snapshotCharacters(state);
+  const hadContentBucket = isPlainObject(state) && isPlainObject(state.content);
+  const previousCustomContent = hadContentBucket
+    ? normalizePortableData(/** @type {{ content: { custom?: unknown } }} */ (state).content.custom)
+    : null;
+  const bundledCustomContent = Array.isArray(importObject.customContent) ? importObject.customContent : [];
   try {
     const result = mutateState((draft) => {
       if (!isPlainObject(draft)) throw new Error("Character collection is unavailable.");
+      // Adopt bundled custom records first so the imported character's build
+      // resolves immediately. Records that already exist (same kind:id) or
+      // would shadow builtin content are skipped — the destination campaign's
+      // content always wins; genuinely malformed records are skipped loudly.
+      if (bundledCustomContent.length) {
+        const adoption = addCustomContentRecords(
+          /** @type {import("../state.js").State} */ (draft),
+          bundledCustomContent.map((record) => cloneJsonSafe(record))
+        );
+        for (const failure of adoption.errors) {
+          const expectedSkip = failure.errors.every((message) => message.includes("already exists"));
+          if (!expectedSkip) {
+            console.warn(
+              `commitImport: skipped bundled custom record ${failure.index + 1}: ${failure.errors.join(" ")}`
+            );
+          }
+        }
+      }
       if (!isPlainObject(draft.characters)) {
         draft.characters = { activeId: null, entries: [] };
       }
@@ -425,6 +544,13 @@ export async function commitImport(importObject, deps) {
   } catch (err) {
     try {
       restoreCharacters(state, previousCharacters);
+      if (isPlainObject(state)) {
+        if (hadContentBucket && isPlainObject(state.content)) {
+          /** @type {{ content: { custom?: unknown } }} */ (state).content.custom = previousCustomContent;
+        } else if (!hadContentBucket && "content" in state) {
+          delete state.content;
+        }
+      }
     } catch (restoreErr) {
       console.warn("commitImport: failed to restore character state after import failure.", restoreErr);
     }

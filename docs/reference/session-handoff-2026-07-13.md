@@ -24,12 +24,13 @@ and the live audit is [`docs/audits/builder-completion-matrix.md`](../audits/bui
 | Attribution gate | `ff85903` | Audit correction: CC-BY-4.0 already ships in-app (Data & Settings → About); `tests/attribution.test.js` pins LEGAL.md + the About copy |
 | Granted spells + ASI cap | `3aaa6d6` | `getGrantedSpells()` walks class-record `grantedSpells` (custom-class extension point); shared ASI editor warns above the SRD 20 cap (guidance-only) |
 | Doc sweeps | `d0bcdde`, `5355244` | AGENTS doc-map staleness; matrix reassessment |
-| Finish guidance (#1) | (post-handoff commit) | Wizard Summary lists incomplete count-bearing choices (`getIncompleteChoiceSummaries`), guidance-only; 8 new tests |
+| Finish guidance (#1) | `bd4bb30` | Wizard Summary lists incomplete count-bearing choices (`getIncompleteChoiceSummaries`), guidance-only; 8 new tests |
+| Custom-content bundling (#17) | (final commit) | Exports bundle referenced custom records; import adopts missing ones, destination wins on conflicts; 6 new tests |
 
 ## Verification results (final state)
 
 - `npm run typecheck` — clean
-- `npm run test:run` — **1014/1014** across 61 files
+- `npm run test:run` — **1020/1020** across 61 files
 - `npm run verify` — exit 0 (typecheck + tests + production build + PWA precache)
 - `npm run test:smoke` — **53/53** Playwright smokes
 - Phone-width (380px) production-preview checks: Phase 2 (Rage tile seeding, Level Up summary, zero overflow) and B1 (read-only panels, wizard routing) — both green
@@ -38,7 +39,7 @@ and the live audit is [`docs/audits/builder-completion-matrix.md`](../audits/bui
 ## Remaining gaps (see matrix §1/§3 for full detail)
 
 - **P1 (only one left): #15 custom-content authoring UX** — form-based editor so users can author custom races/classes/spells (incl. `resources[]`, `grantedSpells`) without hand-writing JSON. This is the recommended next batch and needs its own session-scale plan.
-- P2 backlog in rough order: attack recalculate-from-build affordance (#9), character-export bundling of referenced custom records (#17), subclass 1-use feature-action counters (#13 follow-up), partial-regain recovery modes (#8), prepared-formula/spellbook-growth overrides (#16), equipment depth (#10), keyboard-only a11y pass (#19).
+- P2 backlog in rough order: attack recalculate-from-build affordance (#9), subclass 1-use feature-action counters (#13 follow-up), partial-regain recovery modes (#8), prepared-formula/spellbook-growth overrides (#16), equipment depth (#10), keyboard-only a11y pass (#19).
 
 ## Owner decisions still needed
 

@@ -854,8 +854,12 @@ export function initCharacterPageUI(deps) {
       }
 
       const importName = String(parsedObject.character?.name || "").trim() || "Unnamed Character";
+      const bundledCount = Array.isArray(parsedObject.customContent) ? parsedObject.customContent.length : 0;
+      const bundledLine = bundledCount
+        ? `\n- Includes ${bundledCount} bundled custom (homebrew) record${bundledCount === 1 ? "" : "s"}; missing ones will be added to this campaign, existing ones are kept as-is.`
+        : "";
       const confirmed = await uiConfirm?.(
-        `Import "${importName}" into this campaign?\n\n- A new character will be added to this campaign.\n- Linked card connections from the original campaign are not imported.`,
+        `Import "${importName}" into this campaign?\n\n- A new character will be added to this campaign.\n- Linked card connections from the original campaign are not imported.${bundledLine}`,
         { title: "Import Character", okText: "Import" }
       );
       if (!confirmed) return;

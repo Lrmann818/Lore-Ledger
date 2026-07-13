@@ -711,3 +711,151 @@ describe("character portability round trip", () => {
     expect(secondExport.character.overrides).toEqual(overrides);
   });
 });
+
+describe("bundled custom content (matrix #17)", () => {
+  const customClass = {
+    id: "runeweaver",
+    kind: "class",
+    name: "Runeweaver",
+    source: "custom",
+    hitDie: 8
+  };
+  const customSpell = {
+    id: "rune-bolt",
+    kind: "spell",
+    name: "Rune Bolt",
+    source: "custom",
+    level: 1
+  };
+  const unrelatedCustom = {
+    id: "sky-elf",
+    kind: "race",
+    name: "Sky Elf",
+    source: "custom"
+  };
+
+  function makeCustomBuilderCharacter() {
+    const character = makeCharacter({
+      build: {
+        ...makeDefaultCharacterBuild(),
+        levels: [{ classId: "runeweaver", hp: null }],
+        spellcasting: { runeweaver: { cantripIds: [], knownIds: ["rune-bolt"], preparedIds: [] } }
+      }
+    });
+    return character;
+  }
+
+  function makeStateWithCustom(character) {
+    const state = makeState(character);
+    state.content = { custom: [customClass, customSpell, unrelatedCustom] };
+    return state;
+  }
+
+  it("exports only the custom records the character references", async () => {
+    const character = makeCustomBuilderCharacter();
+    const state = makeStateWithCustom(character);
+    const exported = await exportActiveCharacter({
+      state,
+      getBlob: vi.fn(async () => null),
+      getText: vi.fn(async () => "")
+    });
+
+    expect(exported.customContent.map((record) => record.id).sort()).toEqual(["rune-bolt", "runeweaver"]);
+    expect(exported.customContent.map((record) => record.id)).not.toContain("sky-elf");
+  });
+
+  it("omits the customContent field entirely when nothing custom is referenced", async () => {
+    const character = makeCharacter();
+    const state = makeStateWithCustom(character);
+    const exported = await exportActiveCharacter({
+      state,
+      getBlob: vi.fn(async () => null),
+      getText: vi.fn(async () => "")
+    });
+    expect(exported.customContent).toBeUndefined();
+  });
+
+  it("rejects a malformed customContent field at validation", () => {
+    expect(validateImportFile(makeExportObject({ customContent: "nope" })).valid).toBe(false);
+    expect(validateImportFile(makeExportObject({ customContent: [42] })).valid).toBe(false);
+    expect(validateImportFile(makeExportObject({ customContent: [] })).valid).toBe(true);
+    expect(validateImportFile(makeExportObject({ customContent: [customClass] })).valid).toBe(true);
+  });
+
+  it("adopts missing bundled records on import and keeps existing ones as-is", async () => {
+    const destination = makeState(makeCharacter({ id: "char_existing" }));
+    const existingRuneweaver = { ...customClass, name: "Runeweaver (house rules)" };
+    destination.content = { custom: [existingRuneweaver] };
+    const importObject = makeExportObject({
+      character: makeCustomBuilderCharacter(),
+      portrait: null,
+      spellNotes: {},
+      customContent: [customClass, customSpell]
+    });
+
+    const newId = await commitImport(importObject, {
+      state: destination,
+      SaveManager: makeSaveManager(),
+      putBlob: vi.fn(async () => "blob_new"),
+      deleteBlob: vi.fn(),
+      putText: vi.fn(),
+      dataUrlToBlob: vi.fn(),
+      mutateState: makeMutateState(destination)
+    });
+
+    expect(typeof newId).toBe("string");
+    const ids = destination.content.custom.map((record) => `${record.kind}:${record.id}`);
+    expect(ids).toContain("class:runeweaver");
+    expect(ids).toContain("spell:rune-bolt");
+    // The destination's existing record is preserved, not overwritten.
+    const runeweaver = destination.content.custom.find((record) => record.id === "runeweaver");
+    expect(runeweaver.name).toBe("Runeweaver (house rules)");
+    expect(destination.content.custom).toHaveLength(2);
+  });
+
+  it("skips invalid bundled records without failing the character import", async () => {
+    const destination = makeState(makeCharacter({ id: "char_existing" }));
+    const importObject = makeExportObject({
+      portrait: null,
+      spellNotes: {},
+      customContent: [
+        { id: "Bad Id!", kind: "class", name: "Broken" },
+        customSpell
+      ]
+    });
+
+    const newId = await commitImport(importObject, {
+      state: destination,
+      SaveManager: makeSaveManager(),
+      putBlob: vi.fn(async () => "blob_new"),
+      deleteBlob: vi.fn(),
+      putText: vi.fn(),
+      dataUrlToBlob: vi.fn(),
+      mutateState: makeMutateState(destination)
+    });
+
+    expect(typeof newId).toBe("string");
+    expect(destination.characters.entries).toHaveLength(2);
+    const ids = destination.content.custom.map((record) => record.id);
+    expect(ids).toEqual(["rune-bolt"]);
+  });
+
+  it("imports legacy files without a customContent field unchanged", async () => {
+    const destination = makeState(makeCharacter({ id: "char_existing" }));
+    const importObject = makeExportObject({ portrait: null, spellNotes: {} });
+    delete importObject.customContent;
+
+    const newId = await commitImport(importObject, {
+      state: destination,
+      SaveManager: makeSaveManager(),
+      putBlob: vi.fn(async () => "blob_new"),
+      deleteBlob: vi.fn(),
+      putText: vi.fn(),
+      dataUrlToBlob: vi.fn(),
+      mutateState: makeMutateState(destination)
+    });
+
+    expect(typeof newId).toBe("string");
+    expect(destination.content).toBeUndefined();
+  });
+});
