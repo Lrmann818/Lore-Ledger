@@ -42,9 +42,9 @@ restore obsolete behavior.
 | **Architecture / module boundaries** | `docs/architecture.md` | — |
 | **Release, testing, PWA** | `docs/operations/testing-guide.md` → the focused checklist it links → `docs/operations/release-process.md` | `docs/archive/**`, `docs/operations/ios-packaging.md` |
 | **iOS / App Store packaging** | `docs/operations/ios-packaging.md` | The web release doc, unless you are also shipping web |
-| **Levelling / level-up flow** | "Level Up Rules" below → `docs/reference/level-up-flow-spec.md` (Phase 1 shipped; Phases 2/3 blocked) | — |
+| **Levelling / level-up flow** | "Level Up Rules" below → `docs/reference/level-up-flow-spec.md` (Phases 1–3 shipped) | — |
 | **Roadmap / what's next** | "Current Working Order" below → `docs/plans/new-features-roadmap.md` | `docs/archive/lore-ledger-builder-plan.md` |
-| **Builder gap audit / stabilization** | "Current Working Order" below, first | Do **not** start B1/B2/B3 batches from `docs/audits/**` |
+| **Builder gap audit / stabilization** | "Current Working Order" below, first | `docs/audits/**` batch prompts (B1–B3 shipped 2026-07-13; the completion matrix is the live audit) |
 
 ### Canonical vs. historical
 
@@ -55,7 +55,7 @@ restore obsolete behavior.
 - `docs/reference/srd-licensing-notes.md`, `docs/reference/attribution-requirements.md`
 - `docs/reference/builder-scope-greenlist.md`, `docs/reference/content-registry-plan.md`
 - `docs/reference/rest-rules-spec.md`
-- `docs/reference/level-up-flow-spec.md` — canonical Level Up contract; **Phase 1 is implemented** (2026-07-12); Phases 2/3 remain blocked
+- `docs/reference/level-up-flow-spec.md` — canonical Level Up contract; **Phases 1–3 are implemented** (2026-07-12/13)
 - `docs/operations/**`
 - `docs/plans/new-features-roadmap.md`, `docs/plans/combat-workspace-plan.md`
 
@@ -66,7 +66,7 @@ not "fix" code to match them):
 - `docs/design/vertical-slice-schema.md` — design rationale for choices already absorbed into the canonical docs
 - `docs/reference/character-builder-handoff.md` — session snapshot, optional deep-dive. Accurate at time of writing; verify before relying on. Its §7 "Top 5 safest next fixes" is **not** the work order — the Current Working Order below wins.
 - `docs/archive/multi-character-steps-1-4.md` — historical Step 1-4 implementation notes; its "SRD 5.1 green list" section is **wrong** and is struck through in place
-- `docs/audits/**` — planning artifact. Its priority order is real; its batch prompts are **queued, not authorized**. Never self-start B1/B2/B3 from it.
+- `docs/audits/**` — planning artifacts. The gap-audit batch prompts are historical (B1–B3 shipped 2026-07-13); `builder-completion-matrix.md` is the live capability audit. Never self-start feature work from these without the working order.
 
 **When a historical doc disagrees with a canonical doc, the canonical doc wins. When a
 canonical doc disagrees with the code, the code wins — and fix the doc.**
