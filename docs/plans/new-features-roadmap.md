@@ -141,7 +141,7 @@ Drawing tools are expressive but imprecise for structured campaign content. Stam
 
 ### Objectives
 
-- [!] Vitest unit and regression suite (56 test files, 957 tests — all passing as of 2026-07-12)
+- [!] Vitest unit and regression suite (61 test files, 1014 tests — all passing as of 2026-07-13)
 - [!] Playwright smoke tests for UI / navigation / PWA behavior
 - [!] Architecture documentation in `docs/`
 - [!] `../features/multi-character-design.md` kept current with schema and panel decisions

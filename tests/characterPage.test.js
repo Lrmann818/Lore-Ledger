@@ -4485,3 +4485,36 @@ describe("ASI ability-cap guidance", () => {
     controller.destroy();
   });
 });
+
+describe("wizard Summary incomplete-choice guidance", () => {
+  it("lists skipped count-bearing choices on the Summary and still allows Finish", async () => {
+    const { document, actionMenuButton } = installCharacterSelectorDom();
+    installBuilderWizardDom(document);
+    const Popovers = createFakePopovers();
+    const deps = createCharacterPageDeps(Popovers);
+
+    const controller = initCharacterPageUI(deps);
+    actionMenuButton.dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    document.getElementById("charActionNewBuilderBtn").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    document.getElementById("builderWizardName").value = "Skipper";
+    document.getElementById("builderWizardRace").value = "half-orc";
+    document.getElementById("builderWizardClass").value = "fighter";
+    document.getElementById("builderWizardBackground").value = "acolyte";
+    advanceBuilderWizardToStep("builderWizardStepSummary");
+
+    const guidance = document.querySelector(".builderIncompleteChoices");
+    expect(guidance).toBeTruthy();
+    expect(guidance.hidden).toBe(false);
+    expect(guidance.textContent).toContain("Fighter skills: 0 of 2 chosen");
+    expect(guidance.textContent).toContain("Fighting Style: 0 of 1 chosen");
+    expect(guidance.textContent).toContain("complete these later");
+
+    // Guidance never blocks Finish.
+    document.getElementById("builderWizardFinish").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    await flushPromises();
+    expect(deps.state.characters.entries).toHaveLength(3);
+    expect(document.getElementById("builderWizardOverlay").hidden).toBe(true);
+
+    controller.destroy();
+  });
+});

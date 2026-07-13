@@ -24,13 +24,16 @@ import {
   getClassBlocks,
   getClassLevelAtEachCharacterLevel,
   getClassLevelTotals,
+  getSpellcastingClasses,
   MAX_CHARACTER_LEVEL,
   multiclassSkillChoiceId,
   normalizeBuildLevels,
   removeLevelAt,
   setClassBlocks,
   setLevelClassAt,
-  setLevelHpAt
+  setLevelHpAt,
+  SPELLBOOK_INITIAL_SPELLS,
+  SPELLBOOK_SPELLS_PER_LEVEL
 } from "../../domain/rules/progression.js";
 
 /** @typedef {import("../../domain/rules/registry.js").ContentRegistry} ContentRegistry */
@@ -279,6 +282,146 @@ export function hasClassChoices(build, registry) {
 export function hasSpellcastingClasses(build, registry) {
   const derived = deriveCharacter({ build, overrides: null }, registry);
   return !!derived.spellcasting && derived.spellcasting.classes.length > 0;
+}
+
+/**
+ * Reads how many values are stored for a choice id (0 for unset).
+ * @param {CharacterBuildState} build
+ * @param {string} choiceId
+ * @returns {number}
+ */
+function countStoredChoiceValues(build, choiceId) {
+  const stored = readChoice(build, choiceId);
+  if (Array.isArray(stored)) return stored.map(cleanString).filter(Boolean).length;
+  return cleanString(stored) ? 1 : 0;
+}
+
+/**
+ * Human-readable summaries of every count-bearing choice the draft build has
+ * not finished: class/multiclass skills, subclass picks the class level has
+ * reached, feature subfeature options, expertise, ASI/feat slots (including
+ * partially assigned ASIs), and cantrip/known/spellbook/prepared spell
+ * counts below their derived caps. Guidance only — Finish stays allowed
+ * (everything here is completable later via Edit in Builder or Level Up),
+ * matching the multiclass-prerequisite stance.
+ *
+ * @param {CharacterBuildState} build
+ * @param {ContentRegistry} registry
+ * @returns {string[]}
+ */
+export function getIncompleteChoiceSummaries(build, registry) {
+  /** @type {string[]} */
+  const out = [];
+  const levels = normalizeBuildLevels(build);
+  if (!levels.length) return out;
+  const totals = getClassLevelTotals(levels);
+  const subclassByClass = isPlainObject(build.subclassByClass)
+    ? /** @type {Record<string, string>} */ (build.subclassByClass)
+    : {};
+
+  // Class / multiclass skill choices.
+  totals.forEach((info, index) => {
+    const classEntry = getContentByKind(registry, "class", info.classId);
+    if (!classEntry) return;
+    const source = index === 0
+      ? classEntry.data?.skillChoices
+      : (isPlainObject(classEntry.data?.multiclassing) ? classEntry.data.multiclassing.skillChoices : null);
+    if (!isPlainObject(source)) return;
+    const choose = Number(source.choose);
+    if (!Number.isInteger(choose) || choose < 1) return;
+    const choiceId = index === 0 ? classSkillChoiceId(info.classId) : multiclassSkillChoiceId(info.classId);
+    const picked = countStoredChoiceValues(build, choiceId);
+    if (picked < choose) out.push(`${classEntry.name} skills: ${picked} of ${choose} chosen`);
+  });
+
+  // Subclass picks the class level has reached.
+  for (const info of totals) {
+    const classEntry = getContentByKind(registry, "class", info.classId);
+    const subclassLevel = Number(classEntry?.data?.subclassLevel);
+    const subclassIds = Array.isArray(classEntry?.data?.subclassIds) ? classEntry.data.subclassIds : [];
+    if (!Number.isInteger(subclassLevel) || info.level < subclassLevel || !subclassIds.length) continue;
+    if (!cleanString(subclassByClass[info.classId])) {
+      out.push(`${classEntry?.name || info.classId}: subclass not chosen`);
+    }
+  }
+
+  // Feature subfeature choices (Fighting Style) and expertise.
+  const seenFeatureChoices = new Set();
+  for (const feature of getBuildFeatures(levels, subclassByClass, registry)) {
+    if (seenFeatureChoices.has(feature.featureId)) continue;
+    const featureEntry = getContentByKind(registry, "feature", feature.featureId);
+    const subOptions = featureEntry && isPlainObject(featureEntry.data?.subfeatureOptions)
+      ? featureEntry.data.subfeatureOptions
+      : null;
+    if (subOptions && Array.isArray(subOptions.from) && subOptions.from.length) {
+      seenFeatureChoices.add(feature.featureId);
+      const choose = Number.isInteger(Number(subOptions.choose)) ? Number(subOptions.choose) : 1;
+      const picked = countStoredChoiceValues(build, featureChoiceId(feature.featureId));
+      if (picked < choose) {
+        out.push(`${featureEntry?.name || feature.featureId}: ${picked} of ${choose} chosen`);
+      }
+      continue;
+    }
+    if (EXPERTISE_FEATURE_IDS.has(feature.featureId)) {
+      seenFeatureChoices.add(feature.featureId);
+      const picked = countStoredChoiceValues(build, featureChoiceId(feature.featureId));
+      if (picked < EXPERTISE_CHOICE_COUNT) {
+        out.push(`${featureEntry?.name || "Expertise"} (Level ${feature.characterLevel}): ${picked} of ${EXPERTISE_CHOICE_COUNT} skills chosen`);
+      }
+    }
+  }
+
+  // ASI / feat slots, including partially assigned ASIs.
+  for (const slot of getAsiSlots(levels, registry)) {
+    const stored = readChoice(build, asiChoiceId(slot.characterLevel));
+    if (!isPlainObject(stored)) {
+      out.push(`Level ${slot.characterLevel} Ability Score Improvement: not chosen`);
+      continue;
+    }
+    if (stored.type === "feat") {
+      if (!cleanString(stored.featId)) out.push(`Level ${slot.characterLevel} feat: not chosen`);
+      continue;
+    }
+    const increases = isPlainObject(stored.increases) ? stored.increases : {};
+    let assigned = 0;
+    for (const value of Object.values(increases)) {
+      const n = Number(value);
+      if (Number.isFinite(n)) assigned += n;
+    }
+    if (assigned < 2) {
+      out.push(`Level ${slot.characterLevel} Ability Score Improvement: ${assigned} of 2 points assigned`);
+    }
+  }
+
+  // Spell selections below their derived caps.
+  const selections = isPlainObject(build.spellcasting)
+    ? /** @type {Record<string, unknown>} */ (build.spellcasting)
+    : {};
+  for (const caster of getSpellcastingClasses(levels, registry)) {
+    const classEntry = getContentByKind(registry, "class", caster.classId);
+    const className = classEntry?.name || caster.classId;
+    const selection = isPlainObject(selections[caster.classId])
+      ? /** @type {Record<string, unknown>} */ (selections[caster.classId])
+      : {};
+    const count = (/** @type {unknown} */ list) => (Array.isArray(list)
+      ? list.map(cleanString).filter(Boolean).length
+      : 0);
+    if (caster.cantripsKnownMax != null && count(selection.cantripIds) < caster.cantripsKnownMax) {
+      out.push(`${className} cantrips: ${count(selection.cantripIds)} of ${caster.cantripsKnownMax} chosen`);
+    }
+    if (caster.preparationMode === "known" && caster.spellsKnownMax != null &&
+      count(selection.knownIds) < caster.spellsKnownMax) {
+      out.push(`${className} known spells: ${count(selection.knownIds)} of ${caster.spellsKnownMax} chosen`);
+    }
+    if (caster.preparationMode === "spellbook") {
+      const target = SPELLBOOK_INITIAL_SPELLS + SPELLBOOK_SPELLS_PER_LEVEL * (caster.classLevel - 1);
+      if (count(selection.knownIds) < target) {
+        out.push(`${className} spellbook: ${count(selection.knownIds)} of ${target} spells chosen`);
+      }
+    }
+  }
+
+  return out;
 }
 
 /**

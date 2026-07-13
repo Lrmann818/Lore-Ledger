@@ -23,6 +23,7 @@ import {
 } from "../../domain/rules/registry.js";
 import {
   collectActiveChoiceIds,
+  getIncompleteChoiceSummaries,
   getRequiredAncestryChoice,
   hasClassChoices,
   hasOriginChoices,
@@ -1589,6 +1590,20 @@ export function initBuilderWizard(deps = {}) {
       const warningsEl = appendDiv(summaryEl, "builderWizardValidation builderSummaryWarnings", "");
       warningsEl.hidden = false;
       warningsEl.textContent = `Warnings: ${derived.warnings.join("; ")}`;
+    }
+
+    // Incomplete count-bearing choices — guidance only, Finish stays allowed
+    // (everything listed is completable later via Edit in Builder / Level Up).
+    const incomplete = getIncompleteChoiceSummaries(draft.build, registry);
+    if (incomplete.length) {
+      const incompleteEl = appendDiv(
+        summaryEl,
+        "builderWizardValidation builderMulticlassWarning builderIncompleteChoices",
+        ""
+      );
+      incompleteEl.hidden = false;
+      incompleteEl.textContent =
+        `Not finished yet (you can Finish now and complete these later): ${incomplete.join("; ")}.`;
     }
 
     const abilities = appendDiv(summaryEl, "builderSummaryAbilities", "");
