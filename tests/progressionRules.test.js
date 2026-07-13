@@ -500,3 +500,49 @@ describe("ordered level operations preserve exact multiclass order", () => {
     expect(build.levels).toEqual([]);
   });
 });
+
+describe("granted spells (class-level and subclass)", () => {
+  it("collects class-record grantedSpells for custom classes at their unlock level", async () => {
+    const { createContentRegistry } = await import("../js/domain/rules/registry.js");
+    const { getGrantedSpells } = await import("../js/domain/rules/progression.js");
+    const { BUILTIN_CONTENT } = await import("../js/domain/rules/builtinContent.js");
+    const customClass = {
+      id: "runeweaver",
+      kind: "class",
+      name: "Runeweaver",
+      source: "custom",
+      data: {
+        id: "runeweaver",
+        kind: "class",
+        name: "Runeweaver",
+        hitDie: 8,
+        grantedSpells: [
+          { level: 1, spellId: "mage-armor", grantType: "always_prepared" },
+          { classLevel: 3, spellId: "misty-step", grantType: "known" }
+        ]
+      }
+    };
+    const registry = createContentRegistry([...BUILTIN_CONTENT, customClass]);
+
+    const atOne = getGrantedSpells(levelsOf("runeweaver"), {}, registry);
+    expect(atOne).toEqual([
+      { spellId: "mage-armor", classId: "runeweaver", subclassId: "", grantType: "always_prepared" }
+    ]);
+
+    const atThree = getGrantedSpells(levelsOf("runeweaver", "runeweaver", "runeweaver"), {}, registry);
+    expect(atThree.map((grant) => grant.spellId).sort()).toEqual(["mage-armor", "misty-step"]);
+  });
+
+  it("keeps subclass grants unchanged alongside class grants", async () => {
+    const { getGrantedSpells } = await import("../js/domain/rules/progression.js");
+    const grants = getGrantedSpells(
+      levelsOf("cleric", "cleric", "cleric"),
+      { cleric: "life" },
+      registry
+    );
+    expect(grants.map((grant) => grant.spellId)).toEqual(
+      expect.arrayContaining(["bless", "cure-wounds", "lesser-restoration", "spiritual-weapon"])
+    );
+    expect(grants.every((grant) => grant.subclassId === "life")).toBe(true);
+  });
+});

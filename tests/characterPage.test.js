@@ -358,6 +358,7 @@ class FakeDocument extends EventTarget {
 
 function matchesSelector(el, selector) {
   if (selector === "button") return el.tagName === "BUTTON";
+  if (selector === "select") return el.tagName === "SELECT";
   if (selector === "button:not([disabled])") return el.tagName === "BUTTON" && !el.disabled;
   if (selector === "button.active:not([disabled])") {
     return el.tagName === "BUTTON" && el.classList.contains("active") && !el.disabled;
@@ -4432,6 +4433,54 @@ describe("level up flow", () => {
     expect(document.getElementById("levelUpClassValidation").hidden).toBe(false);
     expect(JSON.stringify(deps.state.characters.entries[0])).toBe(snapshot);
     expect(deps.SaveManager.markDirty).not.toHaveBeenCalled();
+
+    controller.destroy();
+  });
+});
+
+describe("ASI ability-cap guidance", () => {
+  it("warns when an ASI pushes an ability above 20 and clears when it does not", async () => {
+    const { document, actionMenuButton } = installCharacterSelectorDom();
+    installBuilderWizardDom(document);
+    const Popovers = createFakePopovers();
+    const deps = createCharacterPageDeps(Popovers);
+    // Fighter 4 with base Str 18 (human +1 = 19): a +2 Str ASI lands on 21.
+    const builder = makeLeveledBuilderCharacter({
+      id: "char_cap",
+      levels: Array.from({ length: 4 }, () => ({ classId: "fighter", hp: null })),
+      base: { str: 18, dex: 14, con: 13, int: 12, wis: 10, cha: 8 },
+      subclassByClass: { fighter: "champion" }
+    });
+    deps.state.characters.entries = [builder];
+    deps.state.characters.activeId = "char_cap";
+
+    const controller = initCharacterPageUI(deps);
+    actionMenuButton.dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    document.getElementById("charActionEditBuilderBtn").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    advanceBuilderWizardToStep("builderWizardStepClassChoices");
+
+    const warning = document.querySelector(".builderAsiCapWarning");
+    expect(warning).toBeTruthy();
+    expect(warning.hidden).toBe(true);
+
+    // Choose +1 Str twice via the ASI slot's two ability selects.
+    const asiBody = document.querySelector(".builderAsiBody");
+    expect(asiBody).toBeTruthy();
+    const asiSelects = asiBody.querySelectorAll("select");
+    expect(asiSelects.length).toBeGreaterThanOrEqual(2);
+    asiSelects[0].value = "str";
+    dispatchChange(asiSelects[0]);
+    asiSelects[1].value = "str";
+    dispatchChange(asiSelects[1]);
+
+    expect(warning.hidden).toBe(false);
+    expect(warning.textContent).toContain("STR");
+    expect(warning.textContent).toContain("house-rules territory");
+
+    // Redirect one +1 to Dex: back under the cap, warning clears.
+    asiSelects[1].value = "dex";
+    dispatchChange(asiSelects[1]);
+    expect(warning.hidden).toBe(true);
 
     controller.destroy();
   });

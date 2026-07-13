@@ -692,7 +692,10 @@ export function getCombinedSpellSlots(levels, registry) {
 }
 
 /**
- * Spells granted automatically by the build (subclass domain/patron lists).
+ * Spells granted automatically by the build: subclass domain/patron lists
+ * plus class-record `grantedSpells` (the registry-plan shape used by custom
+ * classes — no builtin SRD class carries one today). Grant entries accept
+ * `classLevel` or the registry-plan alias `level` for the unlock level.
  * @param {Array<{ classId: string }>} levels
  * @param {Record<string, string>} subclassByClass
  * @param {ContentRegistry} registry
@@ -701,17 +704,17 @@ export function getCombinedSpellSlots(levels, registry) {
 export function getGrantedSpells(levels, subclassByClass, registry) {
   /** @type {ReturnType<typeof getGrantedSpells>} */
   const out = [];
-  for (const { classId, level } of getClassLevelTotals(levels)) {
-    const subclassId = cleanString(subclassByClass?.[classId]);
-    if (!subclassId) continue;
-    const subclassEntry = getContentByKind(registry, "subclass", subclassId);
-    const grants = Array.isArray(subclassEntry?.data?.grantedSpells)
-      ? subclassEntry.data.grantedSpells
-      : [];
-    for (const grant of grants) {
+  /**
+   * @param {unknown} grants
+   * @param {number} level attained class level
+   * @param {string} classId
+   * @param {string} subclassId "" for class-level grants
+   */
+  const collect = (grants, level, classId, subclassId) => {
+    for (const grant of Array.isArray(grants) ? grants : []) {
       if (!isPlainObject(grant)) continue;
       const spellId = cleanString(grant.spellId);
-      const classLevel = finiteNumberOrNull(grant.classLevel) ?? 1;
+      const classLevel = finiteNumberOrNull(grant.classLevel) ?? finiteNumberOrNull(grant.level) ?? 1;
       if (!spellId || level < classLevel) continue;
       out.push({
         spellId,
@@ -720,6 +723,14 @@ export function getGrantedSpells(levels, subclassByClass, registry) {
         grantType: cleanString(grant.grantType) || "always_prepared"
       });
     }
+  };
+  for (const { classId, level } of getClassLevelTotals(levels)) {
+    const classEntry = getClassEntry(registry, classId);
+    collect(classEntry?.data?.grantedSpells, level, classId, "");
+    const subclassId = cleanString(subclassByClass?.[classId]);
+    if (!subclassId) continue;
+    const subclassEntry = getContentByKind(registry, "subclass", subclassId);
+    collect(subclassEntry?.data?.grantedSpells, level, classId, subclassId);
   }
   return out;
 }

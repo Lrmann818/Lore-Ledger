@@ -379,6 +379,10 @@ The important rule is:
 
 - spellcasting progression metadata is in scope for the builder
 - automatically granted builtin spells are in scope for the builder
+- class-level `grantedSpells` are consumed by `getGrantedSpells()` (2026-07-13):
+  entries accept `classLevel` or the `level` alias for the unlock level; no
+  builtin SRD class carries one today, so this is primarily the custom-class
+  extension point
 - the full builtin spell registry is **shipped** (`game-data/srd/spells.json`, 319 SRD 5.1 spells); the builder offers class-list spell selection and seeds it into the spells panel at Finish
 
 ### Backgrounds

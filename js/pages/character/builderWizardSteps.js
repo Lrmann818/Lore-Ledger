@@ -19,6 +19,7 @@ import {
   EXPERTISE_FEATURE_IDS,
   featureChoiceId,
   getAsiSlots,
+  getBuildAbilityTotals,
   getBuildFeatures,
   getClassBlocks,
   getClassLevelAtEachCharacterLevel,
@@ -763,6 +764,21 @@ export function renderAsiSlot(ctx, container, slot, featOptions, abilityOptions)
 
   const body = el(section, "div", "builderAsiBody");
 
+  // SRD 5.1: "you can't increase an ability score above 20 using this
+  // feature." Guidance-only, matching the multiclass-prerequisite stance.
+  const capWarning = el(section, "div", "builderWizardValidation builderMulticlassWarning builderAsiCapWarning");
+  capWarning.hidden = true;
+  const refreshCapWarning = () => {
+    const totals = getBuildAbilityTotals(build, registry);
+    const over = Object.entries(totals)
+      .filter(([, total]) => total != null && total > 20)
+      .map(([ability]) => ability.toUpperCase());
+    capWarning.hidden = over.length === 0;
+    capWarning.textContent = over.length
+      ? `Above the SRD ability cap of 20 (allowed, but house-rules territory): ${over.join(", ")}.`
+      : "";
+  };
+
   const renderBody = () => {
     clearChildren(body);
     const current = readChoice(build, choiceId);
@@ -807,6 +823,7 @@ export function renderAsiSlot(ctx, container, slot, featOptions, abilityOptions)
       writeChoice(build, levelKey, choiceId,
         Object.keys(increases).length ? { type: "asi", increases } : undefined);
       ctx.onDraftChanged();
+      refreshCapWarning();
     };
     for (let i = 0; i < 2; i += 1) {
       const field = el(body, "div", "builderIdentityField");
@@ -822,8 +839,10 @@ export function renderAsiSlot(ctx, container, slot, featOptions, abilityOptions)
     writeChoice(build, levelKey, choiceId, undefined);
     ctx.onDraftChanged();
     renderBody();
+    refreshCapWarning();
   }, { signal: ctx.signal });
   renderBody();
+  refreshCapWarning();
 }
 
 /* ------------------------------------------------------------------ */
