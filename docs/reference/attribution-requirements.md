@@ -1,6 +1,9 @@
 # Attribution Requirements
 
-Phase 4 work — required before public release
+**Status: satisfied (verified 2026-07-13).** The CC-BY-4.0 statement appears in-app in
+the Data & Settings modal's About dialog ("Legal / Licenses"), sourced to match `LEGAL.md`,
+and `tests/attribution.test.js` pins both copies so neither can silently drift or
+disappear. The requirements below remain binding for any future redesign of that surface.
 
 ## In-App Attribution Page
 

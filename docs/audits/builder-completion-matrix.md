@@ -37,7 +37,7 @@ claim · **P2** polish/depth. Status: ✅ shipped · 🟡 partial · ⬜ not bui
 | 17 | Custom content deletion safety & dependencies | 🟡 | `customContent.js`, `deriveCharacter` warnings | n/a | Removing referenced content degrades soft (derivation warnings, no crash) | Character export does **not** bundle referenced custom records; import into another campaign loses them | P2 | #14 | 8 | `.ll-character.json` optionally embeds referenced custom records |
 | 18 | Migration & backward compatibility | ✅ | `js/state.js` (v12), `tests/state.migrate*.test.js`, `saveCompatibility.test.js` | Single lineage v0→v12 | Custom bucket migrates with campaign | None pending — Level Up Phase 1 required no schema change (verified) | — | — | — | — |
 | 19 | Accessibility & mobile | 🟡 | wizard focus traps, aria labels, phone-width smokes | Level Up + builder wizard verified at 380px | n/a | Abilities & Features menu keyboard pass still queued (roadmap); no automated a11y audit | P2 | — | 9 | Keyboard-only run of both wizards + panels documented |
-| 20 | Licensing & attribution | 🟡 | `LEGAL.md`, `docs/reference/attribution-requirements.md` | CC-BY-4.0 statement in repo | Custom content untouched by attribution | In-app credits surface required before public release (attribution Phase 4) | P1 (release gate) | — | 6 | CC-BY-4.0 attribution visible in-app |
+| 20 | Licensing & attribution | ✅ | `LEGAL.md`, `js/ui/dataPanel.js` (About dialog), `tests/attribution.test.js` | CC-BY-4.0 statement in repo **and** in-app (Data & Settings → About → Legal / Licenses), pinned by a release-gate test (2026-07-13 audit correction: the in-app surface already existed) | Custom content untouched by attribution | None | — | — | — | — |
 
 ## 2. What the audit explicitly rejects
 

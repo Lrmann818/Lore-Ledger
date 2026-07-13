@@ -221,7 +221,8 @@ A portfolio project that accumulates silent regressions is not a portfolio proje
 - [x] **B1 — builder-only panel retirement / edit routing** — shipped 2026-07-13: Builder Identity and Builder Abilities are read-only routing surfaces; structural edits go through the guarded wizard only
 - [x] **B2 — spell detail seeding** — shipped 2026-07-13: builder-managed spell rows show live-derived SRD detail blocks (school, casting time, range, components, duration, ritual/concentration, description, higher-level text); user notes stay user-owned
 - [x] **B3 — feature detail seeding** — shipped 2026-07-13: display-only rules-reference cards for class/subclass features, feats, and race traits with full SRD descriptions in Abilities & Features
-- [~] **Current authorized work (2026-07-12, second session) —** remaining coherent builder batches per `docs/audits/builder-completion-matrix.md` (next: in-app CC-BY attribution)
+- [x] **In-app CC-BY-4.0 attribution** — verified 2026-07-13: statement ships in Data & Settings → About (Legal / Licenses); `tests/attribution.test.js` pins it against `LEGAL.md`
+- [~] **Current authorized work (2026-07-12, second session) —** remaining coherent builder batches per `docs/audits/builder-completion-matrix.md`
 - [ ] **Still blocked / out of scope —** down-leveling and builtin content expansion beyond the SRD 5.1 greenlist
 
 Still-open design constraints carried forward from the original Step 3 notes:
