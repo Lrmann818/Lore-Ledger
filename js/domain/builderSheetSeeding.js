@@ -9,6 +9,7 @@
 // the wizard again in edit mode re-seeds safely.
 
 import { isBuilderCharacter } from "./characterHelpers.js";
+import { attackWeaponSeedMarker, deriveWeaponAttack } from "./attackRecalculation.js";
 import { deriveCharacter } from "./rules/deriveCharacter.js";
 import { getActiveContentRegistry, getContentByKind, listContentByKind } from "./rules/registry.js";
 import { normalizeBuildLevels } from "./rules/progression.js";
@@ -335,10 +336,6 @@ function getSeededAttacks(source, derived, registry) {
       .filter(Boolean)
   );
 
-  const strMod = derived.abilities.str?.modifier;
-  const dexMod = derived.abilities.dex?.modifier;
-  const prof = derived.proficiencyBonus ?? 0;
-
   /** @type {Array<Record<string, unknown>>} */
   const additions = [];
   const seen = new Set();
@@ -347,35 +344,14 @@ function getSeededAttacks(source, derived, registry) {
     if (!weapon || seen.has(weapon.id)) continue;
     seen.add(weapon.id);
     if (existingNames.has(weapon.name.toLowerCase())) continue;
-    const data = weapon.data || {};
-    const properties = Array.isArray(data.properties) ? data.properties : [];
-    const isRanged = data.attackType === "ranged";
-    const finesse = properties.includes("finesse");
-    /** @type {number | null} */
-    let mod = null;
-    if (isRanged) mod = dexMod ?? null;
-    else if (finesse && strMod != null && dexMod != null) mod = Math.max(strMod, dexMod);
-    else mod = strMod ?? null;
-
-    const bonus = mod != null ? signedNumber(mod + prof) : "";
-    const damageDice = cleanString(data.damage);
-    const damageType = titleCaseWords(cleanString(data.damageType));
-    const damage = damageDice
-      ? `${damageDice}${mod ? signedNumber(mod) : ""}`
-      : "";
-    let range = "Melee";
-    if (isRanged && isPlainObject(data.range) && data.range.normal != null) {
-      range = `${data.range.normal}${data.range.long != null ? `/${data.range.long}` : ""} ft.`;
-    } else if (isPlainObject(data.throwRange) && data.throwRange.normal != null) {
-      range = `Melee, thrown ${data.throwRange.normal}${data.throwRange.long != null ? `/${data.throwRange.long}` : ""} ft.`;
-    }
+    // Canonical weapon → attack math lives in attackRecalculation.js so
+    // Finish seeding and explicit "Recalculate from Build" can never drift.
     additions.push({
       id: newSeedId("atk"),
-      name: weapon.name,
-      bonus,
-      damage,
-      range,
-      type: damageType
+      ...deriveWeaponAttack(weapon, derived),
+      // Stable source marker (survives renames) so the attack can later be
+      // recalculated from its weapon; the row itself stays user-owned.
+      builderSeed: attackWeaponSeedMarker(weapon.id)
     });
   }
   if (!additions.length) return null;
