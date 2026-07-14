@@ -9,7 +9,9 @@ import { safeAsync } from "../../../ui/safeAsync.js";
 import { createStateActions } from "../../../domain/stateActions.js";
 import { flipSwapTwo } from "../../../ui/flipSwap.js";
 import { requireMany } from "../../../utils/domGuards.js";
-import { getActiveCharacter } from "../../../domain/characterHelpers.js";
+import { getActiveCharacter, isBuilderCharacter } from "../../../domain/characterHelpers.js";
+import { getAttackRecalculationProposal } from "../../../domain/attackRecalculation.js";
+import { getActiveContentRegistry, listContentByKind } from "../../../domain/rules/registry.js";
 import { notifyPanelDataChanged, subscribePanelDataChanged } from "../../../ui/panelInvalidation.js";
 
 const ATTACK_FIELD_BY_CLASS = Object.freeze({
@@ -202,6 +204,19 @@ export function initAttacksPanel(deps = {}) {
     const actions = document.createElement("div");
     actions.className = "attackActions";
 
+    // Explicit, user-requested only: recalculation never runs automatically
+    // (see docs/audits/builder-completion-matrix.md #9). Freeform characters
+    // have no build to recalculate from, so they get no button.
+    if (isBuilderCharacter(getActiveCharacter(state))) {
+      const recalc = document.createElement("button");
+      recalc.type = "button";
+      recalc.className = "attackRecalcBtn";
+      recalc.textContent = "Recalc";
+      recalc.title = "Recalculate from Build";
+      recalc.setAttribute("aria-label", "Recalculate from Build");
+      actions.appendChild(recalc);
+    }
+
     const del = document.createElement("button");
     del.type = "button";
     del.className = "attackDeleteBtn danger";
@@ -256,6 +271,305 @@ export function initAttacksPanel(deps = {}) {
     if (!removed || destroyed) return;
     markAttacksChanged();
     renderAttacks();
+  }
+
+  // --- Recalculate from Build ---------------------------------------------
+  // Preview-first dialog (the Vitals resource-settings precedent): the
+  // domain proposal is rendered field by field, the user can uncheck any
+  // proposed change, Cancel/Escape never mutates, and Apply patches the one
+  // attack atomically. Unlinked attacks get an explicit weapon picker —
+  // display names are never used to guess a source.
+
+  let recalcOverlay = null;
+  /** current dialog session: { attackId, proposal, weaponId } */
+  let recalcSession = null;
+
+  function ensureRecalcDialog() {
+    if (recalcOverlay) return recalcOverlay;
+
+    const overlay = document.createElement("div");
+    overlay.className = "modalOverlay attackRecalcOverlay";
+    overlay.hidden = true;
+    overlay.setAttribute("aria-hidden", "true");
+
+    const panel = document.createElement("div");
+    panel.className = "modalPanel attackRecalcPanel";
+    panel.setAttribute("role", "dialog");
+    panel.setAttribute("aria-modal", "true");
+    panel.setAttribute("aria-labelledby", "attackRecalcDialogTitle");
+    panel.setAttribute("tabindex", "-1");
+
+    const header = document.createElement("div");
+    header.className = "uiDialogHeader";
+    const title = document.createElement("div");
+    title.className = "modalTitle";
+    title.id = "attackRecalcDialogTitle";
+    title.textContent = "Recalculate from Build";
+    const close = document.createElement("button");
+    close.type = "button";
+    close.className = "npcSmallBtn";
+    close.dataset.recalcCancel = "true";
+    close.setAttribute("aria-label", "Close Recalculate from Build");
+    close.textContent = "✕";
+    header.appendChild(title);
+    header.appendChild(close);
+
+    const body = document.createElement("div");
+    body.className = "uiDialogBody attackRecalcBody";
+
+    const footer = document.createElement("div");
+    footer.className = "uiDialogFooter attackRecalcFooter";
+
+    panel.appendChild(header);
+    panel.appendChild(body);
+    panel.appendChild(footer);
+    overlay.appendChild(panel);
+    document.body.appendChild(overlay);
+
+    addListener(overlay, "click", (event) => {
+      const target = event.target;
+      if (target === overlay) { closeRecalcDialog(); return; }
+      if (target instanceof HTMLElement && target.closest("[data-recalc-cancel]")) {
+        closeRecalcDialog();
+      }
+    });
+
+    // Capture-phase so an open dialog owns Escape/Tab before page handlers.
+    addListener(document, "keydown", (event) => {
+      if (overlay.hidden || destroyed) return;
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        closeRecalcDialog();
+        return;
+      }
+      if (event.key === "Tab") {
+        const focusables = /** @type {HTMLElement[]} */ (Array.from(panel.querySelectorAll(
+          "button:not([disabled]), input:not([disabled]), select:not([disabled])"
+        ))).filter((node) => !node.closest("[hidden]"));
+        if (!focusables.length) return;
+        const first = focusables[0];
+        const last = focusables[focusables.length - 1];
+        if (event.shiftKey) {
+          if (document.activeElement === first || document.activeElement === panel) {
+            event.preventDefault();
+            last.focus();
+          }
+        } else if (document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
+      }
+    }, { capture: true });
+
+    recalcOverlay = overlay;
+    return overlay;
+  }
+
+  function closeRecalcDialog() {
+    if (!recalcOverlay || recalcOverlay.hidden) return;
+    const openerAttackId = recalcSession?.attackId || "";
+    recalcSession = null;
+    recalcOverlay.hidden = true;
+    recalcOverlay.setAttribute("aria-hidden", "true");
+    const opener = listEl.querySelector(
+      `.attackRow[data-attack-id="${openerAttackId}"] .attackRecalcBtn`
+    );
+    requestAnimationFrame(() => {
+      if (destroyed) return;
+      try { opener?.focus?.({ preventScroll: true }); } catch { opener?.focus?.(); }
+    });
+  }
+
+  function currentAttack(attackId) {
+    return getAttacks().find((item) => item?.id === attackId) || null;
+  }
+
+  function footerButton(label, { primary = false } = {}) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "npcSmallBtn";
+    btn.textContent = label;
+    if (!primary) btn.dataset.recalcCancel = "true";
+    return btn;
+  }
+
+  function renderRecalcDialog() {
+    const overlay = ensureRecalcDialog();
+    const body = overlay.querySelector(".attackRecalcBody");
+    const footer = overlay.querySelector(".attackRecalcFooter");
+    if (!body || !footer || !recalcSession) return;
+    body.replaceChildren();
+    footer.replaceChildren();
+
+    const { proposal } = recalcSession;
+    const addText = (text, className = "") => {
+      const el = document.createElement("div");
+      if (className) el.className = className;
+      el.textContent = text;
+      body.appendChild(el);
+      return el;
+    };
+
+    if (proposal.status === "unavailable") {
+      addText(proposal.reason);
+      footer.appendChild(footerButton("Close"));
+      return;
+    }
+
+    if (proposal.status === "unlinked") {
+      addText(proposal.reason);
+      const pickerLabel = document.createElement("label");
+      pickerLabel.className = "attackRecalcPickerLabel";
+      const labelText = document.createElement("span");
+      labelText.className = "modalLabel";
+      labelText.textContent = "Weapon";
+      const select = document.createElement("select");
+      select.className = "settingsSelect attackRecalcWeaponSelect";
+      select.setAttribute("aria-label", "Weapon to link this entry to");
+      const placeholder = document.createElement("option");
+      placeholder.value = "";
+      placeholder.textContent = "Choose a weapon";
+      select.appendChild(placeholder);
+      const weapons = listContentByKind(getActiveContentRegistry(), "weapon")
+        .map((entry) => ({
+          value: entry.id,
+          label: entry.source === "custom" ? `${entry.name} (custom)` : entry.name
+        }))
+        .sort((a, b) => a.label.localeCompare(b.label));
+      for (const weapon of weapons) {
+        const option = document.createElement("option");
+        option.value = weapon.value;
+        option.textContent = weapon.label;
+        select.appendChild(option);
+      }
+      pickerLabel.appendChild(labelText);
+      pickerLabel.appendChild(select);
+      body.appendChild(pickerLabel);
+
+      const previewBtn = footerButton("Preview Changes", { primary: true });
+      previewBtn.disabled = true;
+      addListener(select, "change", () => { previewBtn.disabled = !select.value; });
+      addListener(previewBtn, "click", () => {
+        if (!select.value || !recalcSession) return;
+        const attack = currentAttack(recalcSession.attackId);
+        const character = getActiveCharacter(state);
+        if (!attack || !character) { closeRecalcDialog(); return; }
+        recalcSession.weaponId = select.value;
+        recalcSession.proposal = getAttackRecalculationProposal(
+          attack, character, getActiveContentRegistry(), { weaponId: select.value }
+        );
+        renderRecalcDialog();
+      });
+      footer.appendChild(footerButton("Cancel"));
+      footer.appendChild(previewBtn);
+      requestAnimationFrame(() => { try { select.focus({ preventScroll: true }); } catch { select.focus(); } });
+      return;
+    }
+
+    if (proposal.status === "no-change") {
+      addText(`Checked against ${proposal.weaponName}: ${proposal.reason}`);
+      footer.appendChild(footerButton("Close"));
+      return;
+    }
+
+    // status === "ready"
+    addText(`Proposed from ${proposal.weaponName} and your current build. Uncheck anything you want to keep as-is — your name and notes are never changed.`, "mutedSmall attackRecalcIntro");
+    if (proposal.patch && proposal.patch.builderSeed) {
+      addText(`Applying will also link this entry to ${proposal.weaponName} for future recalculations.`, "mutedSmall");
+    }
+
+    const rows = document.createElement("div");
+    rows.className = "attackRecalcRows";
+    for (const field of proposal.fields) {
+      const row = document.createElement("div");
+      row.className = "attackRecalcRow";
+      row.dataset.field = field.key;
+      if (field.changed) {
+        const applyLabel = document.createElement("label");
+        applyLabel.className = "attackRecalcApply";
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.checked = true;
+        checkbox.dataset.recalcField = field.key;
+        checkbox.setAttribute("aria-label", `Apply new ${field.label.toLowerCase()}`);
+        const labelSpan = document.createElement("span");
+        labelSpan.textContent = field.label;
+        applyLabel.appendChild(checkbox);
+        applyLabel.appendChild(labelSpan);
+        row.appendChild(applyLabel);
+        const values = document.createElement("span");
+        values.className = "attackRecalcValues";
+        values.textContent = `${field.current || "(empty)"} changes to ${field.proposed || "(empty)"}`;
+        row.appendChild(values);
+      } else {
+        const labelSpan = document.createElement("span");
+        labelSpan.className = "attackRecalcLabel";
+        labelSpan.textContent = field.label;
+        row.appendChild(labelSpan);
+        const values = document.createElement("span");
+        values.className = "attackRecalcValues mutedSmall";
+        values.textContent = `unchanged (${field.current || "(empty)"})`;
+        row.appendChild(values);
+      }
+      rows.appendChild(row);
+    }
+    body.appendChild(rows);
+
+    const applyBtn = footerButton("Apply Changes", { primary: true });
+    const syncApplyEnabled = () => {
+      const anyChecked = !!body.querySelector("[data-recalc-field]:checked");
+      const linkOnly = !!(proposal.patch && proposal.patch.builderSeed);
+      applyBtn.disabled = !anyChecked && !linkOnly;
+    };
+    addListener(body, "change", syncApplyEnabled);
+    syncApplyEnabled();
+    addListener(applyBtn, "click", () => applyRecalcDialog());
+    footer.appendChild(footerButton("Cancel"));
+    footer.appendChild(applyBtn);
+    requestAnimationFrame(() => {
+      const first = body.querySelector("[data-recalc-field]") || applyBtn;
+      try { first?.focus?.({ preventScroll: true }); } catch { first?.focus?.(); }
+    });
+  }
+
+  function applyRecalcDialog() {
+    if (!recalcSession || destroyed) return;
+    const { attackId, proposal } = recalcSession;
+    if (proposal.status !== "ready" || !proposal.patch) { closeRecalcDialog(); return; }
+    const body = recalcOverlay?.querySelector(".attackRecalcBody");
+    /** accepted subset of the proposed patch — applied in one mutation */
+    const patch = {};
+    for (const [key, value] of Object.entries(proposal.patch)) {
+      if (key === "builderSeed") { patch.builderSeed = value; continue; }
+      const checkbox = body?.querySelector(`[data-recalc-field="${key}"]`);
+      if (!checkbox || checkbox.checked) patch[key] = value;
+    }
+    if (!Object.keys(patch).length) { closeRecalcDialog(); return; }
+    const updated = patchAttack(attackId, patch);
+    closeRecalcDialog();
+    if (updated) {
+      renderAttacks();
+      if (typeof setStatus === "function") setStatus("Weapon recalculated from build.");
+    }
+  }
+
+  function openRecalcDialog(attackId) {
+    if (destroyed) return;
+    const attack = currentAttack(attackId);
+    const character = getActiveCharacter(state);
+    if (!attack || !character) return;
+    const overlay = ensureRecalcDialog();
+    recalcSession = {
+      attackId,
+      weaponId: "",
+      proposal: getAttackRecalculationProposal(attack, character, getActiveContentRegistry())
+    };
+    renderRecalcDialog();
+    overlay.hidden = false;
+    overlay.setAttribute("aria-hidden", "false");
+    const panel = overlay.querySelector(".attackRecalcPanel");
+    try { panel?.focus?.({ preventScroll: true }); } catch { panel?.focus?.(); }
   }
 
   function addAttack() {
@@ -374,6 +688,14 @@ export function initAttacksPanel(deps = {}) {
         return;
       }
 
+      const recalcBtn = target.closest(".attackRecalcBtn");
+      if (recalcBtn instanceof HTMLButtonElement) {
+        event.preventDefault();
+        event.stopPropagation();
+        openRecalcDialog(attackId);
+        return;
+      }
+
       const deleteBtn = target.closest(".attackDeleteBtn");
       if (!(deleteBtn instanceof HTMLButtonElement)) return;
 
@@ -393,6 +715,12 @@ export function initAttacksPanel(deps = {}) {
     if (destroyed || detail.source === panelInstance) return;
     renderAttacks();
   }));
+
+  addDestroy(() => {
+    recalcSession = null;
+    recalcOverlay?.remove?.();
+    recalcOverlay = null;
+  });
 
   return {
     destroy() {

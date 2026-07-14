@@ -9355,3 +9355,71 @@ section.combatPanel[data-collapsed="true"]> :not([data-panel-header]) {
 .customContentTraitRow .traitDesc {
   flex: 1 1 100%;
 }
+
+/* Attack "Recalculate from Build" (matrix #9) — a narrow extension of the
+   existing modal system, like the resource-settings dialog. */
+.attackRecalcBtn {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: inherit;
+  cursor: pointer;
+  font-size: 0.8em;
+  padding: 2px 8px;
+}
+
+.attackRecalcPanel {
+  width: min(440px, 100%);
+  max-height: min(640px, calc(100dvh - 36px));
+  overflow: auto;
+}
+
+.attackRecalcBody {
+  display: grid;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.attackRecalcPickerLabel {
+  display: grid;
+  gap: 4px;
+}
+
+.attackRecalcPickerLabel .settingsSelect {
+  width: 100%;
+}
+
+.attackRecalcRows {
+  display: grid;
+  gap: 8px;
+}
+
+.attackRecalcRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 6px 10px;
+}
+
+.attackRecalcApply {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+
+.attackRecalcLabel {
+  font-weight: 600;
+}
+
+.attackRecalcValues {
+  overflow-wrap: anywhere;
+}
+
+.attackRecalcFooter {
+  margin-top: 10px;
+}
