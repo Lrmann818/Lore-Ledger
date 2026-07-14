@@ -122,6 +122,36 @@ export function addCustomContentRecords(state, records) {
 }
 
 /**
+ * Replaces one existing custom record in place (same kind + id — identity is
+ * immutable so character references never break). The array is replaced
+ * immutably so the active registry cache invalidates. Must run inside a
+ * state mutation + markDirty flow.
+ *
+ * @param {State} state
+ * @param {string} kind
+ * @param {string} id
+ * @param {unknown} record
+ * @returns {{ ok: boolean, errors: string[] }}
+ */
+export function updateCustomContentRecord(state, kind, id, record) {
+  const current = ensureCustomContent(state);
+  const index = current.findIndex((entry) => isPlainObject(entry) && entry.kind === kind && entry.id === id);
+  if (index === -1) {
+    return { ok: false, errors: [`No custom ${kind} "${id}" exists to update.`] };
+  }
+  if (!isPlainObject(record) || record.kind !== kind || record.id !== id) {
+    return { ok: false, errors: ["Updated record must keep its original kind and id."] };
+  }
+  const existing = current.filter((_, entryIndex) => entryIndex !== index);
+  const result = validateCustomContentRecord(record, { existing });
+  if (!result.ok) return { ok: false, errors: result.errors };
+  const next = current.slice();
+  next[index] = { .../** @type {Record<string, unknown>} */ (record), source: "custom" };
+  /** @type {{ custom: Record<string, unknown>[] }} */ (state.content).custom = next;
+  return { ok: true, errors: [] };
+}
+
+/**
  * Removes one custom record by kind + id. Returns whether a record was
  * removed. Must run inside a state mutation + markDirty flow.
  * @param {State} state

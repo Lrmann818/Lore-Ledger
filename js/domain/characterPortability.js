@@ -235,6 +235,42 @@ export function collectReferencedCustomContent(character, state) {
 }
 
 /**
+ * Names of the campaign's characters whose build/play-state references the
+ * given custom record. Used to disclose impact before removing or reshaping
+ * a custom record; removal stays allowed (derivation degrades soft), so this
+ * is a warning surface, not a lock.
+ *
+ * @param {unknown} state
+ * @param {string} kind
+ * @param {string} id
+ * @returns {string[]}
+ */
+export function findCharactersReferencingContent(state, kind, id) {
+  const key = `${cleanRefString(kind)}:${cleanRefString(id)}`;
+  if (key === ":") return [];
+  const characters = isPlainObject(state) && isPlainObject(state.characters) && Array.isArray(state.characters.entries)
+    ? state.characters.entries
+    : [];
+  /** @type {string[]} */
+  const names = [];
+  for (const character of characters) {
+    const referenced = collectReferencedCustomContent(character, state);
+    if (!referenced.some((record) => `${record.kind}:${record.id}` === key)) continue;
+    const name = isPlainObject(character) ? cleanRefString(character.name) : "";
+    names.push(name || "Unnamed character");
+  }
+  return names;
+}
+
+/**
+ * @param {unknown} value
+ * @returns {string}
+ */
+function cleanRefString(value) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+/**
  * @param {unknown} character
  * @returns {string[]}
  */
