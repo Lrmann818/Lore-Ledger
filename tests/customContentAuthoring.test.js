@@ -1,12 +1,17 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  FEAT_EFFECT_TYPES,
+  createFeatDraft,
   createSpellDraft,
+  featDraftFromRecord,
   generateContentId,
+  normalizeFeatDraft,
   normalizeSpellDraft,
   slugifyContentName,
   spellDraftFromRecord
 } from "../js/domain/customContentAuthoring.js";
+import { collectFeatEffects } from "../js/domain/rules/progression.js";
 import {
   addCustomContentRecords,
   listCustomContent,
@@ -212,6 +217,117 @@ describe("spell draft normalization", () => {
     });
     expect(roundTripped.ok).toBe(true);
     expect(roundTripped.record).toEqual(original);
+  });
+});
+
+describe("feat draft normalization", () => {
+  function makeValidFeatDraft(overrides = {}) {
+    return {
+      ...createFeatDraft(),
+      name: "Iron Will",
+      desc: "Your resolve is unshakeable.",
+      prerequisites: [{ ability: "wis", minimum: "13" }],
+      effects: [
+        { type: "save_proficiency", value: "", ability: "wis", skill: "" },
+        { type: "hp_per_level_bonus", value: "1", ability: "", skill: "" },
+        { type: "skill_proficiency", value: "", ability: "", skill: "insight" }
+      ],
+      ...overrides
+    };
+  }
+
+  it("normalizes a valid draft into a canonical feat record the rules engine consumes", () => {
+    const result = normalizeFeatDraft(makeValidFeatDraft(), context());
+    expect(result.ok).toBe(true);
+    expect(result.record).toEqual({
+      id: "iron-will",
+      kind: "feat",
+      name: "Iron Will",
+      source: "custom",
+      prerequisites: [{ ability: "wis", minimum: 13 }],
+      desc: "Your resolve is unshakeable.",
+      effects: [
+        { type: "save_proficiency", ability: "wis" },
+        { type: "hp_per_level_bonus", value: 1 },
+        { type: "skill_proficiency", skill: "insight" }
+      ]
+    });
+    expect(validateCustomContentRecord(result.record)).toEqual({ ok: true, errors: [] });
+
+    // The exact rules-engine consumer applies the authored effects.
+    const { entries } = normalizeCustomContent([result.record]);
+    const collected = collectFeatEffects(entries);
+    expect(collected.saveProficiencies).toEqual(["wis"]);
+    expect(collected.hpPerLevelBonus).toBe(1);
+    expect(collected.skillProficiencies).toEqual(["insight"]);
+  });
+
+  it("accepts a minimal feat with no prerequisites or effects", () => {
+    const result = normalizeFeatDraft(makeValidFeatDraft({ prerequisites: [], effects: [] }), context());
+    expect(result.ok).toBe(true);
+    expect(result.record.prerequisites).toEqual([]);
+    expect(result.record.effects).toEqual([]);
+  });
+
+  it("reports row-numbered errors for malformed prerequisites and effects", () => {
+    const result = normalizeFeatDraft(makeValidFeatDraft({
+      prerequisites: [
+        { ability: "", minimum: "13" },
+        { ability: "str", minimum: "45" }
+      ],
+      effects: [
+        { type: "", value: "", ability: "", skill: "" },
+        { type: "ability_bonus", value: "0", ability: "str", skill: "" },
+        { type: "skill_proficiency", value: "", ability: "", skill: "not-a-skill" }
+      ]
+    }), context());
+    expect(result.ok).toBe(false);
+    const messages = result.errors.map((error) => `${error.field}: ${error.message}`);
+    expect(messages).toContainEqual(expect.stringContaining("prerequisites: Prerequisite 1"));
+    expect(messages).toContainEqual(expect.stringContaining("prerequisites: Prerequisite 2"));
+    expect(messages).toContainEqual(expect.stringContaining("effects: Effect 1"));
+    expect(messages).toContainEqual(expect.stringContaining("effects: Effect 2"));
+    expect(messages).toContainEqual(expect.stringContaining("effects: Effect 3"));
+  });
+
+  it("requires name and description", () => {
+    const result = normalizeFeatDraft(createFeatDraft(), context());
+    expect(result.ok).toBe(false);
+    expect(result.errors.map((error) => error.field)).toEqual(
+      expect.arrayContaining(["name", "desc"])
+    );
+  });
+
+  it("round-trips a feat record through a draft without losing fields", () => {
+    const original = normalizeFeatDraft(makeValidFeatDraft(), context()).record;
+    const roundTripped = normalizeFeatDraft(featDraftFromRecord(original), {
+      registry: BUILTIN_CONTENT_REGISTRY,
+      existing: [original],
+      editingId: original.id
+    });
+    expect(roundTripped.ok).toBe(true);
+    expect(roundTripped.record).toEqual(original);
+  });
+
+  it("avoids shadowing the builtin Grappler feat", () => {
+    const result = normalizeFeatDraft(makeValidFeatDraft({ name: "Grappler" }), context());
+    expect(result.ok).toBe(true);
+    expect(result.record.id).toBe("grappler-2");
+  });
+
+  it("covers the whole closed effects vocabulary", () => {
+    const effects = FEAT_EFFECT_TYPES.map((spec) => ({
+      type: spec.type,
+      value: spec.needs.includes("value") ? "2" : "",
+      ability: spec.needs.includes("ability") ? "dex" : "",
+      skill: spec.needs.includes("skill") ? "stealth" : ""
+    }));
+    const result = normalizeFeatDraft(makeValidFeatDraft({ effects }), context());
+    expect(result.ok).toBe(true);
+    expect(result.record.effects).toHaveLength(FEAT_EFFECT_TYPES.length);
+    for (const effect of result.record.effects) {
+      expect(Object.keys(effect)).toContain("type");
+    }
   });
 });
 

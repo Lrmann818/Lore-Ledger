@@ -296,8 +296,22 @@ export function normalizeSpellDraft(draft, context) {
     damageType: damageType || null
   };
 
+  return finishRecordValidation("spell", record, existing, editingId);
+}
+
+/**
+ * Shared tail of every normalize*Draft: run the exact import-path validation
+ * so the editor can never save what an import would reject.
+ *
+ * @param {string} kind
+ * @param {Record<string, unknown>} record
+ * @param {Array<Record<string, unknown>>} existing
+ * @param {string} editingId
+ * @returns {AuthoringResult}
+ */
+function finishRecordValidation(kind, record, existing, editingId) {
   const existingForValidation = editingId
-    ? existing.filter((entry) => !(isPlainObject(entry) && entry.kind === "spell" && entry.id === editingId))
+    ? existing.filter((entry) => !(isPlainObject(entry) && entry.kind === kind && entry.id === editingId))
     : existing;
   const validation = validateCustomContentRecord(record, { existing: existingForValidation });
   if (!validation.ok) {
@@ -308,4 +322,172 @@ export function normalizeSpellDraft(draft, context) {
     };
   }
   return { ok: true, record, errors: [] };
+}
+
+// --- Feats -----------------------------------------------------------------
+
+/**
+ * The closed feat `effects` vocabulary consumed by collectFeatEffects()
+ * (js/domain/rules/progression.js). `needs` names the draft fields each
+ * effect type reads; everything else on the row is ignored.
+ * @type {ReadonlyArray<{ type: string, label: string, needs: ReadonlyArray<string> }>}
+ */
+export const FEAT_EFFECT_TYPES = Object.freeze([
+  Object.freeze({ type: "ability_bonus", label: "Ability score bonus", needs: Object.freeze(["ability", "value"]) }),
+  Object.freeze({ type: "hp_per_level_bonus", label: "Max HP bonus per level", needs: Object.freeze(["value"]) }),
+  Object.freeze({ type: "speed_bonus", label: "Speed bonus (feet)", needs: Object.freeze(["value"]) }),
+  Object.freeze({ type: "ac_bonus", label: "Armor Class bonus", needs: Object.freeze(["value"]) }),
+  Object.freeze({ type: "initiative_bonus", label: "Initiative bonus", needs: Object.freeze(["value"]) }),
+  Object.freeze({ type: "save_proficiency", label: "Saving throw proficiency", needs: Object.freeze(["ability"]) }),
+  Object.freeze({ type: "skill_proficiency", label: "Skill proficiency", needs: Object.freeze(["skill"]) })
+]);
+
+/**
+ * @typedef {{ ability: string, minimum: string }} FeatPrerequisiteDraftRow
+ * @typedef {{ type: string, value: string, ability: string, skill: string }} FeatEffectDraftRow
+ * @typedef {{
+ *   name: string,
+ *   desc: string,
+ *   prerequisites: FeatPrerequisiteDraftRow[],
+ *   effects: FeatEffectDraftRow[]
+ * }} FeatDraft
+ */
+
+/**
+ * @returns {FeatDraft}
+ */
+export function createFeatDraft() {
+  return { name: "", desc: "", prerequisites: [], effects: [] };
+}
+
+/**
+ * @param {Record<string, unknown>} record
+ * @returns {FeatDraft}
+ */
+export function featDraftFromRecord(record) {
+  const source = isPlainObject(record) ? record : {};
+  /** @type {FeatPrerequisiteDraftRow[]} */
+  const prerequisites = [];
+  for (const entry of Array.isArray(source.prerequisites) ? source.prerequisites : []) {
+    if (!isPlainObject(entry)) continue;
+    prerequisites.push({
+      ability: cleanString(entry.ability),
+      minimum: Number.isFinite(entry.minimum) ? String(entry.minimum) : ""
+    });
+  }
+  /** @type {FeatEffectDraftRow[]} */
+  const effects = [];
+  for (const entry of Array.isArray(source.effects) ? source.effects : []) {
+    if (!isPlainObject(entry)) continue;
+    effects.push({
+      type: cleanString(entry.type),
+      value: Number.isFinite(entry.value) ? String(entry.value) : "",
+      ability: cleanString(entry.ability),
+      skill: cleanString(entry.skill)
+    });
+  }
+  return {
+    name: cleanString(source.name),
+    desc: cleanString(source.desc),
+    prerequisites,
+    effects
+  };
+}
+
+/**
+ * Normalizes a feat draft into a canonical custom feat record (the shape of
+ * game-data/srd/feats.json entries with source "custom"). Effect rows keep
+ * only the fields their type consumes.
+ *
+ * @param {FeatDraft} draft
+ * @param {AuthoringContext} context
+ * @returns {AuthoringResult}
+ */
+export function normalizeFeatDraft(draft, context) {
+  /** @type {AuthoringFieldError[]} */
+  const errors = [];
+  const existing = Array.isArray(context?.existing) ? context.existing : [];
+  const editingId = cleanString(context?.editingId);
+
+  const name = cleanString(draft?.name);
+  if (!name) errors.push({ field: "name", message: "Give the feat a name." });
+  const desc = cleanString(draft?.desc);
+  if (!desc) errors.push({ field: "desc", message: "Describe what the feat does." });
+
+  /** @type {Array<{ ability: string, minimum: number }>} */
+  const prerequisites = [];
+  const prereqRows = Array.isArray(draft?.prerequisites) ? draft.prerequisites : [];
+  prereqRows.forEach((row, index) => {
+    const label = `Prerequisite ${index + 1}`;
+    const ability = cleanString(row?.ability);
+    const minimumText = cleanString(row?.minimum);
+    const minimum = /^\d{1,2}$/.test(minimumText) ? Number(minimumText) : NaN;
+    if (!CHARACTER_ABILITY_KEYS.includes(ability)) {
+      errors.push({ field: "prerequisites", message: `${label}: pick an ability.` });
+      return;
+    }
+    if (!Number.isInteger(minimum) || minimum < 1 || minimum > 30) {
+      errors.push({ field: "prerequisites", message: `${label}: enter a minimum score from 1 to 30.` });
+      return;
+    }
+    prerequisites.push({ ability, minimum });
+  });
+
+  /** @type {Array<Record<string, unknown>>} */
+  const effects = [];
+  const effectRows = Array.isArray(draft?.effects) ? draft.effects : [];
+  effectRows.forEach((row, index) => {
+    const label = `Effect ${index + 1}`;
+    const spec = FEAT_EFFECT_TYPES.find((candidate) => candidate.type === cleanString(row?.type));
+    if (!spec) {
+      errors.push({ field: "effects", message: `${label}: pick what the effect changes.` });
+      return;
+    }
+    /** @type {Record<string, unknown>} */
+    const effect = { type: spec.type };
+    let rowOk = true;
+    if (spec.needs.includes("ability")) {
+      const ability = cleanString(row?.ability);
+      if (!CHARACTER_ABILITY_KEYS.includes(ability)) {
+        errors.push({ field: "effects", message: `${label}: pick an ability.` });
+        rowOk = false;
+      } else {
+        effect.ability = ability;
+      }
+    }
+    if (spec.needs.includes("skill")) {
+      const skill = cleanString(row?.skill);
+      if (!skill || !getContentByKind(context?.registry, "skill", skill)) {
+        errors.push({ field: "effects", message: `${label}: pick a skill.` });
+        rowOk = false;
+      } else {
+        effect.skill = skill;
+      }
+    }
+    if (spec.needs.includes("value")) {
+      const valueText = cleanString(row?.value);
+      const value = /^-?\d{1,2}$/.test(valueText) ? Number(valueText) : NaN;
+      if (!Number.isInteger(value) || value === 0 || value < -20 || value > 20) {
+        errors.push({ field: "effects", message: `${label}: enter a non-zero whole number from -20 to 20.` });
+        rowOk = false;
+      } else {
+        effect.value = value;
+      }
+    }
+    if (rowOk) effects.push(effect);
+  });
+
+  if (errors.length) return { ok: false, record: null, errors };
+
+  const id = editingId || generateContentId("feat", name, existing);
+  const record = {
+    id,
+    kind: "feat",
+    name,
+    source: "custom",
+    prerequisites,
+    desc,
+    effects
+  };
+  return finishRecordValidation("feat", record, existing, editingId);
 }

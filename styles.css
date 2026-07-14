@@ -9317,3 +9317,37 @@ section.combatPanel[data-collapsed="true"]> :not([data-panel-header]) {
     grid-template-columns: 1fr;
   }
 }
+
+.customContentRepeatWrap {
+  display: grid;
+  gap: 6px;
+  justify-items: start;
+}
+
+.customContentRepeat {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+}
+
+.customContentRepeatRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.customContentRepeatRow .settingsSelect,
+.customContentRepeatRow .settingsInput {
+  width: auto;
+  flex: 1 1 120px;
+  min-width: 0;
+}
+
+.customContentRepeatRow .customContentRowNumber {
+  flex: 0 1 90px;
+}
+
+.customContentRepeatRow [hidden] {
+  display: none;
+}

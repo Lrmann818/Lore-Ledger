@@ -1195,8 +1195,9 @@ editor and the JSON import path share one rule system. Contract:
 - authored records are byte-identical in shape to imported ones (no
   parallel authoring format);
 - currently authorable kinds: **spell** (all fields of the SRD spell shape,
-  including `classIds`/`subclassIds` list membership). Feats, races, and
-  classes are the planned remaining batches.
+  including `classIds`/`subclassIds` list membership) and **feat**
+  (prerequisites and the closed `effects` vocabulary as repeatable rows).
+  Races and classes are the planned remaining batches.
 
 ## Class Resources (2026-07-12, Level Up Phase 2)
 

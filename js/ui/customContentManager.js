@@ -18,10 +18,14 @@ import {
 } from "../domain/customContent.js";
 import {
   DAMAGE_TYPES,
+  FEAT_EFFECT_TYPES,
   SAVE_ABILITIES,
   SPELL_ATTACK_TYPES,
   SPELL_SCHOOLS,
+  createFeatDraft,
   createSpellDraft,
+  featDraftFromRecord,
+  normalizeFeatDraft,
   normalizeSpellDraft,
   spellDraftFromRecord
 } from "../domain/customContentAuthoring.js";
@@ -44,7 +48,10 @@ import { safeAsync } from "./safeAsync.js";
  */
 
 /** Record kinds with an in-app authoring form. Later batches extend this. */
-const AUTHORABLE_KINDS = Object.freeze(["spell"]);
+const AUTHORABLE_KINDS = Object.freeze(["spell", "feat"]);
+
+/** @type {Record<string, string>} */
+const KIND_LABELS = { spell: "Spell", feat: "Feat" };
 
 const KIND_ORDER = Object.freeze([
   "race", "subrace", "class", "subclass", "background", "feat", "trait",
@@ -137,8 +144,8 @@ export function createCustomContentManager(deps) {
   let destroyed = false;
   /** @type {HTMLElement | null} */
   let openerEl = null;
-  /** @type {(() => SpellDraft) | null} */
-  let readSpellDraft = null;
+  /** @type {(() => void) | null} */
+  let submitForm = null;
   /** @type {Map<string, HTMLElement>} */
   let errorSlots = new Map();
   /** @type {HTMLElement | null} */
@@ -159,7 +166,7 @@ export function createCustomContentManager(deps) {
     mode = "list";
     editing = null;
     formDirty = false;
-    readSpellDraft = null;
+    submitForm = null;
     errorSlots = new Map();
     formErrorBox = null;
     titleEl.textContent = "Custom Content";
@@ -215,10 +222,12 @@ export function createCustomContentManager(deps) {
         "Records marked Edit were made for form editing. Imported records of other types can be removed here and re-imported."));
     }
 
-    const newSpellBtn = el("button", "npcSmallBtn", "New Spell");
-    newSpellBtn.type = "button";
-    newSpellBtn.addEventListener("click", () => openForm("spell", null), { signal: abort.signal });
-    footer.appendChild(newSpellBtn);
+    for (const kind of AUTHORABLE_KINDS) {
+      const newBtn = el("button", "npcSmallBtn", `New ${KIND_LABELS[kind]}`);
+      newBtn.type = "button";
+      newBtn.addEventListener("click", () => openForm(kind, null), { signal: abort.signal });
+      footer.appendChild(newBtn);
+    }
 
     const closeFooterBtn = el("button", "npcSmallBtn", "Close");
     closeFooterBtn.type = "button";
@@ -355,17 +364,15 @@ export function createCustomContentManager(deps) {
    * @param {Record<string, unknown> | null} record null = create new
    */
   function openForm(kind, record) {
-    if (kind !== "spell") return;
+    if (!AUTHORABLE_KINDS.includes(kind)) return;
     mode = "form";
     editing = record ? { kind, id: String(record.id) } : null;
     formDirty = false;
     errorSlots = new Map();
-    titleEl.textContent = editing ? `Edit Spell: ${record?.name || editing.id}` : "New Custom Spell";
+    const kindLabel = KIND_LABELS[kind] || kind;
+    titleEl.textContent = editing ? `Edit ${kindLabel}: ${record?.name || editing.id}` : `New Custom ${kindLabel}`;
     body.replaceChildren();
     footer.replaceChildren();
-
-    const registry = getActiveContentRegistry();
-    const draft = record ? spellDraftFromRecord(record) : createSpellDraft();
 
     const form = el("div", "customContentForm");
 
@@ -376,8 +383,41 @@ export function createCustomContentManager(deps) {
 
     if (editing) {
       form.appendChild(el("div", "mutedSmall customContentIdNote",
-        `Saved as spell:${editing.id} — the id never changes, so characters keep their references.`));
+        `Saved as ${kind}:${editing.id} — the id never changes, so characters keep their references.`));
     }
+
+    const built = kind === "feat" ? buildFeatFields(form, record) : buildSpellFields(form, record);
+    submitForm = built.submit;
+
+    form.addEventListener("input", () => { formDirty = true; }, { signal: abort.signal });
+    form.addEventListener("change", () => { formDirty = true; }, { signal: abort.signal });
+
+    body.appendChild(form);
+
+    const cancelBtn = el("button", "npcSmallBtn", "Cancel");
+    cancelBtn.type = "button";
+    cancelBtn.addEventListener("click", safeAsync(
+      () => attemptCancelForm(),
+      (err) => console.error(err)
+    ), { signal: abort.signal });
+    footer.appendChild(cancelBtn);
+
+    const saveBtn = el("button", "npcSmallBtn", editing ? "Save Changes" : `Save ${kindLabel}`);
+    saveBtn.type = "button";
+    saveBtn.addEventListener("click", () => submitForm?.(), { signal: abort.signal });
+    footer.appendChild(saveBtn);
+
+    built.focus();
+  }
+
+  /**
+   * @param {HTMLElement} form
+   * @param {Record<string, unknown> | null} record
+   * @returns {{ submit: () => void, focus: () => void }}
+   */
+  function buildSpellFields(form, record) {
+    const registry = getActiveContentRegistry();
+    const draft = record ? spellDraftFromRecord(record) : createSpellDraft();
 
     const nameInput = textInput("name", draft.name);
     form.appendChild(fieldRow("Name", nameInput, { fieldKey: "name", required: true }));
@@ -497,12 +537,8 @@ export function createCustomContentManager(deps) {
       draft.damageType);
     form.appendChild(fieldRow("Damage type", damageTypeSelect, { fieldKey: "damageType" }));
 
-    form.addEventListener("input", () => { formDirty = true; }, { signal: abort.signal });
-    form.addEventListener("change", () => { formDirty = true; }, { signal: abort.signal });
-
-    body.appendChild(form);
-
-    readSpellDraft = () => ({
+    /** @returns {SpellDraft} */
+    const readDraft = () => ({
       name: nameInput.value,
       level: levelSelect.value,
       school: schoolSelect.value,
@@ -524,20 +560,193 @@ export function createCustomContentManager(deps) {
       damageType: damageTypeSelect.value
     });
 
-    const cancelBtn = el("button", "npcSmallBtn", "Cancel");
-    cancelBtn.type = "button";
-    cancelBtn.addEventListener("click", safeAsync(
-      () => attemptCancelForm(),
-      (err) => console.error(err)
-    ), { signal: abort.signal });
-    footer.appendChild(cancelBtn);
+    return {
+      submit: () => persistRecord("spell", normalizeSpellDraft(readDraft(), {
+        registry: getActiveContentRegistry(),
+        existing: listCustomContent(state),
+        editingId: editing ? editing.id : null
+      })),
+      focus: () => nameInput.focus()
+    };
+  }
 
-    const saveBtn = el("button", "npcSmallBtn", editing ? "Save Changes" : "Save Spell");
-    saveBtn.type = "button";
-    saveBtn.addEventListener("click", () => saveSpellForm(), { signal: abort.signal });
-    footer.appendChild(saveBtn);
+  // --- Form view (feat) ----------------------------------------------------
 
-    nameInput.focus();
+  /**
+   * @param {Array<{ value: string, label: string }>} options
+   * @param {string} value
+   * @param {string} ariaLabel
+   * @param {string} marker CSS class used to read the row back
+   * @returns {HTMLSelectElement}
+   */
+  function rowSelect(options, value, ariaLabel, marker) {
+    const select = el("select", `settingsSelect customContentSelect ${marker}`);
+    select.setAttribute("aria-label", ariaLabel);
+    for (const option of options) {
+      const node = el("option", "", option.label);
+      node.value = option.value;
+      select.appendChild(node);
+    }
+    select.value = value;
+    return select;
+  }
+
+  /**
+   * @param {string} value
+   * @param {string} ariaLabel
+   * @param {string} marker
+   * @returns {HTMLInputElement}
+   */
+  function rowNumberInput(value, ariaLabel, marker) {
+    const input = el("input", `settingsInput customContentInput customContentRowNumber ${marker}`);
+    input.type = "number";
+    input.setAttribute("aria-label", ariaLabel);
+    input.value = value;
+    return input;
+  }
+
+  /**
+   * @param {HTMLElement} rowEl
+   * @param {string} label
+   * @returns {HTMLButtonElement}
+   */
+  function rowRemoveButton(rowEl, label) {
+    const removeBtn = el("button", "npcSmallBtn", "Remove");
+    removeBtn.type = "button";
+    removeBtn.setAttribute("aria-label", label);
+    removeBtn.addEventListener("click", () => {
+      rowEl.remove();
+      formDirty = true;
+    }, { signal: abort.signal });
+    return removeBtn;
+  }
+
+  /**
+   * @param {HTMLElement} form
+   * @param {Record<string, unknown> | null} record
+   * @returns {{ submit: () => void, focus: () => void }}
+   */
+  function buildFeatFields(form, record) {
+    const registry = getActiveContentRegistry();
+    const draft = record ? featDraftFromRecord(record) : createFeatDraft();
+
+    const nameInput = textInput("name", draft.name);
+    form.appendChild(fieldRow("Name", nameInput, { fieldKey: "name", required: true }));
+
+    const descInput = el("textarea", "settingsInput customContentTextarea");
+    descInput.id = "customContentInput-desc";
+    descInput.rows = 5;
+    descInput.value = draft.desc;
+    form.appendChild(fieldRow("Description", descInput, { fieldKey: "desc", required: true }));
+
+    const abilityOptions = [
+      { value: "", label: "Choose an ability" },
+      ...SAVE_ABILITIES.map((ability) => ({ value: ability, label: ability.toUpperCase() }))
+    ];
+
+    // Prerequisites — repeatable ability + minimum-score rows.
+    const prereqList = el("div", "customContentRepeat");
+    prereqList.dataset.repeat = "prerequisites";
+    const addPrereqRow = (row = { ability: "", minimum: "" }) => {
+      const rowEl = el("div", "customContentRepeatRow");
+      rowEl.appendChild(rowSelect(abilityOptions, row.ability, "Prerequisite ability", "prereqAbility"));
+      const minInput = rowNumberInput(row.minimum, "Prerequisite minimum score", "prereqMin");
+      minInput.min = "1";
+      minInput.max = "30";
+      minInput.placeholder = "Min score";
+      rowEl.appendChild(minInput);
+      rowEl.appendChild(rowRemoveButton(rowEl, "Remove prerequisite"));
+      prereqList.appendChild(rowEl);
+    };
+    draft.prerequisites.forEach(addPrereqRow);
+    const prereqWrap = el("div", "customContentRepeatWrap");
+    prereqWrap.appendChild(prereqList);
+    const addPrereqBtn = el("button", "npcSmallBtn", "+ Add prerequisite");
+    addPrereqBtn.type = "button";
+    addPrereqBtn.addEventListener("click", () => {
+      addPrereqRow();
+      formDirty = true;
+    }, { signal: abort.signal });
+    prereqWrap.appendChild(addPrereqBtn);
+    form.appendChild(fieldRow("Prerequisites", prereqWrap, {
+      fieldKey: "prerequisites",
+      help: "Optional: minimum ability scores needed to take this feat (shown as guidance, never blocking)."
+    }));
+
+    // Effects — repeatable rows from the closed rules vocabulary.
+    const skillOptions = [
+      { value: "", label: "Choose a skill" },
+      ...listContentByKind(registry, "skill")
+        .map((entry) => ({ value: entry.id, label: entry.name }))
+        .sort((a, b) => a.label.localeCompare(b.label))
+    ];
+    const effectTypeOptions = [
+      { value: "", label: "Choose an effect" },
+      ...FEAT_EFFECT_TYPES.map((spec) => ({ value: spec.type, label: spec.label }))
+    ];
+    const effectList = el("div", "customContentRepeat");
+    effectList.dataset.repeat = "effects";
+    const addEffectRow = (row = { type: "", value: "", ability: "", skill: "" }) => {
+      const rowEl = el("div", "customContentRepeatRow");
+      const typeSelect = rowSelect(effectTypeOptions, row.type, "Effect type", "effectType");
+      rowEl.appendChild(typeSelect);
+      const valueInput = rowNumberInput(row.value, "Effect amount", "effectValue");
+      valueInput.placeholder = "Amount";
+      rowEl.appendChild(valueInput);
+      const abilitySelect = rowSelect(abilityOptions, row.ability, "Effect ability", "effectAbility");
+      rowEl.appendChild(abilitySelect);
+      const skillSelect = rowSelect(skillOptions, row.skill, "Effect skill", "effectSkill");
+      rowEl.appendChild(skillSelect);
+      rowEl.appendChild(rowRemoveButton(rowEl, "Remove effect"));
+      const syncVisibility = () => {
+        const spec = FEAT_EFFECT_TYPES.find((candidate) => candidate.type === typeSelect.value);
+        valueInput.hidden = !spec || !spec.needs.includes("value");
+        abilitySelect.hidden = !spec || !spec.needs.includes("ability");
+        skillSelect.hidden = !spec || !spec.needs.includes("skill");
+      };
+      typeSelect.addEventListener("change", syncVisibility, { signal: abort.signal });
+      syncVisibility();
+      effectList.appendChild(rowEl);
+    };
+    draft.effects.forEach(addEffectRow);
+    const effectWrap = el("div", "customContentRepeatWrap");
+    effectWrap.appendChild(effectList);
+    const addEffectBtn = el("button", "npcSmallBtn", "+ Add effect");
+    addEffectBtn.type = "button";
+    addEffectBtn.addEventListener("click", () => {
+      addEffectRow();
+      formDirty = true;
+    }, { signal: abort.signal });
+    effectWrap.appendChild(addEffectBtn);
+    form.appendChild(fieldRow("Mechanical effects", effectWrap, {
+      fieldKey: "effects",
+      help: "Optional: bonuses the builder applies automatically (HP, speed, AC, initiative, ability scores, proficiencies). Anything else belongs in the description."
+    }));
+
+    const readRows = (list, mapRow) => Array.from(list.querySelectorAll(".customContentRepeatRow")).map(mapRow);
+    const readDraft = () => ({
+      name: nameInput.value,
+      desc: descInput.value,
+      prerequisites: readRows(prereqList, (rowEl) => ({
+        ability: /** @type {HTMLSelectElement} */ (rowEl.querySelector(".prereqAbility"))?.value ?? "",
+        minimum: /** @type {HTMLInputElement} */ (rowEl.querySelector(".prereqMin"))?.value ?? ""
+      })),
+      effects: readRows(effectList, (rowEl) => ({
+        type: /** @type {HTMLSelectElement} */ (rowEl.querySelector(".effectType"))?.value ?? "",
+        value: /** @type {HTMLInputElement} */ (rowEl.querySelector(".effectValue"))?.value ?? "",
+        ability: /** @type {HTMLSelectElement} */ (rowEl.querySelector(".effectAbility"))?.value ?? "",
+        skill: /** @type {HTMLSelectElement} */ (rowEl.querySelector(".effectSkill"))?.value ?? ""
+      }))
+    });
+
+    return {
+      submit: () => persistRecord("feat", normalizeFeatDraft(readDraft(), {
+        registry: getActiveContentRegistry(),
+        existing: listCustomContent(state),
+        editingId: editing ? editing.id : null
+      })),
+      focus: () => nameInput.focus()
+    };
   }
 
   /**
@@ -564,7 +773,7 @@ export function createCustomContentManager(deps) {
     if (formErrorBox) {
       formErrorBox.textContent = formLevel.length
         ? formLevel.join(" ")
-        : "Fix the highlighted fields to save this spell.";
+        : "Fix the highlighted fields to save this record.";
       formErrorBox.hidden = false;
     }
     const firstErrored = errors.find((error) => error.field && errorSlots.get(error.field));
@@ -574,13 +783,13 @@ export function createCustomContentManager(deps) {
     }
   }
 
-  function saveSpellForm() {
-    if (!readSpellDraft) return;
-    const result = normalizeSpellDraft(readSpellDraft(), {
-      registry: getActiveContentRegistry(),
-      existing: listCustomContent(state),
-      editingId: editing ? editing.id : null
-    });
+  /**
+   * Persists a normalized authoring result (create or edit), or renders its
+   * errors inline. Shared by every content-type form.
+   * @param {string} kind
+   * @param {import("../domain/customContentAuthoring.js").AuthoringResult} result
+   */
+  function persistRecord(kind, result) {
     if (!result.ok || !result.record) {
       showFormErrors(result.errors);
       return;
@@ -591,15 +800,15 @@ export function createCustomContentManager(deps) {
         showFormErrors(updated.errors.map((message) => ({ field: "", message })));
         return;
       }
-      notify(`Updated custom spell "${result.record.name}".`);
+      notify(`Updated custom ${kind} "${result.record.name}".`);
     } else {
       const added = addCustomContentRecords(state, [result.record]);
       if (added.added !== 1) {
         const messages = added.errors.flatMap((failure) => failure.errors);
-        showFormErrors((messages.length ? messages : ["Could not save the spell."]).map((message) => ({ field: "", message })));
+        showFormErrors((messages.length ? messages : [`Could not save the ${kind}.`]).map((message) => ({ field: "", message })));
         return;
       }
-      notify(`Created custom spell "${result.record.name}".`);
+      notify(`Created custom ${kind} "${result.record.name}".`);
     }
     contentChanged();
     renderList();

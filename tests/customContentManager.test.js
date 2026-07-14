@@ -262,6 +262,98 @@ describe("creating a spell through the form", () => {
   });
 });
 
+describe("creating a feat through the form", () => {
+  it("builds a feat with repeatable prerequisite and effect rows", () => {
+    setup().open();
+    footerButton("New Feat").click();
+    expect(document.getElementById("customContentTitle").textContent).toBe("New Custom Feat");
+
+    setInput("name", "Iron Will");
+    setInput("desc", "Your resolve is unshakeable.");
+
+    // Add a prerequisite row and fill it.
+    Array.from(body().querySelectorAll("button")).find((btn) => btn.textContent === "+ Add prerequisite").click();
+    const prereqRow = body().querySelector('[data-repeat="prerequisites"] .customContentRepeatRow');
+    prereqRow.querySelector(".prereqAbility").value = "wis";
+    prereqRow.querySelector(".prereqMin").value = "13";
+
+    // Add two effect rows; the second gets removed again.
+    const addEffectBtn = Array.from(body().querySelectorAll("button")).find((btn) => btn.textContent === "+ Add effect");
+    addEffectBtn.click();
+    addEffectBtn.click();
+    let effectRows = body().querySelectorAll('[data-repeat="effects"] .customContentRepeatRow');
+    expect(effectRows).toHaveLength(2);
+    const firstEffect = effectRows[0];
+    firstEffect.querySelector(".effectType").value = "save_proficiency";
+    firstEffect.querySelector(".effectType").dispatchEvent(new Event("change", { bubbles: true }));
+    // Conditional inputs follow the chosen type.
+    expect(firstEffect.querySelector(".effectAbility").hidden).toBe(false);
+    expect(firstEffect.querySelector(".effectValue").hidden).toBe(true);
+    expect(firstEffect.querySelector(".effectSkill").hidden).toBe(true);
+    firstEffect.querySelector(".effectAbility").value = "wis";
+    effectRows[1].querySelector("button").click();
+    effectRows = body().querySelectorAll('[data-repeat="effects"] .customContentRepeatRow');
+    expect(effectRows).toHaveLength(1);
+
+    footerButton("Save Feat").click();
+    const records = listCustomContent(state);
+    expect(records).toHaveLength(1);
+    expect(records[0]).toEqual({
+      id: "iron-will",
+      kind: "feat",
+      name: "Iron Will",
+      source: "custom",
+      prerequisites: [{ ability: "wis", minimum: 13 }],
+      desc: "Your resolve is unshakeable.",
+      effects: [{ type: "save_proficiency", ability: "wis" }]
+    });
+    expect(body().textContent).toContain("feat:iron-will");
+  });
+
+  it("reports row-level errors without dropping the rows", () => {
+    setup().open();
+    footerButton("New Feat").click();
+    setInput("name", "Broken Feat");
+    setInput("desc", "Testing errors.");
+    Array.from(body().querySelectorAll("button")).find((btn) => btn.textContent === "+ Add prerequisite").click();
+    footerButton("Save Feat").click();
+
+    expect(listCustomContent(state)).toHaveLength(0);
+    const prereqError = document.getElementById("customContentError-prerequisites");
+    expect(prereqError.hidden).toBe(false);
+    expect(prereqError.textContent).toContain("Prerequisite 1");
+    // The row survives the failed save for correction in place.
+    expect(body().querySelectorAll('[data-repeat="prerequisites"] .customContentRepeatRow')).toHaveLength(1);
+  });
+
+  it("edits an existing feat with rows prefilled from the record", () => {
+    setup([{
+      id: "iron-will",
+      kind: "feat",
+      name: "Iron Will",
+      source: "custom",
+      prerequisites: [{ ability: "wis", minimum: 13 }],
+      desc: "Your resolve is unshakeable.",
+      effects: [{ type: "hp_per_level_bonus", value: 1 }]
+    }]).open();
+    const featRow = Array.from(body().querySelectorAll(".customContentRow"))
+      .find((row) => row.textContent.includes("feat:iron-will"));
+    Array.from(featRow.querySelectorAll("button")).find((btn) => btn.textContent === "Edit").click();
+
+    expect(body().querySelector(".prereqAbility").value).toBe("wis");
+    expect(body().querySelector(".prereqMin").value).toBe("13");
+    const effectRow = body().querySelector('[data-repeat="effects"] .customContentRepeatRow');
+    expect(effectRow.querySelector(".effectType").value).toBe("hp_per_level_bonus");
+    expect(effectRow.querySelector(".effectValue").hidden).toBe(false);
+    expect(effectRow.querySelector(".effectValue").value).toBe("1");
+
+    setInput("name", "Iron Will, Greater");
+    footerButton("Save Changes").click();
+    const records = listCustomContent(state);
+    expect(records[0]).toMatchObject({ id: "iron-will", name: "Iron Will, Greater" });
+  });
+});
+
 describe("editing and removing records", () => {
   it("edits an existing spell in place with its id locked", () => {
     setup([CUSTOM_SPELL]).open();
