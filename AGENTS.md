@@ -760,8 +760,9 @@ listed so agents do not repeat them:
 10. [x] **B2** implemented (2026-07-13): builder-managed spell rows show live-derived SRD detail blocks (spellsPanel.js); user notes stay purely user-owned
 11. [x] **B3** implemented (2026-07-13): display-only rules-reference cards for class/subclass features, feats, and race traits with full SRD descriptions (abilitiesFeaturesPanel.js)
 12. [x] Attribution release gate verified (2026-07-13): the CC-BY-4.0 statement already ships in-app (Data & Settings → About); `tests/attribution.test.js` now pins it against LEGAL.md
-13. [ ] **Current authorized work (owner authorization, 2026-07-12 second session):** the remaining coherent builder batches per `docs/audits/builder-completion-matrix.md` (open P1/P2 items: custom-content authoring UX, class-level granted spells, equipment automation depth, export bundling of custom records). Per-batch re-authorization is not required for builder-completion work this session.
-14. [ ] **Still blocked / out of scope:** down-leveling (ratified out of scope), builtin content expansion beyond the SRD 5.1 greenlist, and any work outside the character-builder system
+13. [x] **Custom-content authoring UX (matrix #15) implemented** (2026-07-13/14, owner-authorized session): the Manage Custom Content dialog (`js/ui/customContentManager.js` + `js/domain/customContentAuthoring.js`) authors custom spells, feats, races (inline trait sub-records), and classes (inline feature sub-records, standard-SRD-table spellcasting, `resources[]`, `grantedSpells`) through forms sharing the JSON-import validation. The same session fixed the campaign vault silently dropping `state.content` on reload. **This closed the last P1 — the completion matrix's remaining open items are all P2.**
+14. [ ] **Next work requires new owner scope:** the P2 backlog in `docs/audits/builder-completion-matrix.md` §3 (attack recalculation affordance, feature-action counters, partial-regain recovery, prepared-formula overrides, equipment depth, keyboard a11y pass)
+15. [ ] **Still blocked / out of scope:** down-leveling (ratified out of scope), builtin content expansion beyond the SRD 5.1 greenlist, and any work outside the character-builder system
 
 `docs/audits/srd-5-1-character-builder-gap-audit-stabilization-docs.md` is a **planning
 artifact, not a work order**. Steps 1-7 above are complete. Its batches **B1

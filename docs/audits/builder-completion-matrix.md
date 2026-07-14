@@ -63,24 +63,28 @@ needed.
 **B1, B2, B3, and the attribution gate all shipped 2026-07-13**, plus
 class-level granted spells (#6/#16) and the ASI 20-cap guidance (#5).
 
-**#15 custom content authoring UX is in progress (2026-07-13 session).**
-Batches 1–2 shipped: the authoring domain foundation
-(`js/domain/customContentAuthoring.js` — draft normalization, slug-id
-generation, identity-locked updates, reference disclosure) and the Manage
-Custom Content dialog with the full **custom spell** form. The same session
-fixed the campaign-vault persistence bug that was silently dropping
-`state.content` on reload (#14 note). Remaining #15 batches, in order:
-**feats**, **races (with inline trait sub-records)**, **classes (core
-progression, then spellcasting / `resources[]` / `grantedSpells`)**.
-Remaining P2 items in rough order: attack recalculate-from-build affordance
-(#9), subclass 1-use feature-action counters (#13 follow-up), partial-regain
-recovery modes (#8), prepared-formula/spellbook-growth overrides (#16),
-equipment depth (#10), and the keyboard-only a11y pass (#19).
+**#15 custom content authoring UX: complete (batches 1–5, finished
+2026-07-14).** The authoring domain (`js/domain/customContentAuthoring.js`)
+and the Manage Custom Content dialog (`js/ui/customContentManager.js`) cover
+spells, feats, races (inline trait sub-records), and classes (inline feature
+sub-records, full/half/pact spellcasting on the standard SRD slot tables,
+`resources[]` pools, `grantedSpells`). The same session fixed the
+campaign-vault persistence bug that was silently dropping `state.content` on
+reload (#14 note). **The last P1 is closed — every remaining open item is
+P2**, in rough order: attack recalculate-from-build affordance (#9), subclass
+1-use feature-action counters (#13 follow-up), partial-regain recovery modes
+(#8), prepared-formula/spellbook-growth overrides (#16), equipment depth
+(#10), and the keyboard-only a11y pass (#19). Handoff:
+`docs/reference/session-handoff-2026-07-14.md`.
 
 ## 4. Verification basis
 
-Audited against code at Level Up Phase 1 completion: 60 new Level Up unit tests +
-10 flow tests + 2 integration rest tests + 2 Playwright smokes green; full suite 957
-unit tests; `npm run verify` green. Statements about unconsumed data
+Authoring rows re-audited 2026-07-14 at matrix #15 completion: 1083 unit
+tests (65 files) incl. 40 authoring-domain and 21 manager-dialog tests,
+54 Playwright smokes (incl. the custom-content author → reload → builder
+picker flow), `npm run verify` green, and 380px production-preview checks of
+every authoring form. Earlier basis (Level Up Phase 1 completion): 60 Level
+Up unit tests + 10 flow tests + 2 integration rest tests + 2 smokes; full
+suite then 957 unit tests. Statements about unconsumed data
 (`classSpecificByLevel`, class-level `grantedSpells`) were grep-verified against
 `js/domain/rules/*`.
