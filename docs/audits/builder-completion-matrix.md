@@ -31,8 +31,8 @@ claim · **P2** polish/depth. Status: ✅ shipped · 🟡 partial · ⬜ not bui
 | 11 | Editable post-creation sheet surfaces | ✅ | `js/pages/character/panels/*` | All play-state fields editable; **B1 shipped 2026-07-13:** Builder Identity/Abilities panels are read-only routing surfaces (Edit in Builder); structural edits go through guarded wizard flows only | n/a | Builder Summary remains a display-only review scaffold (harmless; retire only with a deliberate product decision) | — | — | — | — |
 | 12 | Spell detail seeding (descriptions, ranges, components) | ✅ | `spellsPanel.js#renderSpellSrdDetails` | **B2 shipped 2026-07-13:** builder-managed rows show the full live-derived SRD detail block (school/level, ritual/concentration, casting time, range, components+material, duration, description, higher-level text) above user notes | Custom spells resolve through the same kind-aware lookup | Details are display-only (deliberate: notes stay purely user-owned; no materialized copies) | — | — | — | — |
 | 13 | Feature detail seeding depth | ✅ | `abilitiesFeaturesPanel.js#collectReferenceFeatures`, `deriveCharacter.js#raceTraits` | **B3 shipped 2026-07-13:** display-only rules-reference cards for every class/subclass feature, chosen feat, and race trait with full SRD descriptions | Custom features/traits resolve through the same registry | Feature-specific use counters with DCs (subclass 1-use features) remain future feature-action work | P2 | — | 7 | Fiend/Open Hand style 1-use subclass features get tracked feature-action cards |
-| 14 | Custom content persistence & registry merge | ✅ | `js/domain/customContent.js`, `rules/registry.js`, `content.custom` (schema v11) | n/a | Same shapes as SRD records, `source: "custom"`, cannot shadow builtin | — | — | — | — | — |
-| 15 | Custom content authoring UX | ⬜ | Data panel import/export/list/remove only | n/a | JSON-file authoring only; no in-app editor, no validation feedback loop beyond import errors | No guided authoring for races/classes/spells | P1 | #14 | 2 | A user can author a working custom class without hand-writing JSON |
+| 14 | Custom content persistence & registry merge | ✅ | `js/domain/customContent.js`, `rules/registry.js`, `content.custom` (schema v11), `js/storage/campaignVault.js` | n/a | Same shapes as SRD records, `source: "custom"`, cannot shadow builtin | **Fixed 2026-07-13:** the campaign vault used to drop `state.content` at save/project/hydrate, so custom content silently vanished on reload (only full backups kept it); now pinned by vault round-trip tests + a reload smoke | — | — | — | — |
+| 15 | Custom content authoring UX | 🟡 | `js/ui/customContentManager.js`, `js/domain/customContentAuthoring.js` | n/a | **Shipped 2026-07-13 (batches 1–2):** Manage Custom Content dialog lists/removes every record (removal confirms with the names of referencing characters) and creates/edits **custom spells** through a full form (inline plain-language validation, generated ids locked on edit, same domain rules as JSON import, 380px verified) | No guided authoring yet for feats, races (incl. trait sub-records), or classes (incl. `resources[]`/`grantedSpells`) | P1 | #14 | 2 | A user can author a working custom class without hand-writing JSON |
 | 16 | Custom class expressiveness (the hard claim) | 🟡 | whole rules engine | n/a | **Consumable today, data-driven, no per-class hardcoding:** hit die/HP, proficiencies, skill choices, multiclass prereqs+gains, subclass level+list, ASI levels, `featuresByLevel`, subfeature choices, full/half/pact/non-caster progressions, cantrip/known caps, slot tables, **resource pools with recovery metadata (shipped 2026-07-12)** | **Not expressible:** prepared-formula variants, spellbook growth counts, expertise outside the hardcoded 4 feature-id set (class-level granted spells shipped 2026-07-13) | P2 | #6 | 6 | Custom prepared-formula/spellbook-growth overrides designed before implementation |
 | 17 | Custom content deletion safety & dependencies | ✅ | `customContent.js`, `characterPortability.js#collectReferencedCustomContent` | n/a | Removing referenced content degrades soft (derivation warnings, no crash); **export bundles referenced custom records (2026-07-13)** and import adopts missing ones while never overwriting the destination's existing records | None material (destination-wins conflict semantics documented) | — | — | — | — |
 | 18 | Migration & backward compatibility | ✅ | `js/state.js` (v12), `tests/state.migrate*.test.js`, `saveCompatibility.test.js` | Single lineage v0→v12 | Custom bucket migrates with campaign | None pending — Level Up Phase 1 required no schema change (verified) | — | — | — | — |
@@ -63,16 +63,19 @@ needed.
 **B1, B2, B3, and the attribution gate all shipped 2026-07-13**, plus
 class-level granted spells (#6/#16) and the ASI 20-cap guidance (#5).
 
-**Recommended next batch (requires its own session-scale plan): #15 custom
-content authoring UX** — the last P1: a guided, form-based editor so users can
-author custom races/classes/spells (including `resources[]` pools and
-`grantedSpells`) without hand-writing JSON, building on the existing
-import-time validation. Remaining P2 items in rough order: Finish-step
-count-warnings (#1), attack recalculate-from-build affordance (#9), character
-export bundling of referenced custom records (#17), subclass 1-use
-feature-action counters (#13 follow-up), partial-regain recovery modes (#8),
-prepared-formula/spellbook-growth overrides (#16), equipment depth (#10), and
-the keyboard-only a11y pass (#19).
+**#15 custom content authoring UX is in progress (2026-07-13 session).**
+Batches 1–2 shipped: the authoring domain foundation
+(`js/domain/customContentAuthoring.js` — draft normalization, slug-id
+generation, identity-locked updates, reference disclosure) and the Manage
+Custom Content dialog with the full **custom spell** form. The same session
+fixed the campaign-vault persistence bug that was silently dropping
+`state.content` on reload (#14 note). Remaining #15 batches, in order:
+**feats**, **races (with inline trait sub-records)**, **classes (core
+progression, then spellcasting / `resources[]` / `grantedSpells`)**.
+Remaining P2 items in rough order: attack recalculate-from-build affordance
+(#9), subclass 1-use feature-action counters (#13 follow-up), partial-regain
+recovery modes (#8), prepared-formula/spellbook-growth overrides (#16),
+equipment depth (#10), and the keyboard-only a11y pass (#19).
 
 ## 4. Verification basis
 

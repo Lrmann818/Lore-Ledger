@@ -1172,6 +1172,32 @@ state, and are managed from the Data panel (import/export/list/remove).
 This is also the extension point for future licensed content packs: a pack
 is a record list with its own `source` value.
 
+**Persistence note (2026-07-13):** `state.content` is carried on the
+campaign vault doc (`js/storage/campaignVault.js` — `extractCampaignDoc`,
+`projectActiveCampaignState`, `replaceRuntimeState`). Older vault docs
+without a `content` key hydrate to an empty bucket; no schema migration was
+needed.
+
+### In-app authoring (2026-07-13, matrix #15)
+
+Data & Settings → **Manage Custom Content** opens the manager dialog
+(`js/ui/customContentManager.js`): it lists every custom record, removes any
+record behind a confirmation that names the characters referencing it
+(`findCharactersReferencingContent`; removal stays allowed because
+derivation degrades soft), and authors supported kinds through forms.
+Draft → record normalization lives in `js/domain/customContentAuthoring.js`
+and delegates final validation to `validateCustomContentRecord`, so the
+editor and the JSON import path share one rule system. Contract:
+
+- ids are generated from the display name (slug, suffixed past builtin and
+  custom collisions) and are **immutable after creation** — editing never
+  mints a new record, so character references stay valid;
+- authored records are byte-identical in shape to imported ones (no
+  parallel authoring format);
+- currently authorable kinds: **spell** (all fields of the SRD spell shape,
+  including `classIds`/`subclassIds` list membership). Feats, races, and
+  classes are the planned remaining batches.
+
 ## Class Resources (2026-07-12, Level Up Phase 2)
 
 A **class resource** is a shared limited-use pool granted by class levels

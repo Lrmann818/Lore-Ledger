@@ -222,6 +222,7 @@ A portfolio project that accumulates silent regressions is not a portfolio proje
 - [x] **B2 — spell detail seeding** — shipped 2026-07-13: builder-managed spell rows show live-derived SRD detail blocks (school, casting time, range, components, duration, ritual/concentration, description, higher-level text); user notes stay user-owned
 - [x] **B3 — feature detail seeding** — shipped 2026-07-13: display-only rules-reference cards for class/subclass features, feats, and race traits with full SRD descriptions in Abilities & Features
 - [x] **In-app CC-BY-4.0 attribution** — verified 2026-07-13: statement ships in Data & Settings → About (Legal / Licenses); `tests/attribution.test.js` pins it against `LEGAL.md`
+- [~] **Custom content authoring UX (matrix #15)** — batches 1–2 shipped 2026-07-13: authoring domain foundation + Manage Custom Content dialog with the full custom-spell form (create/edit/remove with reference disclosure); the same session fixed the campaign-vault bug that dropped `state.content` on reload. Remaining: feat, race (trait sub-records), and class (spellcasting/resources/grantedSpells) forms
 - [~] **Current authorized work (2026-07-12, second session) —** remaining coherent builder batches per `docs/audits/builder-completion-matrix.md`
 - [ ] **Still blocked / out of scope —** down-leveling and builtin content expansion beyond the SRD 5.1 greenlist
 
