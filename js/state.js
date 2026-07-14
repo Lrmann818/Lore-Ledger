@@ -196,6 +196,11 @@ export const SCHEMA_MIGRATION_HISTORY = Object.freeze([
  */
 
 /**
+ * Attack rows are an open shape. `calc` is the optional structured
+ * calculation block (see js/domain/attackCalculation.js): rows carrying one
+ * derive bonus/damage/range/type live from character state; rows without one
+ * are legacy snapshots whose stored strings are the display. `builderSeed`
+ * carries the stable "weapon:<id>" provenance marker.
  * @typedef {{
  *   id?: string,
  *   name?: string,
@@ -204,6 +209,8 @@ export const SCHEMA_MIGRATION_HISTORY = Object.freeze([
  *   range?: string,
  *   type?: string,
  *   notes?: string,
+ *   calc?: import("./domain/attackCalculation.js").AttackCalc,
+ *   builderSeed?: string,
  *   [key: string]: unknown
  * }} AttackEntry
  */

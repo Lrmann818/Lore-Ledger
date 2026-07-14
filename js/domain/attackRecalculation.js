@@ -10,6 +10,12 @@
 // character's current build, and reports a field-by-field proposal the UI
 // can preview. `name` and `notes` are user-owned and never proposed.
 
+import {
+  ATTACK_WEAPON_SEED_PREFIX,
+  attackWeaponSeedMarker,
+  deriveWeaponAttack,
+  getAttackSourceWeaponId
+} from "./attackCalculation.js";
 import { isBuilderCharacter } from "./characterHelpers.js";
 import { deriveCharacter } from "./rules/deriveCharacter.js";
 import { getContentByKind } from "./rules/registry.js";
@@ -19,31 +25,10 @@ import { getContentByKind } from "./rules/registry.js";
 /** @typedef {import("../state.js").AttackEntry} AttackEntry */
 /** @typedef {import("../state.js").CharacterEntry} CharacterEntry */
 
-/**
- * Marker prefix stamped on seeded attack rows (the inventoryItems[].builderSeed
- * precedent — an optional extra key, no schema change). Survives renames, so
- * the source weapon stays resolvable even after the user edits the name.
- */
-export const ATTACK_WEAPON_SEED_PREFIX = "weapon:";
-
-/**
- * @param {string} weaponId
- * @returns {string}
- */
-export function attackWeaponSeedMarker(weaponId) {
-  return `${ATTACK_WEAPON_SEED_PREFIX}${weaponId}`;
-}
-
-/**
- * @param {unknown} attack
- * @returns {string} the linked weapon id, or "" when the attack is unlinked
- */
-export function getAttackSourceWeaponId(attack) {
-  if (!attack || typeof attack !== "object") return "";
-  const marker = /** @type {{ builderSeed?: unknown }} */ (attack).builderSeed;
-  if (typeof marker !== "string" || !marker.startsWith(ATTACK_WEAPON_SEED_PREFIX)) return "";
-  return marker.slice(ATTACK_WEAPON_SEED_PREFIX.length).trim();
-}
+// The marker helpers and canonical calculator moved to attackCalculation.js
+// (the structured-attack model). Re-exported here so existing imports keep
+// working until this proposal engine is retired with the Recalc dialog.
+export { ATTACK_WEAPON_SEED_PREFIX, attackWeaponSeedMarker, deriveWeaponAttack, getAttackSourceWeaponId };
 
 /**
  * The recalculable (build-derived) attack fields, in display order. `name`
@@ -71,68 +56,6 @@ function isPlainObject(value) {
  */
 function cleanString(value) {
   return typeof value === "string" ? value.trim() : "";
-}
-
-/**
- * @param {number} value
- * @returns {string}
- */
-function signedNumber(value) {
-  return value >= 0 ? `+${value}` : String(value);
-}
-
-/**
- * @param {string} value
- * @returns {string}
- */
-function titleCaseWords(value) {
-  return value.replace(/\b[a-z]/g, (letter) => letter.toUpperCase());
-}
-
-/**
- * The canonical weapon → attack-row calculator, shared by wizard Finish
- * seeding (js/domain/builderSheetSeeding.js) and explicit recalculation.
- * Mirrors SRD attack math as modeled here: ranged weapons use DEX, finesse
- * uses the better of STR/DEX, everything else uses STR; proficiency always
- * applies (the builder seeds weapons the character chose at creation).
- *
- * @param {ContentEntry} weapon
- * @param {ReturnType<typeof deriveCharacter>} derived
- * @returns {{ name: string, bonus: string, damage: string, range: string, type: string }}
- */
-export function deriveWeaponAttack(weapon, derived) {
-  const data = weapon.data || {};
-  const properties = Array.isArray(data.properties) ? data.properties : [];
-  const isRanged = data.attackType === "ranged";
-  const finesse = properties.includes("finesse");
-  const strMod = derived.abilities.str?.modifier;
-  const dexMod = derived.abilities.dex?.modifier;
-  const prof = derived.proficiencyBonus ?? 0;
-
-  /** @type {number | null} */
-  let mod = null;
-  if (isRanged) mod = dexMod ?? null;
-  else if (finesse && strMod != null && dexMod != null) mod = Math.max(strMod, dexMod);
-  else mod = strMod ?? null;
-
-  const bonus = mod != null ? signedNumber(mod + prof) : "";
-  const damageDice = cleanString(data.damage);
-  const damage = damageDice
-    ? `${damageDice}${mod ? signedNumber(mod) : ""}`
-    : "";
-  let range = "Melee";
-  if (isRanged && isPlainObject(data.range) && data.range.normal != null) {
-    range = `${data.range.normal}${data.range.long != null ? `/${data.range.long}` : ""} ft.`;
-  } else if (isPlainObject(data.throwRange) && data.throwRange.normal != null) {
-    range = `Melee, thrown ${data.throwRange.normal}${data.throwRange.long != null ? `/${data.throwRange.long}` : ""} ft.`;
-  }
-  return {
-    name: weapon.name,
-    bonus,
-    damage,
-    range,
-    type: titleCaseWords(cleanString(data.damageType))
-  };
 }
 
 /**

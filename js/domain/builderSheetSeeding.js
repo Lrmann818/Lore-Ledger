@@ -9,7 +9,7 @@
 // the wizard again in edit mode re-seeds safely.
 
 import { isBuilderCharacter } from "./characterHelpers.js";
-import { attackWeaponSeedMarker, deriveWeaponAttack } from "./attackRecalculation.js";
+import { buildSeededWeaponAttack } from "./attackCalculation.js";
 import { deriveCharacter } from "./rules/deriveCharacter.js";
 import { getActiveContentRegistry, getContentByKind, listContentByKind } from "./rules/registry.js";
 import { normalizeBuildLevels } from "./rules/progression.js";
@@ -344,14 +344,14 @@ function getSeededAttacks(source, derived, registry) {
     if (!weapon || seen.has(weapon.id)) continue;
     seen.add(weapon.id);
     if (existingNames.has(weapon.name.toLowerCase())) continue;
-    // Canonical weapon → attack math lives in attackRecalculation.js so
-    // Finish seeding and explicit "Recalculate from Build" can never drift.
+    // Canonical weapon → attack math lives in attackCalculation.js. Seeded
+    // rows carry the structured calc block (mode "weapon", proficiency from
+    // the character's derived proficiencies) plus the stable builderSeed
+    // marker, so they derive live from creation onward while name/notes/order
+    // stay user-owned.
     additions.push({
       id: newSeedId("atk"),
-      ...deriveWeaponAttack(weapon, derived),
-      // Stable source marker (survives renames) so the attack can later be
-      // recalculated from its weapon; the row itself stays user-owned.
-      builderSeed: attackWeaponSeedMarker(weapon.id)
+      ...buildSeededWeaponAttack(weapon, derived, registry)
     });
   }
   if (!additions.length) return null;

@@ -3,6 +3,7 @@
 
 import { blobToDataUrl, dataUrlToBlob as defaultDataUrlToBlob } from "../storage/blobs.js";
 import { textKey_spellNotes } from "../storage/texts-idb.js";
+import { getAttackSourceWeaponId } from "./attackCalculation.js";
 import { getActiveCharacter, makeDefaultCharacterEntry } from "./characterHelpers.js";
 import { addCustomContentRecords, listCustomContent } from "./customContent.js";
 
@@ -213,6 +214,15 @@ export function collectReferencedCustomContent(character, state) {
       const weaponIds = build.equipment.weaponIds;
       for (const id of Array.isArray(weaponIds) ? weaponIds : []) add("weapon", id);
     }
+  }
+
+  // Weapon records referenced by attack rows (structured calc blocks and the
+  // stable builderSeed markers), so custom-weapon-backed attacks keep
+  // deriving after import into another campaign.
+  for (const attack of Array.isArray(character.attacks) ? character.attacks : []) {
+    if (!isPlainObject(attack)) continue;
+    add("weapon", getAttackSourceWeaponId(attack));
+    if (isPlainObject(attack.calc)) add("weapon", attack.calc.weaponId);
   }
 
   const rest = isPlainObject(character.rest) ? character.rest : null;
