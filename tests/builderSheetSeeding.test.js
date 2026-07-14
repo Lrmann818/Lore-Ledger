@@ -258,6 +258,27 @@ describe("builder finish seeding — full-sheet integration and edit preservatio
     // Existing feature text is preserved at the start.
     expect(patch.features.startsWith("My custom note")).toBe(true);
   });
+
+  it("does not duplicate a renamed seeded weapon attack on re-seed (marker, not name)", () => {
+    const character = makeCasterBuilder(); // weaponIds: ["mace"]
+    // A previously seeded mace attack the user renamed. The stable marker,
+    // not the display name, identifies its source.
+    character.attacks = [
+      {
+        id: "atk_seeded", name: "Blessed Cudgel", bonus: "+4", damage: "1d6+2",
+        range: "Melee", type: "Bludgeoning",
+        calc: { mode: "weapon", weaponId: "mace", ability: "", proficient: true,
+          baseDamage: "", damageAbility: "", addAbilityToDamage: true,
+          damageType: "", range: "", attackAdjustment: 0, damageAdjustment: 0 },
+        builderSeed: "weapon:mace"
+      }
+    ];
+
+    const patch = getBuilderFinishSheetSeedPatch(character);
+    // No re-seed: the marked attack already covers the mace, so attacks is
+    // left untouched (the rename survives, no duplicate is added).
+    expect(patch.attacks).toBeUndefined();
+  });
 });
 
 describe("builder finish seeding — inventory pockets", () => {

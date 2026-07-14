@@ -9,7 +9,7 @@
 // the wizard again in edit mode re-seeds safely.
 
 import { isBuilderCharacter } from "./characterHelpers.js";
-import { buildSeededWeaponAttack } from "./attackCalculation.js";
+import { buildSeededWeaponAttack, getAttackSourceWeaponId } from "./attackCalculation.js";
 import { deriveCharacter } from "./rules/deriveCharacter.js";
 import { getActiveContentRegistry, getContentByKind, listContentByKind } from "./rules/registry.js";
 import { normalizeBuildLevels } from "./rules/progression.js";
@@ -329,9 +329,19 @@ function getSeededAttacks(source, derived, registry) {
   if (!weaponIds.length) return null;
 
   const existing = Array.isArray(source.attacks) ? source.attacks : [];
-  const existingNames = new Set(
+  // Duplicate-aware by the stable weapon marker, NOT by display name: a user
+  // who renames a seeded attack must not get a fresh duplicate on re-seed
+  // (Edit in Builder / Level Up). An unmarked manual row whose name matches
+  // the weapon is still respected so we don't shadow the user's own entry.
+  const existingWeaponMarkers = new Set(
     existing
       .filter(isPlainObject)
+      .map((attack) => getAttackSourceWeaponId(attack))
+      .filter(Boolean)
+  );
+  const existingUnmarkedNames = new Set(
+    existing
+      .filter((attack) => isPlainObject(attack) && !getAttackSourceWeaponId(attack))
       .map((attack) => cleanString(attack.name).toLowerCase())
       .filter(Boolean)
   );
@@ -343,7 +353,8 @@ function getSeededAttacks(source, derived, registry) {
     const weapon = getContentByKind(registry, "weapon", cleanString(weaponId));
     if (!weapon || seen.has(weapon.id)) continue;
     seen.add(weapon.id);
-    if (existingNames.has(weapon.name.toLowerCase())) continue;
+    if (existingWeaponMarkers.has(weapon.id)) continue;
+    if (existingUnmarkedNames.has(weapon.name.toLowerCase())) continue;
     // Canonical weapon → attack math lives in attackCalculation.js. Seeded
     // rows carry the structured calc block (mode "weapon", proficiency from
     // the character's derived proficiencies) plus the stable builderSeed

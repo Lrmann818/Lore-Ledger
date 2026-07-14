@@ -9356,9 +9356,10 @@ section.combatPanel[data-collapsed="true"]> :not([data-panel-header]) {
   flex: 1 1 100%;
 }
 
-/* Attack "Recalculate from Build" (matrix #9) — a narrow extension of the
-   existing modal system, like the resource-settings dialog. */
-.attackRecalcBtn {
+/* Structured attack editor + live-derived rows (unified attack model). A
+   narrow extension of the existing modal system, like the resource-settings
+   dialog. */
+.attackEditBtn {
   background: transparent;
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -9368,58 +9369,115 @@ section.combatPanel[data-collapsed="true"]> :not([data-panel-header]) {
   padding: 2px 8px;
 }
 
-.attackRecalcPanel {
-  width: min(440px, 100%);
-  max-height: min(640px, calc(100dvh - 36px));
+/* Live-derived rows: read-only value blocks instead of editable inputs. */
+.attackDerivedRow {
+  align-items: center;
+}
+
+.attackDerivedField {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+
+.attackDerivedLabel {
+  color: var(--muted);
+  font-size: 0.78em;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.attackDerivedValue {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.attackMetaRow {
+  grid-column: 1 / -1;
+  grid-row: 4;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.attackDerivedBadge {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 1px 8px;
+  font-size: 0.72em;
+  color: var(--muted);
+}
+
+.attackFixedBadge {
+  border-style: dashed;
+}
+
+.attackWarning {
+  font-size: 0.74em;
+  color: var(--warn, #b45309);
+  overflow-wrap: anywhere;
+}
+
+.attackEditorPanel {
+  width: min(460px, 100%);
+  max-height: min(720px, calc(100dvh - 36px));
   overflow: auto;
 }
 
-.attackRecalcBody {
+.attackEditorBody {
   display: grid;
   gap: 10px;
   margin-top: 10px;
 }
 
-.attackRecalcPickerLabel {
+.attackEditorField {
   display: grid;
   gap: 4px;
 }
 
-.attackRecalcPickerLabel .settingsSelect {
+.attackEditorField .settingsSelect,
+.attackEditorField .settingsInput {
   width: 100%;
 }
 
-.attackRecalcRows {
-  display: grid;
+.attackEditorCheckField {
+  display: inline-flex;
+  align-items: center;
   gap: 8px;
 }
 
-.attackRecalcRow {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 4px 12px;
+.attackEditorAdjustments {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.attackEditorText,
+.attackEditorNumber {
+  padding: 6px 8px;
   border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--card);
+  color: inherit;
 }
 
-.attackRecalcApply {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
+.attackEditorPreview {
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+  display: grid;
+  gap: 4px;
+}
+
+.attackEditorPreviewLine {
   font-weight: 600;
-}
-
-.attackRecalcLabel {
-  font-weight: 600;
-}
-
-.attackRecalcValues {
   overflow-wrap: anywhere;
 }
 
-.attackRecalcFooter {
+.attackEditorFooter {
   margin-top: 10px;
 }
