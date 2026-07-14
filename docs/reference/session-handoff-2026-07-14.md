@@ -1,4 +1,8 @@
-# Session Handoff — 2026-07-14 (Custom-Content Authoring, Matrix #15)
+# Session Handoff — 2026-07-14 (Matrix #15 Authoring + Matrix #9 Attack Recalculation)
+
+> A second owner-authorized run on 2026-07-14 added the matrix #15
+> integration checkpoint and matrix #9 — see **Part 2** at the end of this
+> document. Part 1 records the authoring session as written.
 
 _Point-in-time snapshot. The binding rules and work order live in
 [`AGENTS.md`](../../AGENTS.md); the live capability audit is
@@ -66,11 +70,53 @@ controls, but the app-wide pass is still queued). Authoring follow-ups worth
 considering inside a future scope: subclass/subrace forms, build-time
 `choices[]` authoring, and an advanced read-only JSON preview.
 
-## Next session start
+## Part 2 — Matrix #15 checkpoint + Matrix #9 (Attack Recalculate from Build)
+
+Owner-authorized follow-up run, same day, starting from `5eecede` (verified
+clean, `verify` green, 1083/1083).
+
+### Commits
+
+| Commit | What |
+| --- | --- |
+| `4bc4c86` | Matrix #15 **integration checkpoint** (green — no regressions): new browser smoke authors a full custom class through the form, builds a character with it, Finishes (marker-seeded Vitals pool, feature reference card, always-prepared grant), edits in place, reloads through the vault; AGENTS.md records the #9 authorization |
+| `9825951` | Matrix #9 batch 1 — `js/domain/attackRecalculation.js`: canonical `deriveWeaponAttack()` (extracted from Finish seeding, which now imports it), stable `builderSeed: "weapon:<id>"` provenance on seeded attacks, pure `getAttackRecalculationProposal()` |
+| `8c5bd05` | Batch 2 — per-row **Recalculate from Build** button (builder characters only) + preview dialog: field-by-field old→proposed values ("changes to"/"unchanged" in words, never color alone), per-field acceptance, name/notes never touched, explicit weapon picker for unlinked/broken rows, atomic apply, Escape/cancel never mutate |
+| `ac020be` | Batch 3 — integration smoke: Finish-seeded marked attack → STR raised via Edit in Builder does **not** change the attack → explicit recalc preview + apply → no-change rerun → survives reload |
+
+Plus the final docs commit after `ac020be`.
+
+### Contract (also in content-registry-plan.md → "Attack Provenance & Recalculation")
+
+Recalculable: `bonus`, `damage`, `range`, `type` (individually acceptable).
+Always user-owned: `name`, `notes`, order, `id`. Source identity is the
+`weapon:<id>` marker — never the display name. Legacy/manual rows link only
+through the explicit picker. No automatic rewrites anywhere. No migration
+(open `AttackEntry` shape + pass-through sanitize).
+
+### Verification (final tree)
+
+`npm run typecheck` clean · `npm run test:run` **1106/1106** (66 files;
++23 this run: 15 domain + 8 dialog) · `npm run verify` green ·
+`npm run test:smoke` **56/56** (2 new) · 380px preview checks of the recalc
+dialog green · full **keyboard-only pass**: Enter opens, Tab stays trapped,
+Escape cancels with focus returned to the opener and no mutation,
+Tab-to-Apply updates the attack.
+
+### Known limitations
+
+Attacks created before the marker existed (or by hand) require one explicit
+link before recalculating — by design, since names are not reliable keys.
+The calculator mirrors seeding's assumptions (proficiency always applies;
+versatile dice are not offered as an alternative row).
+
+### Next session start
 
 ```bash
 git status            # expect clean on builder-wizard
 npm run verify        # expect green
 ```
 
-Then pick a P2 item from the matrix §3 with the owner.
+Recommended next P2 (needs owner scope): **#13 follow-up — subclass 1-use
+feature-action counters**, or the **#19 keyboard-only a11y pass** (note the
+two newest dialogs already ship keyboard-complete).

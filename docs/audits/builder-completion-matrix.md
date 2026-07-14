@@ -26,7 +26,7 @@ claim · **P2** polish/depth. Status: ✅ shipped · 🟡 partial · ⬜ not bui
 | 6 | Spellcasting models (known / prepared / spellbook / pact / granted / ritual) | ✅ | `progression.js`, `characterRest.js`, `levelUpWizard.js` | All four models + subclass granted spells; ritual flag displayed | Custom classes: models keyed off `preparationMode`/`progression` fields | Class-level `grantedSpells` consumed since 2026-07-13 (`getGrantedSpells` walks class records; custom classes can grant spells); spellbook growth constants (6/+2) not per-class configurable; prepared-capacity formula fixed at `level(+half) + mod` | P2 | — | 6 | Custom overrides for spellbook growth / prepared formulas documented or supported |
 | 7 | Prepared-spell play-state (Long Rest flow) | ✅ | `characterRest.js`, `restFlow.js`, `rest.preparedByClass` | Cleric/Druid/Paladin/Wizard | Works for custom prepared casters | None — Level Up correctly reports capacity only | — | — | — | — |
 | 8 | Rest and recovery (Short/Long, Hit Dice, slots, pact, death saves, tagged resources) | ✅ | `characterRest.js`, `restFlow.js` | P0 complete + Level Up integration tested | Recovery vocabulary available to custom cards/resources | Partial-regain features (e.g. "regain 1d6 uses") unmodeled | P2 | — | 9 | Tagged partial recovery modes designed before implementation |
-| 9 | Derived calculations (AC, HP, saves, skills, initiative, passive perception, DC/attack, prof) | ✅ | `deriveCharacter.js`, `computeArmorClass`, `computeMaxHp` | Armor/unarmored/shield formulas; retro-Con HP | Custom armor/feat effects consumed | Seeded **attack rows are static** (user-owned): proficiency growth does not update them, by ownership design; divergence is silent | P2 | — | 10 | Attacks panel offers an explicit "recalculate from build" affordance (never automatic) |
+| 9 | Derived calculations (AC, HP, saves, skills, initiative, passive perception, DC/attack, prof) | ✅ | `deriveCharacter.js`, `computeArmorClass`, `computeMaxHp`, `js/domain/attackRecalculation.js`, `attackPanel.js` | Armor/unarmored/shield formulas; retro-Con HP; **attack Recalculate from Build shipped 2026-07-14** (explicit per-row action, never automatic: field-by-field preview with per-field acceptance, `bonus`/`damage`/`range`/`type` recalculable, `name`/`notes` always user-owned, atomic apply). Seeded attacks carry a stable `builderSeed: "weapon:<id>"` marker; unlinked/legacy attacks get an explicit weapon picker (never name-matched) | Custom weapons recalculate through the same registry path | None material — attacks stay static by ownership design until the user explicitly recalculates; attacks predating the marker require one explicit link | — | — | — | Attacks panel offers an explicit "recalculate from build" affordance (never automatic) ✅ |
 | 10 | Equipment effects | 🟡 | `builderSheetSeeding.js`, `equipment.*.json` | AC from armor/shield; weapons → attacks; packs → pockets | Custom armor/weapons consumed | No currency deduction, no encumbrance, magic items deferred by greenlist | P2 | greenlist change for magic items | 11 | Documented as out of scope, or greenlist deliberately expanded |
 | 11 | Editable post-creation sheet surfaces | ✅ | `js/pages/character/panels/*` | All play-state fields editable; **B1 shipped 2026-07-13:** Builder Identity/Abilities panels are read-only routing surfaces (Edit in Builder); structural edits go through guarded wizard flows only | n/a | Builder Summary remains a display-only review scaffold (harmless; retire only with a deliberate product decision) | — | — | — | — |
 | 12 | Spell detail seeding (descriptions, ranges, components) | ✅ | `spellsPanel.js#renderSpellSrdDetails` | **B2 shipped 2026-07-13:** builder-managed rows show the full live-derived SRD detail block (school/level, ritual/concentration, casting time, range, components+material, duration, description, higher-level text) above user notes | Custom spells resolve through the same kind-aware lookup | Details are display-only (deliberate: notes stay purely user-owned; no materialized copies) | — | — | — | — |
@@ -70,11 +70,19 @@ spells, feats, races (inline trait sub-records), and classes (inline feature
 sub-records, full/half/pact spellcasting on the standard SRD slot tables,
 `resources[]` pools, `grantedSpells`). The same session fixed the
 campaign-vault persistence bug that was silently dropping `state.content` on
-reload (#14 note). **The last P1 is closed — every remaining open item is
-P2**, in rough order: attack recalculate-from-build affordance (#9), subclass
-1-use feature-action counters (#13 follow-up), partial-regain recovery modes
-(#8), prepared-formula/spellbook-growth overrides (#16), equipment depth
-(#10), and the keyboard-only a11y pass (#19). Handoff:
+reload (#14 note). **The last P1 is closed.**
+
+**Matrix #9 (attack Recalculate from Build) shipped 2026-07-14** after a
+green matrix #15 integration checkpoint (owner-authorized): pure proposal
+engine in `js/domain/attackRecalculation.js` (shared calculator with Finish
+seeding), stable `weapon:<id>` provenance markers on seeded attacks,
+preview-first dialog with per-field acceptance, explicit weapon linking for
+legacy rows, atomic apply, and an end-to-end smoke proving no automatic
+rewrites. Remaining open items, in rough order: subclass 1-use
+feature-action counters (#13 follow-up), partial-regain recovery modes
+(#8, design first), prepared-formula/spellbook-growth overrides (#16,
+design first), equipment depth (#10, product decisions), and the
+keyboard-only a11y pass (#19). Handoff:
 `docs/reference/session-handoff-2026-07-14.md`.
 
 ## 4. Verification basis

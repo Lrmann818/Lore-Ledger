@@ -1294,6 +1294,33 @@ precedent — no schema change). Ownership:
 - If the granting class/content is later edited or removed, seeded entries
   degrade to inert user-owned tiles — they are never deleted automatically.
 
+## Attack Provenance & Recalculation (2026-07-14, matrix #9)
+
+Wizard Finish seeds one attack row per chosen weapon (proficiency assumed;
+ranged uses DEX, finesse the better of STR/DEX, otherwise STR). Seeded rows
+carry `builderSeed: "weapon:<weaponId>"` — the same optional-extra-key
+precedent as `inventoryItems[].builderSeed` and class-resource markers, so no
+schema change. The marker survives renames; display names are **never** used
+to infer a source.
+
+Attacks stay user-owned sheet content: nothing rewrites them on level up,
+equipment changes, derivation, or load. The explicit **Recalculate from
+Build** action on an attack row (builder characters only) previews a
+field-by-field proposal from `js/domain/attackRecalculation.js` — the same
+`deriveWeaponAttack()` calculator Finish seeding uses, so the two can never
+drift. Ownership contract:
+
+- **Recalculable (build-derived):** `bonus`, `damage`, `range`, `type` —
+  each changed field is individually acceptable in the preview (default on).
+- **Always user-owned:** `name`, `notes`, row order, `id` — never proposed.
+- Cancel/Escape/backdrop never mutate; the accepted subset applies in one
+  atomic patch; a no-change run reports "already matches" with no write.
+- **Unlinked or broken-link attacks** (manual rows, rows seeded before the
+  marker existed, removed custom weapons): the dialog explains why and
+  offers an explicit weapon picker; applying stamps the marker so the link
+  is stable from then on. Custom weapon records resolve through the same
+  kind-aware registry path as builtins.
+
 ## Feat Effects Vocabulary (2026-07-06)
 
 Feat records may carry structured `effects` interpreted by
