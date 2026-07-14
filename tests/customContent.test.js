@@ -16,6 +16,12 @@ import {
 } from "../js/domain/rules/registry.js";
 import { BUILTIN_CONTENT } from "../js/domain/rules/builtinContent.js";
 import { makeDefaultBuilderCharacterEntry } from "../js/domain/characterHelpers.js";
+import {
+  normalizeCampaignVault,
+  persistRuntimeStateToVault,
+  projectActiveCampaignState,
+  replaceRuntimeState
+} from "../js/storage/campaignVault.js";
 import { migrateState, sanitizeForSave } from "../js/state.js";
 
 function makeState() {
@@ -92,6 +98,58 @@ describe("custom content state storage", () => {
     // Round-trip: a reloaded save keeps the record.
     const reloaded = migrateState(JSON.parse(JSON.stringify(sanitized)));
     expect(listCustomContent(reloaded)).toHaveLength(1);
+  });
+
+  // Regression (found by the matrix #15 authoring smoke): the campaign vault
+  // used to drop state.content when extracting campaign docs, so custom
+  // content silently vanished on every reload even though sanitizeForSave
+  // kept it. The vault doc must carry the bucket through a save → project
+  // round trip — this is the path an actual page reload takes.
+  it("persists custom content through the campaign vault save → reload path", () => {
+    const state = makeState();
+    addCustomContentRecords(state, [customRace]);
+    state.appShell = { activeCampaignId: "camp_vault" };
+    state.tracker.campaignTitle = "Vault Campaign";
+
+    const { vault } = normalizeCampaignVault(null, { migrateState, sanitizeForSave });
+    const savedVault = persistRuntimeStateToVault(vault, state, { sanitizeForSave });
+    expect(savedVault.campaignDocs.camp_vault.content.custom).toHaveLength(1);
+
+    // Storage round trip (JSON) + re-normalization, then projection back
+    // into runtime state — the reload sequence.
+    const { vault: reloadedVault } = normalizeCampaignVault(
+      JSON.parse(JSON.stringify(savedVault)),
+      { migrateState, sanitizeForSave }
+    );
+    const projected = projectActiveCampaignState(reloadedVault, migrateState);
+    expect(listCustomContent(projected)).toHaveLength(1);
+    expect(listCustomContent(projected)[0]).toMatchObject({
+      id: "starfolk", kind: "race", source: "custom"
+    });
+
+    // Hydration into the live runtime singleton must carry the bucket too —
+    // replaceRuntimeState used to skip `content`, and the post-load
+    // re-persist then overwrote the stored bucket with the stale empty one.
+    const runtime = makeState();
+    replaceRuntimeState(runtime, projected);
+    expect(listCustomContent(runtime)).toHaveLength(1);
+    const repersisted = persistRuntimeStateToVault(reloadedVault, runtime, { sanitizeForSave });
+    expect(repersisted.campaignDocs.camp_vault.content.custom).toHaveLength(1);
+  });
+
+  it("hydrates older campaign docs without a content key to an empty bucket", () => {
+    const state = makeState();
+    state.appShell = { activeCampaignId: "camp_old" };
+    const { vault } = normalizeCampaignVault(null, { migrateState, sanitizeForSave });
+    const savedVault = persistRuntimeStateToVault(vault, state, { sanitizeForSave });
+    delete savedVault.campaignDocs.camp_old.content;
+
+    const { vault: reloadedVault } = normalizeCampaignVault(
+      JSON.parse(JSON.stringify(savedVault)),
+      { migrateState, sanitizeForSave }
+    );
+    const projected = projectActiveCampaignState(reloadedVault, migrateState);
+    expect(projected.content).toEqual({ custom: [] });
   });
 });
 

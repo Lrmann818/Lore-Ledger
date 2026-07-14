@@ -30,7 +30,8 @@ export const LEGACY_MIGRATION_CAMPAIGN_ID = "campaign_legacy";
  *   tracker: NonNullable<SanitizedState["tracker"]>,
  *   characters: NonNullable<SanitizedState["characters"]>,
  *   map: SanitizedState["map"],
- *   combat: NonNullable<SanitizedState["combat"]>
+ *   combat: NonNullable<SanitizedState["combat"]>,
+ *   content: NonNullable<SanitizedState["content"]>
  * }} CampaignDoc
  */
 
@@ -200,7 +201,10 @@ export function extractCampaignDoc(source, sanitizeForSave) {
     })),
     characters: /** @type {CampaignDoc["characters"]} */ (clone(sanitized.characters || { activeId: null, entries: [] })),
     map: /** @type {CampaignDoc["map"]} */ (clone(sanitized.map || { activeMapId: null, maps: [] })),
-    combat: /** @type {CampaignDoc["combat"]} */ (clone(sanitized.combat || {}))
+    combat: /** @type {CampaignDoc["combat"]} */ (clone(sanitized.combat || {})),
+    // Campaign custom content (state.content.custom) travels with the
+    // campaign doc; older docs without this key hydrate to an empty bucket.
+    content: /** @type {CampaignDoc["content"]} */ (clone(sanitized.content || { custom: [] }))
   };
 }
 
@@ -434,6 +438,7 @@ export function replaceRuntimeState(target, source) {
   target.characters = source.characters;
   target.map = source.map;
   target.combat = source.combat;
+  target.content = source.content;
   target.ui = source.ui;
   target.app = source.app;
   target.appShell = source.appShell;
@@ -523,6 +528,7 @@ export function projectActiveCampaignState(vault, migrateState) {
     characters: doc.characters,
     map: doc.map,
     combat: doc.combat,
+    content: doc.content,
     ui: appShellUi,
     app: appState
   });
