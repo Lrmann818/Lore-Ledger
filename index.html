@@ -1593,7 +1593,7 @@
               <input id="dataCustomContentImportFile" type="file" accept="application/json" />
             </label>
             <button id="dataCustomContentExportBtn" class="settingsItem" type="button">Export Custom Content (.json)</button>
-            <button id="dataCustomContentManageBtn" class="settingsItem" type="button">List / Remove Custom Content</button>
+            <button id="dataCustomContentManageBtn" class="settingsItem" type="button">Manage Custom Content</button>
           </div>
         </div>
 
@@ -1635,6 +1635,20 @@
           <div class="mutedSmall">This clears campaign data + images + notes from this browser.</div>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- Custom content manager (opens above the Data panel; must follow
+       #dataPanelOverlay in the DOM so it stacks on top of it) -->
+  <div id="customContentOverlay" class="modalOverlay" hidden aria-hidden="true">
+    <div class="modalPanel customContentPanel" id="customContentPanel" role="dialog" aria-modal="true"
+      aria-labelledby="customContentTitle" tabindex="-1">
+      <div class="uiDialogHeader">
+        <div class="modalTitle" id="customContentTitle">Custom Content</div>
+        <button type="button" class="npcSmallBtn" id="customContentClose" aria-label="Close Custom Content">✕</button>
+      </div>
+      <div class="customContentBody" id="customContentBody"></div>
+      <div class="uiDialogFooter customContentFooter" id="customContentFooter"></div>
     </div>
   </div>
 

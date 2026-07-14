@@ -3,12 +3,12 @@
 // Modal "Data & Settings" panel.
 // Keeps app.js lean by dependency-injecting actions (backup/reset/theme/etc).
 
-import { uiConfirm, uiAlert, uiPrompt } from "./dialogs.js";
+import { uiConfirm, uiAlert } from "./dialogs.js";
 import {
   addCustomContentRecords,
-  listCustomContent,
-  removeCustomContentRecord
+  listCustomContent
 } from "../domain/customContent.js";
+import { createCustomContentManager } from "./customContentManager.js";
 import { enhanceSelectDropdown } from "./selectDropdown.js";
 import { safeAsync } from "./safeAsync.js";
 import {
@@ -504,43 +504,15 @@ export function initDataPanel(deps) {
     })
   );
 
+  const customContentManager = createCustomContentManager({
+    state,
+    markDirty,
+    setStatus: (message) => notifyStatus(setStatus, message),
+    onContentChanged: syncCustomContentSummary
+  });
+
   if (customContentManageBtn) addListener("actions", customContentManageBtn, "click",
-    safeAsync(async () => {
-      const records = listCustomContent(state);
-      if (!records.length) {
-        await uiAlert(
-          "This campaign has no custom content yet.\n\n" +
-          "Import a JSON file with records shaped like the SRD registry files:\n" +
-          '{ "id": "my-race", "kind": "race", "name": "My Race", ... }\n' +
-          "Supported kinds: race, subrace, class, subclass, background, feat, trait, ancestry, armor, weapon, spell, language, skill, feature.",
-          { title: "Custom Content" }
-        );
-        return;
-      }
-      const listing = records
-        .map((record) => `• ${record.kind}:${record.id} — ${record.name}`)
-        .join("\n");
-      const answer = await uiPrompt(
-        `Custom content in this campaign:\n${listing}\n\nTo remove a record, enter its "kind:id" (e.g. race:my-race). Leave blank to close.`,
-        { title: "Custom Content", defaultValue: "" }
-      );
-      const requested = typeof answer === "string" ? answer.trim() : "";
-      if (!requested) return;
-      const separator = requested.indexOf(":");
-      const kind = separator > 0 ? requested.slice(0, separator).trim() : "";
-      const id = separator > 0 ? requested.slice(separator + 1).trim() : "";
-      if (!kind || !id || !removeCustomContentRecord(state, kind, id)) {
-        notifyStatus(setStatus, `No custom record matches "${requested}".`);
-        return;
-      }
-      markDirty();
-      syncCustomContentSummary();
-      notifyStatus(setStatus, `Removed custom ${kind} "${id}".`);
-    }, (err) => {
-      console.error(err);
-      notifyStatus(setStatus, "Custom content update failed.");
-    })
-  );
+    () => customContentManager.open());
   if (openHubBtn) addListener("settings", openHubBtn, "click",
     safeAsync(async () => {
       if (typeof openCampaignHub !== "function") return;
@@ -823,6 +795,7 @@ export function initDataPanel(deps) {
     close,
     destroy() {
       unlockScroll();
+      customContentManager.destroy();
       listenerControllers.shell.abort();
       listenerControllers.settings.abort();
       listenerControllers.actions.abort();
