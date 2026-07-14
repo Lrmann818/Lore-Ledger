@@ -705,6 +705,585 @@ export function normalizeRaceDraft(draft, context) {
   return { ...finished, companionRecords };
 }
 
+// --- Classes (with inline feature sub-records) ------------------------------
+
+export const CLASS_HIT_DICE = Object.freeze(["6", "8", "10", "12"]);
+export const CLASS_ARMOR_PROFICIENCIES = Object.freeze(["light", "medium", "heavy", "shield"]);
+export const CLASS_WEAPON_PROFICIENCIES = Object.freeze(["simple", "martial"]);
+export const CASTER_PROGRESSIONS = Object.freeze(["none", "full", "half", "pact"]);
+export const PREPARATION_MODES = Object.freeze(["known", "prepared", "spellbook"]);
+export const RESOURCE_RECOVERY_MODES = Object.freeze(["shortRest", "longRest", "shortOrLongRest", "manual", "none"]);
+export const RESOURCE_MAX_TYPES = Object.freeze(["constant", "classLevelMultiple", "abilityModifier", "byClassLevel"]);
+
+/**
+ * Class-record fields the authoring form owns. Everything else on an
+ * imported record (multiclassing, startingEquipment, choices, subclass
+ * wiring, …) passes through edits verbatim so no data is silently dropped.
+ */
+const OWNED_CLASS_FIELDS = new Set([
+  "id", "kind", "name", "source", "hitDie",
+  "savingThrowProficiencies", "armorProficiencies", "weaponProficiencies", "toolProficiencies",
+  "skillChoices", "asiLevels", "featuresByLevel", "spellcasting", "resources", "grantedSpells"
+]);
+
+/**
+ * The standard SRD slot table for a casting progression, deep-copied from
+ * the shipped class that defines it (wizard = full, paladin = half,
+ * warlock = pact). Referencing shipped data keeps the tables single-sourced.
+ * @param {string} progression
+ * @returns {number[][] | null}
+ */
+export function standardSlotTable(progression) {
+  const sourceClassId = progression === "full" ? "wizard"
+    : progression === "half" ? "paladin"
+      : progression === "pact" ? "warlock"
+        : null;
+  if (!sourceClassId) return null;
+  const entry = getContentByKind(BUILTIN_CONTENT_REGISTRY, "class", sourceClassId);
+  const spellcasting = entry && typeof entry.data?.spellcasting === "object" ? entry.data.spellcasting : null;
+  const table = spellcasting && Array.isArray(/** @type {{slotsByLevel?: unknown}} */ (spellcasting).slotsByLevel)
+    ? /** @type {{slotsByLevel: number[][]}} */ (spellcasting).slotsByLevel
+    : null;
+  return table ? JSON.parse(JSON.stringify(table)) : null;
+}
+
+/**
+ * Parses a comma-separated list of per-class-level whole numbers, padding to
+ * 20 entries by repeating the last value (a documented authoring
+ * convenience — "3, 4" means 3 at level 1 and 4 from level 2 on).
+ * @param {string} text
+ * @param {{ allowUnlimited?: boolean }} [options]
+ * @returns {{ values: Array<number | string> | null, error: string | null }}
+ */
+export function parsePerLevelList(text, options = {}) {
+  const clean = cleanString(text);
+  if (!clean) return { values: null, error: null };
+  /** @type {Array<number | string>} */
+  const values = [];
+  for (const part of clean.split(",")) {
+    const token = part.trim();
+    if (options.allowUnlimited && token.toLowerCase() === "unlimited") {
+      values.push("unlimited");
+      continue;
+    }
+    if (!/^\d{1,3}$/.test(token)) {
+      return { values: null, error: `"${token}" is not a whole number.` };
+    }
+    values.push(Number(token));
+  }
+  if (values.length > 20) return { values: null, error: "Enter at most 20 values (one per class level)." };
+  while (values.length < 20) values.push(values[values.length - 1]);
+  return { values, error: null };
+}
+
+/**
+ * @typedef {{ id: string, level: string, name: string, description: string }} ClassFeatureDraftRow
+ * @typedef {{
+ *   name: string,
+ *   maxType: string,
+ *   constantValue: string,
+ *   multiplier: string,
+ *   ability: string,
+ *   minimum: string,
+ *   startLevel: string,
+ *   byLevelValues: string,
+ *   recovery: string
+ * }} ClassResourceDraftRow
+ * @typedef {{ classLevel: string, spellId: string }} ClassGrantedSpellDraftRow
+ * @typedef {{
+ *   name: string,
+ *   hitDie: string,
+ *   savingThrowProficiencies: string[],
+ *   armorProficiencies: string[],
+ *   weaponProficiencies: string[],
+ *   toolProficiencies: string,
+ *   skillChoicesCount: string,
+ *   skillChoicesFrom: string[],
+ *   asiLevels: string,
+ *   features: ClassFeatureDraftRow[],
+ *   progression: string,
+ *   preparationMode: string,
+ *   spellAbility: string,
+ *   ritualCasting: boolean,
+ *   startLevel: string,
+ *   cantripsKnown: string,
+ *   spellsKnown: string,
+ *   resources: ClassResourceDraftRow[],
+ *   grantedSpells: ClassGrantedSpellDraftRow[],
+ *   preservedFeaturesByLevel: Record<string, string[]>,
+ *   preservedResources: Array<Record<string, unknown>>,
+ *   preservedFields: Record<string, unknown>
+ * }} ClassDraft
+ */
+
+/**
+ * @returns {ClassDraft}
+ */
+export function createClassDraft() {
+  return {
+    name: "",
+    hitDie: "8",
+    savingThrowProficiencies: [],
+    armorProficiencies: [],
+    weaponProficiencies: ["simple"],
+    toolProficiencies: "",
+    skillChoicesCount: "2",
+    skillChoicesFrom: [],
+    asiLevels: "4, 8, 12, 16, 19",
+    features: [],
+    progression: "none",
+    preparationMode: "known",
+    spellAbility: "",
+    ritualCasting: false,
+    startLevel: "1",
+    cantripsKnown: "",
+    spellsKnown: "",
+    resources: [],
+    grantedSpells: [],
+    preservedFeaturesByLevel: {},
+    preservedResources: [],
+    preservedFields: {}
+  };
+}
+
+/**
+ * @param {unknown} resource
+ * @returns {ClassResourceDraftRow | null} null when the resource cannot be
+ *   represented by the form (e.g. threshold recovery arrays)
+ */
+function resourceRowFromRecord(resource) {
+  if (!isPlainObject(resource)) return null;
+  const max = isPlainObject(resource.max) ? resource.max : null;
+  const recovery = typeof resource.recovery === "string" ? resource.recovery : null;
+  if (!max || !recovery || !RESOURCE_RECOVERY_MODES.includes(recovery)) return null;
+  const maxType = cleanString(max.type);
+  if (!RESOURCE_MAX_TYPES.includes(maxType)) return null;
+  const row = {
+    name: cleanString(resource.name),
+    maxType,
+    constantValue: Number.isFinite(max.value) ? String(max.value) : "",
+    multiplier: Number.isFinite(max.multiplier) ? String(max.multiplier) : "",
+    ability: cleanString(max.ability),
+    minimum: Number.isFinite(max.minimum) ? String(max.minimum) : "",
+    startLevel: Number.isFinite(max.startLevel) ? String(max.startLevel) : "",
+    byLevelValues: Array.isArray(max.values)
+      ? max.values.map((value) => value == null ? "0" : String(value)).join(", ")
+      : "",
+    recovery
+  };
+  // Only unowned keys on the record body would be dropped — bail to
+  // preservation if any exist.
+  const extraKeys = Object.keys(resource).filter((key) => !["id", "name", "max", "recovery"].includes(key));
+  if (extraKeys.length) return null;
+  return row;
+}
+
+/**
+ * Builds an editable draft from a persisted custom class record. Feature
+ * ids that resolve to custom feature records become editable rows; other
+ * feature references, unrepresentable resources, and every field the form
+ * does not own are preserved verbatim.
+ *
+ * @param {Record<string, unknown>} record
+ * @param {{ existing?: Array<Record<string, unknown>> }} [options]
+ * @returns {ClassDraft}
+ */
+export function classDraftFromRecord(record, options = {}) {
+  const source = isPlainObject(record) ? record : {};
+  const existing = Array.isArray(options.existing) ? options.existing : [];
+  const draft = createClassDraft();
+
+  draft.name = cleanString(source.name);
+  draft.hitDie = Number.isFinite(source.hitDie) ? String(source.hitDie) : "8";
+  draft.savingThrowProficiencies = cleanStringArray(source.savingThrowProficiencies);
+  draft.armorProficiencies = cleanStringArray(source.armorProficiencies);
+  draft.weaponProficiencies = cleanStringArray(source.weaponProficiencies);
+  draft.toolProficiencies = cleanStringArray(source.toolProficiencies).join(", ");
+  const skillChoices = isPlainObject(source.skillChoices) ? source.skillChoices : null;
+  draft.skillChoicesCount = Number.isFinite(skillChoices?.choose) ? String(skillChoices.choose) : "0";
+  draft.skillChoicesFrom = cleanStringArray(skillChoices?.from);
+  draft.asiLevels = (Array.isArray(source.asiLevels) ? source.asiLevels : [])
+    .filter((level) => Number.isFinite(level)).join(", ");
+
+  const featuresByLevel = isPlainObject(source.featuresByLevel) ? source.featuresByLevel : {};
+  for (const [levelKey, ids] of Object.entries(featuresByLevel)) {
+    for (const featureId of cleanStringArray(ids)) {
+      const featureRecord = existing.find((entry) =>
+        isPlainObject(entry) && entry.kind === "feature" && entry.id === featureId);
+      if (featureRecord) {
+        draft.features.push({
+          id: featureId,
+          level: levelKey,
+          name: cleanString(featureRecord.name),
+          description: cleanString(featureRecord.desc)
+        });
+      } else {
+        (draft.preservedFeaturesByLevel[levelKey] ||= []).push(featureId);
+      }
+    }
+  }
+
+  const spellcasting = isPlainObject(source.spellcasting) ? source.spellcasting : null;
+  if (spellcasting) {
+    const progression = cleanString(spellcasting.progression);
+    draft.progression = CASTER_PROGRESSIONS.includes(progression) ? progression : "full";
+    const preparationMode = cleanString(spellcasting.preparationMode);
+    draft.preparationMode = PREPARATION_MODES.includes(preparationMode) ? preparationMode : "known";
+    draft.spellAbility = cleanString(spellcasting.ability);
+    draft.ritualCasting = spellcasting.ritualCasting === true;
+    draft.startLevel = Number.isFinite(spellcasting.startLevel) ? String(spellcasting.startLevel) : "1";
+    draft.cantripsKnown = Array.isArray(spellcasting.cantripsKnownByLevel)
+      ? spellcasting.cantripsKnownByLevel.join(", ") : "";
+    draft.spellsKnown = Array.isArray(spellcasting.spellsKnownByLevel)
+      ? spellcasting.spellsKnownByLevel.join(", ") : "";
+  }
+
+  for (const resource of Array.isArray(source.resources) ? source.resources : []) {
+    const row = resourceRowFromRecord(resource);
+    if (row) draft.resources.push(row);
+    else if (isPlainObject(resource)) draft.preservedResources.push(resource);
+  }
+
+  for (const grant of Array.isArray(source.grantedSpells) ? source.grantedSpells : []) {
+    if (!isPlainObject(grant)) continue;
+    const classLevel = Number.isFinite(grant.classLevel) ? grant.classLevel
+      : Number.isFinite(grant.level) ? grant.level : 1;
+    draft.grantedSpells.push({
+      classLevel: String(classLevel),
+      spellId: cleanString(grant.spellId)
+    });
+  }
+
+  for (const [key, value] of Object.entries(source)) {
+    if (!OWNED_CLASS_FIELDS.has(key)) draft.preservedFields[key] = value;
+  }
+  return draft;
+}
+
+/**
+ * Normalizes a class draft into a canonical custom class record plus the
+ * custom feature records its rows describe (`companionRecords`). Casters get
+ * the standard SRD slot table for their progression; per-level comma lists
+ * pad to 20 by repeating the last value.
+ *
+ * @param {ClassDraft} draft
+ * @param {AuthoringContext} context
+ * @returns {AuthoringResult}
+ */
+export function normalizeClassDraft(draft, context) {
+  /** @type {AuthoringFieldError[]} */
+  const errors = [];
+  const existing = Array.isArray(context?.existing) ? context.existing : [];
+  const editingId = cleanString(context?.editingId);
+
+  const name = cleanString(draft?.name);
+  if (!name) errors.push({ field: "name", message: "Give the class a name." });
+
+  const hitDie = CLASS_HIT_DICE.includes(cleanString(draft?.hitDie)) ? Number(draft.hitDie) : null;
+  if (hitDie == null) errors.push({ field: "hitDie", message: "Pick a hit die." });
+
+  const savingThrowProficiencies = cleanStringArray(draft?.savingThrowProficiencies)
+    .filter((ability) => CHARACTER_ABILITY_KEYS.includes(ability));
+  const armorProficiencies = cleanStringArray(draft?.armorProficiencies)
+    .filter((value) => CLASS_ARMOR_PROFICIENCIES.includes(value));
+  const weaponProficiencies = cleanStringArray(draft?.weaponProficiencies)
+    .filter((value) => CLASS_WEAPON_PROFICIENCIES.includes(value));
+  const toolProficiencies = cleanString(draft?.toolProficiencies)
+    ? cleanString(draft.toolProficiencies).split(",").map((part) => part.trim()).filter(Boolean)
+    : [];
+
+  const skillCountText = cleanString(draft?.skillChoicesCount);
+  const skillCount = /^\d{1,2}$/.test(skillCountText) ? Number(skillCountText) : NaN;
+  const skillFrom = cleanStringArray(draft?.skillChoicesFrom);
+  if (!Number.isInteger(skillCount) || skillCount < 0 || skillCount > 10) {
+    errors.push({ field: "skillChoices", message: "Enter how many skills the class picks (0 to 10)." });
+  } else if (skillCount > skillFrom.length) {
+    errors.push({ field: "skillChoices", message: `The class picks ${skillCount} skills but only ${skillFrom.length} are on offer — check more skills or lower the count.` });
+  }
+  for (const skillId of skillFrom) {
+    if (!getContentByKind(context?.registry, "skill", skillId)) {
+      errors.push({ field: "skillChoices", message: `Unknown skill "${skillId}" in the skill list.` });
+    }
+  }
+
+  /** @type {number[]} */
+  const asiLevels = [];
+  const asiText = cleanString(draft?.asiLevels);
+  if (asiText) {
+    for (const part of asiText.split(",")) {
+      const token = part.trim();
+      if (!token) continue;
+      if (!/^\d{1,2}$/.test(token) || Number(token) < 2 || Number(token) > 20) {
+        errors.push({ field: "asiLevels", message: `ASI level "${token}" must be a class level from 2 to 20.` });
+        continue;
+      }
+      const level = Number(token);
+      if (!asiLevels.includes(level)) asiLevels.push(level);
+    }
+    asiLevels.sort((a, b) => a - b);
+  }
+
+  const id = editingId || generateContentId("class", name, existing);
+
+  // Feature rows become companion custom feature records tied to this class.
+  /** @type {Array<Record<string, unknown>>} */
+  const companionRecords = [];
+  /** @type {Record<string, string[]>} */
+  const featuresByLevel = {};
+  for (const [levelKey, ids] of Object.entries(
+    isPlainObject(draft?.preservedFeaturesByLevel) ? draft.preservedFeaturesByLevel : {}
+  )) {
+    featuresByLevel[levelKey] = cleanStringArray(ids);
+  }
+  const pendingForIdGeneration = existing.slice();
+  const featureRows = Array.isArray(draft?.features) ? draft.features : [];
+  featureRows.forEach((row, index) => {
+    const label = `Feature ${index + 1}`;
+    const featureName = cleanString(row?.name);
+    const featureDescription = cleanString(row?.description);
+    const levelText = cleanString(row?.level);
+    const level = /^\d{1,2}$/.test(levelText) ? Number(levelText) : NaN;
+    if (!Number.isInteger(level) || level < 1 || level > 20) {
+      errors.push({ field: "features", message: `${label}: enter the class level (1 to 20) that grants it.` });
+      return;
+    }
+    if (!featureName) {
+      errors.push({ field: "features", message: `${label}: give the feature a name.` });
+      return;
+    }
+    if (!featureDescription) {
+      errors.push({ field: "features", message: `${label}: describe what the feature does.` });
+      return;
+    }
+    const featureId = cleanString(row?.id) || generateContentId("feature", featureName, pendingForIdGeneration);
+    const featureRecord = {
+      id: featureId,
+      kind: "feature",
+      name: featureName,
+      source: "custom",
+      classId: id,
+      subclassId: null,
+      level,
+      desc: featureDescription
+    };
+    const featureValidation = validateCustomContentRecord(featureRecord, {
+      existing: pendingForIdGeneration.filter((entry) =>
+        !(isPlainObject(entry) && entry.kind === "feature" && entry.id === featureId))
+    });
+    if (!featureValidation.ok) {
+      for (const message of featureValidation.errors) {
+        errors.push({ field: "features", message: `${label}: ${message}` });
+      }
+      return;
+    }
+    companionRecords.push(featureRecord);
+    (featuresByLevel[String(level)] ||= []).push(featureId);
+    pendingForIdGeneration.push(featureRecord);
+  });
+
+  // Spellcasting.
+  const progression = cleanString(draft?.progression) || "none";
+  if (!CASTER_PROGRESSIONS.includes(progression)) {
+    errors.push({ field: "progression", message: "Pick a casting progression." });
+  }
+  /** @type {Record<string, unknown> | null} */
+  let spellcasting = null;
+  if (progression !== "none" && CASTER_PROGRESSIONS.includes(progression)) {
+    const errorsBeforeCasting = errors.length;
+    const ability = cleanString(draft?.spellAbility);
+    if (!CHARACTER_ABILITY_KEYS.includes(ability)) {
+      errors.push({ field: "spellAbility", message: "Pick the spellcasting ability." });
+    }
+    const preparationMode = cleanString(draft?.preparationMode);
+    if (!PREPARATION_MODES.includes(preparationMode)) {
+      errors.push({ field: "preparationMode", message: "Pick how the class prepares or knows spells." });
+    }
+    const startLevelText = cleanString(draft?.startLevel) || "1";
+    const startLevel = /^\d{1,2}$/.test(startLevelText) ? Number(startLevelText) : NaN;
+    if (!Number.isInteger(startLevel) || startLevel < 1 || startLevel > 20) {
+      errors.push({ field: "startLevel", message: "Enter the class level casting starts at (1 to 20)." });
+    }
+    const cantrips = parsePerLevelList(draft?.cantripsKnown ?? "");
+    if (cantrips.error) errors.push({ field: "cantripsKnown", message: `Cantrips known: ${cantrips.error}` });
+    const known = parsePerLevelList(draft?.spellsKnown ?? "");
+    if (known.error) errors.push({ field: "spellsKnown", message: `Spells known: ${known.error}` });
+    if (preparationMode === "known" && !known.values && !known.error) {
+      errors.push({ field: "spellsKnown", message: "A known-spells caster needs a spells-known count per level (for example: 2, 3, 4)." });
+    }
+    if (errors.length === errorsBeforeCasting) {
+      spellcasting = {
+        ability,
+        startLevel,
+        preparationMode,
+        progression,
+        ritualCasting: draft?.ritualCasting === true,
+        cantripsKnownByLevel: cantrips.values,
+        spellsKnownByLevel: known.values,
+        slotsByLevel: standardSlotTable(progression)
+      };
+    }
+  }
+
+  // Resource rows (the Class Resources schema).
+  /** @type {Array<Record<string, unknown>>} */
+  const resources = [];
+  const resourceRows = Array.isArray(draft?.resources) ? draft.resources : [];
+  /** @type {string[]} */
+  const resourceIds = [];
+  resourceRows.forEach((row, index) => {
+    const label = `Resource ${index + 1}`;
+    const resourceName = cleanString(row?.name);
+    if (!resourceName) {
+      errors.push({ field: "resources", message: `${label}: give the pool a name.` });
+      return;
+    }
+    const recovery = cleanString(row?.recovery);
+    if (!RESOURCE_RECOVERY_MODES.includes(recovery)) {
+      errors.push({ field: "resources", message: `${label}: pick how the pool recovers.` });
+      return;
+    }
+    const maxType = cleanString(row?.maxType);
+    const startLevelText = cleanString(row?.startLevel) || "1";
+    const startLevel = /^\d{1,2}$/.test(startLevelText) ? Number(startLevelText) : NaN;
+    if (!Number.isInteger(startLevel) || startLevel < 1 || startLevel > 20) {
+      errors.push({ field: "resources", message: `${label}: enter the class level the pool unlocks at (1 to 20).` });
+      return;
+    }
+    /** @type {Record<string, unknown> | null} */
+    let max = null;
+    if (maxType === "constant") {
+      const value = /^\d{1,3}$/.test(cleanString(row?.constantValue)) ? Number(row.constantValue) : NaN;
+      if (!Number.isInteger(value) || value < 1) {
+        errors.push({ field: "resources", message: `${label}: enter how many uses the pool has.` });
+        return;
+      }
+      max = { type: "constant", value, startLevel };
+    } else if (maxType === "classLevelMultiple") {
+      const multiplier = /^\d{1,3}$/.test(cleanString(row?.multiplier)) ? Number(row.multiplier) : NaN;
+      if (!Number.isInteger(multiplier) || multiplier < 1) {
+        errors.push({ field: "resources", message: `${label}: enter the per-level multiplier (Lay on Hands uses 5).` });
+        return;
+      }
+      max = { type: "classLevelMultiple", multiplier, startLevel };
+    } else if (maxType === "abilityModifier") {
+      const ability = cleanString(row?.ability);
+      if (!CHARACTER_ABILITY_KEYS.includes(ability)) {
+        errors.push({ field: "resources", message: `${label}: pick the ability whose modifier sets the maximum.` });
+        return;
+      }
+      const minimumText = cleanString(row?.minimum);
+      const minimum = minimumText ? (/^\d{1,2}$/.test(minimumText) ? Number(minimumText) : NaN) : null;
+      if (minimum !== null && !Number.isInteger(minimum)) {
+        errors.push({ field: "resources", message: `${label}: the minimum must be a whole number.` });
+        return;
+      }
+      max = { type: "abilityModifier", ability, startLevel, ...(minimum !== null ? { minimum } : {}) };
+    } else if (maxType === "byClassLevel") {
+      const parsed = parsePerLevelList(row?.byLevelValues ?? "", { allowUnlimited: true });
+      if (parsed.error || !parsed.values) {
+        errors.push({ field: "resources", message: `${label}: ${parsed.error || "enter the per-level maximums (for example: 2, 2, 3)."}` });
+        return;
+      }
+      max = { type: "byClassLevel", values: parsed.values };
+    } else {
+      errors.push({ field: "resources", message: `${label}: pick how the maximum is calculated.` });
+      return;
+    }
+    const baseResourceId = slugifyContentName(resourceName) || `pool-${index + 1}`;
+    const resourceId = resourceIds.includes(baseResourceId) ? `${baseResourceId}-${index + 1}` : baseResourceId;
+    resourceIds.push(resourceId);
+    resources.push({ id: resourceId, name: resourceName, max, recovery });
+  });
+
+  // Granted spells.
+  /** @type {Array<Record<string, unknown>>} */
+  const grantedSpells = [];
+  const grantRows = Array.isArray(draft?.grantedSpells) ? draft.grantedSpells : [];
+  grantRows.forEach((row, index) => {
+    const label = `Granted spell ${index + 1}`;
+    const spellId = cleanString(row?.spellId);
+    if (!spellId || !getContentByKind(context?.registry, "spell", spellId)) {
+      errors.push({ field: "grantedSpells", message: `${label}: pick a spell.` });
+      return;
+    }
+    const levelText = cleanString(row?.classLevel) || "1";
+    const classLevel = /^\d{1,2}$/.test(levelText) ? Number(levelText) : NaN;
+    if (!Number.isInteger(classLevel) || classLevel < 1 || classLevel > 20) {
+      errors.push({ field: "grantedSpells", message: `${label}: enter the class level it unlocks at (1 to 20).` });
+      return;
+    }
+    grantedSpells.push({ classLevel, spellId, grantType: "always_prepared" });
+  });
+
+  if (errors.length) return { ok: false, record: null, errors };
+
+  const preservedResources = Array.isArray(draft?.preservedResources)
+    ? draft.preservedResources.filter(isPlainObject)
+    : [];
+  const allResources = [...resources, ...preservedResources];
+  const preservedFields = isPlainObject(draft?.preservedFields) ? draft.preservedFields : {};
+
+  /** @type {Record<string, unknown>} */
+  const record = {
+    ...preservedFields,
+    id,
+    kind: "class",
+    name,
+    source: "custom",
+    hitDie,
+    savingThrowProficiencies,
+    armorProficiencies,
+    weaponProficiencies,
+    toolProficiencies,
+    skillChoices: { choose: Number.isInteger(skillCount) ? skillCount : 0, from: skillFrom },
+    asiLevels,
+    featuresByLevel,
+    ...(spellcasting ? { spellcasting } : {}),
+    ...(allResources.length ? { resources: allResources } : {}),
+    ...(grantedSpells.length ? { grantedSpells } : {})
+  };
+  if (!("subclassIds" in record)) record.subclassIds = [];
+  const finished = finishRecordValidation("class", record, existing, editingId);
+  if (!finished.ok) return finished;
+  return { ...finished, companionRecords };
+}
+
+/**
+ * Feature records that were referenced by the class before an edit but no
+ * longer are — removable only when they are custom feature records no other
+ * custom class/subclass still references.
+ *
+ * @param {Record<string, unknown> | null} previousRecord
+ * @param {Record<string, unknown>} nextRecord
+ * @param {Array<Record<string, unknown>>} existing
+ * @returns {string[]}
+ */
+export function collectOrphanedFeatureIds(previousRecord, nextRecord, existing) {
+  if (!isPlainObject(previousRecord)) return [];
+  const collectIds = (/** @type {unknown} */ byLevel) => {
+    /** @type {string[]} */
+    const ids = [];
+    if (!isPlainObject(byLevel)) return ids;
+    for (const value of Object.values(byLevel)) ids.push(...cleanStringArray(value));
+    return ids;
+  };
+  const before = collectIds(previousRecord.featuresByLevel);
+  const after = new Set(collectIds(nextRecord?.featuresByLevel));
+  return before.filter((featureId) => {
+    if (after.has(featureId)) return false;
+    const isCustomFeature = existing.some((entry) =>
+      isPlainObject(entry) && entry.kind === "feature" && entry.id === featureId);
+    if (!isCustomFeature) return false;
+    const stillReferenced = existing.some((entry) => {
+      if (!isPlainObject(entry)) return false;
+      if (entry.kind !== "class" && entry.kind !== "subclass") return false;
+      if (entry.kind === previousRecord.kind && entry.id === previousRecord.id) return false;
+      return collectIds(entry.featuresByLevel).includes(featureId);
+    });
+    return !stillReferenced;
+  });
+}
+
 /**
  * Trait records that were referenced by the race before an edit but no
  * longer are — removable only when they are custom trait records that no

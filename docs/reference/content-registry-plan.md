@@ -1194,18 +1194,30 @@ editor and the JSON import path share one rule system. Contract:
   mints a new record, so character references stay valid;
 - authored records are byte-identical in shape to imported ones (no
   parallel authoring format);
-- currently authorable kinds: **spell** (all fields of the SRD spell shape,
-  including `classIds`/`subclassIds` list membership), **feat**
-  (prerequisites and the closed `effects` vocabulary as repeatable rows), and
-  **race** (size, speed, ability score increases, languages, lore, and
-  inline **trait sub-records** — each trait row is saved as its own
-  `kind: "trait"` custom record referenced from the race's `traits` array;
-  saves are all-or-nothing across the record group, and traits orphaned by an
-  edit are removed only when no other custom race/subrace references them.
-  Trait ids the form cannot edit — builtin references or unresolved ids on
-  imported races — are preserved verbatim). Race build-time `choices[]` and
-  subrace authoring are not supported in the form; import them as JSON.
-  Classes are the planned remaining batch.
+- currently authorable kinds:
+  - **spell** — all fields of the SRD spell shape, including
+    `classIds`/`subclassIds` list membership;
+  - **feat** — prerequisites and the closed `effects` vocabulary as
+    repeatable rows;
+  - **race** — size, speed, ability score increases, languages, lore, and
+    inline **trait sub-records** (each trait row is saved as its own
+    `kind: "trait"` custom record referenced from the race's `traits` array);
+  - **class** — hit die, saving throws, armor/weapon/tool proficiencies,
+    skill choices, ASI levels, inline **feature sub-records** (saved as
+    `kind: "feature"` records with `classId`/`level`), spellcasting
+    (progression none/full/half/pact with the **standard SRD slot table**
+    deep-copied from the shipped wizard/paladin/warlock records; preparation
+    mode known/prepared/spellbook; cantrips/spells-known as comma lists that
+    pad to 20 levels by repeating the last value), `resources[]` pools
+    (constant / classLevelMultiple / abilityModifier / byClassLevel incl.
+    `unlimited`), and always-prepared `grantedSpells`.
+
+  Multi-record saves are all-or-nothing; trait/feature records orphaned by
+  an edit are removed only when no other custom record references them.
+  Anything a form cannot represent — subclasses/subraces, build-time
+  `choices[]`, multiclassing blocks, starting equipment, threshold-recovery
+  resources, hand-written slot tables — is **preserved verbatim** through
+  edits and remains JSON-import territory.
 
 ## Class Resources (2026-07-12, Level Up Phase 2)
 

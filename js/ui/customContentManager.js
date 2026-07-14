@@ -17,17 +17,28 @@ import {
   updateCustomContentRecord
 } from "../domain/customContent.js";
 import {
+  CASTER_PROGRESSIONS,
+  CLASS_ARMOR_PROFICIENCIES,
+  CLASS_HIT_DICE,
+  CLASS_WEAPON_PROFICIENCIES,
   DAMAGE_TYPES,
   FEAT_EFFECT_TYPES,
+  PREPARATION_MODES,
   RACE_SIZES,
+  RESOURCE_MAX_TYPES,
+  RESOURCE_RECOVERY_MODES,
   SAVE_ABILITIES,
   SPELL_ATTACK_TYPES,
   SPELL_SCHOOLS,
+  classDraftFromRecord,
+  collectOrphanedFeatureIds,
   collectOrphanedTraitIds,
+  createClassDraft,
   createFeatDraft,
   createRaceDraft,
   createSpellDraft,
   featDraftFromRecord,
+  normalizeClassDraft,
   normalizeFeatDraft,
   normalizeRaceDraft,
   normalizeSpellDraft,
@@ -52,11 +63,11 @@ import { safeAsync } from "./safeAsync.js";
  * @typedef {{ open: () => void, close: () => void, destroy: () => void }} CustomContentManagerApi
  */
 
-/** Record kinds with an in-app authoring form. Later batches extend this. */
-const AUTHORABLE_KINDS = Object.freeze(["spell", "feat", "race"]);
+/** Record kinds with an in-app authoring form. */
+const AUTHORABLE_KINDS = Object.freeze(["spell", "feat", "race", "class"]);
 
 /** @type {Record<string, string>} */
-const KIND_LABELS = { spell: "Spell", feat: "Feat", race: "Race" };
+const KIND_LABELS = { spell: "Spell", feat: "Feat", race: "Race", class: "Class" };
 
 const KIND_ORDER = Object.freeze([
   "race", "subrace", "class", "subclass", "background", "feat", "trait",
@@ -395,7 +406,9 @@ export function createCustomContentManager(deps) {
       ? buildFeatFields(form, record)
       : kind === "race"
         ? buildRaceFields(form, record)
-        : buildSpellFields(form, record);
+        : kind === "class"
+          ? buildClassFields(form, record)
+          : buildSpellFields(form, record);
     submitForm = built.submit;
 
     form.addEventListener("input", () => { formDirty = true; }, { signal: abort.signal });
@@ -915,6 +928,337 @@ export function createCustomContentManager(deps) {
     };
   }
 
+  // --- Form view (class, with inline feature sub-records) -------------------
+
+  /**
+   * @param {HTMLElement} form
+   * @param {Record<string, unknown> | null} record
+   * @returns {{ submit: () => void, focus: () => void }}
+   */
+  function buildClassFields(form, record) {
+    const registry = getActiveContentRegistry();
+    const existing = listCustomContent(state);
+    const draft = record ? classDraftFromRecord(record, { existing }) : createClassDraft();
+
+    const abilityOptions = [
+      { value: "", label: "Choose an ability" },
+      ...SAVE_ABILITIES.map((ability) => ({ value: ability, label: ability.toUpperCase() }))
+    ];
+
+    const nameInput = textInput("name", draft.name);
+    form.appendChild(fieldRow("Name", nameInput, { fieldKey: "name", required: true }));
+
+    const hitDieSelect = selectInput("hitDie",
+      CLASS_HIT_DICE.map((die) => ({ value: die, label: `d${die}` })),
+      draft.hitDie);
+    form.appendChild(fieldRow("Hit die", hitDieSelect, { fieldKey: "hitDie", required: true }));
+
+    const saveChecklist = checklist("savingThrowProficiencies",
+      SAVE_ABILITIES.map((ability) => ({ value: ability, label: ability.toUpperCase() })),
+      draft.savingThrowProficiencies);
+    form.appendChild(fieldRow("Saving throw proficiencies", saveChecklist, {
+      fieldKey: "savingThrowProficiencies", help: "SRD classes are proficient in exactly two saves."
+    }));
+
+    const armorChecklist = checklist("armorProficiencies",
+      CLASS_ARMOR_PROFICIENCIES.map((value) => ({ value, label: titleCase(value) })),
+      draft.armorProficiencies);
+    form.appendChild(fieldRow("Armor proficiencies", armorChecklist, { fieldKey: "armorProficiencies" }));
+
+    const weaponChecklist = checklist("weaponProficiencies",
+      CLASS_WEAPON_PROFICIENCIES.map((value) => ({ value, label: titleCase(value) })),
+      draft.weaponProficiencies);
+    form.appendChild(fieldRow("Weapon proficiencies", weaponChecklist, { fieldKey: "weaponProficiencies" }));
+
+    const toolsInput = textInput("toolProficiencies", draft.toolProficiencies);
+    form.appendChild(fieldRow("Tool proficiencies", toolsInput, {
+      fieldKey: "toolProficiencies", help: "Optional, comma-separated (for example: smith's tools)."
+    }));
+
+    const skillCountInput = textInput("skillChoicesCount", draft.skillChoicesCount);
+    skillCountInput.type = "number";
+    skillCountInput.min = "0";
+    skillCountInput.max = "10";
+    form.appendChild(fieldRow("Skills to pick", skillCountInput, {
+      fieldKey: "skillChoices", help: "How many skills a new character picks from the list below."
+    }));
+    const skillOptions = listContentByKind(registry, "skill")
+      .map((entry) => ({ value: entry.id, label: entry.name }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+    const skillChecklist = checklist("skillChoicesFrom", skillOptions, draft.skillChoicesFrom);
+    form.appendChild(fieldRow("Skill list", skillChecklist, { fieldKey: "skillChoicesFrom" }));
+
+    const asiInput = textInput("asiLevels", draft.asiLevels);
+    form.appendChild(fieldRow("Ability Score Improvement levels", asiInput, {
+      fieldKey: "asiLevels", help: "Comma-separated class levels (most classes use 4, 8, 12, 16, 19)."
+    }));
+
+    // Features — inline sub-records saved as custom feature records.
+    const featureList = el("div", "customContentRepeat");
+    featureList.dataset.repeat = "features";
+    const addFeatureRow = (row = { id: "", level: "", name: "", description: "" }) => {
+      const rowEl = el("div", "customContentRepeatRow customContentTraitRow");
+      rowEl.dataset.featureId = row.id;
+      const levelInput = rowNumberInput(row.level, "Feature class level", "featureLevel");
+      levelInput.min = "1";
+      levelInput.max = "20";
+      levelInput.placeholder = "Level";
+      rowEl.appendChild(levelInput);
+      rowEl.appendChild(rowTextInput(row.name, "Feature name", "featureName", "Feature name"));
+      const descInput = el("textarea", "settingsInput customContentTextarea traitDesc featureDesc");
+      descInput.rows = 3;
+      descInput.value = row.description;
+      descInput.setAttribute("aria-label", "Feature description");
+      descInput.placeholder = "What the feature does";
+      rowEl.appendChild(descInput);
+      rowEl.appendChild(rowRemoveButton(rowEl, "Remove feature"));
+      featureList.appendChild(rowEl);
+    };
+    draft.features.forEach(addFeatureRow);
+    const featureWrap = el("div", "customContentRepeatWrap");
+    featureWrap.appendChild(featureList);
+    const addFeatureBtn = el("button", "npcSmallBtn", "+ Add feature");
+    addFeatureBtn.type = "button";
+    addFeatureBtn.addEventListener("click", () => {
+      addFeatureRow();
+      formDirty = true;
+    }, { signal: abort.signal });
+    featureWrap.appendChild(addFeatureBtn);
+    form.appendChild(fieldRow("Class features", featureWrap, {
+      fieldKey: "features",
+      help: "Each feature is saved as its own record, granted at its class level, and shown on rules-reference cards."
+    }));
+    const preservedFeatureIds = Object.values(draft.preservedFeaturesByLevel).flat();
+    if (preservedFeatureIds.length) {
+      form.appendChild(el("div", "mutedSmall customContentIdNote",
+        `Also grants (kept as-is, edit via JSON import): ${preservedFeatureIds.join(", ")}`));
+    }
+
+    // Spellcasting.
+    const progressionSelect = selectInput("progression",
+      CASTER_PROGRESSIONS.map((value) => ({
+        value,
+        label: value === "none" ? "Not a spellcaster"
+          : value === "full" ? "Full caster (wizard-style slots)"
+            : value === "half" ? "Half caster (paladin-style slots)"
+              : "Pact magic (warlock-style slots)"
+      })),
+      draft.progression);
+    form.appendChild(fieldRow("Spellcasting", progressionSelect, {
+      fieldKey: "progression",
+      help: "Spell slots use the standard SRD table for the chosen progression."
+    }));
+
+    const castingSection = el("div", "customContentForm customContentCastingSection");
+
+    const spellAbilitySelect = selectInput("spellAbility", abilityOptions, draft.spellAbility);
+    castingSection.appendChild(fieldRow("Spellcasting ability", spellAbilitySelect, {
+      fieldKey: "spellAbility", required: true
+    }));
+
+    const preparationSelect = selectInput("preparationMode",
+      PREPARATION_MODES.map((value) => ({
+        value,
+        label: value === "known" ? "Knows a fixed list (sorcerer-style)"
+          : value === "prepared" ? "Prepares daily (cleric-style)"
+            : "Spellbook (wizard-style)"
+      })),
+      draft.preparationMode);
+    castingSection.appendChild(fieldRow("How spells are learned", preparationSelect, { fieldKey: "preparationMode" }));
+
+    const startLevelInput = textInput("startLevel", draft.startLevel);
+    startLevelInput.type = "number";
+    startLevelInput.min = "1";
+    startLevelInput.max = "20";
+    castingSection.appendChild(fieldRow("Casting starts at class level", startLevelInput, { fieldKey: "startLevel" }));
+
+    const ritualBox = checkboxInput("ritualCasting", "Ritual casting", draft.ritualCasting);
+    const ritualRowEl = el("div", "customContentCheckboxRow");
+    ritualRowEl.appendChild(ritualBox.wrap);
+    castingSection.appendChild(fieldRow("Rituals", ritualRowEl, { fieldKey: "ritualCasting" }));
+
+    const cantripsInput = textInput("cantripsKnown", draft.cantripsKnown);
+    castingSection.appendChild(fieldRow("Cantrips known per level", cantripsInput, {
+      fieldKey: "cantripsKnown",
+      help: "Optional, comma-separated from level 1 (for example: 2, 2, 2, 3 — the last value repeats through level 20). Leave blank for no cantrips."
+    }));
+
+    const spellsKnownInput = textInput("spellsKnown", draft.spellsKnown);
+    castingSection.appendChild(fieldRow("Spells known per level", spellsKnownInput, {
+      fieldKey: "spellsKnown",
+      help: "Required for fixed-list casters, comma-separated from level 1. Leave blank for prepared or spellbook casters."
+    }));
+
+    form.appendChild(castingSection);
+    const syncCastingVisibility = () => {
+      castingSection.hidden = progressionSelect.value === "none";
+    };
+    progressionSelect.addEventListener("change", syncCastingVisibility, { signal: abort.signal });
+    syncCastingVisibility();
+
+    // Resource pools (the Class Resources schema).
+    const recoveryOptions = RESOURCE_RECOVERY_MODES.map((value) => ({
+      value,
+      label: value === "shortRest" ? "Short Rest"
+        : value === "longRest" ? "Long Rest"
+          : value === "shortOrLongRest" ? "Short or Long Rest"
+            : titleCase(value)
+    }));
+    const maxTypeOptions = [
+      { value: "", label: "Choose how the maximum works" },
+      { value: "constant", label: "Fixed number of uses" },
+      { value: "classLevelMultiple", label: "Class level × a number" },
+      { value: "abilityModifier", label: "Equal to an ability modifier" },
+      { value: "byClassLevel", label: "A number per class level" }
+    ];
+    const resourceList = el("div", "customContentRepeat");
+    resourceList.dataset.repeat = "resources";
+    const addResourceRow = (row = {
+      name: "", maxType: "", constantValue: "", multiplier: "", ability: "",
+      minimum: "", startLevel: "1", byLevelValues: "", recovery: "longRest"
+    }) => {
+      const rowEl = el("div", "customContentRepeatRow customContentTraitRow");
+      rowEl.appendChild(rowTextInput(row.name, "Resource name", "resourceName", "Pool name (for example: Runes)"));
+      const maxTypeSelect = rowSelect(maxTypeOptions, row.maxType, "Resource maximum type", "resourceMaxType");
+      rowEl.appendChild(maxTypeSelect);
+      const constantInput = rowNumberInput(row.constantValue, "Resource uses", "resourceConstant");
+      constantInput.placeholder = "Uses";
+      rowEl.appendChild(constantInput);
+      const multiplierInput = rowNumberInput(row.multiplier, "Resource per-level multiplier", "resourceMultiplier");
+      multiplierInput.placeholder = "× level";
+      rowEl.appendChild(multiplierInput);
+      const abilitySelect = rowSelect(abilityOptions, row.ability, "Resource ability", "resourceAbility");
+      rowEl.appendChild(abilitySelect);
+      const byLevelInput = rowTextInput(row.byLevelValues, "Resource per-level maximums", "resourceByLevel", "2, 2, 3, 3, unlimited…");
+      rowEl.appendChild(byLevelInput);
+      const startLevelRowInput = rowNumberInput(row.startLevel, "Resource unlock level", "resourceStartLevel");
+      startLevelRowInput.placeholder = "From level";
+      rowEl.appendChild(startLevelRowInput);
+      const recoverySelect = rowSelect(recoveryOptions, row.recovery, "Resource recovery", "resourceRecovery");
+      rowEl.appendChild(recoverySelect);
+      rowEl.appendChild(rowRemoveButton(rowEl, "Remove resource"));
+      const syncResourceVisibility = () => {
+        const type = maxTypeSelect.value;
+        constantInput.hidden = type !== "constant";
+        multiplierInput.hidden = type !== "classLevelMultiple";
+        abilitySelect.hidden = type !== "abilityModifier";
+        byLevelInput.hidden = type !== "byClassLevel";
+        startLevelRowInput.hidden = type === "byClassLevel" || !type;
+      };
+      maxTypeSelect.addEventListener("change", syncResourceVisibility, { signal: abort.signal });
+      syncResourceVisibility();
+      resourceList.appendChild(rowEl);
+    };
+    draft.resources.forEach(addResourceRow);
+    const resourceWrap = el("div", "customContentRepeatWrap");
+    resourceWrap.appendChild(resourceList);
+    const addResourceBtn = el("button", "npcSmallBtn", "+ Add resource pool");
+    addResourceBtn.type = "button";
+    addResourceBtn.addEventListener("click", () => {
+      addResourceRow();
+      formDirty = true;
+    }, { signal: abort.signal });
+    resourceWrap.appendChild(addResourceBtn);
+    form.appendChild(fieldRow("Limited-use resource pools", resourceWrap, {
+      fieldKey: "resources",
+      help: "Optional pools like Rage or Ki: they appear as Vitals counters, grow with level, and recover on rests."
+    }));
+    if (draft.preservedResources.length) {
+      form.appendChild(el("div", "mutedSmall customContentIdNote",
+        `Also has pools kept as-is (edit via JSON import): ${draft.preservedResources.map((r) => r.name || r.id).join(", ")}`));
+    }
+
+    // Granted spells.
+    const spellOptions = [
+      { value: "", label: "Choose a spell" },
+      ...listContentByKind(registry, "spell")
+        .map((entry) => ({
+          value: entry.id,
+          label: entry.source === "custom" ? `${entry.name} (custom)` : entry.name
+        }))
+        .sort((a, b) => a.label.localeCompare(b.label))
+    ];
+    const grantList = el("div", "customContentRepeat");
+    grantList.dataset.repeat = "grantedSpells";
+    const addGrantRow = (row = { classLevel: "1", spellId: "" }) => {
+      const rowEl = el("div", "customContentRepeatRow");
+      const levelInput = rowNumberInput(row.classLevel, "Granted spell class level", "grantLevel");
+      levelInput.min = "1";
+      levelInput.max = "20";
+      levelInput.placeholder = "Level";
+      rowEl.appendChild(levelInput);
+      rowEl.appendChild(rowSelect(spellOptions, row.spellId, "Granted spell", "grantSpell"));
+      rowEl.appendChild(rowRemoveButton(rowEl, "Remove granted spell"));
+      grantList.appendChild(rowEl);
+    };
+    draft.grantedSpells.forEach(addGrantRow);
+    const grantWrap = el("div", "customContentRepeatWrap");
+    grantWrap.appendChild(grantList);
+    const addGrantBtn = el("button", "npcSmallBtn", "+ Add granted spell");
+    addGrantBtn.type = "button";
+    addGrantBtn.addEventListener("click", () => {
+      addGrantRow();
+      formDirty = true;
+    }, { signal: abort.signal });
+    grantWrap.appendChild(addGrantBtn);
+    form.appendChild(fieldRow("Always-prepared spells", grantWrap, {
+      fieldKey: "grantedSpells",
+      help: "Optional spells the class always has ready from a given level (like domain spells)."
+    }));
+
+    const readDraft = () => ({
+      name: nameInput.value,
+      hitDie: hitDieSelect.value,
+      savingThrowProficiencies: readChecklist(saveChecklist),
+      armorProficiencies: readChecklist(armorChecklist),
+      weaponProficiencies: readChecklist(weaponChecklist),
+      toolProficiencies: toolsInput.value,
+      skillChoicesCount: skillCountInput.value,
+      skillChoicesFrom: readChecklist(skillChecklist),
+      asiLevels: asiInput.value,
+      features: Array.from(featureList.querySelectorAll(".customContentRepeatRow")).map((rowEl) => ({
+        id: rowEl instanceof HTMLElement ? (rowEl.dataset.featureId || "") : "",
+        level: /** @type {HTMLInputElement} */ (rowEl.querySelector(".featureLevel"))?.value ?? "",
+        name: /** @type {HTMLInputElement} */ (rowEl.querySelector(".featureName"))?.value ?? "",
+        description: /** @type {HTMLTextAreaElement} */ (rowEl.querySelector(".featureDesc"))?.value ?? ""
+      })),
+      progression: progressionSelect.value,
+      preparationMode: preparationSelect.value,
+      spellAbility: spellAbilitySelect.value,
+      ritualCasting: ritualBox.input.checked,
+      startLevel: startLevelInput.value,
+      cantripsKnown: cantripsInput.value,
+      spellsKnown: spellsKnownInput.value,
+      resources: Array.from(resourceList.querySelectorAll(".customContentRepeatRow")).map((rowEl) => ({
+        name: /** @type {HTMLInputElement} */ (rowEl.querySelector(".resourceName"))?.value ?? "",
+        maxType: /** @type {HTMLSelectElement} */ (rowEl.querySelector(".resourceMaxType"))?.value ?? "",
+        constantValue: /** @type {HTMLInputElement} */ (rowEl.querySelector(".resourceConstant"))?.value ?? "",
+        multiplier: /** @type {HTMLInputElement} */ (rowEl.querySelector(".resourceMultiplier"))?.value ?? "",
+        ability: /** @type {HTMLSelectElement} */ (rowEl.querySelector(".resourceAbility"))?.value ?? "",
+        minimum: "",
+        startLevel: /** @type {HTMLInputElement} */ (rowEl.querySelector(".resourceStartLevel"))?.value ?? "1",
+        byLevelValues: /** @type {HTMLInputElement} */ (rowEl.querySelector(".resourceByLevel"))?.value ?? "",
+        recovery: /** @type {HTMLSelectElement} */ (rowEl.querySelector(".resourceRecovery"))?.value ?? ""
+      })),
+      grantedSpells: Array.from(grantList.querySelectorAll(".customContentRepeatRow")).map((rowEl) => ({
+        classLevel: /** @type {HTMLInputElement} */ (rowEl.querySelector(".grantLevel"))?.value ?? "",
+        spellId: /** @type {HTMLSelectElement} */ (rowEl.querySelector(".grantSpell"))?.value ?? ""
+      })),
+      preservedFeaturesByLevel: draft.preservedFeaturesByLevel,
+      preservedResources: draft.preservedResources,
+      preservedFields: draft.preservedFields
+    });
+
+    return {
+      submit: () => persistRecord("class", normalizeClassDraft(readDraft(), {
+        registry: getActiveContentRegistry(),
+        existing: listCustomContent(state),
+        editingId: editing ? editing.id : null
+      }), editing ? record : null),
+      focus: () => nameInput.focus()
+    };
+  }
+
   /**
    * Shows validation errors inline without rebuilding the form, so the
    * user's entries are preserved exactly.
@@ -1003,6 +1347,9 @@ export function createCustomContentManager(deps) {
     if (beforeRecord) {
       for (const traitId of collectOrphanedTraitIds(beforeRecord, result.record, listCustomContent(state))) {
         removeCustomContentRecord(state, "trait", traitId);
+      }
+      for (const featureId of collectOrphanedFeatureIds(beforeRecord, result.record, listCustomContent(state))) {
+        removeCustomContentRecord(state, "feature", featureId);
       }
     }
     notify(editing

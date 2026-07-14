@@ -458,6 +458,160 @@ describe("creating and editing a race through the form", () => {
   });
 });
 
+describe("creating and editing a class through the form", () => {
+  function addRow(buttonLabel) {
+    Array.from(body().querySelectorAll("button")).find((btn) => btn.textContent === buttonLabel).click();
+  }
+
+  function lastRow(repeatKey) {
+    const rows = body().querySelectorAll(`[data-repeat="${repeatKey}"] .customContentRepeatRow`);
+    return rows[rows.length - 1];
+  }
+
+  function checkOption(checklistKey, value) {
+    const box = body().querySelector(`[data-checklist="${checklistKey}"] input[value="${value}"]`);
+    box.checked = true;
+    box.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+
+  it("authors a full caster class with features, a resource pool, and a granted spell", () => {
+    setup().open();
+    footerButton("New Class").click();
+    expect(document.getElementById("customContentTitle").textContent).toBe("New Custom Class");
+
+    setInput("name", "Runesmith");
+    setInput("hitDie", "10");
+    checkOption("savingThrowProficiencies", "con");
+    checkOption("savingThrowProficiencies", "int");
+    checkOption("skillChoicesFrom", "arcana");
+    checkOption("skillChoicesFrom", "history");
+
+    addRow("+ Add feature");
+    const featureRow = lastRow("features");
+    featureRow.querySelector(".featureLevel").value = "1";
+    featureRow.querySelector(".featureName").value = "Runic Focus";
+    featureRow.querySelector(".featureDesc").value = "You channel magic through carved runes.";
+
+    // Casting section is hidden until a progression is chosen.
+    const castingSection = body().querySelector(".customContentCastingSection");
+    expect(castingSection.hidden).toBe(true);
+    setInput("progression", "full");
+    document.getElementById("customContentInput-progression")
+      .dispatchEvent(new Event("change", { bubbles: true }));
+    expect(castingSection.hidden).toBe(false);
+    setInput("spellAbility", "int");
+    setInput("preparationMode", "known");
+    setInput("spellsKnown", "2, 3, 4");
+
+    addRow("+ Add resource pool");
+    const resourceRow = lastRow("resources");
+    resourceRow.querySelector(".resourceName").value = "Runes";
+    const maxTypeSelect = resourceRow.querySelector(".resourceMaxType");
+    maxTypeSelect.value = "byClassLevel";
+    maxTypeSelect.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(resourceRow.querySelector(".resourceByLevel").hidden).toBe(false);
+    expect(resourceRow.querySelector(".resourceConstant").hidden).toBe(true);
+    resourceRow.querySelector(".resourceByLevel").value = "2, 2, 3";
+    resourceRow.querySelector(".resourceRecovery").value = "longRest";
+
+    addRow("+ Add granted spell");
+    const grantRow = lastRow("grantedSpells");
+    grantRow.querySelector(".grantLevel").value = "3";
+    grantRow.querySelector(".grantSpell").value = "fireball";
+
+    footerButton("Save Class").click();
+    const records = listCustomContent(state);
+    expect(records).toHaveLength(2);
+    const classRecord = records.find((record) => record.kind === "class");
+    expect(classRecord).toMatchObject({
+      id: "runesmith",
+      name: "Runesmith",
+      hitDie: 10,
+      savingThrowProficiencies: ["con", "int"],
+      skillChoices: { choose: 2, from: ["arcana", "history"] },
+      asiLevels: [4, 8, 12, 16, 19],
+      featuresByLevel: { "1": ["runic-focus"] },
+      grantedSpells: [{ classLevel: 3, spellId: "fireball", grantType: "always_prepared" }]
+    });
+    expect(classRecord.spellcasting).toMatchObject({ ability: "int", progression: "full", preparationMode: "known" });
+    expect(classRecord.spellcasting.slotsByLevel).toHaveLength(20);
+    expect(classRecord.resources).toEqual([
+      expect.objectContaining({ id: "runes", name: "Runes", recovery: "longRest" })
+    ]);
+    expect(records.find((record) => record.kind === "feature")).toMatchObject({
+      id: "runic-focus",
+      classId: "runesmith",
+      level: 1
+    });
+    expect(deps.markDirty).toHaveBeenCalledTimes(1);
+    expect(body().textContent).toContain("class:runesmith");
+  });
+
+  it("reports feature-row errors without losing input and saves nothing", () => {
+    setup().open();
+    footerButton("New Class").click();
+    setInput("name", "Broken Class");
+    addRow("+ Add feature");
+    const featureRow = lastRow("features");
+    featureRow.querySelector(".featureLevel").value = "1";
+    featureRow.querySelector(".featureName").value = "Unfinished";
+    footerButton("Save Class").click();
+
+    expect(listCustomContent(state)).toHaveLength(0);
+    expect(deps.markDirty).not.toHaveBeenCalled();
+    const featureError = document.getElementById("customContentError-features");
+    expect(featureError.hidden).toBe(false);
+    expect(featureError.textContent).toContain("Feature 1");
+    expect(body().querySelector(".featureName").value).toBe("Unfinished");
+  });
+
+  it("edits an existing class, keeping its id and updating its feature record", () => {
+    const classRecord = {
+      id: "runesmith",
+      kind: "class",
+      name: "Runesmith",
+      source: "custom",
+      hitDie: 10,
+      savingThrowProficiencies: ["con", "int"],
+      armorProficiencies: [],
+      weaponProficiencies: ["simple"],
+      toolProficiencies: [],
+      skillChoices: { choose: 1, from: ["arcana"] },
+      asiLevels: [4, 8],
+      featuresByLevel: { "1": ["runic-focus"] },
+      subclassIds: []
+    };
+    const featureRecord = {
+      id: "runic-focus",
+      kind: "feature",
+      name: "Runic Focus",
+      source: "custom",
+      classId: "runesmith",
+      subclassId: null,
+      level: 1,
+      desc: "Old text."
+    };
+    setup([classRecord, featureRecord]).open();
+    const classRow = Array.from(body().querySelectorAll(".customContentRow"))
+      .find((row) => row.textContent.includes("class:runesmith"));
+    Array.from(classRow.querySelectorAll("button")).find((btn) => btn.textContent === "Edit").click();
+
+    expect(document.getElementById("customContentInput-hitDie").value).toBe("10");
+    expect(document.getElementById("customContentInput-asiLevels").value).toBe("4, 8");
+    const featureRow = body().querySelector('[data-repeat="features"] .customContentRepeatRow');
+    expect(featureRow.querySelector(".featureName").value).toBe("Runic Focus");
+    featureRow.querySelector(".featureDesc").value = "New text.";
+
+    footerButton("Save Changes").click();
+    const records = listCustomContent(state);
+    expect(records.find((record) => record.kind === "class")).toMatchObject({ id: "runesmith" });
+    expect(records.find((record) => record.kind === "feature")).toMatchObject({
+      id: "runic-focus",
+      desc: "New text."
+    });
+  });
+});
+
 describe("editing and removing records", () => {
   it("edits an existing spell in place with its id locked", () => {
     setup([CUSTOM_SPELL]).open();

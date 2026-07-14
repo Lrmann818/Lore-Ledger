@@ -2,20 +2,26 @@ import { describe, expect, it } from "vitest";
 
 import {
   FEAT_EFFECT_TYPES,
+  classDraftFromRecord,
+  collectOrphanedFeatureIds,
   collectOrphanedTraitIds,
+  createClassDraft,
   createFeatDraft,
   createRaceDraft,
   createSpellDraft,
   featDraftFromRecord,
   generateContentId,
+  normalizeClassDraft,
   normalizeFeatDraft,
   normalizeRaceDraft,
   normalizeSpellDraft,
+  parsePerLevelList,
   raceDraftFromRecord,
   slugifyContentName,
-  spellDraftFromRecord
+  spellDraftFromRecord,
+  standardSlotTable
 } from "../js/domain/customContentAuthoring.js";
-import { collectFeatEffects } from "../js/domain/rules/progression.js";
+import { collectFeatEffects, getGrantedSpells, getSpellcastingClasses } from "../js/domain/rules/progression.js";
 import { deriveCharacter } from "../js/domain/rules/deriveCharacter.js";
 import { makeDefaultBuilderCharacterEntry } from "../js/domain/characterHelpers.js";
 import {
@@ -491,6 +497,264 @@ describe("race draft normalization (with inline trait sub-records)", () => {
     expect(collectOrphanedTraitIds(before, afterWithout, [before, trait, otherRace])).toEqual([]);
     // No previous record (create flow) → nothing to clean up.
     expect(collectOrphanedTraitIds(null, afterWithout, [trait])).toEqual([]);
+  });
+});
+
+describe("class draft normalization (the matrix #15 acceptance case)", () => {
+  function makeValidClassDraft(overrides = {}) {
+    return {
+      ...createClassDraft(),
+      name: "Runesmith",
+      hitDie: "10",
+      savingThrowProficiencies: ["con", "int"],
+      armorProficiencies: ["light", "medium", "shield"],
+      weaponProficiencies: ["simple", "martial"],
+      toolProficiencies: "smith's tools",
+      skillChoicesCount: "2",
+      skillChoicesFrom: ["arcana", "history", "athletics"],
+      asiLevels: "4, 8, 12, 16, 19",
+      features: [
+        { id: "", level: "1", name: "Runic Focus", description: "You channel magic through carved runes." },
+        { id: "", level: "2", name: "Rune Burst", description: "Expend a rune for a burst of force." }
+      ],
+      progression: "full",
+      preparationMode: "known",
+      spellAbility: "int",
+      ritualCasting: true,
+      startLevel: "1",
+      cantripsKnown: "2, 2, 2, 3",
+      spellsKnown: "2, 3, 4, 5",
+      resources: [
+        {
+          name: "Runes",
+          maxType: "byClassLevel",
+          constantValue: "",
+          multiplier: "",
+          ability: "",
+          minimum: "",
+          startLevel: "1",
+          byLevelValues: "2, 2, 3, 3, unlimited",
+          recovery: "longRest"
+        }
+      ],
+      grantedSpells: [{ classLevel: "3", spellId: "fireball" }],
+      ...overrides
+    };
+  }
+
+  it("normalizes a full caster class with features, resources, and granted spells", () => {
+    const result = normalizeClassDraft(makeValidClassDraft(), context());
+    expect(result.ok).toBe(true);
+    const record = result.record;
+    expect(record).toMatchObject({
+      id: "runesmith",
+      kind: "class",
+      name: "Runesmith",
+      source: "custom",
+      hitDie: 10,
+      savingThrowProficiencies: ["con", "int"],
+      armorProficiencies: ["light", "medium", "shield"],
+      weaponProficiencies: ["simple", "martial"],
+      toolProficiencies: ["smith's tools"],
+      skillChoices: { choose: 2, from: ["arcana", "history", "athletics"] },
+      asiLevels: [4, 8, 12, 16, 19],
+      featuresByLevel: { "1": ["runic-focus"], "2": ["rune-burst"] },
+      subclassIds: [],
+      grantedSpells: [{ classLevel: 3, spellId: "fireball", grantType: "always_prepared" }]
+    });
+    // Casting uses the standard SRD full-caster slot table.
+    expect(record.spellcasting).toMatchObject({
+      ability: "int",
+      progression: "full",
+      preparationMode: "known",
+      ritualCasting: true,
+      startLevel: 1
+    });
+    expect(record.spellcasting.slotsByLevel).toEqual(standardSlotTable("full"));
+    // Comma lists pad to 20 by repeating the last value.
+    expect(record.spellcasting.cantripsKnownByLevel).toHaveLength(20);
+    expect(record.spellcasting.cantripsKnownByLevel.slice(0, 5)).toEqual([2, 2, 2, 3, 3]);
+    expect(record.spellcasting.spellsKnownByLevel[19]).toBe(5);
+    // Resource pool in the Phase 2 schema, including the unlimited sentinel.
+    expect(record.resources).toEqual([{
+      id: "runes",
+      name: "Runes",
+      max: { type: "byClassLevel", values: [2, 2, 3, 3, ...Array(16).fill("unlimited")] },
+      recovery: "longRest"
+    }]);
+    // Companion feature records are tied to the class.
+    expect(result.companionRecords).toEqual([
+      expect.objectContaining({ id: "runic-focus", kind: "feature", classId: "runesmith", level: 1 }),
+      expect.objectContaining({ id: "rune-burst", kind: "feature", classId: "runesmith", level: 2 })
+    ]);
+    // Import-path validation (including the resources probe) agrees.
+    expect(validateCustomContentRecord(record)).toEqual({ ok: true, errors: [] });
+    for (const companion of result.companionRecords) {
+      expect(validateCustomContentRecord(companion)).toEqual({ ok: true, errors: [] });
+    }
+  });
+
+  it("omits spellcasting and resources for a plain martial class", () => {
+    const result = normalizeClassDraft(makeValidClassDraft({
+      progression: "none",
+      resources: [],
+      grantedSpells: [],
+      features: []
+    }), context());
+    expect(result.ok).toBe(true);
+    expect(result.record).not.toHaveProperty("spellcasting");
+    expect(result.record).not.toHaveProperty("resources");
+    expect(result.record).not.toHaveProperty("grantedSpells");
+    expect(result.record.featuresByLevel).toEqual({});
+  });
+
+  it("validates every repeatable-row family with row-numbered messages", () => {
+    const result = normalizeClassDraft(makeValidClassDraft({
+      skillChoicesCount: "5",
+      skillChoicesFrom: ["arcana"],
+      asiLevels: "4, banana",
+      features: [{ id: "", level: "25", name: "Too Deep", description: "x" }],
+      resources: [{
+        name: "", maxType: "constant", constantValue: "", multiplier: "",
+        ability: "", minimum: "", startLevel: "1", byLevelValues: "", recovery: "longRest"
+      }],
+      grantedSpells: [{ classLevel: "3", spellId: "not-a-spell" }],
+      spellsKnown: "2, x"
+    }), context());
+    expect(result.ok).toBe(false);
+    const text = result.errors.map((error) => `${error.field}: ${error.message}`).join("\n");
+    expect(text).toContain("skillChoices: The class picks 5 skills");
+    expect(text).toContain('asiLevels: ASI level "banana"');
+    expect(text).toContain("features: Feature 1");
+    expect(text).toContain("resources: Resource 1");
+    expect(text).toContain("grantedSpells: Granted spell 1");
+    expect(text).toContain("spellsKnown: Spells known:");
+  });
+
+  it("requires a spells-known table for known-mode casters", () => {
+    const result = normalizeClassDraft(makeValidClassDraft({ spellsKnown: "" }), context());
+    expect(result.ok).toBe(false);
+    expect(result.errors).toContainEqual(
+      expect.objectContaining({ field: "spellsKnown" })
+    );
+  });
+
+  it("round-trips a class and its features through a draft without loss", () => {
+    const first = normalizeClassDraft(makeValidClassDraft(), context());
+    const existing = [first.record, ...first.companionRecords];
+    const draft = classDraftFromRecord(first.record, { existing });
+    expect(draft.features).toHaveLength(2);
+    expect(draft.resources).toHaveLength(1);
+    const roundTripped = normalizeClassDraft(draft, {
+      registry: BUILTIN_CONTENT_REGISTRY,
+      existing,
+      editingId: "runesmith"
+    });
+    expect(roundTripped.ok).toBe(true);
+    expect(roundTripped.record).toEqual(first.record);
+    expect(roundTripped.companionRecords).toEqual(first.companionRecords);
+  });
+
+  it("preserves fields and rows the form does not own through an edit", () => {
+    const imported = {
+      ...normalizeClassDraft(makeValidClassDraft(), context()).record,
+      multiclassing: { prerequisites: [{ ability: "int", minimum: 13 }] },
+      startingEquipment: [{ itemId: "backpack", name: "Backpack", quantity: 1 }],
+      subclassIds: ["rune-carver"],
+      resources: [
+        { id: "runes", name: "Runes", max: { type: "constant", value: 2, startLevel: 1 }, recovery: "longRest" },
+        {
+          id: "threshold-pool",
+          name: "Threshold Pool",
+          max: { type: "constant", value: 1, startLevel: 1 },
+          recovery: [{ minClassLevel: 1, recovery: "longRest" }, { minClassLevel: 5, recovery: "shortOrLongRest" }]
+        }
+      ],
+      featuresByLevel: { "1": ["runic-focus", "some-imported-feature"] }
+    };
+    const featureRecord = {
+      id: "runic-focus", kind: "feature", name: "Runic Focus", source: "custom",
+      classId: "runesmith", subclassId: null, level: 1, desc: "You channel magic through carved runes."
+    };
+    const draft = classDraftFromRecord(imported, { existing: [imported, featureRecord] });
+    // Editable: the resolvable feature and the simple resource.
+    expect(draft.features).toEqual([expect.objectContaining({ id: "runic-focus" })]);
+    expect(draft.resources).toEqual([expect.objectContaining({ name: "Runes" })]);
+    // Preserved: threshold-recovery pool, unresolvable feature id, and
+    // fields the form does not own.
+    expect(draft.preservedResources).toEqual([expect.objectContaining({ id: "threshold-pool" })]);
+    expect(draft.preservedFeaturesByLevel).toEqual({ "1": ["some-imported-feature"] });
+    expect(draft.preservedFields.multiclassing).toBeTruthy();
+    expect(draft.preservedFields.startingEquipment).toBeTruthy();
+    expect(draft.preservedFields.subclassIds).toEqual(["rune-carver"]);
+
+    const result = normalizeClassDraft(draft, {
+      registry: BUILTIN_CONTENT_REGISTRY,
+      existing: [imported, featureRecord],
+      editingId: "runesmith"
+    });
+    expect(result.ok).toBe(true);
+    expect(result.record.multiclassing).toEqual(imported.multiclassing);
+    expect(result.record.startingEquipment).toEqual(imported.startingEquipment);
+    expect(result.record.subclassIds).toEqual(["rune-carver"]);
+    expect(result.record.resources).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: "threshold-pool" }),
+      expect.objectContaining({ id: "runes" })
+    ]));
+    expect(result.record.featuresByLevel["1"]).toEqual(
+      expect.arrayContaining(["runic-focus", "some-imported-feature"])
+    );
+  });
+
+  it("drives the rules engine end-to-end: slots, resources, granted spells, derivation", () => {
+    const result = normalizeClassDraft(makeValidClassDraft(), context());
+    const { entries } = normalizeCustomContent([result.record, ...result.companionRecords]);
+    const registry = createContentRegistry([...BUILTIN_CONTENT, ...entries]);
+
+    const levels = [
+      { classId: "runesmith", hp: null },
+      { classId: "runesmith", hp: null },
+      { classId: "runesmith", hp: null }
+    ];
+    const casters = getSpellcastingClasses(levels, registry);
+    expect(casters).toEqual([expect.objectContaining({
+      classId: "runesmith",
+      preparationMode: "known",
+      cantripsKnownMax: 2,
+      spellsKnownMax: 4
+    })]);
+    expect(getGrantedSpells(levels, {}, registry)).toEqual([
+      { spellId: "fireball", classId: "runesmith", subclassId: "", grantType: "always_prepared" }
+    ]);
+
+    const character = makeDefaultBuilderCharacterEntry("Rune Tester");
+    character.build.raceId = "human";
+    character.build.levels = levels;
+    character.build.abilities.base = { str: 10, dex: 12, con: 14, int: 15, wis: 10, cha: 8 };
+    const derived = deriveCharacter(character, registry);
+    expect(derived.labels.classLevel).toContain("Runesmith 3");
+    expect(derived.derivedResources).toEqual([
+      expect.objectContaining({ id: "runes", name: "Runes", max: 3, recovery: "longRest" })
+    ]);
+    expect(derived.spellcasting.slots[0]).toBeGreaterThan(0);
+  });
+
+  it("identifies orphaned custom features only when nothing else references them", () => {
+    const feature = { id: "runic-focus", kind: "feature", name: "Runic Focus", desc: "x" };
+    const before = { id: "runesmith", kind: "class", featuresByLevel: { "1": ["runic-focus", "second-wind"] } };
+    const after = { id: "runesmith", kind: "class", featuresByLevel: {} };
+    expect(collectOrphanedFeatureIds(before, after, [before, feature])).toEqual(["runic-focus"]);
+    const otherClass = { id: "other", kind: "class", featuresByLevel: { "3": ["runic-focus"] } };
+    expect(collectOrphanedFeatureIds(before, after, [before, feature, otherClass])).toEqual([]);
+    expect(collectOrphanedFeatureIds(null, after, [feature])).toEqual([]);
+  });
+
+  it("parses per-level lists with padding and rejects junk", () => {
+    expect(parsePerLevelList("2, 3").values).toEqual([2, ...Array(19).fill(3)].map((v, i) => i === 0 ? 2 : 3));
+    expect(parsePerLevelList("").values).toBeNull();
+    expect(parsePerLevelList("2, x").error).toContain('"x"');
+    expect(parsePerLevelList("2, unlimited", { allowUnlimited: true }).values[19]).toBe("unlimited");
+    expect(parsePerLevelList("2, unlimited").error).toContain('"unlimited"');
   });
 });
 
