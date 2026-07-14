@@ -2,16 +2,22 @@ import { describe, expect, it } from "vitest";
 
 import {
   FEAT_EFFECT_TYPES,
+  collectOrphanedTraitIds,
   createFeatDraft,
+  createRaceDraft,
   createSpellDraft,
   featDraftFromRecord,
   generateContentId,
   normalizeFeatDraft,
+  normalizeRaceDraft,
   normalizeSpellDraft,
+  raceDraftFromRecord,
   slugifyContentName,
   spellDraftFromRecord
 } from "../js/domain/customContentAuthoring.js";
 import { collectFeatEffects } from "../js/domain/rules/progression.js";
+import { deriveCharacter } from "../js/domain/rules/deriveCharacter.js";
+import { makeDefaultBuilderCharacterEntry } from "../js/domain/characterHelpers.js";
 import {
   addCustomContentRecords,
   listCustomContent,
@@ -328,6 +334,163 @@ describe("feat draft normalization", () => {
     for (const effect of result.record.effects) {
       expect(Object.keys(effect)).toContain("type");
     }
+  });
+});
+
+describe("race draft normalization (with inline trait sub-records)", () => {
+  function makeValidRaceDraft(overrides = {}) {
+    return {
+      ...createRaceDraft(),
+      name: "Starfolk",
+      speed: "35",
+      abilityScoreIncreases: [{ ability: "wis", bonus: "2" }],
+      languages: ["common"],
+      lore: "Born under wandering stars.",
+      traits: [
+        { id: "", name: "Starlight Vision", description: "You can see in dim light as if it were bright light." }
+      ],
+      ...overrides
+    };
+  }
+
+  it("normalizes a valid draft into a race record plus companion trait records", () => {
+    const result = normalizeRaceDraft(makeValidRaceDraft(), context());
+    expect(result.ok).toBe(true);
+    expect(result.record).toEqual({
+      id: "starfolk",
+      kind: "race",
+      name: "Starfolk",
+      source: "custom",
+      size: "Medium",
+      speed: 35,
+      abilityScoreIncreases: [{ ability: "wis", bonus: 2 }],
+      traits: ["starlight-vision"],
+      subraceIds: [],
+      languages: ["common"],
+      lore: "Born under wandering stars."
+    });
+    expect(result.companionRecords).toEqual([{
+      id: "starlight-vision",
+      kind: "trait",
+      name: "Starlight Vision",
+      source: "custom",
+      description: "You can see in dim light as if it were bright light."
+    }]);
+    expect(validateCustomContentRecord(result.record)).toEqual({ ok: true, errors: [] });
+    expect(validateCustomContentRecord(result.companionRecords[0])).toEqual({ ok: true, errors: [] });
+  });
+
+  it("generates unique trait ids across builtin content and sibling rows", () => {
+    // "darkvision" is a builtin trait id; two identical row names must also
+    // not collide with each other.
+    const result = normalizeRaceDraft(makeValidRaceDraft({
+      traits: [
+        { id: "", name: "Darkvision", description: "See in the dark." },
+        { id: "", name: "Darkvision", description: "See even further in the dark." }
+      ]
+    }), context());
+    expect(result.ok).toBe(true);
+    expect(result.companionRecords.map((record) => record.id)).toEqual(["darkvision-2", "darkvision-3"]);
+    expect(result.record.traits).toEqual(["darkvision-2", "darkvision-3"]);
+  });
+
+  it("reports field and row errors in plain language", () => {
+    const result = normalizeRaceDraft({
+      ...createRaceDraft(),
+      name: "",
+      size: "Colossal",
+      speed: "3",
+      abilityScoreIncreases: [{ ability: "", bonus: "2" }],
+      languages: ["not-a-language"],
+      traits: [{ id: "", name: "Nameless", description: "" }]
+    }, context());
+    expect(result.ok).toBe(false);
+    const byField = {};
+    for (const error of result.errors) {
+      byField[error.field] = `${byField[error.field] || ""} ${error.message}`;
+    }
+    expect(byField.name).toContain("name");
+    expect(byField.size).toContain("size");
+    expect(byField.speed).toContain("speed");
+    expect(byField.abilityScoreIncreases).toContain("Ability increase 1");
+    expect(byField.languages).toContain("not-a-language");
+    expect(byField.traits).toContain("Trait 1");
+  });
+
+  it("round-trips a race and its traits through a draft without loss", () => {
+    const first = normalizeRaceDraft(makeValidRaceDraft(), context());
+    const existing = [first.record, ...first.companionRecords];
+    const draft = raceDraftFromRecord(first.record, { existing });
+    expect(draft.traits).toEqual([{
+      id: "starlight-vision",
+      name: "Starlight Vision",
+      description: "You can see in dim light as if it were bright light."
+    }]);
+    const roundTripped = normalizeRaceDraft(draft, {
+      registry: BUILTIN_CONTENT_REGISTRY,
+      existing,
+      editingId: "starfolk"
+    });
+    expect(roundTripped.ok).toBe(true);
+    expect(roundTripped.record).toEqual(first.record);
+    expect(roundTripped.companionRecords).toEqual(first.companionRecords);
+  });
+
+  it("preserves trait references it cannot edit (builtin or missing records)", () => {
+    const record = {
+      id: "imported-race",
+      kind: "race",
+      name: "Imported Race",
+      source: "custom",
+      size: "Medium",
+      speed: 30,
+      abilityScoreIncreases: [],
+      traits: ["darkvision", "some-missing-trait"],
+      subraceIds: [],
+      languages: ["common"],
+      lore: ""
+    };
+    const draft = raceDraftFromRecord(record, { existing: [record] });
+    expect(draft.traits).toEqual([]);
+    expect(draft.preservedTraitIds).toEqual(["darkvision", "some-missing-trait"]);
+    const result = normalizeRaceDraft(draft, {
+      registry: BUILTIN_CONTENT_REGISTRY,
+      existing: [record],
+      editingId: "imported-race"
+    });
+    expect(result.ok).toBe(true);
+    expect(result.record.traits).toEqual(["darkvision", "some-missing-trait"]);
+  });
+
+  it("derives a builder character from an authored race end-to-end", () => {
+    const result = normalizeRaceDraft(makeValidRaceDraft(), context());
+    const { entries } = normalizeCustomContent([result.record, ...result.companionRecords]);
+    const registry = createContentRegistry([...BUILTIN_CONTENT, ...entries]);
+    const character = makeDefaultBuilderCharacterEntry("Authored Race Test");
+    character.build.raceId = "starfolk";
+    character.build.levels = [{ classId: "fighter", hp: null }];
+    character.build.abilities.base = { str: 14, dex: 10, con: 14, int: 10, wis: 14, cha: 10 };
+    const derived = deriveCharacter(character, registry);
+    expect(derived.labels.race).toBe("Starfolk");
+    expect(derived.speed).toBe(35);
+    expect(derived.abilities.wis).toMatchObject({ total: 16, modifier: 3 });
+    expect(derived.raceTraits).toEqual([
+      expect.objectContaining({ id: "starlight-vision", name: "Starlight Vision" })
+    ]);
+  });
+
+  it("identifies orphaned custom traits only when nothing else references them", () => {
+    const trait = { id: "starlight-vision", kind: "trait", name: "Starlight Vision", description: "x" };
+    const before = { id: "starfolk", kind: "race", traits: ["starlight-vision", "darkvision"] };
+    const afterWithout = { id: "starfolk", kind: "race", traits: [] };
+    // Removed and unreferenced elsewhere → orphaned (builtin darkvision is
+    // never removable).
+    expect(collectOrphanedTraitIds(before, afterWithout, [before, trait])).toEqual(["starlight-vision"]);
+    // Another custom race still references it → kept.
+    const otherRace = { id: "moonfolk", kind: "race", traits: ["starlight-vision"] };
+    expect(collectOrphanedTraitIds(before, afterWithout, [before, trait, otherRace])).toEqual([]);
+    // No previous record (create flow) → nothing to clean up.
+    expect(collectOrphanedTraitIds(null, afterWithout, [trait])).toEqual([]);
   });
 });
 

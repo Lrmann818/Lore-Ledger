@@ -19,14 +19,19 @@ import {
 import {
   DAMAGE_TYPES,
   FEAT_EFFECT_TYPES,
+  RACE_SIZES,
   SAVE_ABILITIES,
   SPELL_ATTACK_TYPES,
   SPELL_SCHOOLS,
+  collectOrphanedTraitIds,
   createFeatDraft,
+  createRaceDraft,
   createSpellDraft,
   featDraftFromRecord,
   normalizeFeatDraft,
+  normalizeRaceDraft,
   normalizeSpellDraft,
+  raceDraftFromRecord,
   spellDraftFromRecord
 } from "../domain/customContentAuthoring.js";
 import { findCharactersReferencingContent } from "../domain/characterPortability.js";
@@ -48,10 +53,10 @@ import { safeAsync } from "./safeAsync.js";
  */
 
 /** Record kinds with an in-app authoring form. Later batches extend this. */
-const AUTHORABLE_KINDS = Object.freeze(["spell", "feat"]);
+const AUTHORABLE_KINDS = Object.freeze(["spell", "feat", "race"]);
 
 /** @type {Record<string, string>} */
-const KIND_LABELS = { spell: "Spell", feat: "Feat" };
+const KIND_LABELS = { spell: "Spell", feat: "Feat", race: "Race" };
 
 const KIND_ORDER = Object.freeze([
   "race", "subrace", "class", "subclass", "background", "feat", "trait",
@@ -386,7 +391,11 @@ export function createCustomContentManager(deps) {
         `Saved as ${kind}:${editing.id} — the id never changes, so characters keep their references.`));
     }
 
-    const built = kind === "feat" ? buildFeatFields(form, record) : buildSpellFields(form, record);
+    const built = kind === "feat"
+      ? buildFeatFields(form, record)
+      : kind === "race"
+        ? buildRaceFields(form, record)
+        : buildSpellFields(form, record);
     submitForm = built.submit;
 
     form.addEventListener("input", () => { formDirty = true; }, { signal: abort.signal });
@@ -749,6 +758,163 @@ export function createCustomContentManager(deps) {
     };
   }
 
+  // --- Form view (race, with inline trait sub-records) ----------------------
+
+  /**
+   * @param {string} value
+   * @param {string} ariaLabel
+   * @param {string} marker
+   * @param {string} [placeholder]
+   * @returns {HTMLInputElement}
+   */
+  function rowTextInput(value, ariaLabel, marker, placeholder = "") {
+    const input = el("input", `settingsInput customContentInput ${marker}`);
+    input.type = "text";
+    input.setAttribute("aria-label", ariaLabel);
+    input.value = value;
+    if (placeholder) input.placeholder = placeholder;
+    return input;
+  }
+
+  /**
+   * @param {HTMLElement} form
+   * @param {Record<string, unknown> | null} record
+   * @returns {{ submit: () => void, focus: () => void }}
+   */
+  function buildRaceFields(form, record) {
+    const registry = getActiveContentRegistry();
+    const existing = listCustomContent(state);
+    const draft = record ? raceDraftFromRecord(record, { existing }) : createRaceDraft();
+
+    const nameInput = textInput("name", draft.name);
+    form.appendChild(fieldRow("Name", nameInput, { fieldKey: "name", required: true }));
+
+    const sizeSelect = selectInput("size",
+      RACE_SIZES.map((size) => ({ value: size, label: size })),
+      draft.size);
+    form.appendChild(fieldRow("Size", sizeSelect, { fieldKey: "size", required: true }));
+
+    const speedInput = textInput("speed", draft.speed);
+    speedInput.type = "number";
+    speedInput.min = "5";
+    speedInput.max = "120";
+    form.appendChild(fieldRow("Walking speed (feet)", speedInput, { fieldKey: "speed", required: true }));
+
+    const abilityOptions = [
+      { value: "", label: "Choose an ability" },
+      ...SAVE_ABILITIES.map((ability) => ({ value: ability, label: ability.toUpperCase() }))
+    ];
+    const asiList = el("div", "customContentRepeat");
+    asiList.dataset.repeat = "abilityScoreIncreases";
+    const addAsiRow = (row = { ability: "", bonus: "" }) => {
+      const rowEl = el("div", "customContentRepeatRow");
+      rowEl.appendChild(rowSelect(abilityOptions, row.ability, "Ability increase ability", "asiAbility"));
+      const bonusInput = rowNumberInput(row.bonus, "Ability increase amount", "asiBonus");
+      bonusInput.placeholder = "Bonus";
+      rowEl.appendChild(bonusInput);
+      rowEl.appendChild(rowRemoveButton(rowEl, "Remove ability increase"));
+      asiList.appendChild(rowEl);
+    };
+    draft.abilityScoreIncreases.forEach(addAsiRow);
+    const asiWrap = el("div", "customContentRepeatWrap");
+    asiWrap.appendChild(asiList);
+    const addAsiBtn = el("button", "npcSmallBtn", "+ Add ability increase");
+    addAsiBtn.type = "button";
+    addAsiBtn.addEventListener("click", () => {
+      addAsiRow();
+      formDirty = true;
+    }, { signal: abort.signal });
+    asiWrap.appendChild(addAsiBtn);
+    form.appendChild(fieldRow("Ability score increases", asiWrap, {
+      fieldKey: "abilityScoreIncreases",
+      help: "Bonuses the race adds to ability scores (for example +2 CON)."
+    }));
+
+    const languageOptions = listContentByKind(registry, "language")
+      .map((entry) => ({
+        value: entry.id,
+        label: entry.source === "custom" ? `${entry.name} (custom)` : entry.name
+      }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+    const languageChecklist = checklist("languages", languageOptions, draft.languages);
+    form.appendChild(fieldRow("Languages", languageChecklist, {
+      fieldKey: "languages",
+      help: "Languages every member of this race knows."
+    }));
+
+    // Traits — inline sub-records saved as custom trait records.
+    const traitList = el("div", "customContentRepeat");
+    traitList.dataset.repeat = "traits";
+    const addTraitRow = (row = { id: "", name: "", description: "" }) => {
+      const rowEl = el("div", "customContentRepeatRow customContentTraitRow");
+      rowEl.dataset.traitId = row.id;
+      const traitNameInput = rowTextInput(row.name, "Trait name", "traitName", "Trait name");
+      rowEl.appendChild(traitNameInput);
+      const traitDescInput = el("textarea", "settingsInput customContentTextarea traitDesc");
+      traitDescInput.rows = 3;
+      traitDescInput.value = row.description;
+      traitDescInput.setAttribute("aria-label", "Trait description");
+      traitDescInput.placeholder = "What the trait does";
+      rowEl.appendChild(traitDescInput);
+      rowEl.appendChild(rowRemoveButton(rowEl, "Remove trait"));
+      traitList.appendChild(rowEl);
+    };
+    draft.traits.forEach(addTraitRow);
+    const traitWrap = el("div", "customContentRepeatWrap");
+    traitWrap.appendChild(traitList);
+    const addTraitBtn = el("button", "npcSmallBtn", "+ Add trait");
+    addTraitBtn.type = "button";
+    addTraitBtn.addEventListener("click", () => {
+      addTraitRow();
+      formDirty = true;
+    }, { signal: abort.signal });
+    traitWrap.appendChild(addTraitBtn);
+    form.appendChild(fieldRow("Racial traits", traitWrap, {
+      fieldKey: "traits",
+      help: "Each trait is saved as its own record and shows up on the character's rules-reference cards."
+    }));
+
+    if (draft.preservedTraitIds.length) {
+      form.appendChild(el("div", "mutedSmall customContentIdNote",
+        `Also grants (kept as-is, edit via JSON import): ${draft.preservedTraitIds.join(", ")}`));
+    }
+
+    const loreInput = el("textarea", "settingsInput customContentTextarea");
+    loreInput.id = "customContentInput-lore";
+    loreInput.rows = 3;
+    loreInput.value = draft.lore;
+    form.appendChild(fieldRow("Lore", loreInput, {
+      fieldKey: "lore", help: "Optional flavor text shown in the builder."
+    }));
+
+    const readDraft = () => ({
+      name: nameInput.value,
+      size: sizeSelect.value,
+      speed: speedInput.value,
+      lore: loreInput.value,
+      abilityScoreIncreases: Array.from(asiList.querySelectorAll(".customContentRepeatRow")).map((rowEl) => ({
+        ability: /** @type {HTMLSelectElement} */ (rowEl.querySelector(".asiAbility"))?.value ?? "",
+        bonus: /** @type {HTMLInputElement} */ (rowEl.querySelector(".asiBonus"))?.value ?? ""
+      })),
+      languages: readChecklist(languageChecklist),
+      traits: Array.from(traitList.querySelectorAll(".customContentRepeatRow")).map((rowEl) => ({
+        id: rowEl instanceof HTMLElement ? (rowEl.dataset.traitId || "") : "",
+        name: /** @type {HTMLInputElement} */ (rowEl.querySelector(".traitName"))?.value ?? "",
+        description: /** @type {HTMLTextAreaElement} */ (rowEl.querySelector(".traitDesc"))?.value ?? ""
+      })),
+      preservedTraitIds: draft.preservedTraitIds
+    });
+
+    return {
+      submit: () => persistRecord("race", normalizeRaceDraft(readDraft(), {
+        registry: getActiveContentRegistry(),
+        existing: listCustomContent(state),
+        editingId: editing ? editing.id : null
+      }), editing ? record : null),
+      focus: () => nameInput.focus()
+    };
+  }
+
   /**
    * Shows validation errors inline without rebuilding the form, so the
    * user's entries are preserved exactly.
@@ -784,32 +950,64 @@ export function createCustomContentManager(deps) {
   }
 
   /**
+   * @param {Record<string, unknown>} record
+   * @returns {{ ok: boolean, errors: string[] }}
+   */
+  function upsertCustomRecord(record) {
+    const kind = String(record.kind);
+    const id = String(record.id);
+    const exists = listCustomContent(state).some((entry) => entry.kind === kind && entry.id === id);
+    if (exists) return updateCustomContentRecord(state, kind, id, record);
+    const added = addCustomContentRecords(state, [record]);
+    return added.added === 1
+      ? { ok: true, errors: [] }
+      : { ok: false, errors: added.errors.flatMap((failure) => failure.errors) };
+  }
+
+  /**
    * Persists a normalized authoring result (create or edit), or renders its
-   * errors inline. Shared by every content-type form.
+   * errors inline. Shared by every content-type form. Companion records
+   * (e.g. a race's trait records) are upserted in the same save; on any
+   * failure the whole content bucket is restored so a save is all-or-nothing.
+   *
    * @param {string} kind
    * @param {import("../domain/customContentAuthoring.js").AuthoringResult} result
+   * @param {Record<string, unknown> | null} [beforeRecord] the pre-edit
+   *   record, used to clean up companion records the edit no longer references
    */
-  function persistRecord(kind, result) {
+  function persistRecord(kind, result, beforeRecord = null) {
     if (!result.ok || !result.record) {
       showFormErrors(result.errors);
       return;
     }
-    if (editing) {
-      const updated = updateCustomContentRecord(state, editing.kind, editing.id, result.record);
-      if (!updated.ok) {
-        showFormErrors(updated.errors.map((message) => ({ field: "", message })));
-        return;
-      }
-      notify(`Updated custom ${kind} "${result.record.name}".`);
-    } else {
-      const added = addCustomContentRecords(state, [result.record]);
-      if (added.added !== 1) {
-        const messages = added.errors.flatMap((failure) => failure.errors);
-        showFormErrors((messages.length ? messages : [`Could not save the ${kind}.`]).map((message) => ({ field: "", message })));
-        return;
-      }
-      notify(`Created custom ${kind} "${result.record.name}".`);
+    const contentBucket = /** @type {{ custom?: Array<Record<string, unknown>> } | undefined} */ (state.content);
+    const snapshot = Array.isArray(contentBucket?.custom) ? contentBucket.custom : null;
+
+    /** @type {string[]} */
+    const failures = [];
+    for (const companion of result.companionRecords || []) {
+      const outcome = upsertCustomRecord(companion);
+      if (!outcome.ok) failures.push(...outcome.errors);
     }
+    if (!failures.length) {
+      const outcome = editing
+        ? updateCustomContentRecord(state, editing.kind, editing.id, result.record)
+        : upsertCustomRecord(result.record);
+      if (!outcome.ok) failures.push(...outcome.errors);
+    }
+    if (failures.length) {
+      if (snapshot && contentBucket) contentBucket.custom = snapshot;
+      showFormErrors(failures.map((message) => ({ field: "", message })));
+      return;
+    }
+    if (beforeRecord) {
+      for (const traitId of collectOrphanedTraitIds(beforeRecord, result.record, listCustomContent(state))) {
+        removeCustomContentRecord(state, "trait", traitId);
+      }
+    }
+    notify(editing
+      ? `Updated custom ${kind} "${result.record.name}".`
+      : `Created custom ${kind} "${result.record.name}".`);
     contentChanged();
     renderList();
     panel.focus();

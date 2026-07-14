@@ -28,8 +28,11 @@ import { BUILTIN_CONTENT_REGISTRY, getContentByKind } from "./rules/registry.js"
  * @typedef {{
  *   ok: boolean,
  *   record: Record<string, unknown> | null,
- *   errors: AuthoringFieldError[]
+ *   errors: AuthoringFieldError[],
+ *   companionRecords?: Array<Record<string, unknown>>
  * }} AuthoringResult
+ *   `companionRecords` are sub-records (e.g. a race's trait records) that
+ *   must be upserted alongside the main record in the same save.
  */
 
 export const SPELL_SCHOOLS = Object.freeze([
@@ -490,4 +493,243 @@ export function normalizeFeatDraft(draft, context) {
     effects
   };
   return finishRecordValidation("feat", record, existing, editingId);
+}
+
+// --- Races (with inline trait sub-records) ---------------------------------
+
+export const RACE_SIZES = Object.freeze(["Tiny", "Small", "Medium", "Large", "Huge"]);
+
+/**
+ * @typedef {{ ability: string, bonus: string }} RaceAsiDraftRow
+ * @typedef {{ id: string, name: string, description: string }} RaceTraitDraftRow
+ *   `id` is "" for a not-yet-saved trait row; existing rows keep their id so
+ *   editing updates the same trait record.
+ * @typedef {{
+ *   name: string,
+ *   size: string,
+ *   speed: string,
+ *   lore: string,
+ *   abilityScoreIncreases: RaceAsiDraftRow[],
+ *   languages: string[],
+ *   traits: RaceTraitDraftRow[],
+ *   preservedTraitIds: string[]
+ * }} RaceDraft
+ *   `preservedTraitIds` carries trait references the form does not edit
+ *   (builtin trait ids or unresolved references on imported races); they are
+ *   kept verbatim on save so no data is silently dropped.
+ */
+
+/**
+ * @returns {RaceDraft}
+ */
+export function createRaceDraft() {
+  return {
+    name: "",
+    size: "Medium",
+    speed: "30",
+    lore: "",
+    abilityScoreIncreases: [],
+    languages: ["common"],
+    traits: [],
+    preservedTraitIds: []
+  };
+}
+
+/**
+ * Builds an editable draft from a persisted custom race record. Trait ids
+ * that resolve to custom trait records become editable rows; everything else
+ * (builtin ids, unresolved references) is preserved untouched.
+ *
+ * @param {Record<string, unknown>} record
+ * @param {{ existing?: Array<Record<string, unknown>> }} [options]
+ * @returns {RaceDraft}
+ */
+export function raceDraftFromRecord(record, options = {}) {
+  const source = isPlainObject(record) ? record : {};
+  const existing = Array.isArray(options.existing) ? options.existing : [];
+  /** @type {RaceAsiDraftRow[]} */
+  const abilityScoreIncreases = [];
+  for (const entry of Array.isArray(source.abilityScoreIncreases) ? source.abilityScoreIncreases : []) {
+    if (!isPlainObject(entry)) continue;
+    abilityScoreIncreases.push({
+      ability: cleanString(entry.ability),
+      bonus: Number.isFinite(entry.bonus) ? String(entry.bonus) : ""
+    });
+  }
+  /** @type {RaceTraitDraftRow[]} */
+  const traits = [];
+  /** @type {string[]} */
+  const preservedTraitIds = [];
+  for (const traitId of cleanStringArray(source.traits)) {
+    const traitRecord = existing.find((entry) =>
+      isPlainObject(entry) && entry.kind === "trait" && entry.id === traitId);
+    if (traitRecord) {
+      traits.push({
+        id: traitId,
+        name: cleanString(traitRecord.name),
+        description: cleanString(traitRecord.description)
+      });
+    } else {
+      preservedTraitIds.push(traitId);
+    }
+  }
+  return {
+    name: cleanString(source.name),
+    size: cleanString(source.size) || "Medium",
+    speed: Number.isFinite(source.speed) ? String(source.speed) : "",
+    lore: cleanString(source.lore),
+    abilityScoreIncreases,
+    languages: cleanStringArray(source.languages),
+    traits,
+    preservedTraitIds
+  };
+}
+
+/**
+ * Normalizes a race draft into a canonical custom race record plus the
+ * custom trait records its rows describe (`companionRecords`). Trait rows
+ * without an id get one generated from their name, unique against builtin
+ * content, existing custom content, and the other rows in this save.
+ *
+ * @param {RaceDraft} draft
+ * @param {AuthoringContext} context
+ * @returns {AuthoringResult}
+ */
+export function normalizeRaceDraft(draft, context) {
+  /** @type {AuthoringFieldError[]} */
+  const errors = [];
+  const existing = Array.isArray(context?.existing) ? context.existing : [];
+  const editingId = cleanString(context?.editingId);
+
+  const name = cleanString(draft?.name);
+  if (!name) errors.push({ field: "name", message: "Give the race a name." });
+
+  const size = cleanString(draft?.size);
+  if (!RACE_SIZES.includes(size)) {
+    errors.push({ field: "size", message: "Pick a size category." });
+  }
+
+  const speedText = cleanString(draft?.speed);
+  const speed = /^\d{1,3}$/.test(speedText) ? Number(speedText) : NaN;
+  if (!Number.isInteger(speed) || speed < 5 || speed > 120) {
+    errors.push({ field: "speed", message: "Enter a walking speed in feet (5 to 120)." });
+  }
+
+  /** @type {Array<{ ability: string, bonus: number }>} */
+  const abilityScoreIncreases = [];
+  const asiRows = Array.isArray(draft?.abilityScoreIncreases) ? draft.abilityScoreIncreases : [];
+  asiRows.forEach((row, index) => {
+    const label = `Ability increase ${index + 1}`;
+    const ability = cleanString(row?.ability);
+    const bonusText = cleanString(row?.bonus);
+    const bonus = /^-?\d{1,2}$/.test(bonusText) ? Number(bonusText) : NaN;
+    if (!CHARACTER_ABILITY_KEYS.includes(ability)) {
+      errors.push({ field: "abilityScoreIncreases", message: `${label}: pick an ability.` });
+      return;
+    }
+    if (!Number.isInteger(bonus) || bonus === 0 || bonus < -10 || bonus > 10) {
+      errors.push({ field: "abilityScoreIncreases", message: `${label}: enter a non-zero whole number from -10 to 10.` });
+      return;
+    }
+    abilityScoreIncreases.push({ ability, bonus });
+  });
+
+  const languages = cleanStringArray(draft?.languages);
+  for (const languageId of languages) {
+    if (!getContentByKind(context?.registry, "language", languageId)) {
+      errors.push({ field: "languages", message: `Unknown language "${languageId}" in the language list.` });
+    }
+  }
+
+  // Trait rows become companion custom trait records.
+  /** @type {Array<Record<string, unknown>>} */
+  const companionRecords = [];
+  /** @type {string[]} */
+  const traitIds = [];
+  const pendingForIdGeneration = existing.slice();
+  const traitRows = Array.isArray(draft?.traits) ? draft.traits : [];
+  traitRows.forEach((row, index) => {
+    const label = `Trait ${index + 1}`;
+    const traitName = cleanString(row?.name);
+    const traitDescription = cleanString(row?.description);
+    if (!traitName) {
+      errors.push({ field: "traits", message: `${label}: give the trait a name.` });
+      return;
+    }
+    if (!traitDescription) {
+      errors.push({ field: "traits", message: `${label}: describe what the trait does.` });
+      return;
+    }
+    const traitId = cleanString(row?.id) || generateContentId("trait", traitName, pendingForIdGeneration);
+    const traitRecord = {
+      id: traitId,
+      kind: "trait",
+      name: traitName,
+      source: "custom",
+      description: traitDescription
+    };
+    const traitValidation = validateCustomContentRecord(traitRecord, {
+      existing: pendingForIdGeneration.filter((entry) =>
+        !(isPlainObject(entry) && entry.kind === "trait" && entry.id === traitId))
+    });
+    if (!traitValidation.ok) {
+      for (const message of traitValidation.errors) {
+        errors.push({ field: "traits", message: `${label}: ${message}` });
+      }
+      return;
+    }
+    companionRecords.push(traitRecord);
+    traitIds.push(traitId);
+    pendingForIdGeneration.push(traitRecord);
+  });
+
+  if (errors.length) return { ok: false, record: null, errors };
+
+  const id = editingId || generateContentId("race", name, existing);
+  const lore = cleanString(draft?.lore);
+  const record = {
+    id,
+    kind: "race",
+    name,
+    source: "custom",
+    size,
+    speed,
+    abilityScoreIncreases,
+    traits: [...traitIds, ...cleanStringArray(draft?.preservedTraitIds)],
+    subraceIds: [],
+    languages,
+    lore
+  };
+  const finished = finishRecordValidation("race", record, existing, editingId);
+  if (!finished.ok) return finished;
+  return { ...finished, companionRecords };
+}
+
+/**
+ * Trait records that were referenced by the race before an edit but no
+ * longer are — removable only when they are custom trait records that no
+ * other custom race/subrace still references.
+ *
+ * @param {Record<string, unknown> | null} previousRecord
+ * @param {Record<string, unknown>} nextRecord
+ * @param {Array<Record<string, unknown>>} existing
+ * @returns {string[]}
+ */
+export function collectOrphanedTraitIds(previousRecord, nextRecord, existing) {
+  if (!isPlainObject(previousRecord)) return [];
+  const before = cleanStringArray(previousRecord.traits);
+  const after = new Set(cleanStringArray(nextRecord?.traits));
+  return before.filter((traitId) => {
+    if (after.has(traitId)) return false;
+    const isCustomTrait = existing.some((entry) =>
+      isPlainObject(entry) && entry.kind === "trait" && entry.id === traitId);
+    if (!isCustomTrait) return false;
+    const stillReferenced = existing.some((entry) => {
+      if (!isPlainObject(entry)) return false;
+      if (entry.kind !== "race" && entry.kind !== "subrace") return false;
+      if (entry.kind === previousRecord.kind && entry.id === previousRecord.id) return false;
+      return cleanStringArray(entry.traits).includes(traitId);
+    });
+    return !stillReferenced;
+  });
 }

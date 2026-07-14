@@ -1195,9 +1195,17 @@ editor and the JSON import path share one rule system. Contract:
 - authored records are byte-identical in shape to imported ones (no
   parallel authoring format);
 - currently authorable kinds: **spell** (all fields of the SRD spell shape,
-  including `classIds`/`subclassIds` list membership) and **feat**
-  (prerequisites and the closed `effects` vocabulary as repeatable rows).
-  Races and classes are the planned remaining batches.
+  including `classIds`/`subclassIds` list membership), **feat**
+  (prerequisites and the closed `effects` vocabulary as repeatable rows), and
+  **race** (size, speed, ability score increases, languages, lore, and
+  inline **trait sub-records** — each trait row is saved as its own
+  `kind: "trait"` custom record referenced from the race's `traits` array;
+  saves are all-or-nothing across the record group, and traits orphaned by an
+  edit are removed only when no other custom race/subrace references them.
+  Trait ids the form cannot edit — builtin references or unresolved ids on
+  imported races — are preserved verbatim). Race build-time `choices[]` and
+  subrace authoring are not supported in the form; import them as JSON.
+  Classes are the planned remaining batch.
 
 ## Class Resources (2026-07-12, Level Up Phase 2)
 

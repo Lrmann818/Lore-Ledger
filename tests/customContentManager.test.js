@@ -126,16 +126,16 @@ describe("custom content manager list view", () => {
   it("lists existing records with kind:id and offers Edit only for authorable kinds", () => {
     setup([
       CUSTOM_SPELL,
-      { id: "starfolk", kind: "race", name: "Starfolk" }
+      { id: "star-plate", kind: "armor", name: "Star Plate" }
     ]).open();
     const rows = body().querySelectorAll(".customContentRow");
     expect(rows).toHaveLength(2);
     expect(body().textContent).toContain("spell:stellar-flare");
-    expect(body().textContent).toContain("race:starfolk");
+    expect(body().textContent).toContain("armor:star-plate");
     const spellRow = Array.from(rows).find((row) => row.textContent.includes("spell:stellar-flare"));
-    const raceRow = Array.from(rows).find((row) => row.textContent.includes("race:starfolk"));
+    const armorRow = Array.from(rows).find((row) => row.textContent.includes("armor:star-plate"));
     expect(Array.from(spellRow.querySelectorAll("button")).map((btn) => btn.textContent)).toEqual(["Edit", "Remove"]);
-    expect(Array.from(raceRow.querySelectorAll("button")).map((btn) => btn.textContent)).toEqual(["Remove"]);
+    expect(Array.from(armorRow.querySelectorAll("button")).map((btn) => btn.textContent)).toEqual(["Remove"]);
   });
 
   it("closes from Escape in list view and restores nothing destructive", () => {
@@ -351,6 +351,110 @@ describe("creating a feat through the form", () => {
     footerButton("Save Changes").click();
     const records = listCustomContent(state);
     expect(records[0]).toMatchObject({ id: "iron-will", name: "Iron Will, Greater" });
+  });
+});
+
+describe("creating and editing a race through the form", () => {
+  function fillRaceBasics() {
+    setInput("name", "Starfolk");
+    setInput("speed", "35");
+  }
+
+  function addTraitRow(name, description) {
+    Array.from(body().querySelectorAll("button")).find((btn) => btn.textContent === "+ Add trait").click();
+    const rows = body().querySelectorAll('[data-repeat="traits"] .customContentRepeatRow');
+    const rowEl = rows[rows.length - 1];
+    rowEl.querySelector(".traitName").value = name;
+    rowEl.querySelector(".traitDesc").value = description;
+  }
+
+  it("saves the race and its trait rows as separate records in one save", () => {
+    setup().open();
+    footerButton("New Race").click();
+    expect(document.getElementById("customContentTitle").textContent).toBe("New Custom Race");
+
+    fillRaceBasics();
+    Array.from(body().querySelectorAll("button")).find((btn) => btn.textContent === "+ Add ability increase").click();
+    const asiRow = body().querySelector('[data-repeat="abilityScoreIncreases"] .customContentRepeatRow');
+    asiRow.querySelector(".asiAbility").value = "wis";
+    asiRow.querySelector(".asiBonus").value = "2";
+    addTraitRow("Starlight Vision", "You can see in dim light as if it were bright light.");
+
+    footerButton("Save Race").click();
+    const records = listCustomContent(state);
+    expect(records).toHaveLength(2);
+    expect(records.find((record) => record.kind === "trait")).toMatchObject({
+      id: "starlight-vision",
+      name: "Starlight Vision",
+      source: "custom"
+    });
+    expect(records.find((record) => record.kind === "race")).toMatchObject({
+      id: "starfolk",
+      name: "Starfolk",
+      speed: 35,
+      size: "Medium",
+      abilityScoreIncreases: [{ ability: "wis", bonus: 2 }],
+      traits: ["starlight-vision"],
+      languages: ["common"]
+    });
+    expect(deps.markDirty).toHaveBeenCalledTimes(1);
+    expect(body().textContent).toContain("race:starfolk");
+    expect(body().textContent).toContain("trait:starlight-vision");
+  });
+
+  it("saves nothing at all when a trait row is invalid", () => {
+    setup().open();
+    footerButton("New Race").click();
+    fillRaceBasics();
+    addTraitRow("Nameless Wonder", ""); // missing description
+    footerButton("Save Race").click();
+
+    expect(listCustomContent(state)).toHaveLength(0);
+    expect(deps.markDirty).not.toHaveBeenCalled();
+    const traitError = document.getElementById("customContentError-traits");
+    expect(traitError.hidden).toBe(false);
+    expect(traitError.textContent).toContain("Trait 1");
+    // Rows and typed values survive for correction.
+    expect(body().querySelector(".traitName").value).toBe("Nameless Wonder");
+  });
+
+  it("editing updates the same trait record and cleans up removed ones", () => {
+    setup([
+      {
+        id: "starfolk",
+        kind: "race",
+        name: "Starfolk",
+        source: "custom",
+        size: "Medium",
+        speed: 35,
+        abilityScoreIncreases: [],
+        traits: ["starlight-vision", "stargazer"],
+        subraceIds: [],
+        languages: ["common"],
+        lore: ""
+      },
+      { id: "starlight-vision", kind: "trait", name: "Starlight Vision", source: "custom", description: "Old text." },
+      { id: "stargazer", kind: "trait", name: "Stargazer", source: "custom", description: "You love stars." }
+    ]).open();
+
+    const raceRow = Array.from(body().querySelectorAll(".customContentRow"))
+      .find((row) => row.textContent.includes("race:starfolk"));
+    Array.from(raceRow.querySelectorAll("button")).find((btn) => btn.textContent === "Edit").click();
+
+    const traitRows = body().querySelectorAll('[data-repeat="traits"] .customContentRepeatRow');
+    expect(traitRows).toHaveLength(2);
+    // Update the first trait's text; remove the second entirely.
+    traitRows[0].querySelector(".traitDesc").value = "New text.";
+    traitRows[1].querySelector("button").click();
+
+    footerButton("Save Changes").click();
+    const records = listCustomContent(state);
+    const race = records.find((record) => record.kind === "race");
+    expect(race.traits).toEqual(["starlight-vision"]);
+    const trait = records.find((record) => record.kind === "trait" && record.id === "starlight-vision");
+    expect(trait.description).toBe("New text.");
+    // The removed trait record was orphaned and cleaned up.
+    expect(records.some((record) => record.id === "stargazer")).toBe(false);
   });
 });
 

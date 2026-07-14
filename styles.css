@@ -9351,3 +9351,7 @@ section.combatPanel[data-collapsed="true"]> :not([data-panel-header]) {
 .customContentRepeatRow [hidden] {
   display: none;
 }
+
+.customContentTraitRow .traitDesc {
+  flex: 1 1 100%;
+}
