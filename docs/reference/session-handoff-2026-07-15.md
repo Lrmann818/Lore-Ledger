@@ -48,13 +48,18 @@ spell choice is data-only.
   calculator, +10 attack editor, +12 High-Elf/choice, −20 for the removed
   recalc module/dialog tests, +others)
 - `npm run verify` — green (typecheck + tests + production build)
-- Playwright: `attackEditor.smoke.js` (automatic bonus update after a STR
-  change, custom name preserved, adjustment persists across reload, manual
-  structured attack, fixed mode), `highElfCantrip.smoke.js` (only wizard
-  cantrips shown, Finish blocked until chosen, summary INT provenance, spell DC
-  13, reload), and `builderWizard.smoke.js` (4/4, no regression) all green.
-- 380px production-preview + keyboard checks: see the final report in the
-  session transcript.
+- `npm run test:smoke` — **58/58** (dev-production server): incl.
+  `attackEditor.smoke.js` (automatic bonus update after a STR change, custom
+  name preserved, adjustment persists across reload, manual structured attack,
+  fixed mode), `highElfCantrip.smoke.js` (only wizard cantrips shown, Finish
+  blocked until chosen, summary INT provenance, spell DC 13, reload),
+  `attackKeyboard.smoke.js` (keyboard-only editor + 380px overflow), and
+  `builderWizard.smoke.js` (4/4, no regression).
+- **Production `npm run preview` build** (the exact config matrix #9 failed
+  under): `attackEditor`, `highElfCantrip`, and `attackKeyboard` smokes all
+  green at **desktop and 380px** — the editor Apply works in the real built
+  `dist/`, no horizontal overflow, focus trap + Escape-returns-focus verified
+  with no mutation.
 
 ## Contract summary (see the contract doc)
 
