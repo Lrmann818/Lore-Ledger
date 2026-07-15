@@ -6,8 +6,11 @@ import draconicAncestries from "../../game-data/srd/draconic-ancestries.json";
 import features from "../../game-data/srd/features.json";
 import packs from "../../game-data/srd/equipment.packs.json";
 import races from "../../game-data/srd/races.json";
+import spells from "../../game-data/srd/spells.json";
 import subclasses from "../../game-data/srd/subclasses.json";
 import traits from "../../game-data/srd/traits.json";
+
+const SPELL_CHOICE_KINDS = new Set(["cantrip"]);
 
 const ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const ABILITY_IDS = new Set(["str", "dex", "con", "int", "wis", "cha"]);
@@ -105,6 +108,45 @@ describe("generated SRD registry integrity", () => {
     }
 
     expect(unresolvedSources).toEqual([]);
+  });
+
+  it("resolves every filtered spell-list choice to at least one eligible spell", () => {
+    // Spell-list choices (kind cantrip/…) filter the spell registry by
+    // classId + maxLevel. A filter that matches no spell is a data bug.
+    const matchesFilter = (spell, filter = {}) => {
+      if (filter.classId && !(spell.classIds ?? []).includes(filter.classId)) return false;
+      if (filter.maxLevel != null && !(spell.level <= filter.maxLevel)) return false;
+      if (filter.minLevel != null && !(spell.level >= filter.minLevel)) return false;
+      if (filter.school && spell.school !== filter.school) return false;
+      return true;
+    };
+    const emptyChoices = [];
+    for (const entry of races) {
+      for (const choice of entry.choices ?? []) {
+        if (!SPELL_CHOICE_KINDS.has(choice.kind)) continue;
+        if (choice.from?.source !== "spells") continue;
+        const eligible = spells.filter((spell) => matchesFilter(spell, choice.from.filter));
+        if (!eligible.length) emptyChoices.push(`${entry.id}:${choice.id}`);
+      }
+    }
+    expect(emptyChoices).toEqual([]);
+  });
+
+  it("models the High Elf wizard-cantrip choice with Intelligence provenance", () => {
+    const highElf = byId(races, "high-elf");
+    const choice = highElf?.choices?.find((entry) => entry.id === "high-elf-cantrip");
+    expect(choice).toMatchObject({
+      id: "high-elf-cantrip",
+      kind: "cantrip",
+      count: 1,
+      from: { type: "list", source: "spells", filter: { classId: "wizard", maxLevel: 0 } },
+      source: "subrace:high-elf",
+      spellcastingAbility: "int",
+    });
+    // The filter resolves to real level-0 wizard spells and nothing else.
+    const eligible = spells.filter((spell) => (spell.classIds ?? []).includes("wizard") && spell.level === 0);
+    expect(eligible.length).toBeGreaterThan(0);
+    for (const spell of eligible) expect(spell.level).toBe(0);
   });
 
   it("resolves trait derivedFrom values to race choice ids", () => {

@@ -22,6 +22,7 @@
 
 const BASE_URL = "https://www.dnd5eapi.co/api/2014";
 const DRAGONBORN_RACE_ID = "dragonborn";
+const HIGH_ELF_SUBRACE_ID = "high-elf";
 
 /**
  * Fetch JSON from the API with basic error handling.
@@ -92,7 +93,38 @@ function transformSubrace(raw) {
     }),
   };
 
+  const choices = buildSubraceChoices(raw);
+  if (choices.length > 0) {
+    entry.choices = choices;
+  }
+
   return entry;
+}
+
+/**
+ * Build-time choices a subrace grants. Like Dragonborn's ancestry choice on
+ * the race side, the High Elf wizard-cantrip choice is a fixed SRD 5.1 grant
+ * (the API models it as `trait_specific.spell_options` on the high-elf-cantrip
+ * trait: choose 1 from the wizard cantrip list, Intelligence casts it). It is
+ * emitted here as a filtered spell-list choice rather than a hand-enumerated
+ * options list so the choice stays correct if the wizard cantrip registry
+ * changes.
+ * @param {any} raw
+ * @returns {object[]}
+ */
+function buildSubraceChoices(raw) {
+  const choices = [];
+  if (normalizeRegistryId(raw?.index) === HIGH_ELF_SUBRACE_ID) {
+    choices.push({
+      id: "high-elf-cantrip",
+      kind: "cantrip",
+      count: 1,
+      from: { type: "list", source: "spells", filter: { classId: "wizard", maxLevel: 0 } },
+      source: "subrace:high-elf",
+      spellcastingAbility: "int",
+    });
+  }
+  return choices;
 }
 
 /**

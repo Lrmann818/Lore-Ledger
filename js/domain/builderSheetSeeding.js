@@ -429,7 +429,10 @@ function sortSpellLevelsCanonically(levels) {
  */
 function getSeededSpells(source, derived, registry) {
   const spellcasting = derived.spellcasting;
-  if (!spellcasting) return null;
+  const grantedSpells = Array.isArray(derived.grantedSpells) ? derived.grantedSpells : [];
+  // Non-casters can still receive a granted spell (e.g. a High Elf Fighter's
+  // chosen wizard cantrip). Only bail when there is nothing at all to seed.
+  if (!spellcasting && !grantedSpells.length) return null;
   const build = isPlainObject(source.build) ? source.build : {};
   const selections = isPlainObject(build.spellcasting) ? build.spellcasting : {};
   const rest = isPlainObject(source.rest) ? source.rest : {};
@@ -460,13 +463,18 @@ function getSeededSpells(source, derived, registry) {
       : (Array.isArray(selection.preparedIds) ? selection.preparedIds : []);
     for (const id of preparedIds) addSpell(id, { prepared: true });
   }
-  for (const grant of derived.grantedSpells) addSpell(grant.spellId, { prepared: true, granted: true });
+  // Granted cantrips are always-known (not "prepared"); granted leveled spells
+  // are always-prepared. This keeps a granted cantrip from showing a spurious
+  // prepared checkmark and from implying it consumes a prepared slot.
+  for (const grant of grantedSpells) {
+    addSpell(grant.spellId, { prepared: grant.grantType !== "known_cantrip", granted: true });
+  }
 
-  const slotLevels = spellcasting.slots
+  const slotLevels = (spellcasting ? spellcasting.slots : [])
     .map((count, index) => ({ level: index + 1, count }))
     .filter((slot) => slot.count > 0);
 
-  if (!seedByLevel.size && !slotLevels.length && !spellcasting.pact) return null;
+  if (!seedByLevel.size && !slotLevels.length && !spellcasting?.pact) return null;
 
   const existingSpells = isPlainObject(source.spells) ? source.spells : {};
   const existingLevels = Array.isArray(existingSpells.levels) ? existingSpells.levels : [];
@@ -508,7 +516,7 @@ function getSeededSpells(source, derived, registry) {
       changed = true;
     }
   }
-  if (spellcasting.pact) {
+  if (spellcasting?.pact) {
     const level = ensureLevel(`Pact Magic (${SPELL_LEVEL_LABELS[spellcasting.pact.slotLevel]})`, true);
     if (finiteNumberOrNull(level.total) == null) {
       level.total = spellcasting.pact.slots;
@@ -518,7 +526,7 @@ function getSeededSpells(source, derived, registry) {
   }
 
   for (const [spellLevel, bucket] of [...seedByLevel.entries()].sort((a, b) => a[0] - b[0])) {
-    const isPact = spellcasting.pact && spellcasting.classes.length === 1 &&
+    const isPact = spellcasting?.pact && spellcasting.classes.length === 1 &&
       spellcasting.classes[0].progression === "pact" && spellLevel > 0;
     const label = isPact && spellcasting.pact
       ? `Pact Magic (${SPELL_LEVEL_LABELS[spellcasting.pact.slotLevel]})`

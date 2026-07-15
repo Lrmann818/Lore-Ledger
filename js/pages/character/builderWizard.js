@@ -25,6 +25,7 @@ import {
   collectActiveChoiceIds,
   getIncompleteChoiceSummaries,
   getRequiredAncestryChoice,
+  getRequiredOriginChoices,
   hasClassChoices,
   hasOriginChoices,
   hasSpellcastingClasses,
@@ -749,10 +750,12 @@ export function initBuilderWizard(deps = {}) {
    * @param {{ showIncomplete?: boolean }} [options]
    */
   function getRaceChoicesValidationMessage(options = {}) {
-    const required = getRequiredAncestryChoice(draft.build, getActiveContentRegistry());
-    if (!required) return "";
-    if (!required.value && !options.showIncomplete) return "";
-    return required.value ? "" : "Draconic Ancestry is required before continuing.";
+    const unfilled = getRequiredOriginChoices(draft.build, getActiveContentRegistry())
+      .filter((choice) => !choice.filled);
+    if (!unfilled.length) return "";
+    if (!options.showIncomplete) return "";
+    const labels = unfilled.map((choice) => choice.label);
+    return `${labels.join(" and ")} ${unfilled.length > 1 ? "are" : "is"} required before continuing.`;
   }
 
   /**
@@ -1554,12 +1557,26 @@ export function initBuilderWizard(deps = {}) {
     const featNames = derived.featIds
       .map((id) => getContentByKind(registry, "feat", id)?.name || id)
       .join(", ");
+    // Choice-based granted spells (e.g. the High Elf wizard cantrip) surface
+    // here with their casting-ability provenance so the review shows both the
+    // selection and that Intelligence casts it.
+    const grantedSpellNames = derived.grantedSpells
+      .map((grant) => {
+        const entry = getContentByKind(registry, "spell", grant.spellId);
+        if (!entry) return null;
+        const abilityKey = /** @type {keyof typeof ABILITY_FULL_NAMES} */ (grant.spellcastingAbility || "");
+        const ability = abilityKey ? ` (${ABILITY_FULL_NAMES[abilityKey] || grant.spellcastingAbility})` : "";
+        return `${entry.name}${ability}`;
+      })
+      .filter(Boolean)
+      .join(", ");
     /** @type {Array<[string, string]>} */
     const detailRows = [];
     if (savesLine) detailRows.push(["Saving Throws (* prof)", savesLine]);
     if (proficientSkills) detailRows.push(["Skill Proficiencies", proficientSkills]);
     if (languageNames) detailRows.push(["Languages", languageNames]);
     if (featNames) detailRows.push(["Feats", featNames]);
+    if (grantedSpellNames) detailRows.push(["Granted Spells", grantedSpellNames]);
     if (detailRows.length) {
       const detailWrap = appendDiv(summaryEl, "builderWizardSummaryRows", "");
       appendSummaryRows(detailWrap, detailRows);

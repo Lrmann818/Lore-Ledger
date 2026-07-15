@@ -9,6 +9,7 @@
 import { CHARACTER_ABILITY_KEYS, isBuilderCharacter, normalizeCharacterOverrides } from "../characterHelpers.js";
 import { getActiveContentRegistry, getContentById, getContentByKind, listContentByKind } from "./registry.js";
 import { getDerivedClassResources } from "./classResources.js";
+import { collectChoiceGrantedSpells } from "./spellChoices.js";
 import {
   collectAsiChoices,
   collectFeatEffects,
@@ -365,7 +366,7 @@ function readChoiceValues(flatChoices, choiceId) {
  *   features: Array<{ featureId: string, name: string, desc: string, classId: string, subclassId: string | null, classLevel: number, characterLevel: number, replacedBy: string[] | null }>,
  *   proficiencies: { armor: string[], weapons: string[], tools: string[], languages: string[], savingThrows: string[], skills: string[], expertise: string[] },
  *   featIds: string[],
- *   grantedSpells: Array<{ spellId: string, classId: string, subclassId: string, grantType: string }>,
+ *   grantedSpells: Array<{ spellId: string, classId: string, subclassId: string, grantType: string, source?: string, spellcastingAbility?: string }>,
  *   dragonbornAncestry: DragonbornAncestryDerived | null,
  *   derivedFeatureActions: DerivedFeatureAction[],
  *   derivedResources: import("./classResources.js").DerivedClassResource[],
@@ -833,7 +834,24 @@ export function deriveCharacter(character, registry = getActiveContentRegistry()
     }
   }
 
+  // Class/subclass grants plus choice-based grants from race/subrace spell
+  // choices (e.g. High Elf's chosen wizard cantrip, which Intelligence casts).
+  // Choice grants carry their own `source`/`spellcastingAbility` provenance and
+  // are not tied to a class, so they never count against class spells known.
+  /** @type {ReturnType<typeof deriveCharacter>["grantedSpells"]} */
   const grantedSpells = build ? getGrantedSpells(levels, subclassByClass, registry) : [];
+  if (build) {
+    for (const grant of collectChoiceGrantedSpells([raceEntry, subraceEntry], flatChoices, registry)) {
+      grantedSpells.push({
+        spellId: grant.spellId,
+        classId: "",
+        subclassId: "",
+        grantType: grant.grantType,
+        source: grant.source,
+        spellcastingAbility: grant.spellcastingAbility
+      });
+    }
+  }
 
   // ---- race/subrace traits (descriptive; choice-derived traits stay
   // live-derived through their feature-action cards, not listed here) ----

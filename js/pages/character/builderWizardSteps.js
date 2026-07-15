@@ -11,6 +11,7 @@ import {
   getContentByKind,
   listContentByKind
 } from "../../domain/rules/registry.js";
+import { isSpellListChoice, resolveSpellChoiceOptions } from "../../domain/rules/spellChoices.js";
 import {
   appendLevel,
   asiChoiceId,
@@ -201,8 +202,9 @@ export function collectActiveChoiceIds(build, registry) {
   /** @type {Set<string>} */
   const ids = new Set();
   const raceEntry = getContentByKind(registry, "race", cleanString(build.raceId));
+  const subraceEntry = getContentByKind(registry, "subrace", cleanString(build.subraceId));
   const backgroundEntry = getContentByKind(registry, "background", cleanString(build.backgroundId));
-  for (const parent of [raceEntry, backgroundEntry]) {
+  for (const parent of [raceEntry, subraceEntry, backgroundEntry]) {
     const choices = Array.isArray(parent?.data?.choices) ? parent.data.choices : [];
     for (const choice of choices) {
       if (isPlainObject(choice) && typeof choice.id === "string") ids.add(choice.id);
@@ -235,8 +237,9 @@ export function collectActiveChoiceIds(build, registry) {
  */
 export function hasOriginChoices(build, registry) {
   const raceEntry = getContentByKind(registry, "race", cleanString(build.raceId));
+  const subraceEntry = getContentByKind(registry, "subrace", cleanString(build.subraceId));
   const backgroundEntry = getContentByKind(registry, "background", cleanString(build.backgroundId));
-  for (const parent of [raceEntry, backgroundEntry]) {
+  for (const parent of [raceEntry, subraceEntry, backgroundEntry]) {
     const choices = Array.isArray(parent?.data?.choices) ? parent.data.choices : [];
     if (choices.some((choice) => isPlainObject(choice) && typeof choice.id === "string")) return true;
   }
@@ -312,6 +315,13 @@ function countStoredChoiceValues(build, choiceId) {
 export function getIncompleteChoiceSummaries(build, registry) {
   /** @type {string[]} */
   const out = [];
+
+  // Required origin choices (ancestry, race/subrace spell choices) — reported
+  // regardless of class levels so a subrace cantrip appears in the summary.
+  for (const choice of getRequiredOriginChoices(build, registry)) {
+    if (!choice.filled) out.push(`${choice.label}: not chosen`);
+  }
+
   const levels = normalizeBuildLevels(build);
   if (!levels.length) return out;
   const totals = getClassLevelTotals(levels);
@@ -442,6 +452,37 @@ export function getRequiredAncestryChoice(build, registry) {
 }
 
 /**
+ * Required origin choices that must be filled before Finish: the ancestry
+ * pick (Dragonborn) and any race/subrace spell-list choice (e.g. High Elf's
+ * wizard cantrip). Each entry reports whether it is currently satisfied, so
+ * the wizard can block Finish and name what is missing. Bonus languages stay
+ * guidance-only (they appear in the incomplete-choice summary, not here).
+ * @param {CharacterBuildState} build
+ * @param {ContentRegistry} registry
+ * @returns {Array<{ choiceId: string, label: string, filled: boolean }>}
+ */
+export function getRequiredOriginChoices(build, registry) {
+  /** @type {Array<{ choiceId: string, label: string, filled: boolean }>} */
+  const out = [];
+  const raceEntry = getContentByKind(registry, "race", cleanString(build.raceId));
+  const subraceEntry = getContentByKind(registry, "subrace", cleanString(build.subraceId));
+  for (const parent of [raceEntry, subraceEntry]) {
+    const choices = Array.isArray(parent?.data?.choices) ? parent.data.choices : [];
+    for (const choice of choices) {
+      if (!isPlainObject(choice) || typeof choice.id !== "string") continue;
+      const kind = cleanString(choice.kind);
+      const isSpellChoice = isSpellListChoice(choice);
+      if (kind !== "ancestry" && !isSpellChoice) continue;
+      const label = kind === "ancestry"
+        ? "Draconic Ancestry"
+        : `${parent?.name || "Subrace"} ${kind === "cantrip" ? "cantrip" : "spell"}`;
+      out.push({ choiceId: choice.id, label, filled: countStoredChoiceValues(build, choice.id) >= 1 });
+    }
+  }
+  return out;
+}
+
+/**
  * Renders `count` linked selects that prevent duplicate picks.
  * Stored value is a string (count 1) or string array (count > 1).
  * Shared primitive (also used by the Level Up wizard).
@@ -480,6 +521,10 @@ export function renderMultiPickChoice(ctx, parent, config) {
 
   for (let i = 0; i < count; i += 1) {
     const select = makeSelect(field, options, values[i] || "", config.emptyLabel || "Choose…");
+    // Label each picker for assistive tech (and stable test targeting); when
+    // count > 1 disambiguate the individual selects.
+    select.setAttribute("aria-label", count > 1 ? `${label} (${i + 1})` : label);
+    select.dataset.choiceId = choiceId;
     select.addEventListener("change", () => {
       const value = cleanString(select.value);
       if (value) {
@@ -552,13 +597,30 @@ export function renderOriginChoicesStep(ctx, container, hooks = {}) {
           levelKey: "1",
           emptyLabel: "Choose language"
         });
+        continue;
+      }
+      if (isSpellListChoice(choice)) {
+        rendered = true;
+        const options = resolveSpellChoiceOptions(registry, choice.from)
+          .map((entry) => ({ value: entry.id, label: entry.name }));
+        const noun = kind === "cantrip" ? "cantrip" : "spell";
+        renderMultiPickChoice(ctx, container, {
+          label: `${parentLabel}: choose ${count} ${noun}${count > 1 ? "s" : ""}`,
+          count,
+          options,
+          choiceId: choice.id,
+          levelKey: "1",
+          emptyLabel: `Choose ${noun}`
+        });
       }
     }
   };
 
   const raceEntry = getContentByKind(registry, "race", cleanString(build.raceId));
+  const subraceEntry = getContentByKind(registry, "subrace", cleanString(build.subraceId));
   const backgroundEntry = getContentByKind(registry, "background", cleanString(build.backgroundId));
   renderParentChoices(raceEntry, raceEntry?.name || "Race");
+  renderParentChoices(subraceEntry, subraceEntry?.name || "Subrace");
   renderParentChoices(backgroundEntry, backgroundEntry?.name || "Background");
   return rendered;
 }
