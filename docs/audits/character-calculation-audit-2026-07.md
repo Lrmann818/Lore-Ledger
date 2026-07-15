@@ -1,8 +1,8 @@
 # Character Calculation Architecture Audit — 2026-07-14
 
-_Status: audit complete; the attack correction and High Elf choice are being
-implemented in the same owner-authorized session (this document's per-item statuses
-are updated as each batch lands). The normative contract lives in
+_Status: audit complete; the attack correction and the High Elf choice
+**shipped** in the same owner-authorized session (2026-07-15). The normative
+contract lives in
 [`docs/reference/character-calculation-contract.md`](../reference/character-calculation-contract.md);
 this document records what was found and what was decided._
 
@@ -44,7 +44,7 @@ fixed-override support / action.
 | HP maximum | Seeded snapshot; Level Up **accumulates** the derived delta so manual offsets survive | ✅ | Only at Level Up (a between-level CON change does not flow) | Manual offsets preserved by the delta policy | Implicit (any edit) | Documented deviation (F2) |
 | Armor Class | Seeded snapshot; Level Up **recompute-if-untouched**; a manual edit silently becomes a kept manual value | ✅ | ❌ between level-ups (Dex/armor changes don't flow) | none | Implicit only — violates the explicit-override rule | Documented deviation (F2) |
 | Spell save DC / spell attack | Same snapshot + recompute-if-untouched model as AC | ✅ | ❌ between level-ups | none | Implicit only | Documented deviation (F2) |
-| **Attacks & damage** | **Was:** static snapshot strings; builder seeds once; manual rows were final-value text fields; explicit Recalc dialog whose Apply failed in production preview | ⚠️ manual rows were pure text | ❌ | ❌ | Everything was implicitly fixed | **Being corrected this session (Batches 1–3)** — structured attacks, one calculator, live derivation, explicit adjustments, intentional fixed mode, safe legacy conversion (see contract doc) |
+| **Attacks & damage** | **Was:** static snapshot strings; builder seeds once; manual rows were final-value text fields; explicit Recalc dialog whose Apply failed in production preview | ⚠️ manual rows were pure text | ❌ | ❌ | Everything was implicitly fixed | **Corrected this session** — structured attacks, one calculator, live derivation, explicit adjustments, intentional fixed mode, safe legacy conversion (see contract doc) |
 | Class/feature resource maximums | Derived pools (`classResources.js`), seeded duplicate-aware, Level Up grows by delta, spent uses preserved | ✅ | At Level Up by design | Manual offsets kept | Seeded tiles degrade to inert user tiles | None |
 | Weapon damage (registry) | Weapon records are structured inputs; consumed by the attack calculator | ✅ | ✅ (structured attacks) | `damageAdjustment` | fixed mode | Corrected with attacks |
 
@@ -65,7 +65,7 @@ portability suite). Structured attack `calc` blocks ride the same open
 
 ## Findings and dispositions
 
-**F0 — Attacks (correction in progress this session).** The snapshot attack model violated the
+**F0 — Attacks (fixed this session).** The snapshot attack model violated the
 product contract in every column: no parity for manual rows, no auto-updates, no
 adjustments, only implicit fixing, and a broken Apply control in `npm run preview`.
 Replaced by the structured attack model + canonical calculator; the Recalculate
@@ -123,11 +123,13 @@ the completeness report below.
 
 - Dragonborn Draconic Ancestry (`ancestry`, race)
 - Human / Half-Elf bonus language (`language`, race), Acolyte languages (`language`, background)
-- **High Elf wizard cantrip (`cantrip`, subrace, filtered wizard/level-0 list, INT provenance)** — new
-- **High Elf extra language (`language`, subrace)** — new
+- **High Elf wizard cantrip (`cantrip`, subrace, filtered wizard/level-0 list, INT provenance)** — shipped 2026-07-15
 - Class skills, multiclass skills, expertise, fighting styles, ASI/feat slots,
   cantrip/known/spellbook/prepared spell counts (class-progression choice ids)
 - Subclass granted spells; class-record `grantedSpells` (custom classes)
+
+Note: High Elf's **Extra Language** trait remains prose-only (not a structured
+`choices[]` entry), so it is not yet a wired pick — see F3 / the deferred list.
 
 **Representable but not wired into the Builder:** none found — every `choices[]`
 entry in shipped data now renders.

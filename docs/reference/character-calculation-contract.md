@@ -93,8 +93,8 @@ future authorized batch:
   sheets (no build data exists to derive speed/hit dice from; initiative could derive
   from DEX and is listed in the audit as a follow-up).
 
-**Attacks are brought into conformance by the 2026-07-14 session** — see
-"Structured Attacks" in [`content-registry-plan.md`](./content-registry-plan.md).
+**Attacks conform as of the 2026-07-15 session** — see "Structured Attacks" in
+[`content-registry-plan.md`](./content-registry-plan.md).
 
 ## Attack calculation ownership (normative)
 

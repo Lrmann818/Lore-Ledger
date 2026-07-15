@@ -903,13 +903,19 @@ editable user-owned note, not the canonical mechanics source.
 
 ### Choice `from` Types
 
-`from` takes one of three shapes:
+`from` takes one of these shapes:
 
 - `{ "type": "any" }` means any record matching the choice's `kind`, such as Human's free language choice.
 - `{ "type": "list", "options": ["red", "blue", "brass"] }` means a literal list of IDs.
 - `{ "type": "list", "source": "draconic-ancestries" }` means every record in a referenced content file.
-
-A future variant may add `filter`, such as `{ "type": "list", "source": "spells", "filter": { ... } }`, but that is not currently in scope.
+- `{ "type": "list", "source": "spells", "filter": { "classId": "wizard", "maxLevel": 0 } }`
+  means every spell in `spells.json` matching the filter. Filter keys
+  (all optional, ANDed): `classId` (spell's `classIds` includes it),
+  `maxLevel` / `minLevel` (inclusive on the spell's `level`), and `school`.
+  Resolution lives in `js/domain/rules/spellChoices.js`
+  (`resolveSpellChoiceOptions`), shared by the wizard picker and derivation.
+  The referential-integrity test asserts every filtered spell choice resolves
+  to at least one spell.
 
 ### `kind` Vocabulary
 
@@ -920,9 +926,19 @@ Current vocabulary:
 - `language` means the chosen value must be an ID in `languages.json`
 - `ancestry` means the chosen value must be an ID in `draconic-ancestries.json`
 - `skill` means the chosen value must be an ID in `skills.json`
-- `cantrip` means the chosen value must be an ID in `spells.json`
+- `cantrip` means the chosen value must be an ID in `spells.json`, restricted to
+  the choice's `from` filter (**wired 2026-07-15** — High Elf's wizard cantrip
+  is the first consumer; the wizard renders the filtered picker, Finish gates on
+  it, and `deriveCharacter` feeds the selection into `grantedSpells` with the
+  choice's `spellcastingAbility` provenance). A `cantrip`/spell choice may carry
+  a top-level `spellcastingAbility` (e.g. `"int"`) recording which ability casts
+  the granted spell; it is provenance only and does not change class spell math.
 
-This vocabulary is a closed set. Adding a new `kind` requires updating this document and updating the referential integrity test.
+This vocabulary is a closed set. Adding a new `kind` requires updating this
+document and updating the referential integrity test. Choice-based granted
+spells are resolved generically (`collectChoiceGrantedSpells` in
+`spellChoices.js`) from race/subrace `choices[]`, so the mechanism is reusable
+for any future filtered spell choice without new code.
 
 ### Choice Placement
 
@@ -1294,32 +1310,59 @@ precedent — no schema change). Ownership:
 - If the granting class/content is later edited or removed, seeded entries
   degrade to inert user-owned tiles — they are never deleted automatically.
 
-## Attack Provenance & Recalculation (2026-07-14, matrix #9)
+## Structured Attacks (2026-07-15 — supersedes matrix #9 Recalculate)
 
-Wizard Finish seeds one attack row per chosen weapon (proficiency assumed;
-ranged uses DEX, finesse the better of STR/DEX, otherwise STR). Seeded rows
-carry `builderSeed: "weapon:<weaponId>"` — the same optional-extra-key
-precedent as `inventoryItems[].builderSeed` and class-resource markers, so no
-schema change. The marker survives renames; display names are **never** used
-to infer a source.
+Attacks follow the [character calculation contract](./character-calculation-contract.md):
+they **derive live** rather than being recalculated on demand. The one canonical
+calculator lives in `js/domain/attackCalculation.js` and is called by wizard
+Finish seeding, the attack editor, the character-page Attacks panel, and the
+combat embedded Weapons panel — there is no second attack formula.
 
-Attacks stay user-owned sheet content: nothing rewrites them on level up,
-equipment changes, derivation, or load. The explicit **Recalculate from
-Build** action on an attack row (builder characters only) previews a
-field-by-field proposal from `js/domain/attackRecalculation.js` — the same
-`deriveWeaponAttack()` calculator Finish seeding uses, so the two can never
-drift. Ownership contract:
+A structured attack row carries a `calc` block (an optional extra key on the
+open `AttackEntry` shape — no schema change):
 
-- **Recalculable (build-derived):** `bonus`, `damage`, `range`, `type` —
-  each changed field is individually acceptable in the preview (default on).
-- **Always user-owned:** `name`, `notes`, row order, `id` — never proposed.
-- Cancel/Escape/backdrop never mutate; the accepted subset applies in one
-  atomic patch; a no-change run reports "already matches" with no write.
-- **Unlinked or broken-link attacks** (manual rows, rows seeded before the
-  marker existed, removed custom weapons): the dialog explains why and
-  offers an explicit weapon picker; applying stamps the marker so the link
-  is stable from then on. Custom weapon records resolve through the same
-  kind-aware registry path as builtins.
+```js
+calc: {
+  mode: "weapon" | "ability" | "spell" | "fixed",
+  weaponId,            // weapon mode: builtin or custom weapon record
+  ability,             // "" = auto (weapon rule / primary spellcasting)
+  proficient,          // stored input — never assumed from being weapon-backed
+  baseDamage,          // "" = from the weapon record (weapon mode)
+  damageAbility,       // "" = same ability as the attack roll
+  addAbilityToDamage,
+  damageType, range,   // "" = from the weapon record (weapon mode)
+  attackAdjustment,    // explicit homebrew adjustments, stored separately so
+  damageAdjustment     // recalculation never erases them
+}
+```
+
+Ownership and behavior:
+
+- **Derived (build/sheet-driven):** `bonus`, `damage`, `range`, `type` are
+  computed from `calc` + `deriveCharacter()` at render time. Changing STR,
+  DEX, proficiency bonus, a linked weapon record, or an ability selection
+  updates the displayed values automatically — **no recalculate action, for
+  both builder and freeform characters**.
+- **Always user-owned:** `name`, `notes`, row order, `id`.
+- **`calc.mode: "fixed"`** is the intentional fixed override — the stored
+  strings are the display and nothing recalculates until the user switches
+  modes. **Legacy rows (no `calc`)** are snapshots that keep their stored
+  strings until explicitly converted in the editor.
+- **Proficiency** is `calc.proficient`, defaulted from the character's derived
+  weapon proficiencies (`isWeaponProficient`) when a weapon is chosen; a
+  category token ("martial") or a specific token ("longswords") both match.
+- Seeded weapon rows carry `builderSeed: "weapon:<weaponId>"`. The marker
+  survives renames; **display names are never used to infer a source**, and
+  re-seeding (Edit in Builder / Level Up) dedupes by the marker, so a renamed
+  seeded attack is never duplicated.
+
+**The per-row Edit dialog** replaces the retired "Recalculate from Build"
+dialog (whose Apply failed in production preview and whose on-demand model was
+the wrong shape). It previews the derived result live, applies one atomic
+patch on confirm, never mutates on Cancel/Escape, and is where legacy rows are
+converted (link a weapon explicitly, enter structured inputs, or confirm fixed
+mode). Custom weapon records resolve through the same kind-aware registry path
+as builtins.
 
 ## Feat Effects Vocabulary (2026-07-06)
 
