@@ -174,3 +174,271 @@ Dwarf tools.
   matching; conversion is preview-first and cancel-safe.
 - **No schema migration** was needed anywhere in this session (open shapes +
   pass-through sanitize + defensive reads).
+
+---
+
+# Phase A — F2 field-by-field audit (2026-07-15, owner-authorized)
+
+_Owner authorization: bring the four remaining snapshot fields (spell save DC,
+spell attack bonus, Armor Class, maximum HP) under the calculation contract —
+derived by default, adjusted through explicit modifiers, fixed only through an
+intentional override; one engine for builder and manual characters. This section
+is the pre-implementation audit; the implementation batches follow it. Scope is
+strictly the four F2 fields — no unrelated backlog, no down-leveling, no
+multiclassing, no greenlist or equipment expansion._
+
+## A.0 The single most important finding
+
+**The rules engine already computes all four values for builder characters.**
+The F2 deviation is a **wiring and affordance** gap, not a missing calculator:
+
+| Value | Already derived in `deriveCharacter()` | Evidence |
+| --- | --- | --- |
+| Max HP | `hp.max` via `computeMaxHp(levels, conMod, registry, { perLevelBonus })` | `deriveCharacter.js:764-770`; `progression.js:500-537` |
+| Armor Class | `ac.value` + `ac.formula` via `computeArmorClass({ armor, shield, unarmored formulas, acBonus })` | `deriveCharacter.js:772-791`; `progression.js:754-816` |
+| Spell save DC | `spellcasting.classes[i].saveDc = 8 + prof + abilityMod`, **per source** | `deriveCharacter.js:800-826` |
+| Spell attack | `spellcasting.classes[i].attackBonus = prof + abilityMod`, **per source** | `deriveCharacter.js:805` |
+
+The panels display the flat snapshot fields (`character.hpMax/ac/spellDC/
+spellAttack`) instead of these derived values (`vitalsPanel.js:298-310`,
+`vitalNumberFields` — none of these four are in `BUILDER_OWNED_VITAL_NUMBER_IDS`
+at `vitalsPanel.js:25`, so they behave as free snapshot inputs). Seeding fills
+them once, fill-when-empty (`builderSheetSeeding.js:1217-1232`), and Level Up
+patches them with accumulate (HP) / recompute-if-untouched (AC/DC/attack)
+policies (`builderSheetSeeding.js:1036-1145`). Between level-ups nothing flows,
+and a manual edit becomes a silent implicit fixed override.
+
+**Multiple spellcasting sources are already modeled at the derive layer.**
+`spellcasting.classes[]` is a per-class list, each with its own `ability`,
+`saveDc`, `attackBonus` (`deriveCharacter.js:800-826`); race/subrace choice
+grants carry `grantedSpells[].spellcastingAbility` provenance
+(`deriveCharacter.js:842-854`, e.g. the High Elf INT wizard cantrip). The
+snapshot model collapses all of this into one `spellDC`/`spellAttack` scalar
+seeded from `spellcasting.primary` only (`builderSheetSeeding.js:1224-1232`) —
+that is the "one misleading universal DC" the authorization warns against.
+
+## A.1 Field-by-field table
+
+| Field | Current source | Current persistence | Live-derived? | Adjustment support | Fixed override | Legacy risk | Recommended batch |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| **Spell save DC** | Builder: `spellcasting.primary.saveDc`; Freeform: none | flat `spellDC` scalar (fill-when-empty seed; recompute-if-untouched at Level Up) | Derived exists (per source) but **panel shows snapshot**; freeform not derived | none (implicit edit only) | implicit only | **Low** — DC is a pure function of prof + ability; adoption can preview exactly | **Batch 2** |
+| **Spell attack** | Builder: `spellcasting.primary.attackBonus`; Freeform: none | flat `spellAttack` scalar | same as DC | none | implicit only | **Low** | **Batch 2** |
+| **Armor Class** | Builder: `computeArmorClass(...)`; Freeform: none (manual number) | flat `ac` scalar (fill-when-empty; recompute-if-untouched) | Derived exists (builder); **panel shows snapshot**; freeform manual | feat `acBonus` only (no user adjustment) | implicit only | **Medium** — a bare `16` is ambiguous (armor? shield? magic? temp spell?) | **Batch 3** |
+| **Maximum HP** | Builder: `computeMaxHp(...)`; Freeform: none (manual number) | flat `hpMax` scalar (accumulate at Level Up) | Derived exists (builder); **panel shows snapshot**; freeform manual | manual offset preserved by accumulate delta | implicit only | **Medium/High** — interacts with current HP; freeform has no level history | **Batch 4** |
+
+## A.2 The 17-point audit, per field
+
+Answered for each field: (1) persisted fields, (2) source inputs, (3) display
+path, (4) derived/seeded/copied/manual, (5) builder/manual parity, (6) existing
+adjustment, (7) existing override, (8) dependency-change behavior, (9)
+combat/character shared canonical state, (10) save/reload, (11) export/import,
+(12) Level Up, (13) rest, (14) legacy ambiguity, (15) data sufficiency, (16)
+required adoption, (17) test coverage/gaps.
+
+### Spell save DC & spell attack bonus
+
+1. **Persisted:** `character.spellDC`, `character.spellAttack` (nullable scalars,
+   `state.js:552-553`).
+2. **Inputs:** proficiency bonus + spellcasting ability modifier. Builder derives
+   the ability from each caster class (`getSpellcastingClasses`) and from race
+   choice grants; freeform has ability scores + a manual `proficiency` but **no
+   declared spellcasting ability**.
+3. **Display:** `vitalsPanel.js` tiles `#charSpellDC`/`#charSpellAtk`
+   (`vitalNumberFields`, `vitalsPanel.js:308-309`), and the combat embedded
+   Vitals panel `#combatEmbeddedCharSpellDC`/`Atk` — **the same panel**, because
+   combat reuses `initVitalsPanel` (`combatEmbeddedPanels.js:952`). No spells
+   panel DC display exists.
+4. **Derived/seeded/manual:** derived-then-seeded snapshot; freeform manual.
+5. **Parity:** ❌ freeform gets no derivation.
+6. **Adjustment:** none.
+7. **Override:** implicit (any typed value sticks).
+8. **Dependency change:** an INT/WIS bump or proficiency threshold does **not**
+   update the tile between level-ups.
+9. **Canonical parity:** character & combat already share one panel + one field →
+   ✅ automatic.
+10. **Save/reload:** scalars ride the entry; survive (`sanitizeForSave` leaves
+    entries as-is, `state.js:937`).
+11. **Export/import:** carried whole with the entry.
+12. **Level Up:** recompute-if-untouched (`builderSheetSeeding.js:1095-1098`).
+13. **Rest:** unaffected.
+14. **Legacy ambiguity:** a stored `15` could be WIS+prof, INT+prof, or homebrew.
+15. **Data sufficiency:** ✅ **fully sufficient.** DC/attack are pure functions of
+    (proficiency, ability modifier); both are available in both modes once the
+    freeform caster names an ability.
+16. **Adoption:** offer calculated / calculated+adjustment / fixed with a live
+    preview; never infer the ability from the stored number.
+17. **Tests:** `rulesEngine.test.js` (derive), `builderSheetSeeding.test.js`,
+    `levelUpSheetSeeding.test.js`. **Gaps:** no test that the panel shows a
+    derived DC that follows an ability change; no freeform-caster derivation; no
+    multi-source DC; no adjustment/fixed persistence.
+
+### Armor Class
+
+1. **Persisted:** `character.ac` (`state.js:548`).
+2. **Inputs:** worn armor (`build.equipment.armorId`), shield
+   (`build.equipment.shield`), Dex modifier + armor Dex cap (`data.maxDex`),
+   unarmored formulas keyed by feature id (Barbarian/Monk/Draconic Resilience,
+   `progression.js:42-46`), feat `acBonus`.
+3. **Display:** `#charAC` tile; combat `#combatEmbeddedCharAC`; **tracker party &
+   npc cards** as a linked field (`partyCards.js:201/556`, `npcCards.js:197/556`).
+4. **Derived/manual:** builder derived-then-seeded; freeform manual.
+5. **Parity:** ❌ freeform has no structured armor to derive from.
+6. **Adjustment:** only feat `acBonus`; no user adjustment field.
+7. **Override:** implicit.
+8. **Dependency change:** changing Dex, armor, or shield does not flow between
+   level-ups.
+9. **Canonical parity:** `#charAC` and combat share `initVitalsPanel`; tracker
+   cards read the same flat `character.ac`.
+10. **Save/reload:** survives.
+11. **Export/import:** survives.
+12. **Level Up:** recompute-if-untouched.
+13. **Rest:** unaffected.
+14. **Legacy ambiguity:** a bare `16` is genuinely ambiguous — chain mail vs
+    leather+Dex vs shield vs magic vs a temporary spell vs homebrew.
+15. **Data sufficiency:** ✅ for builder (equipment + features are structured);
+    freeform lacks structured armor inputs.
+16. **Adoption:** builder can derive with a preview; freeform stays a manual
+    number unless the user opts into a structured AC. **`computeArmorClass`
+    already selects the best eligible formula and returns a human-readable
+    `formula` string**, so formula selection is solved for the common cases;
+    explicit _alternate_-formula selection (rare ties) is a documented limitation
+    for this batch.
+17. **Tests:** `progressionRules.test.js`/`rulesEngine.test.js` cover the formula
+    math and unarmored selection. **Gaps:** no panel-level "AC follows Dex/armor
+    change" test; no adjustment/fixed; no legacy-adoption test; tracker-card
+    parity after adoption.
+
+### Maximum HP
+
+1. **Persisted:** `character.hpMax`, plus `hpCur` (current) — distinct fields
+   (`state.js:541-542`). Temp HP lives in combat participant state, not on the
+   character entry.
+2. **Inputs:** per-level hit die (`build.levels[i].classId` → class `hitDie`),
+   per-level HP roll/average (`build.levels[i].hp`, null = SRD average), Con
+   modifier applied **once per level**, feat `hp_per_level_bonus`. First level is
+   max die (`progression.js:515-517`).
+3. **Display:** `#charHpMax`/`#charHpCur`; combat; tracker cards linked `hpMax`.
+4. **Derived/manual:** builder derived-then-seeded; freeform manual.
+5. **Parity:** ❌ freeform has no per-level history.
+6. **Adjustment:** the Level Up _accumulate_ policy preserves a manual offset as
+   a side effect; there is no explicit adjustment field.
+7. **Override:** implicit.
+8. **Dependency change:** a between-level Con change does **not** flow (only Level
+   Up applies the delta).
+9. **Canonical parity:** shared panel + shared flat field.
+10. **Save/reload:** survives.
+11. **Export/import:** survives.
+12. **Level Up:** accumulate by derived delta (`builderSheetSeeding.js:1056-1068`)
+    — this already implements retroactive Con correctly, because `computeMaxHp`
+    applies the Con modifier at every level.
+13. **Rest:** Long Rest restores to `hpMax`; Short Rest spends Hit Dice. HP max is
+    an input to rest, not changed by it.
+14. **Legacy ambiguity:** a bare `31` cannot be decomposed into rolls vs averages.
+15. **Data sufficiency:** ✅ **for builder characters** — `build.levels[i].hp`
+    stores each level's roll (null ⇒ average), first level is max die, and Con is
+    applied per level, so `computeMaxHp` reconstructs max HP exactly, including
+    retroactive Con. ❌ **for freeform** — no level history exists; freeform max
+    HP must stay a manual input. **Criterion 1 of the HP acceptance list is met
+    for builder, not for freeform.**
+16. **Adoption:** builder can adopt derived max HP with a preview; a diverged
+    stored value is treated as an adjustment or a fixed override by explicit user
+    choice, never guessed. **Current-HP rule:** when the max decreases below
+    `hpCur`, clamp `hpCur` to the new max (consistent with the existing combat
+    clamp `Math.min(hpMax, hpCurrent + healing)`, `combat.js:606`); increasing
+    the max never auto-heals except through the Level Up delta already shipped.
+    Temp HP is untouched.
+17. **Tests:** `levelUpSheetSeeding.test.js` (accumulate, retroactive Con,
+    conMod-null), `progressionRules.test.js` (`computeMaxHp`). **Gaps:** no
+    derived-max-HP-in-panel test; no adjustment/fixed persistence; no
+    max-decrease-clamps-current test; no legacy-adoption test.
+
+## A.3 Chosen data model (mirrors the shipped attack `calc` precedent)
+
+Each scalar field keeps its existing flat snapshot (`character.ac/hpMax/spellDC/
+spellAttack`) **and** gains an **optional** structured calc block on the open
+character-entry shape — the exact `AttackEntry.calc` / `builderSeed` precedent,
+so **no schema migration** is required (`sanitizeForSave` passes entries through
+whole, `state.js:937`). Three states per field, identical in spirit to attacks:
+
+- **No calc block → legacy snapshot.** Show the stored flat value verbatim; never
+  auto-update. Every existing sheet keeps its exact bytes and behavior. This is
+  the safety default; adoption is always an explicit user action.
+- **`mode: "derived"` → derived + adjustment.** `displayed = derive(inputs) +
+  adjustment`; updates live on dependency change. The flat field is kept as a
+  cached mirror so tracker/combat surfaces that read `character.ac`/`hpMax`
+  without a registry stay correct.
+- **`mode: "fixed"` → intentional fixed override.** Show the stored flat value;
+  never auto-update; adjustment N/A. This is the _explicit_ replacement for
+  today's _implicit_ "a typed number sticks."
+
+Block shapes (documented normatively in the contract doc):
+
+```js
+character.acCalc     = { mode: "derived" | "fixed", adjustment: number }
+character.hpMaxCalc  = { mode: "derived" | "fixed", adjustment: number }
+```
+
+**Spellcasting is modeled as profiles, not a single scalar**, to avoid the "one
+misleading universal DC." The derive layer already produces one profile per
+spellcasting source (`spellcasting.classes[]` + granted-spell abilities). The
+character page renders a derived DC/attack pair **per distinct source ability**,
+each labeled with its provenance (class name, or "Racial (Intelligence)"), using
+the dynamic derived-tile precedent already shipped for the Dragonborn Breath
+Weapon DC tile (`vitalsPanel.js:354-383 renderBreathWeaponDCTile`). Per-source
+adjustment + fixed override live on:
+
+```js
+character.spellcastingCalc = {
+  mode: "derived" | "fixed",
+  bySource: { [sourceKey]: { dcAdjustment: number, attackAdjustment: number } },
+  // freeform-only: the user-declared caster profile(s)
+  freeform: [{ ability: string, dcAdjustment, attackAdjustment }] | undefined,
+  fixed: { dc: number|null, attack: number|null } | undefined
+}
+```
+
+Freeform casters declare a profile (pick an ability); the DC is
+`8 + proficiency + mod(ability)` and the attack is `proficiency + mod(ability)`,
+so a freeform caster's DC follows ability and proficiency changes through the
+same engine.
+Legacy freeform `spellDC`/`spellAttack` snapshots persist untouched until adopted.
+
+The flat `character.spellDC`/`spellAttack` remain the legacy/back-compat surface
+(single primary value) and the mirror for combat/tracker; the per-source tiles
+are the contract-conformant display.
+
+## A.4 Batch plan and boundaries
+
+- **Batch 1 (docs, this commit):** audit (this section) + calculation-contract
+  update (Structured Vitals model + legacy-adoption rules) + AGENTS.md working
+  order authorization. **No runtime changes.**
+- **Batch 2 — Spell save DC + spell attack:** lowest legacy risk, most explicit
+  inputs. New `js/domain/spellcastingCalculation.js` (the one calculator, mirror
+  of `attackCalculation.js`), per-source derived tiles + field editor in
+  `vitalsPanel.js` (character + combat parity free), freeform caster profiles,
+  seeding back-compat, tests + preview. High Elf INT cantrip is a first-class
+  test case.
+- **Batch 3 — Armor Class:** derived + adjustment + fixed via the shared field
+  editor; `computeArmorClass` formula string surfaced in the preview; builder
+  derives, freeform stays manual with the same adjustment/fixed affordance;
+  tracker-card and combat parity verified; legacy `16` never reinterpreted.
+- **Batch 4 — Maximum HP:** implement for builder (data sufficiency proven);
+  freeform stays manual (documented). Adjustment + fixed; max-decrease clamps
+  current HP; temp HP untouched; Level Up accumulate policy preserved and
+  reconciled with the new calc block.
+- **Batch 5 — Integration:** smokes, 380px + keyboard passes, persistence and
+  export/import checks, matrix/roadmap/handoff updates.
+
+Each batch leaves the branch green. Nothing here authorizes work outside the four
+F2 fields.
+
+## A.5 Blocker check
+
+No stop condition is triggered: AGENTS.md does not contradict the authorization;
+baseline `verify` is green (1135 tests); spell provenance distinguishes source
+abilities (`spellcasting.classes[].ability` + `grantedSpells[].spellcastingAbility`);
+AC formula selection is already deterministic; **builder** HP history is
+sufficient (freeform HP is documented as manual, not guessed); no destructive
+migration is required (open-shape additive blocks); old data is preserved by the
+no-calc-block legacy default. The remaining choices (per-source tiles; freeform
+manual AC/HP) are normal implementation decisions, made and documented above.

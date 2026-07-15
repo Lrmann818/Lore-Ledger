@@ -81,14 +81,21 @@ Conforming today: ability scores/modifiers, saving throws, skills/expertise
 / initiative / hit dice (live-derived, read-only), class resources (derived pools
 with preserved manual offsets).
 
-Documented legacy policies that predate this contract and remain acceptable until a
+Under conversion (owner-authorized F2 batch, 2026-07-15):
+
+- **`ac`, `spellDC`, `spellAttack`, `hpMax`** were seeded snapshots governed by
+  the Level Up spec's _accumulate_ (`hpMax`) and _recompute-if-untouched_
+  policies, where a manual edit acted as an implicit fixed override. They are
+  being brought under this contract through the **Structured Vitals** model
+  below (derived + explicit adjustment + intentional fixed override), mirroring
+  the shipped attack `calc` precedent, with a no-calc-block legacy default that
+  preserves every existing sheet. See
+  [`docs/audits/character-calculation-audit-2026-07.md`](../audits/character-calculation-audit-2026-07.md)
+  → "Phase A — F2 field-by-field audit" for the plan and batch boundaries.
+
+Documented policies that predate this contract and remain acceptable until a
 future authorized batch:
 
-- **`ac`, `spellDC`, `spellAttack`, `hpMax`** are seeded snapshots governed by the
-  Level Up spec's _accumulate_ (`hpMax`) and _recompute-if-untouched_ policies. A
-  manual edit today acts as an implicit fixed override. This is a known contract
-  deviation; converting these to derived-plus-adjustment needs its own owner-scoped
-  batch because existing sheets store bare totals.
 - **Freeform `initiative`, `speed`, `hitDieAmt/Size`** are manual inputs on freeform
   sheets (no build data exists to derive speed/hit dice from; initiative could derive
   from DEX and is listed in the audit as a follow-up).
@@ -117,6 +124,78 @@ future authorized batch:
 - Proficiency is a stored, user-visible input on each structured attack
   (`calc.proficient`), defaulted from the character's derived proficiencies when a
   weapon is chosen, never assumed merely because an attack is weapon-backed.
+
+## Structured Vitals ownership (normative — F2, 2026-07-15)
+
+Armor Class, maximum HP, spell save DC, and spell attack bonus follow the same
+three-state model as attacks. Each keeps its existing flat snapshot field
+(`character.ac` / `hpMax` / `spellDC` / `spellAttack`) **and** may carry an
+**optional** structured calc block on the open character-entry shape — the exact
+`AttackEntry.calc` / `builderSeed` precedent, so **no schema migration** is
+required (`sanitizeForSave` leaves entries as-is).
+
+```js
+character.acCalc     = { mode: "derived" | "fixed", adjustment: number }
+character.hpMaxCalc  = { mode: "derived" | "fixed", adjustment: number }
+character.spellcastingCalc = {           // spell DC + attack (they share a source)
+  mode: "derived" | "fixed",
+  bySource: { [sourceKey: string]: { dcAdjustment: number, attackAdjustment: number } },
+  freeform?: Array<{ ability: string, dcAdjustment: number, attackAdjustment: number }>,
+  fixed?: { dc: number | null, attack: number | null }
+}
+```
+
+Behavior, identical in spirit to attacks:
+
+- **No calc block → legacy snapshot.** The stored flat value is shown verbatim
+  and never auto-updates. This is the safety default: every existing sheet keeps
+  its exact bytes and behavior, and adoption is always an explicit user action.
+  Display names / bare totals are never reinterpreted.
+- **`mode: "derived"` → derived + adjustment.** `displayed = derive(inputs) +
+  adjustment`, updating live when dependencies change (ability scores,
+  proficiency, worn armor/shield, Con, level). The flat field is kept as a
+  cached mirror so registry-less surfaces (combat cards, tracker party/NPC
+  cards) stay correct. Derivation is builder-only for AC and HP (a freeform
+  sheet has no structured armor or level history); spell DC/attack derive in
+  **both** modes once a spellcasting ability is known.
+- **`mode: "fixed"` → intentional fixed override.** The stored flat value is
+  shown and never auto-updates; adjustment does not apply. This is the explicit
+  replacement for today's implicit "a typed number sticks."
+
+Field-specific rules:
+
+- **Spellcasting is modeled as profiles, not one universal scalar.** The derive
+  layer already produces one profile per spellcasting source
+  (`spellcasting.classes[]` each with its own `ability`/`saveDc`/`attackBonus`,
+  plus `grantedSpells[].spellcastingAbility` for race grants such as the High Elf
+  INT cantrip). The sheet shows a derived DC/attack pair per distinct source
+  ability, each labeled with its provenance. Never display one misleading
+  universal DC when sources use different abilities. Freeform casters declare
+  their own profile(s) by picking an ability; DC = `8 + proficiency +
+  mod(ability)`, attack = `proficiency + mod(ability)`.
+- **AC formula selection** stays deterministic via `computeArmorClass`, which
+  picks the best eligible formula (armor, or an unarmored-defense formula, or
+  `10 + Dex`) and returns a human-readable `formula` string surfaced in the
+  editor preview. Mutually exclusive formulas are never combined. Temporary
+  combat AC remains separate combat state; it is not folded into the durable
+  builder input.
+- **Max HP interacts with current HP.** When a derived/fixed max drops below
+  `hpCur`, `hpCur` is clamped to the new max (consistent with the combat clamp
+  `Math.min(hpMax, hpCurrent + healing)`). Increasing the max never auto-heals
+  except through the shipped Level Up delta. Temp HP is untouched. Freeform max
+  HP has no level history to derive from and stays a manual input.
+
+Legacy adoption (the safe path for existing sheets):
+
+1. Existing flat totals are retained and marked as legacy (no calc block).
+2. The user opens the field editor and chooses a mode/ability with a live
+   preview of the calculated result.
+3. They pick calculated, calculated + adjustment, or fixed. Cancel/Escape never
+   mutates. The stored number's meaning is never inferred automatically.
+
+The Level Up patch (`getLevelUpSheetSeedPatch`) keeps accumulate/recompute
+policies for legacy (no-calc-block) fields; a field in `derived` mode simply
+re-derives, and a `fixed` field is left alone and reported as preserved.
 
 ## Rules for future work
 
