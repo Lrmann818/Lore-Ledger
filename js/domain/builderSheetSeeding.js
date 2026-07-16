@@ -10,6 +10,11 @@
 
 import { isBuilderCharacter } from "./characterHelpers.js";
 import { buildSeededWeaponAttack, getAttackSourceWeaponId } from "./attackCalculation.js";
+import {
+  buildDerivedSpellcastingCalc,
+  getSpellcastingDisplayModel,
+  normalizeSpellcastingCalc
+} from "./spellcastingCalculation.js";
 import { deriveCharacter } from "./rules/deriveCharacter.js";
 import { getActiveContentRegistry, getContentByKind, listContentByKind } from "./rules/registry.js";
 import { normalizeBuildLevels } from "./rules/progression.js";
@@ -1092,10 +1097,32 @@ export function getLevelUpSheetSeedPatch(before, after, registry = getActiveCont
     result.preserved.push(`${label} ${stored} — manual value kept`);
   };
   recomputeIfUntouched("ac", derivedBefore.ac?.value, derivedAfter.ac?.value, "Armor Class");
-  recomputeIfUntouched("spellDC", derivedBefore.spellcasting?.primary?.saveDc,
-    derivedAfter.spellcasting?.primary?.saveDc, "Spell Save DC");
-  recomputeIfUntouched("spellAttack", derivedBefore.spellcasting?.primary?.attackBonus,
-    derivedAfter.spellcasting?.primary?.attackBonus, "Spell Attack");
+
+  // Spell DC / attack: characters carrying a structured `spellcastingCalc`
+  // block follow the calculation contract instead of recompute-if-untouched —
+  // "derived" re-derives (the tiles already display live; this refreshes the
+  // flat back-compat mirror, adjustments included), and "fixed" is left alone
+  // and reported as preserved. Legacy characters keep the snapshot policy.
+  const spellCalc = normalizeSpellcastingCalc(source.spellcastingCalc);
+  if (!spellCalc) {
+    recomputeIfUntouched("spellDC", derivedBefore.spellcasting?.primary?.saveDc,
+      derivedAfter.spellcasting?.primary?.saveDc, "Spell Save DC");
+    recomputeIfUntouched("spellAttack", derivedBefore.spellcasting?.primary?.attackBonus,
+      derivedAfter.spellcasting?.primary?.attackBonus, "Spell Attack");
+  } else {
+    const spellModel = getSpellcastingDisplayModel(source, derivedAfter);
+    if (spellCalc.mode === "derived") {
+      if (spellModel.flat.dc != null && spellModel.flat.dc !== finiteNumberOrNull(source.spellDC)) {
+        patch.spellDC = spellModel.flat.dc;
+      }
+      if (spellModel.flat.attack != null && spellModel.flat.attack !== finiteNumberOrNull(source.spellAttack)) {
+        patch.spellAttack = spellModel.flat.attack;
+      }
+    } else {
+      if (spellModel.flat.dc != null) result.preserved.push(`Spell Save DC ${spellModel.flat.dc} — fixed value kept`);
+      if (spellModel.flat.attack != null) result.preserved.push(`Spell Attack ${spellModel.flat.attack} — fixed value kept`);
+    }
+  }
 
   // --- Spell slots: accumulate existing rows by delta, then run the additive
   // fill-when-empty seeding pass for new rows and newly chosen/granted spells.
@@ -1221,13 +1248,28 @@ export function getBuilderFinishSheetSeedPatch(character, registry = getActiveCo
   if (derived.ac?.value != null && finiteNumberOrNull(source.ac) == null) {
     patch.ac = derived.ac.value;
   }
-  const primaryCaster = derived.spellcasting?.primary ?? null;
-  if (primaryCaster) {
-    if (primaryCaster.saveDc != null && finiteNumberOrNull(source.spellDC) == null) {
-      patch.spellDC = primaryCaster.saveDc;
+  // Spell DC / attack (calculation contract "Structured Vitals"). Builder
+  // casters — and non-casters with a granted-spell source such as a High Elf's
+  // Intelligence cantrip — get a derived `spellcastingCalc` block stamped once,
+  // so the tiles derive live from creation onward (the attack-`calc`
+  // precedent). An existing block (the user adopted fixed/derived, or edited
+  // adjustments) is never overwritten on a re-seed. The flat spellDC/spellAttack
+  // fields stay a fill-when-empty back-compat mirror of the primary profile.
+  const spellcastingModel = getSpellcastingDisplayModel(
+    { ...source, spellcastingCalc: normalizeSpellcastingCalc(source.spellcastingCalc) || buildDerivedSpellcastingCalc() },
+    derived
+  );
+  if (spellcastingModel.hasDerivableSources) {
+    if (!normalizeSpellcastingCalc(source.spellcastingCalc)) {
+      patch.spellcastingCalc = /** @type {import("../state.js").CharacterEntry["spellcastingCalc"]} */ (
+        buildDerivedSpellcastingCalc()
+      );
     }
-    if (primaryCaster.attackBonus != null && finiteNumberOrNull(source.spellAttack) == null) {
-      patch.spellAttack = primaryCaster.attackBonus;
+    if (spellcastingModel.flat.dc != null && finiteNumberOrNull(source.spellDC) == null) {
+      patch.spellDC = spellcastingModel.flat.dc;
+    }
+    if (spellcastingModel.flat.attack != null && finiteNumberOrNull(source.spellAttack) == null) {
+      patch.spellAttack = spellcastingModel.flat.attack;
     }
   }
 

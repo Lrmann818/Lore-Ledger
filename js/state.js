@@ -551,6 +551,7 @@ function normalizeTrackerSessions(input) {
  *   proficiency: NullableNumber,
  *   spellAttack: NullableNumber,
  *   spellDC: NullableNumber,
+ *   spellcastingCalc?: import("./domain/spellcastingCalculation.js").SpellcastingCalc,
  *   resources: CharacterResource[],
  *   manualFeatureCards: ManualFeatureCard[],
  *   featureUses: FeatureUsesState,

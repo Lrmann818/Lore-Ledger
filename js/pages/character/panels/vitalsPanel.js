@@ -6,8 +6,15 @@ import { safeAsync } from "../../../ui/safeAsync.js";
 import { createStateActions } from "../../../domain/stateActions.js";
 import { requireMany, getNoopDestroyApi } from "../../../utils/domGuards.js";
 import { flipSwapTwo } from "../../../ui/flipSwap.js";
-import { getActiveCharacter, isBuilderCharacter } from "../../../domain/characterHelpers.js";
+import { getActiveCharacter, isBuilderCharacter, CHARACTER_ABILITY_KEYS } from "../../../domain/characterHelpers.js";
 import { deriveCharacter } from "../../../domain/rules/deriveCharacter.js";
+import {
+  getSpellcastingDisplayModel,
+  normalizeSpellcastingCalc,
+  buildDerivedSpellcastingCalc,
+  collectDerivedSpellcastingSources,
+  abilityLabel
+} from "../../../domain/spellcastingCalculation.js";
 import { notifyPanelDataChanged, subscribePanelDataChanged } from "../../../ui/panelInvalidation.js";
 
 function notifyStatus(setStatus, message) {
@@ -382,6 +389,530 @@ export function initVitalsPanel(deps = {}) {
     if (valueEl) valueEl.textContent = String(saveDC);
   }
 
+  // ── Spell save DC / spell attack: derived-plus-adjustment or fixed override ──
+  // (calculation contract "Structured Vitals"). The two static tiles show the
+  // primary spellcasting source; additional sources render as read-only tiles.
+  // Legacy characters (no `spellcastingCalc`) keep their editable snapshot input
+  // until the user adopts a calculation through the editor.
+
+  const SPELL_TILE_META = Object.freeze([
+    { inputId: "charSpellAtk", field: "attack", title: "Spell Attack" },
+    { inputId: "charSpellDC", field: "dc", title: "Spell DC" }
+  ]);
+
+  function getSpellcastingBundle() {
+    const character = getCurrentCharacter();
+    if (!character) return null;
+    let derived = null;
+    try {
+      derived = deriveCharacter(character);
+    } catch (err) {
+      console.warn("Vitals spellcasting derivation failed:", err);
+      return null;
+    }
+    return { character, derived, model: getSpellcastingDisplayModel(character, derived) };
+  }
+
+  /**
+   * Ensures a tile has the read-only derived value element, provenance
+   * sublabel, and edit button (created once). Returns those parts.
+   * @param {HTMLElement} tile
+   */
+  function ensureSpellTileParts(tile) {
+    let derivedValue = /** @type {HTMLElement | null} */ (tile.querySelector(":scope > .spellDerivedValue"));
+    if (!derivedValue) {
+      derivedValue = document.createElement("div");
+      derivedValue.className = "builderDerivedVitalValue spellDerivedValue";
+      derivedValue.setAttribute("aria-readonly", "true");
+      derivedValue.hidden = true;
+      tile.appendChild(derivedValue);
+    }
+    let sub = /** @type {HTMLElement | null} */ (tile.querySelector(":scope > .spellSourceProvenance"));
+    if (!sub) {
+      sub = document.createElement("div");
+      sub.className = "mutedSmall spellSourceProvenance";
+      tile.appendChild(sub);
+    }
+    let editBtn = /** @type {HTMLButtonElement | null} */ (tile.querySelector(":scope > .spellCalcEditBtn"));
+    if (!editBtn) {
+      editBtn = document.createElement("button");
+      editBtn.type = "button";
+      editBtn.className = "iconBtn spellCalcEditBtn";
+      editBtn.textContent = "✎";
+      addListener(editBtn, "click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        openSpellcastingEditor();
+      });
+      tile.appendChild(editBtn);
+    }
+    return { derivedValue, sub, editBtn };
+  }
+
+  function renderExtraSpellSourceTiles(model) {
+    Array.from(wrap.querySelectorAll('.charTile[data-vital-key^="spellSource:"]')).forEach((el) => el.remove());
+    if (model.mode !== "derived") return;
+    for (const profile of model.profiles.slice(1)) {
+      const tile = document.createElement("div");
+      tile.className = "charTile builderDerivedVitalTile spellSourceTile";
+      tile.dataset.vitalKey = `spellSource:${profile.ability}`;
+
+      const label = document.createElement("div");
+      label.className = "charTileLabel";
+      label.textContent = "Spell DC / Attack";
+      tile.appendChild(label);
+
+      const value = document.createElement("div");
+      value.className = "builderDerivedVitalValue";
+      value.setAttribute("aria-readonly", "true");
+      value.textContent = `${profile.dcLabel} / ${profile.attackLabel}`;
+      tile.appendChild(value);
+
+      const sub = document.createElement("div");
+      sub.className = "mutedSmall spellSourceProvenance";
+      sub.textContent = profile.label;
+      tile.appendChild(sub);
+
+      wrap.appendChild(tile);
+    }
+  }
+
+  function renderSpellcastingTiles() {
+    const bundle = getSpellcastingBundle();
+    if (!bundle) return;
+    const { model } = bundle;
+    const primary = model.profiles[0] || null;
+
+    for (const meta of SPELL_TILE_META) {
+      const input = guard.els[meta.inputId];
+      if (!input) continue;
+      const tile = input.closest(".charTile");
+      if (!tile) continue;
+      const parts = ensureSpellTileParts(tile);
+
+      if (model.mode === "legacy") {
+        input.hidden = false;
+        input.disabled = false;
+        input.readOnly = false;
+        parts.derivedValue.hidden = true;
+        parts.sub.textContent = model.hasDerivableSources ? "Snapshot — tap ✎ to calculate" : "";
+        parts.editBtn.setAttribute("aria-label", `Set up ${meta.title} calculation`);
+        parts.editBtn.title = `Set up ${meta.title} calculation`;
+        continue;
+      }
+
+      // derived / fixed → read-only derived value.
+      input.hidden = true;
+      parts.derivedValue.hidden = false;
+      const label = meta.field === "dc"
+        ? (primary ? primary.dcLabel : "—")
+        : (primary ? primary.attackLabel : "—");
+      parts.derivedValue.textContent = label;
+      parts.sub.textContent = model.mode === "fixed"
+        ? "Fixed value"
+        : (primary ? primary.label : (model.warnings[0] || ""));
+      parts.editBtn.setAttribute("aria-label", `Edit ${meta.title} calculation`);
+      parts.editBtn.title = `Edit ${meta.title} calculation`;
+    }
+
+    renderExtraSpellSourceTiles(model);
+  }
+
+  // ── Spell DC / attack editor dialog (resource-settings dialog precedent) ──
+  let spellcastingOverlay = null;
+  /** @type {null | { mode: "derived" | "fixed", bySource: Record<string, { dcAdjustment: number, attackAdjustment: number }>, freeform: Array<{ ability: string, dcAdjustment: number, attackAdjustment: number }>, fixed: { dc: number | null, attack: number | null } }} */
+  let spellcastingSession = null;
+
+  function ensureSpellcastingDialog() {
+    if (spellcastingOverlay && document.contains(spellcastingOverlay)) return spellcastingOverlay;
+
+    const overlay = document.createElement("div");
+    overlay.className = "modalOverlay spellCalcDialogOverlay";
+    overlay.hidden = true;
+    overlay.setAttribute("aria-hidden", "true");
+
+    const panel = document.createElement("div");
+    panel.className = "modalPanel spellCalcDialogPanel";
+    panel.setAttribute("role", "dialog");
+    panel.setAttribute("aria-modal", "true");
+    panel.setAttribute("aria-labelledby", "spellCalcDialogTitle");
+    panel.setAttribute("tabindex", "-1");
+
+    const header = document.createElement("div");
+    header.className = "uiDialogHeader";
+    const title = document.createElement("div");
+    title.className = "modalTitle";
+    title.id = "spellCalcDialogTitle";
+    title.textContent = "Spell DC & Attack";
+    const close = document.createElement("button");
+    close.type = "button";
+    close.className = "npcSmallBtn";
+    close.dataset.spellCalcCancel = "true";
+    close.setAttribute("aria-label", "Close spell calculation editor");
+    close.textContent = "✕";
+    header.appendChild(title);
+    header.appendChild(close);
+
+    const body = document.createElement("div");
+    body.className = "uiDialogBody spellCalcDialogBody";
+
+    const footer = document.createElement("div");
+    footer.className = "uiDialogFooter spellCalcDialogFooter";
+    const cancel = document.createElement("button");
+    cancel.type = "button";
+    cancel.className = "npcSmallBtn";
+    cancel.dataset.spellCalcCancel = "true";
+    cancel.textContent = "Cancel";
+    const save = document.createElement("button");
+    save.type = "button";
+    save.className = "npcSmallBtn";
+    save.dataset.spellCalcSave = "true";
+    save.textContent = "Save";
+    footer.appendChild(cancel);
+    footer.appendChild(save);
+
+    panel.appendChild(header);
+    panel.appendChild(body);
+    panel.appendChild(footer);
+    overlay.appendChild(panel);
+    document.body.appendChild(overlay);
+
+    addListener(overlay, "click", (event) => {
+      const target = event.target;
+      if (target === overlay) { closeSpellcastingEditor(); return; }
+      if (target instanceof HTMLElement && target.closest("[data-spell-calc-cancel]")) {
+        closeSpellcastingEditor();
+      } else if (target instanceof HTMLElement && target.closest("[data-spell-calc-save]")) {
+        saveSpellcastingEditor();
+      }
+    });
+
+    addListener(document, "keydown", (event) => {
+      if (overlay.hidden || destroyed) return;
+      const e = /** @type {KeyboardEvent} */ (event);
+      if (e.key === "Escape") {
+        e.preventDefault();
+        e.stopPropagation();
+        closeSpellcastingEditor();
+        return;
+      }
+      if (e.key === "Tab") {
+        const focusables = /** @type {HTMLElement[]} */ (Array.from(panel.querySelectorAll(
+          "button:not([disabled]), input:not([disabled]), select:not([disabled])"
+        ))).filter((node) => !node.closest("[hidden]") && node.offsetParent !== null);
+        if (!focusables.length) return;
+        const first = focusables[0];
+        const last = focusables[focusables.length - 1];
+        if (e.shiftKey) {
+          if (document.activeElement === first || document.activeElement === panel) {
+            e.preventDefault();
+            last.focus();
+          }
+        } else if (document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    }, { capture: true });
+
+    spellcastingOverlay = overlay;
+    return overlay;
+  }
+
+  function openSpellcastingEditor() {
+    if (destroyed) return;
+    const bundle = getSpellcastingBundle();
+    if (!bundle) return;
+    const { character, model } = bundle;
+    const existing = normalizeSpellcastingCalc(character.spellcastingCalc);
+
+    // Seed the draft. Legacy → default to Calculated when sources exist, else
+    // Fixed pre-filled from the stored snapshot.
+    /** @type {typeof spellcastingSession} */
+    let draft;
+    if (existing) {
+      draft = {
+        mode: existing.mode,
+        bySource: { ...existing.bySource },
+        freeform: existing.freeform.map((entry) => ({ ...entry })),
+        fixed: { ...existing.fixed }
+      };
+    } else if (model.hasDerivableSources) {
+      draft = { mode: "derived", bySource: {}, freeform: [], fixed: { dc: model.flat.dc, attack: model.flat.attack } };
+    } else {
+      draft = { mode: "fixed", bySource: {}, freeform: [], fixed: { dc: model.flat.dc, attack: model.flat.attack } };
+    }
+    spellcastingSession = draft;
+
+    const overlay = ensureSpellcastingDialog();
+    renderSpellcastingDialog();
+    overlay.hidden = false;
+    overlay.setAttribute("aria-hidden", "false");
+    const panel = overlay.querySelector(".spellCalcDialogPanel");
+    requestAnimationFrame(() => {
+      if (destroyed) return;
+      const focusTarget = overlay.querySelector("select, input, button:not([data-spell-calc-cancel])");
+      try { (focusTarget || panel)?.focus?.({ preventScroll: true }); } catch { (focusTarget || panel)?.focus?.(); }
+    });
+  }
+
+  function closeSpellcastingEditor({ restoreFocus = true } = {}) {
+    const overlay = spellcastingOverlay;
+    if (!overlay || overlay.hidden) return;
+    spellcastingSession = null;
+    overlay.hidden = true;
+    overlay.setAttribute("aria-hidden", "true");
+    if (!restoreFocus) return;
+    requestAnimationFrame(() => {
+      if (destroyed) return;
+      const btn = guard.els.charSpellDC?.closest(".charTile")?.querySelector(".spellCalcEditBtn");
+      try { btn?.focus?.({ preventScroll: true }); } catch { btn?.focus?.(); }
+    });
+  }
+
+  function spellDialogField(parent, labelText) {
+    const field = document.createElement("label");
+    field.className = "spellCalcField";
+    const span = document.createElement("span");
+    span.className = "modalLabel";
+    span.textContent = labelText;
+    field.appendChild(span);
+    parent.appendChild(field);
+    return field;
+  }
+
+  function spellAdjustInput(value, ariaLabel, onChange) {
+    const input = document.createElement("input");
+    input.type = "number";
+    input.className = "spellCalcAdjInput";
+    input.value = Number.isFinite(value) && value !== 0 ? String(value) : "";
+    input.placeholder = "0";
+    input.setAttribute("aria-label", ariaLabel);
+    addListener(input, "input", () => {
+      const n = numberOrNull(input.value);
+      onChange(Number.isFinite(n) ? Number(n) : 0);
+      renderSpellcastingPreview();
+    });
+    return input;
+  }
+
+  function renderSpellcastingDialog() {
+    const overlay = ensureSpellcastingDialog();
+    const body = overlay.querySelector(".spellCalcDialogBody");
+    if (!body || !spellcastingSession) return;
+    body.replaceChildren();
+    const bundle = getSpellcastingBundle();
+    const derived = bundle?.derived || null;
+    const draft = spellcastingSession;
+
+    // Mode selector.
+    const modeField = spellDialogField(body, "Calculation");
+    const modeSelect = document.createElement("select");
+    modeSelect.className = "settingsSelect";
+    for (const opt of [{ value: "derived", label: "Calculated" }, { value: "fixed", label: "Fixed value" }]) {
+      const el = document.createElement("option");
+      el.value = opt.value;
+      el.textContent = opt.label;
+      if (opt.value === draft.mode) el.selected = true;
+      modeSelect.appendChild(el);
+    }
+    modeSelect.setAttribute("aria-label", "How spell DC and attack are calculated");
+    modeField.appendChild(modeSelect);
+    addListener(modeSelect, "change", () => {
+      draft.mode = modeSelect.value === "fixed" ? "fixed" : "derived";
+      renderSpellcastingDialog();
+    });
+
+    if (draft.mode === "fixed") {
+      const dcField = spellDialogField(body, "Spell DC");
+      const dcInput = document.createElement("input");
+      dcInput.type = "number";
+      dcInput.className = "spellCalcAdjInput";
+      dcInput.value = draft.fixed.dc == null ? "" : String(draft.fixed.dc);
+      dcInput.setAttribute("aria-label", "Fixed spell DC");
+      addListener(dcInput, "input", () => { draft.fixed.dc = numberOrNull(dcInput.value); renderSpellcastingPreview(); });
+      dcField.appendChild(dcInput);
+
+      const atkField = spellDialogField(body, "Spell Attack");
+      const atkInput = document.createElement("input");
+      atkInput.type = "number";
+      atkInput.className = "spellCalcAdjInput";
+      atkInput.value = draft.fixed.attack == null ? "" : String(draft.fixed.attack);
+      atkInput.setAttribute("aria-label", "Fixed spell attack bonus");
+      addListener(atkInput, "input", () => { draft.fixed.attack = numberOrNull(atkInput.value); renderSpellcastingPreview(); });
+      atkField.appendChild(atkInput);
+    } else {
+      renderDerivedSourceRows(body, derived, draft);
+    }
+
+    // Live preview.
+    const preview = document.createElement("div");
+    preview.className = "spellCalcPreview";
+    const previewLabel = document.createElement("div");
+    previewLabel.className = "mutedSmall";
+    previewLabel.textContent = "Preview";
+    const previewBody = document.createElement("div");
+    previewBody.className = "spellCalcPreviewBody";
+    preview.appendChild(previewLabel);
+    preview.appendChild(previewBody);
+    body.appendChild(preview);
+    renderSpellcastingPreview();
+  }
+
+  function renderDerivedSourceRows(body, derived, draft) {
+    const sources = derived ? collectDerivedSpellcastingSources(derived) : [];
+    if (sources.length) {
+      for (const { ability, sources: labels } of sources) {
+        const row = document.createElement("div");
+        row.className = "spellCalcSourceRow";
+        const head = document.createElement("div");
+        head.className = "spellCalcSourceHead";
+        head.textContent = labels.length ? `${abilityLabel(ability)} (${labels.join(", ")})` : abilityLabel(ability);
+        row.appendChild(head);
+
+        const adjWrap = document.createElement("div");
+        adjWrap.className = "spellCalcAdjRow";
+        const cur = draft.bySource[ability] || { dcAdjustment: 0, attackAdjustment: 0 };
+        const ensure = () => (draft.bySource[ability] = draft.bySource[ability] || { dcAdjustment: 0, attackAdjustment: 0 });
+
+        const dcLabel = document.createElement("label");
+        dcLabel.className = "spellCalcAdjLabel";
+        dcLabel.append("DC adj ");
+        dcLabel.appendChild(spellAdjustInput(cur.dcAdjustment, `${abilityLabel(ability)} DC adjustment`,
+          (v) => { ensure().dcAdjustment = v; }));
+        const atkLabel = document.createElement("label");
+        atkLabel.className = "spellCalcAdjLabel";
+        atkLabel.append("Atk adj ");
+        atkLabel.appendChild(spellAdjustInput(cur.attackAdjustment, `${abilityLabel(ability)} attack adjustment`,
+          (v) => { ensure().attackAdjustment = v; }));
+        adjWrap.appendChild(dcLabel);
+        adjWrap.appendChild(atkLabel);
+        row.appendChild(adjWrap);
+        body.appendChild(row);
+      }
+      return;
+    }
+
+    // Freeform: no derived sources — let the user declare spellcasting abilities.
+    const hint = document.createElement("div");
+    hint.className = "mutedSmall";
+    hint.textContent = "Choose a spellcasting ability. DC = 8 + proficiency + ability modifier.";
+    body.appendChild(hint);
+
+    for (const entry of draft.freeform) {
+      const row = document.createElement("div");
+      row.className = "spellCalcSourceRow";
+      const head = document.createElement("div");
+      head.className = "spellCalcSourceHead";
+      head.textContent = abilityLabel(entry.ability);
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "npcSmallBtn";
+      remove.textContent = "Remove";
+      addListener(remove, "click", () => {
+        draft.freeform = draft.freeform.filter((e) => e !== entry);
+        renderSpellcastingDialog();
+      });
+      head.appendChild(remove);
+      row.appendChild(head);
+
+      const adjWrap = document.createElement("div");
+      adjWrap.className = "spellCalcAdjRow";
+      const dcLabel = document.createElement("label");
+      dcLabel.className = "spellCalcAdjLabel";
+      dcLabel.append("DC adj ");
+      dcLabel.appendChild(spellAdjustInput(entry.dcAdjustment, `${abilityLabel(entry.ability)} DC adjustment`,
+        (v) => { entry.dcAdjustment = v; }));
+      const atkLabel = document.createElement("label");
+      atkLabel.className = "spellCalcAdjLabel";
+      atkLabel.append("Atk adj ");
+      atkLabel.appendChild(spellAdjustInput(entry.attackAdjustment, `${abilityLabel(entry.ability)} attack adjustment`,
+        (v) => { entry.attackAdjustment = v; }));
+      adjWrap.appendChild(dcLabel);
+      adjWrap.appendChild(atkLabel);
+      row.appendChild(adjWrap);
+      body.appendChild(row);
+    }
+
+    const used = new Set(draft.freeform.map((e) => e.ability));
+    const remaining = CHARACTER_ABILITY_KEYS.filter((k) => !used.has(k));
+    if (remaining.length) {
+      const addWrap = document.createElement("div");
+      addWrap.className = "spellCalcAddRow";
+      const select = document.createElement("select");
+      select.className = "settingsSelect";
+      select.setAttribute("aria-label", "Add a spellcasting ability");
+      const placeholder = document.createElement("option");
+      placeholder.value = "";
+      placeholder.textContent = "Add ability…";
+      select.appendChild(placeholder);
+      for (const key of remaining) {
+        const el = document.createElement("option");
+        el.value = key;
+        el.textContent = abilityLabel(key);
+        select.appendChild(el);
+      }
+      addListener(select, "change", () => {
+        if (!select.value) return;
+        draft.freeform.push({ ability: select.value, dcAdjustment: 0, attackAdjustment: 0 });
+        renderSpellcastingDialog();
+      });
+      addWrap.appendChild(select);
+      body.appendChild(addWrap);
+    }
+  }
+
+  function renderSpellcastingPreview() {
+    const overlay = spellcastingOverlay;
+    if (!overlay || !spellcastingSession) return;
+    const previewBody = overlay.querySelector(".spellCalcPreviewBody");
+    if (!previewBody) return;
+    const character = getCurrentCharacter();
+    const bundle = getSpellcastingBundle();
+    if (!character || !bundle) { previewBody.textContent = "—"; return; }
+    // Derive a preview model from a throwaway character carrying the draft calc.
+    const previewCharacter = { ...character, spellcastingCalc: spellcastingSession };
+    const model = getSpellcastingDisplayModel(previewCharacter, bundle.derived);
+    previewBody.replaceChildren();
+    if (!model.profiles.length) {
+      previewBody.textContent = model.warnings[0] || "No spellcasting source set.";
+      return;
+    }
+    for (const profile of model.profiles) {
+      const line = document.createElement("div");
+      line.className = "spellCalcPreviewLine";
+      line.textContent = `${profile.label || "Fixed"}: DC ${profile.dcLabel} · Attack ${profile.attackLabel}`;
+      previewBody.appendChild(line);
+    }
+  }
+
+  function saveSpellcastingEditor() {
+    if (!spellcastingSession) { closeSpellcastingEditor(); return; }
+    const draft = spellcastingSession;
+    // Compute the flat mirror from the primary profile so registry-less reads
+    // (export, legacy) stay meaningful.
+    const bundle = getSpellcastingBundle();
+    const previewModel = bundle
+      ? getSpellcastingDisplayModel({ ...bundle.character, spellcastingCalc: draft }, bundle.derived)
+      : null;
+    const flat = previewModel ? previewModel.flat : { dc: null, attack: null };
+
+    const updated = mutateCharacter((character) => {
+      character.spellcastingCalc = {
+        mode: draft.mode,
+        bySource: draft.bySource,
+        freeform: draft.freeform,
+        fixed: draft.fixed
+      };
+      if (flat.dc != null) character.spellDC = flat.dc;
+      if (flat.attack != null) character.spellAttack = flat.attack;
+      return true;
+    }, { queueSave: false });
+    if (updated) markVitalsChanged();
+    closeSpellcastingEditor();
+    renderSpellcastingTiles();
+  }
+
   function refreshBuilderOwnedVitalNumberFields() {
     const shouldRefreshBuilderOwnedVitals = isBuilderCharacter(getCurrentCharacter()) ||
       guard.els.hitDieAmt?.dataset.builderOwned === "true" ||
@@ -402,6 +933,7 @@ export function initVitalsPanel(deps = {}) {
       refreshVitalNumberField(id, getValue);
     });
     renderBreathWeaponDCTile();
+    renderSpellcastingTiles();
   }
 
   function bindVitalsNumbers() {
@@ -1047,6 +1579,7 @@ export function initVitalsPanel(deps = {}) {
     if (destroyed || detail.source === panelInstance) return;
     refreshBuilderOwnedVitalNumberFields();
     renderBreathWeaponDCTile();
+    renderSpellcastingTiles();
     setupVitalsTileReorder({
       state,
       SaveManager,
@@ -1067,6 +1600,8 @@ export function initVitalsPanel(deps = {}) {
       cancelPendingResourceLongPress();
       resourceSettingsOverlay?.remove?.();
       resourceSettingsOverlay = null;
+      spellcastingOverlay?.remove?.();
+      spellcastingOverlay = null;
     }
   };
 }

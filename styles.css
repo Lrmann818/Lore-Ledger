@@ -5985,6 +5985,119 @@ select.npcField:focus {
   line-height: 1.2;
 }
 
+/* F2 spell DC / attack: derived-tile affordances + editor dialog (additive) */
+.charTile[data-vital-key="spellDC"],
+.charTile[data-vital-key="spellAtk"],
+.charTile.spellSourceTile {
+  position: relative;
+}
+
+.spellCalcEditBtn {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  line-height: 1;
+  font-size: 13px;
+  opacity: 0.7;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .spellCalcEditBtn:hover {
+    opacity: 1;
+  }
+}
+
+.spellCalcEditBtn:focus-visible {
+  opacity: 1;
+}
+
+.spellSourceProvenance:empty {
+  display: none;
+}
+
+.spellSourceProvenance {
+  font-size: calc(11px * var(--ui-scale));
+  line-height: 1.15;
+  opacity: 0.8;
+  word-break: break-word;
+  padding-right: 28px;
+}
+
+.spellCalcDialogPanel {
+  max-width: 420px;
+  width: min(92vw, 420px);
+}
+
+.spellCalcDialogBody {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.spellCalcField {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.spellCalcSourceRow {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+}
+
+.spellCalcSourceHead {
+  font-weight: 700;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.spellCalcAdjRow {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.spellCalcAdjLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: calc(13px * var(--ui-scale));
+}
+
+.spellCalcAdjInput {
+  width: 64px;
+  max-width: 100%;
+}
+
+.spellCalcAddRow {
+  display: flex;
+}
+
+.spellCalcPreview {
+  border-top: 1px solid var(--hairline);
+  padding-top: 8px;
+}
+
+.spellCalcPreviewBody {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.spellCalcPreviewLine {
+  font-weight: 600;
+}
+
 .charHpRow {
   display: flex;
   gap: 4px;
