@@ -16,6 +16,7 @@ import {
   normalizeSpellcastingCalc
 } from "./spellcastingCalculation.js";
 import { buildDerivedAcCalc, normalizeAcCalc } from "./armorClassCalculation.js";
+import { buildDerivedHpMaxCalc, clampCurrentHpToMax, normalizeHpMaxCalc } from "./hpMaxCalculation.js";
 import { deriveCharacter } from "./rules/deriveCharacter.js";
 import { getActiveContentRegistry, getContentByKind, listContentByKind } from "./rules/registry.js";
 import { normalizeBuildLevels } from "./rules/progression.js";
@@ -1057,20 +1058,43 @@ export function getLevelUpSheetSeedPatch(before, after, registry = getActiveCont
   }
   const patch = result.patch;
 
-  // --- HP: accumulate by derived delta (covers retroactive Con increases,
-  // because computeMaxHp applies the Con modifier at every level). ---
+  // --- HP: calc-aware policies (contract "Structured Vitals"). Legacy
+  // characters keep the accumulate-by-derived-delta policy (covers retroactive
+  // Con increases, because computeMaxHp applies the Con modifier at every
+  // level). A `derived` hpMaxCalc re-derives the flat mirror (adjustment
+  // included) and moves current HP by the same delta so a wound gap survives;
+  // a `fixed` max is left alone and reported as preserved. Current HP always
+  // clamps to a lowered max and temp HP is never touched (it lives in combat
+  // state).
   const beforeMax = derivedBefore.hp?.max ?? null;
   const afterMax = derivedAfter.hp?.max ?? null;
-  if (beforeMax != null && afterMax != null) {
-    const delta = afterMax - beforeMax;
+  const hpMaxCalc = normalizeHpMaxCalc(source.hpMaxCalc);
+  if (hpMaxCalc?.mode === "fixed") {
     const storedMax = finiteNumberOrNull(source.hpMax);
-    if (storedMax == null) {
+    if (storedMax != null) result.preserved.push(`Max HP ${storedMax} — fixed value kept`);
+  } else if (beforeMax != null && afterMax != null) {
+    const storedMax = finiteNumberOrNull(source.hpMax);
+    if (hpMaxCalc?.mode === "derived") {
+      const nextMax = afterMax + hpMaxCalc.adjustment;
+      if (nextMax !== storedMax) {
+        patch.hpMax = nextMax;
+        const storedCur = finiteNumberOrNull(source.hpCur);
+        if (storedCur != null) {
+          const prevMax = storedMax != null ? storedMax : beforeMax + hpMaxCalc.adjustment;
+          const movedCur = storedCur + (nextMax - prevMax);
+          patch.hpCur = Math.max(0, Math.min(movedCur, nextMax));
+        }
+      }
+    } else if (storedMax == null) {
       patch.hpMax = afterMax;
       if (finiteNumberOrNull(source.hpCur) == null) patch.hpCur = afterMax;
-    } else if (delta !== 0) {
-      patch.hpMax = storedMax + delta;
-      const storedCur = finiteNumberOrNull(source.hpCur);
-      if (storedCur != null) patch.hpCur = storedCur + delta;
+    } else {
+      const delta = afterMax - beforeMax;
+      if (delta !== 0) {
+        patch.hpMax = storedMax + delta;
+        const storedCur = finiteNumberOrNull(source.hpCur);
+        if (storedCur != null) patch.hpCur = storedCur + delta;
+      }
     }
   } else {
     result.warnings.push("Constitution modifier is not set — max HP was left unchanged.");
@@ -1256,7 +1280,27 @@ export function getBuilderFinishSheetSeedPatch(character, registry = getActiveCo
   }
 
   // Vitals: fill only when empty; existing user values are never replaced.
-  if (derived.hp?.max != null && finiteNumberOrNull(source.hpMax) == null) {
+  // Max HP (calculation contract "Structured Vitals"): builder characters get
+  // a derived `hpMaxCalc` block stamped so the tile derives live — but only
+  // when doing so cannot change the displayed value (stored max empty or equal
+  // to the derivation). A diverged legacy max (a manual edit under the old
+  // snapshot model) stays a legacy snapshot until adopted through the editor.
+  // In derived mode the flat `hpMax` is refreshed as the displayed-value
+  // mirror; when that lowers the max below current HP, current HP clamps down.
+  const existingHpMaxCalc = normalizeHpMaxCalc(source.hpMaxCalc);
+  const storedHpMax = finiteNumberOrNull(source.hpMax);
+  if (derived.hp?.max != null && !existingHpMaxCalc && (storedHpMax == null || storedHpMax === derived.hp.max)) {
+    patch.hpMaxCalc = /** @type {import("../state.js").CharacterEntry["hpMaxCalc"]} */ (buildDerivedHpMaxCalc());
+  }
+  if (existingHpMaxCalc?.mode === "derived" && derived.hp?.max != null) {
+    const hpMirror = derived.hp.max + existingHpMaxCalc.adjustment;
+    if (hpMirror !== storedHpMax) {
+      patch.hpMax = hpMirror;
+      const storedCur = finiteNumberOrNull(source.hpCur);
+      const clamped = clampCurrentHpToMax(storedCur, hpMirror);
+      if (clamped !== storedCur) patch.hpCur = clamped;
+    }
+  } else if (derived.hp?.max != null && storedHpMax == null) {
     patch.hpMax = derived.hp.max;
     if (finiteNumberOrNull(source.hpCur) == null) patch.hpCur = derived.hp.max;
   }

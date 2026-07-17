@@ -429,7 +429,8 @@
     ],
     "lore": {
       "desc": "As a hill dwarf, you have keen senses, deep intuition, and remarkable resilience."
-    }
+    },
+    "hpPerLevelBonus": 1
   },
   {
     "id": "lightfoot-halfling",

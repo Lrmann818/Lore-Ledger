@@ -765,7 +765,13 @@ export function deriveCharacter(character, registry = getActiveContentRegistry()
   let hp = null;
   if (build) {
     const conMod = abilities.con?.modifier ?? null;
-    const result = computeMaxHp(levels, conMod, registry, { perLevelBonus: featEffects.hpPerLevelBonus });
+    // Structured race/subrace per-level max-HP bonuses (e.g. Hill Dwarf's
+    // Dwarven Toughness, `hpPerLevelBonus: 1`) stack with feat effects.
+    const raceHpPerLevel = finiteNumberOrZero(raceEntry?.data?.hpPerLevelBonus) +
+      finiteNumberOrZero(subraceEntry?.data?.hpPerLevelBonus);
+    const result = computeMaxHp(levels, conMod, registry, {
+      perLevelBonus: featEffects.hpPerLevelBonus + raceHpPerLevel
+    });
     hp = { max: result.max, breakdown: result.breakdown };
   }
 

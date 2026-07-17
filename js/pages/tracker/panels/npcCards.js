@@ -245,6 +245,9 @@ function createNpcCardsController(deps = {}) {
       if (hpMaxEl instanceof HTMLInputElement && document.activeElement !== hpMaxEl) {
         hpMaxEl.value = display.hpMax != null ? String(display.hpMax) : "";
       }
+      if (hpMaxEl instanceof HTMLInputElement && hpMaxEl.readOnly !== !!display.hpMaxManaged) {
+        needsRerender = true;
+      }
       const acEl = cardEl.querySelector("[data-linked-field='ac']");
       if (!(acEl instanceof HTMLInputElement)) {
         needsRerender = true;
@@ -529,10 +532,18 @@ function createNpcCardsController(deps = {}) {
     hpMax.dataset.linkedField = "hpMax";
     hpMax.value = display.hpMax != null ? String(display.hpMax) : "";
     autoSizeInput(hpMax, { min: 30, max: 70 });
-    hpMax.addEventListener("input", () => {
-      autoSizeInput(hpMax, { min: 30, max: 70 });
-      updateNpcLinkedField(npc, "hpMax", numberOrNull(hpMax.value), false);
-    });
+    if (display.isLinked && display.hpMaxManaged) {
+      // The linked character's max HP is calc-managed (derived or fixed): it
+      // is edited through the character sheet, not overwritten from a card.
+      hpMax.readOnly = true;
+      hpMax.setAttribute("aria-readonly", "true");
+      hpMax.title = "Managed on the character sheet — edit it there.";
+    } else {
+      hpMax.addEventListener("input", () => {
+        autoSizeInput(hpMax, { min: 30, max: 70 });
+        updateNpcLinkedField(npc, "hpMax", numberOrNull(hpMax.value), false);
+      });
+    }
 
     hpWrap.appendChild(hpCur);
     hpWrap.appendChild(slash);

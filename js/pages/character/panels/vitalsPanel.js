@@ -19,6 +19,10 @@ import {
   getArmorClassDisplayModel,
   normalizeAcCalc
 } from "../../../domain/armorClassCalculation.js";
+import {
+  getHpMaxDisplayModel,
+  clampCurrentHpToMax
+} from "../../../domain/hpMaxCalculation.js";
 import { notifyPanelDataChanged, subscribePanelDataChanged } from "../../../ui/panelInvalidation.js";
 
 function notifyStatus(setStatus, message) {
@@ -418,6 +422,20 @@ export function initVitalsPanel(deps = {}) {
   }
 
   /**
+   * Shows/hides a vitals number input together with its `.numWrap` stepper
+   * wrapper (enhanceNumberSteppers wraps every number input, so hiding only
+   * the input would leave orphaned stepper buttons).
+   * @param {HTMLElement | null | undefined} input
+   * @param {boolean} hidden
+   */
+  function setVitalInputHidden(input, hidden) {
+    if (!input) return;
+    input.hidden = hidden;
+    const wrapEl = input.closest(".numWrap");
+    if (wrapEl instanceof HTMLElement) wrapEl.hidden = hidden;
+  }
+
+  /**
    * Ensures a `.charTile` has the shared structured-vitals parts: a read-only
    * derived value element, a provenance sublabel, and an edit (✎) button —
    * created once per tile. `valueClass` keeps each field's value element
@@ -508,7 +526,7 @@ export function initVitalsPanel(deps = {}) {
       const parts = ensureSpellTileParts(tile);
 
       if (model.mode === "legacy") {
-        input.hidden = false;
+        setVitalInputHidden(input, false);
         input.disabled = false;
         input.readOnly = false;
         parts.derivedValue.hidden = true;
@@ -519,7 +537,7 @@ export function initVitalsPanel(deps = {}) {
       }
 
       // derived / fixed → read-only derived value.
-      input.hidden = true;
+      setVitalInputHidden(input, true);
       parts.derivedValue.hidden = false;
       const label = meta.field === "dc"
         ? (primary ? primary.dcLabel : "—")
@@ -978,7 +996,7 @@ export function initVitalsPanel(deps = {}) {
       if (existingValue) existingValue.remove();
       if (existingSub) existingSub.remove();
       tile.classList.remove("vitalCalcTile");
-      input.hidden = false;
+      setVitalInputHidden(input, false);
       return;
     }
 
@@ -988,7 +1006,7 @@ export function initVitalsPanel(deps = {}) {
     });
 
     if (model.mode === "legacy") {
-      input.hidden = false;
+      setVitalInputHidden(input, false);
       parts.derivedValue.hidden = true;
       parts.sub.textContent = "Snapshot — tap ✎ to calculate";
       parts.editBtn.setAttribute("aria-label", "Set up Armor Class calculation");
@@ -996,7 +1014,7 @@ export function initVitalsPanel(deps = {}) {
       return;
     }
 
-    input.hidden = true;
+    setVitalInputHidden(input, true);
     parts.derivedValue.hidden = false;
     parts.derivedValue.textContent = model.value == null ? "—" : String(model.value);
     parts.sub.textContent = describeAcModel(model);
@@ -1327,6 +1345,155 @@ export function initVitalsPanel(deps = {}) {
     });
   }
 
+  // ── Max HP: derived-plus-adjustment or fixed override (contract "Structured
+  // Vitals"). Builder characters derive via computeMaxHp from the level-by-
+  // level history (first level max die, recorded rolls, SRD averages, Con per
+  // level, structured per-level bonuses such as Dwarven Toughness); freeform
+  // characters have no level history, so their max HP stays a manual input.
+  // Current HP is play-state and always stays directly editable. ──
+
+  function getHpMaxBundle() {
+    const character = getCurrentCharacter();
+    if (!character) return null;
+    let derived = null;
+    if (isBuilderCharacter(character)) {
+      try {
+        derived = deriveCharacter(character);
+      } catch (err) {
+        console.warn("Vitals max-HP derivation failed:", err);
+      }
+    }
+    return { character, derived, model: getHpMaxDisplayModel(character, derived) };
+  }
+
+  function describeHpMaxModel(model) {
+    if (model.mode === "fixed") return "Fixed value";
+    if (!model.canDerive) return model.warnings[0] || "";
+    const adj = model.adjustment;
+    const adjText = adj ? ` ${adj > 0 ? "+" : "−"} ${Math.abs(adj)} adj` : "";
+    return `Calculated from levels${adjText}`;
+  }
+
+  /**
+   * The HP tile hosts two inputs (current / max) in one row; only the max is
+   * calc-managed. The read-only value renders inline in place of the max
+   * input, while provenance + edit button sit at tile level.
+   */
+  function ensureHpMaxTileParts(tile, row) {
+    tile.classList.add("vitalCalcTile");
+    let maxValue = /** @type {HTMLElement | null} */ (row.querySelector(".hpMaxDerivedValue"));
+    if (!maxValue) {
+      maxValue = document.createElement("span");
+      maxValue.className = "builderDerivedVitalValue hpMaxDerivedValue";
+      maxValue.setAttribute("aria-readonly", "true");
+      maxValue.setAttribute("aria-label", "Maximum HP (calculated)");
+      maxValue.hidden = true;
+      row.appendChild(maxValue);
+    }
+    let sub = /** @type {HTMLElement | null} */ (tile.querySelector(":scope > .vitalCalcProvenance"));
+    if (!sub) {
+      sub = document.createElement("div");
+      sub.className = "mutedSmall vitalCalcProvenance";
+      tile.appendChild(sub);
+    }
+    let editBtn = /** @type {HTMLButtonElement | null} */ (tile.querySelector(":scope > .vitalCalcEditBtn"));
+    if (!editBtn) {
+      editBtn = document.createElement("button");
+      editBtn.type = "button";
+      editBtn.className = "iconBtn vitalCalcEditBtn";
+      editBtn.textContent = "✎";
+      addListener(editBtn, "click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        openHpMaxEditor();
+      });
+      tile.appendChild(editBtn);
+    }
+    return { maxValue, sub, editBtn };
+  }
+
+  function renderHpMaxTile() {
+    const bundle = getHpMaxBundle();
+    if (!bundle) return;
+    const { model } = bundle;
+    const input = guard.els.charHpMax;
+    const tile = input ? input.closest(".charTile") : null;
+    const row = input ? input.closest(".charHpRow") : null;
+    if (!input || !tile || !row) return;
+
+    if (model.mode === "legacy" && !model.canDerive) {
+      // Freeform legacy: the manual input is the whole story.
+      const existingBtn = tile.querySelector(":scope > .vitalCalcEditBtn");
+      const existingValue = row.querySelector(".hpMaxDerivedValue");
+      const existingSub = tile.querySelector(":scope > .vitalCalcProvenance");
+      if (existingBtn) existingBtn.remove();
+      if (existingValue) existingValue.remove();
+      if (existingSub) existingSub.remove();
+      tile.classList.remove("vitalCalcTile");
+      setVitalInputHidden(input, false);
+      return;
+    }
+
+    const parts = ensureHpMaxTileParts(tile, row);
+
+    if (model.mode === "legacy") {
+      setVitalInputHidden(input, false);
+      parts.maxValue.hidden = true;
+      parts.sub.textContent = "Snapshot — tap ✎ to calculate";
+      parts.editBtn.setAttribute("aria-label", "Set up Max HP calculation");
+      parts.editBtn.title = "Set up Max HP calculation";
+      return;
+    }
+
+    setVitalInputHidden(input, true);
+    parts.maxValue.hidden = false;
+    parts.maxValue.textContent = model.value == null ? "—" : String(model.value);
+    parts.sub.textContent = describeHpMaxModel(model);
+    parts.editBtn.setAttribute("aria-label", "Edit Max HP calculation");
+    parts.editBtn.title = "Edit Max HP calculation";
+  }
+
+  function openHpMaxEditor() {
+    openScalarCalcEditor({
+      title: "Max HP",
+      valueNoun: "maximum HP",
+      getBundle: getHpMaxBundle,
+      describeBase: (model) => (model.canDerive && model.formula
+        ? `Levels: ${model.formula}`
+        : (model.warnings[0] || "")),
+      getFocusAnchor: () => guard.els.charHpMax?.closest(".charTile")?.querySelector(".vitalCalcEditBtn"),
+      apply: (draft) => {
+        const bundle = getHpMaxBundle();
+        const updated = mutateCharacter((character) => {
+          let nextMax = null;
+          if (draft.mode === "derived") {
+            character.hpMaxCalc = { mode: "derived", adjustment: draft.adjustment };
+            const model = getHpMaxDisplayModel(character, bundle?.derived || null);
+            if (model.value != null) {
+              character.hpMax = model.value;
+              nextMax = model.value;
+            }
+          } else {
+            character.hpMaxCalc = { mode: "fixed", adjustment: 0 };
+            if (draft.fixedValue != null) {
+              character.hpMax = draft.fixedValue;
+              nextMax = draft.fixedValue;
+            }
+          }
+          // A lowered max clamps current HP down; raising it never auto-heals.
+          const cur = numberOrNull(character.hpCur);
+          const clamped = clampCurrentHpToMax(cur, nextMax);
+          if (clamped !== cur) character.hpCur = clamped;
+          return true;
+        }, { queueSave: false });
+        if (updated) markVitalsChanged();
+        renderHpMaxTile();
+        refreshVitalNumberField("charHpMax", () => getCurrentCharacter()?.hpMax);
+        refreshVitalNumberField("charHpCur", () => getCurrentCharacter()?.hpCur);
+      }
+    });
+  }
+
   function refreshBuilderOwnedVitalNumberFields() {
     const shouldRefreshBuilderOwnedVitals = isBuilderCharacter(getCurrentCharacter()) ||
       guard.els.hitDieAmt?.dataset.builderOwned === "true" ||
@@ -1349,6 +1516,7 @@ export function initVitalsPanel(deps = {}) {
     renderBreathWeaponDCTile();
     renderSpellcastingTiles();
     renderAcTile();
+    renderHpMaxTile();
   }
 
   function bindVitalsNumbers() {
@@ -1884,7 +2052,15 @@ export function initVitalsPanel(deps = {}) {
       wrap.appendChild(tile);
     });
 
-    enhanceNumberSteppers?.(wrap);
+    Promise.resolve(enhanceNumberSteppers?.(wrap)).then(() => {
+      // Wrapping happens async and creates fresh (visible) .numWrap shells;
+      // re-propagate each calc-managed input's hidden state to its wrapper.
+      if (destroyed) return;
+      for (const id of ["charSpellAtk", "charSpellDC", "charAC", "charHpMax"]) {
+        const input = guard.els[id];
+        if (input) setVitalInputHidden(input, input.hidden);
+      }
+    });
     ensureVitalsTip();
     setupVitalsTileReorder({
       state,
@@ -1996,6 +2172,7 @@ export function initVitalsPanel(deps = {}) {
     renderBreathWeaponDCTile();
     renderSpellcastingTiles();
     renderAcTile();
+    renderHpMaxTile();
     setupVitalsTileReorder({
       state,
       SaveManager,

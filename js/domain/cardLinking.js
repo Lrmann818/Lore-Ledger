@@ -3,6 +3,7 @@
 
 import { getCharacterById } from "./characterHelpers.js";
 import { getDisplayedArmorClass, getAcManagedMode } from "./armorClassCalculation.js";
+import { getDisplayedHpMax, getHpMaxManagedMode } from "./hpMaxCalculation.js";
 import { withAllowedStateMutation } from "../utils/dev.js";
 
 /** @typedef {import("../state.js").State} State */
@@ -61,6 +62,7 @@ export function getLinkedCharacter(card, state) {
  *   className: string,
  *   hpCurrent: number | null,
  *   hpMax: number | null,
+ *   hpMaxManaged: "derived" | "fixed" | null,
  *   ac: number | null,
  *   acManaged: "derived" | "fixed" | null,
  *   status: string,
@@ -83,6 +85,7 @@ export function resolveCardDisplayData(card, state) {
       className: typeof base.className === "string" ? base.className : "",
       hpCurrent: base.hpCurrent ?? null,
       hpMax: base.hpMax ?? null,
+      hpMaxManaged: null,
       ac: baseRecord.ac ?? null,
       acManaged: null,
       status: typeof base.status === "string" ? base.status : "",
@@ -98,10 +101,11 @@ export function resolveCardDisplayData(card, state) {
     name: character.name || "",
     className: character.classLevel || "",
     hpCurrent: character.hpCur ?? null,
-    hpMax: character.hpMax ?? null,
-    // Calc-aware: a character whose AC derives (contract "Structured Vitals")
-    // shows the same live value here as on the sheet; legacy/fixed characters
-    // keep the flat snapshot.
+    // Calc-aware (contract "Structured Vitals"): characters whose max HP or
+    // AC derive show the same live values here as on the sheet; legacy/fixed
+    // characters keep the flat snapshot.
+    hpMax: getDisplayedHpMax(character) ?? null,
+    hpMaxManaged: getHpMaxManagedMode(character),
     ac: getDisplayedArmorClass(character) ?? null,
     acManaged: getAcManagedMode(character),
     status: character.status || "",
@@ -126,11 +130,16 @@ export function writeCardLinkedField(card, field, value, state, deps = {}) {
   const character = isLinkedField(field) ? getLinkedCharacter(card, state) : null;
   const target = character ? "character" : "card";
 
-  // A calc-managed AC (contract "Structured Vitals") is owned by the character
-  // sheet's calculation editor: side surfaces must not overwrite the flat
-  // mirror (derived) or silently change the intentional fixed value. Callers
-  // receive written:false and keep their own local/temporary state instead.
+  // A calc-managed AC or max HP (contract "Structured Vitals") is owned by
+  // the character sheet's calculation editor: side surfaces must not
+  // overwrite the flat mirror (derived) or silently change the intentional
+  // fixed value. Callers receive written:false and keep their own
+  // local/temporary state instead. Current HP stays writable — it is
+  // play-state, never calc-managed.
   if (character && field === "ac" && getAcManagedMode(character)) {
+    return { target, written: false };
+  }
+  if (character && field === "hpMax" && getHpMaxManagedMode(character)) {
     return { target, written: false };
   }
 
@@ -169,9 +178,11 @@ export function snapshotLinkedFieldsToCard(card, state) {
     for (const [cardField, characterField] of Object.entries(LINKED_FIELD_MAP)) {
       card[cardField] = character[characterField];
     }
-    // The card keeps what the user was seeing: a calc-managed AC snapshots
-    // the displayed (derived + adjustment) value, not a stale flat mirror.
+    // The card keeps what the user was seeing: calc-managed AC / max HP
+    // snapshot the displayed (derived + adjustment) values, not a stale flat
+    // mirror.
     card.ac = getDisplayedArmorClass(character) ?? card.ac;
+    card.hpMax = getDisplayedHpMax(character) ?? card.hpMax;
     card.characterId = null;
     return true;
   });

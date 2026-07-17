@@ -553,6 +553,7 @@ function normalizeTrackerSessions(input) {
  *   spellDC: NullableNumber,
  *   spellcastingCalc?: import("./domain/spellcastingCalculation.js").SpellcastingCalc,
  *   acCalc?: import("./domain/armorClassCalculation.js").AcCalc,
+ *   hpMaxCalc?: import("./domain/hpMaxCalculation.js").HpMaxCalc,
  *   resources: CharacterResource[],
  *   manualFeatureCards: ManualFeatureCard[],
  *   featureUses: FeatureUsesState,

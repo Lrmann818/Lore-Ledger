@@ -71,6 +71,16 @@ function transformRace(raw) {
   return entry;
 }
 
+// Traits whose mechanic is a flat max-HP bonus per character level. The SRD
+// rules text ("your hit point maximum increases by 1, and it increases by 1
+// every time you gain a level" — Dwarven Toughness) is a mechanic, not API
+// data, so like the unarmored AC formulas it lives in code, keyed by the
+// stable trait id. Emitted as a structured `hpPerLevelBonus` field so
+// `computeMaxHp` can consume it without name matching.
+const HP_PER_LEVEL_TRAIT_BONUSES = Object.freeze({
+  "dwarven-toughness": 1,
+});
+
 /**
  * Transform a raw API subrace entry into our schema.
  * @param {any} raw
@@ -92,6 +102,14 @@ function transformSubrace(raw) {
       desc: raw.desc,
     }),
   };
+
+  const hpPerLevelBonus = (raw.racial_traits ?? []).reduce(
+    (sum, t) => sum + (HP_PER_LEVEL_TRAIT_BONUSES[t.index] ?? 0),
+    0
+  );
+  if (hpPerLevelBonus > 0) {
+    entry.hpPerLevelBonus = hpPerLevelBonus;
+  }
 
   const choices = buildSubraceChoices(raw);
   if (choices.length > 0) {

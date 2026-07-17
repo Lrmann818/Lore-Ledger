@@ -224,6 +224,17 @@ describe("races adapter choices", () => {
       parentRace: "dwarf",
       abilityScoreIncreases: [{ ability: "wis", bonus: 1 }],
       traits: ["dwarven-toughness"],
+      // Dwarven Toughness is a mechanic (max HP +1 per level), emitted as a
+      // structured field so computeMaxHp can consume it without name matching.
+      hpPerLevelBonus: 1,
     });
+  });
+
+  it("does not emit hpPerLevelBonus for subraces without a per-level HP trait", async () => {
+    const entries = await buildWithRaces(
+      [makeRace()],
+      [makeSubrace({ index: "lightfoot-halfling", racial_traits: [{ index: "naturally-stealthy" }] })]
+    );
+    expect(byId(entries, "lightfoot-halfling")).not.toHaveProperty("hpPerLevelBonus");
   });
 });
