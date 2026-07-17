@@ -5985,14 +5985,13 @@ select.npcField:focus {
   line-height: 1.2;
 }
 
-/* F2 spell DC / attack: derived-tile affordances + editor dialog (additive) */
-.charTile[data-vital-key="spellDC"],
-.charTile[data-vital-key="spellAtk"],
-.charTile.spellSourceTile {
+/* F2 structured vitals (spell DC/attack, AC, max HP): derived-tile
+   affordances + the shared calculation-editor dialog (additive) */
+.charTile.vitalCalcTile {
   position: relative;
 }
 
-.spellCalcEditBtn {
+.vitalCalcEditBtn {
   position: absolute;
   top: 6px;
   right: 6px;
@@ -6005,20 +6004,20 @@ select.npcField:focus {
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .spellCalcEditBtn:hover {
+  .vitalCalcEditBtn:hover {
     opacity: 1;
   }
 }
 
-.spellCalcEditBtn:focus-visible {
+.vitalCalcEditBtn:focus-visible {
   opacity: 1;
 }
 
-.spellSourceProvenance:empty {
+.vitalCalcProvenance:empty {
   display: none;
 }
 
-.spellSourceProvenance {
+.vitalCalcProvenance {
   font-size: calc(11px * var(--ui-scale));
   line-height: 1.15;
   opacity: 0.8;
@@ -6026,24 +6025,24 @@ select.npcField:focus {
   padding-right: 28px;
 }
 
-.spellCalcDialogPanel {
+.vitalCalcDialogPanel {
   max-width: 420px;
   width: min(92vw, 420px);
 }
 
-.spellCalcDialogBody {
+.vitalCalcDialogBody {
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
 
-.spellCalcField {
+.vitalCalcField {
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
 
-.spellCalcSourceRow {
+.vitalCalcSourceRow {
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -6052,7 +6051,7 @@ select.npcField:focus {
   border-radius: 10px;
 }
 
-.spellCalcSourceHead {
+.vitalCalcSourceHead {
   font-weight: 700;
   display: flex;
   justify-content: space-between;
@@ -6061,41 +6060,52 @@ select.npcField:focus {
   flex-wrap: wrap;
 }
 
-.spellCalcAdjRow {
+.vitalCalcAdjRow {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
 }
 
-.spellCalcAdjLabel {
+.vitalCalcAdjLabel {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   font-size: calc(13px * var(--ui-scale));
 }
 
-.spellCalcAdjInput {
+.vitalCalcAdjInput {
   width: 64px;
   max-width: 100%;
 }
 
-.spellCalcAddRow {
+.vitalCalcAddRow {
   display: flex;
 }
 
-.spellCalcPreview {
+.vitalCalcFormulaNote {
+  font-size: calc(12px * var(--ui-scale));
+  opacity: 0.85;
+  word-break: break-word;
+}
+
+.vitalCalcPreview {
   border-top: 1px solid var(--hairline);
   padding-top: 8px;
 }
 
-.spellCalcPreviewBody {
+.vitalCalcPreviewBody {
   display: flex;
   flex-direction: column;
   gap: 3px;
 }
 
-.spellCalcPreviewLine {
+.vitalCalcPreviewLine {
   font-weight: 600;
+}
+
+/* Combat participant AC while a temporary value overrides a calculated base */
+.combatAcInput.combatAcTemp {
+  border-color: var(--accent);
 }
 
 .charHpRow {

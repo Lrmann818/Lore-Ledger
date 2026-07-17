@@ -733,12 +733,32 @@ resource deltas. Down-leveling remains ratified out of scope. Ratified decisions
 ### Reference App Screenshots
 
 `docs/reference/fifth-edition-character-sheet/` holds screenshots of the Fifth Edition
-Character Sheet app.
+Character Sheet app. They are **product-reference material, not a visual specification.**
+This section governs their use in every Builder, character-sheet, editing, and Level Up
+UI decision.
 
-- They are **UX/reference coverage only** — used to identify editable surfaces,
-  information coverage, and tap/click/long-press edit patterns.
-- They are **not a visual-design target**. Do not copy the reference app's visual design,
-  colors, spacing, or component styling.
+Use them to understand:
+
+- which user choices may need to be presented, and **when** those choices appear during
+  character creation, editing, and Level Up
+- which resulting fields may need to remain editable afterwards
+- how complicated options can be grouped or explained
+- interaction patterns that reduce user confusion (tap-to-edit surfaces, grouping,
+  progressive disclosure)
+
+Hard rules:
+
+- Do **not** copy the reference app's branding, visual style, component design, wording,
+  layout, or exact presentation. All resulting UI must use Lore Ledger's existing design
+  system, terminology, accessibility standards, responsive behavior, and interaction
+  conventions.
+- SRD 5.1 rules, Lore Ledger product decisions, and the current repository architecture
+  remain authoritative. Verify every screenshot-based assumption against the actual SRD
+  rules and the repository data model before building on it.
+- Screenshots never justify shipping unsupported non-SRD content or silently broadening
+  scope.
+- Stable IDs and structured semantics take precedence over surface similarities seen in
+  screenshots.
 
 Note: that directory is gitignored, so it may be absent in a fresh clone. Its absence does
 not relax any rule in this section.

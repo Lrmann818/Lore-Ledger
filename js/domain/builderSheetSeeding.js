@@ -15,6 +15,7 @@ import {
   getSpellcastingDisplayModel,
   normalizeSpellcastingCalc
 } from "./spellcastingCalculation.js";
+import { buildDerivedAcCalc, normalizeAcCalc } from "./armorClassCalculation.js";
 import { deriveCharacter } from "./rules/deriveCharacter.js";
 import { getActiveContentRegistry, getContentByKind, listContentByKind } from "./rules/registry.js";
 import { normalizeBuildLevels } from "./rules/progression.js";
@@ -1096,7 +1097,21 @@ export function getLevelUpSheetSeedPatch(before, after, registry = getActiveCont
     }
     result.preserved.push(`${label} ${stored} — manual value kept`);
   };
-  recomputeIfUntouched("ac", derivedBefore.ac?.value, derivedAfter.ac?.value, "Armor Class");
+  // Armor Class: calc-aware policies (contract "Structured Vitals") — derived
+  // re-derives the flat mirror (adjustment included), fixed is left alone and
+  // reported as preserved, and legacy keeps recompute-if-untouched.
+  const acCalc = normalizeAcCalc(source.acCalc);
+  if (!acCalc) {
+    recomputeIfUntouched("ac", derivedBefore.ac?.value, derivedAfter.ac?.value, "Armor Class");
+  } else if (acCalc.mode === "derived") {
+    if (derivedAfter.ac?.value != null) {
+      const acMirror = derivedAfter.ac.value + acCalc.adjustment;
+      if (acMirror !== finiteNumberOrNull(source.ac)) patch.ac = acMirror;
+    }
+  } else {
+    const storedAc = finiteNumberOrNull(source.ac);
+    if (storedAc != null) result.preserved.push(`Armor Class ${storedAc} — fixed value kept`);
+  }
 
   // Spell DC / attack: characters carrying a structured `spellcastingCalc`
   // block follow the calculation contract instead of recompute-if-untouched —
@@ -1245,31 +1260,67 @@ export function getBuilderFinishSheetSeedPatch(character, registry = getActiveCo
     patch.hpMax = derived.hp.max;
     if (finiteNumberOrNull(source.hpCur) == null) patch.hpCur = derived.hp.max;
   }
-  if (derived.ac?.value != null && finiteNumberOrNull(source.ac) == null) {
+  // Armor Class (calculation contract "Structured Vitals"): builder characters
+  // get a derived `acCalc` block stamped so the AC tile derives live from
+  // creation onward — but only when doing so cannot change what the user sees:
+  // the flat `ac` must be empty or already equal to the current derived value.
+  // A diverged legacy value (a manual edit under the old snapshot model) stays
+  // a legacy snapshot until the user adopts a calculation through the editor.
+  // An existing block (adopted fixed/derived, edited adjustment) is never
+  // overwritten; in derived mode the flat field is refreshed as the
+  // displayed-value mirror (Edit in Builder can change Dex/armor/shield).
+  const existingAcCalc = normalizeAcCalc(source.acCalc);
+  const storedAc = finiteNumberOrNull(source.ac);
+  if (derived.ac?.value != null && !existingAcCalc && (storedAc == null || storedAc === derived.ac.value)) {
+    patch.acCalc = /** @type {import("../state.js").CharacterEntry["acCalc"]} */ (buildDerivedAcCalc());
+  }
+  if (existingAcCalc?.mode === "derived" && derived.ac?.value != null) {
+    const acMirror = derived.ac.value + existingAcCalc.adjustment;
+    if (acMirror !== storedAc) patch.ac = acMirror;
+  } else if (derived.ac?.value != null && storedAc == null) {
     patch.ac = derived.ac.value;
   }
   // Spell DC / attack (calculation contract "Structured Vitals"). Builder
   // casters — and non-casters with a granted-spell source such as a High Elf's
-  // Intelligence cantrip — get a derived `spellcastingCalc` block stamped once,
-  // so the tiles derive live from creation onward (the attack-`calc`
-  // precedent). An existing block (the user adopted fixed/derived, or edited
-  // adjustments) is never overwritten on a re-seed. The flat spellDC/spellAttack
-  // fields stay a fill-when-empty back-compat mirror of the primary profile.
+  // Intelligence cantrip — get a derived `spellcastingCalc` block stamped so
+  // the tiles derive live from creation onward (the attack-`calc` precedent) —
+  // but only when doing so cannot change what the user sees: each flat field
+  // must be empty or already equal to the current derived primary value.
+  // Diverged legacy values (manual edits under the old snapshot model) stay
+  // legacy snapshots until adopted through the editor. An existing block is
+  // never overwritten on a re-seed. The flat spellDC/spellAttack fields stay a
+  // fill-when-empty back-compat mirror of the primary profile.
   const spellcastingModel = getSpellcastingDisplayModel(
     { ...source, spellcastingCalc: normalizeSpellcastingCalc(source.spellcastingCalc) || buildDerivedSpellcastingCalc() },
     derived
   );
   if (spellcastingModel.hasDerivableSources) {
-    if (!normalizeSpellcastingCalc(source.spellcastingCalc)) {
+    const existingSpellCalc = normalizeSpellcastingCalc(source.spellcastingCalc);
+    const storedDc = finiteNumberOrNull(source.spellDC);
+    const storedAttack = finiteNumberOrNull(source.spellAttack);
+    const dcAdoptable = storedDc == null || storedDc === spellcastingModel.flat.dc;
+    const attackAdoptable = storedAttack == null || storedAttack === spellcastingModel.flat.attack;
+    if (!existingSpellCalc && dcAdoptable && attackAdoptable) {
       patch.spellcastingCalc = /** @type {import("../state.js").CharacterEntry["spellcastingCalc"]} */ (
         buildDerivedSpellcastingCalc()
       );
     }
-    if (spellcastingModel.flat.dc != null && finiteNumberOrNull(source.spellDC) == null) {
-      patch.spellDC = spellcastingModel.flat.dc;
-    }
-    if (spellcastingModel.flat.attack != null && finiteNumberOrNull(source.spellAttack) == null) {
-      patch.spellAttack = spellcastingModel.flat.attack;
+    if (existingSpellCalc?.mode === "derived") {
+      // Displayed-value mirror refresh: Edit in Builder can change the
+      // spellcasting ability scores or sources.
+      if (spellcastingModel.flat.dc != null && spellcastingModel.flat.dc !== storedDc) {
+        patch.spellDC = spellcastingModel.flat.dc;
+      }
+      if (spellcastingModel.flat.attack != null && spellcastingModel.flat.attack !== storedAttack) {
+        patch.spellAttack = spellcastingModel.flat.attack;
+      }
+    } else {
+      if (spellcastingModel.flat.dc != null && storedDc == null) {
+        patch.spellDC = spellcastingModel.flat.dc;
+      }
+      if (spellcastingModel.flat.attack != null && storedAttack == null) {
+        patch.spellAttack = spellcastingModel.flat.attack;
+      }
     }
   }
 

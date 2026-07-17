@@ -15,6 +15,10 @@ import {
   collectDerivedSpellcastingSources,
   abilityLabel
 } from "../../../domain/spellcastingCalculation.js";
+import {
+  getArmorClassDisplayModel,
+  normalizeAcCalc
+} from "../../../domain/armorClassCalculation.js";
 import { notifyPanelDataChanged, subscribePanelDataChanged } from "../../../ui/panelInvalidation.js";
 
 function notifyStatus(setStatus, message) {
@@ -414,39 +418,52 @@ export function initVitalsPanel(deps = {}) {
   }
 
   /**
-   * Ensures a tile has the read-only derived value element, provenance
-   * sublabel, and edit button (created once). Returns those parts.
+   * Ensures a `.charTile` has the shared structured-vitals parts: a read-only
+   * derived value element, a provenance sublabel, and an edit (✎) button —
+   * created once per tile. `valueClass` keeps each field's value element
+   * distinct; `onEdit` opens that field's calculation editor.
+   *
    * @param {HTMLElement} tile
+   * @param {{ valueClass: string, onEdit: () => void }} options
    */
-  function ensureSpellTileParts(tile) {
-    let derivedValue = /** @type {HTMLElement | null} */ (tile.querySelector(":scope > .spellDerivedValue"));
+  function ensureVitalCalcTileParts(tile, { valueClass, onEdit }) {
+    tile.classList.add("vitalCalcTile");
+    let derivedValue = /** @type {HTMLElement | null} */ (tile.querySelector(`:scope > .${valueClass}`));
     if (!derivedValue) {
       derivedValue = document.createElement("div");
-      derivedValue.className = "builderDerivedVitalValue spellDerivedValue";
+      derivedValue.className = `builderDerivedVitalValue ${valueClass}`;
       derivedValue.setAttribute("aria-readonly", "true");
       derivedValue.hidden = true;
       tile.appendChild(derivedValue);
     }
-    let sub = /** @type {HTMLElement | null} */ (tile.querySelector(":scope > .spellSourceProvenance"));
+    let sub = /** @type {HTMLElement | null} */ (tile.querySelector(":scope > .vitalCalcProvenance"));
     if (!sub) {
       sub = document.createElement("div");
-      sub.className = "mutedSmall spellSourceProvenance";
+      sub.className = "mutedSmall vitalCalcProvenance";
       tile.appendChild(sub);
     }
-    let editBtn = /** @type {HTMLButtonElement | null} */ (tile.querySelector(":scope > .spellCalcEditBtn"));
+    let editBtn = /** @type {HTMLButtonElement | null} */ (tile.querySelector(":scope > .vitalCalcEditBtn"));
     if (!editBtn) {
       editBtn = document.createElement("button");
       editBtn.type = "button";
-      editBtn.className = "iconBtn spellCalcEditBtn";
+      editBtn.className = "iconBtn vitalCalcEditBtn";
       editBtn.textContent = "✎";
       addListener(editBtn, "click", (event) => {
         event.preventDefault();
         event.stopPropagation();
-        openSpellcastingEditor();
+        onEdit();
       });
       tile.appendChild(editBtn);
     }
     return { derivedValue, sub, editBtn };
+  }
+
+  /** @param {HTMLElement} tile */
+  function ensureSpellTileParts(tile) {
+    return ensureVitalCalcTileParts(tile, {
+      valueClass: "spellDerivedValue",
+      onEdit: openSpellcastingEditor
+    });
   }
 
   function renderExtraSpellSourceTiles(model) {
@@ -469,7 +486,7 @@ export function initVitalsPanel(deps = {}) {
       tile.appendChild(value);
 
       const sub = document.createElement("div");
-      sub.className = "mutedSmall spellSourceProvenance";
+      sub.className = "mutedSmall vitalCalcProvenance";
       sub.textContent = profile.label;
       tile.appendChild(sub);
 
@@ -527,12 +544,12 @@ export function initVitalsPanel(deps = {}) {
     if (spellcastingOverlay && document.contains(spellcastingOverlay)) return spellcastingOverlay;
 
     const overlay = document.createElement("div");
-    overlay.className = "modalOverlay spellCalcDialogOverlay";
+    overlay.className = "modalOverlay vitalCalcDialogOverlay spellCalcDialogOverlay";
     overlay.hidden = true;
     overlay.setAttribute("aria-hidden", "true");
 
     const panel = document.createElement("div");
-    panel.className = "modalPanel spellCalcDialogPanel";
+    panel.className = "modalPanel vitalCalcDialogPanel spellCalcDialogMarker";
     panel.setAttribute("role", "dialog");
     panel.setAttribute("aria-modal", "true");
     panel.setAttribute("aria-labelledby", "spellCalcDialogTitle");
@@ -554,10 +571,10 @@ export function initVitalsPanel(deps = {}) {
     header.appendChild(close);
 
     const body = document.createElement("div");
-    body.className = "uiDialogBody spellCalcDialogBody";
+    body.className = "uiDialogBody vitalCalcDialogBody spellCalcDialogBody";
 
     const footer = document.createElement("div");
-    footer.className = "uiDialogFooter spellCalcDialogFooter";
+    footer.className = "uiDialogFooter vitalCalcDialogFooter";
     const cancel = document.createElement("button");
     cancel.type = "button";
     cancel.className = "npcSmallBtn";
@@ -648,7 +665,7 @@ export function initVitalsPanel(deps = {}) {
     renderSpellcastingDialog();
     overlay.hidden = false;
     overlay.setAttribute("aria-hidden", "false");
-    const panel = overlay.querySelector(".spellCalcDialogPanel");
+    const panel = overlay.querySelector(".spellCalcDialogMarker");
     requestAnimationFrame(() => {
       if (destroyed) return;
       const focusTarget = overlay.querySelector("select, input, button:not([data-spell-calc-cancel])");
@@ -665,14 +682,14 @@ export function initVitalsPanel(deps = {}) {
     if (!restoreFocus) return;
     requestAnimationFrame(() => {
       if (destroyed) return;
-      const btn = guard.els.charSpellDC?.closest(".charTile")?.querySelector(".spellCalcEditBtn");
+      const btn = guard.els.charSpellDC?.closest(".charTile")?.querySelector(".vitalCalcEditBtn");
       try { btn?.focus?.({ preventScroll: true }); } catch { btn?.focus?.(); }
     });
   }
 
   function spellDialogField(parent, labelText) {
     const field = document.createElement("label");
-    field.className = "spellCalcField";
+    field.className = "vitalCalcField";
     const span = document.createElement("span");
     span.className = "modalLabel";
     span.textContent = labelText;
@@ -684,7 +701,7 @@ export function initVitalsPanel(deps = {}) {
   function spellAdjustInput(value, ariaLabel, onChange) {
     const input = document.createElement("input");
     input.type = "number";
-    input.className = "spellCalcAdjInput";
+    input.className = "vitalCalcAdjInput";
     input.value = Number.isFinite(value) && value !== 0 ? String(value) : "";
     input.placeholder = "0";
     input.setAttribute("aria-label", ariaLabel);
@@ -727,7 +744,7 @@ export function initVitalsPanel(deps = {}) {
       const dcField = spellDialogField(body, "Spell DC");
       const dcInput = document.createElement("input");
       dcInput.type = "number";
-      dcInput.className = "spellCalcAdjInput";
+      dcInput.className = "vitalCalcAdjInput";
       dcInput.value = draft.fixed.dc == null ? "" : String(draft.fixed.dc);
       dcInput.setAttribute("aria-label", "Fixed spell DC");
       addListener(dcInput, "input", () => { draft.fixed.dc = numberOrNull(dcInput.value); renderSpellcastingPreview(); });
@@ -736,7 +753,7 @@ export function initVitalsPanel(deps = {}) {
       const atkField = spellDialogField(body, "Spell Attack");
       const atkInput = document.createElement("input");
       atkInput.type = "number";
-      atkInput.className = "spellCalcAdjInput";
+      atkInput.className = "vitalCalcAdjInput";
       atkInput.value = draft.fixed.attack == null ? "" : String(draft.fixed.attack);
       atkInput.setAttribute("aria-label", "Fixed spell attack bonus");
       addListener(atkInput, "input", () => { draft.fixed.attack = numberOrNull(atkInput.value); renderSpellcastingPreview(); });
@@ -747,12 +764,12 @@ export function initVitalsPanel(deps = {}) {
 
     // Live preview.
     const preview = document.createElement("div");
-    preview.className = "spellCalcPreview";
+    preview.className = "vitalCalcPreview";
     const previewLabel = document.createElement("div");
     previewLabel.className = "mutedSmall";
     previewLabel.textContent = "Preview";
     const previewBody = document.createElement("div");
-    previewBody.className = "spellCalcPreviewBody";
+    previewBody.className = "vitalCalcPreviewBody spellCalcPreviewBody";
     preview.appendChild(previewLabel);
     preview.appendChild(previewBody);
     body.appendChild(preview);
@@ -764,24 +781,24 @@ export function initVitalsPanel(deps = {}) {
     if (sources.length) {
       for (const { ability, sources: labels } of sources) {
         const row = document.createElement("div");
-        row.className = "spellCalcSourceRow";
+        row.className = "vitalCalcSourceRow";
         const head = document.createElement("div");
-        head.className = "spellCalcSourceHead";
+        head.className = "vitalCalcSourceHead";
         head.textContent = labels.length ? `${abilityLabel(ability)} (${labels.join(", ")})` : abilityLabel(ability);
         row.appendChild(head);
 
         const adjWrap = document.createElement("div");
-        adjWrap.className = "spellCalcAdjRow";
+        adjWrap.className = "vitalCalcAdjRow";
         const cur = draft.bySource[ability] || { dcAdjustment: 0, attackAdjustment: 0 };
         const ensure = () => (draft.bySource[ability] = draft.bySource[ability] || { dcAdjustment: 0, attackAdjustment: 0 });
 
         const dcLabel = document.createElement("label");
-        dcLabel.className = "spellCalcAdjLabel";
+        dcLabel.className = "vitalCalcAdjLabel";
         dcLabel.append("DC adj ");
         dcLabel.appendChild(spellAdjustInput(cur.dcAdjustment, `${abilityLabel(ability)} DC adjustment`,
           (v) => { ensure().dcAdjustment = v; }));
         const atkLabel = document.createElement("label");
-        atkLabel.className = "spellCalcAdjLabel";
+        atkLabel.className = "vitalCalcAdjLabel";
         atkLabel.append("Atk adj ");
         atkLabel.appendChild(spellAdjustInput(cur.attackAdjustment, `${abilityLabel(ability)} attack adjustment`,
           (v) => { ensure().attackAdjustment = v; }));
@@ -801,9 +818,9 @@ export function initVitalsPanel(deps = {}) {
 
     for (const entry of draft.freeform) {
       const row = document.createElement("div");
-      row.className = "spellCalcSourceRow";
+      row.className = "vitalCalcSourceRow";
       const head = document.createElement("div");
-      head.className = "spellCalcSourceHead";
+      head.className = "vitalCalcSourceHead";
       head.textContent = abilityLabel(entry.ability);
       const remove = document.createElement("button");
       remove.type = "button";
@@ -817,14 +834,14 @@ export function initVitalsPanel(deps = {}) {
       row.appendChild(head);
 
       const adjWrap = document.createElement("div");
-      adjWrap.className = "spellCalcAdjRow";
+      adjWrap.className = "vitalCalcAdjRow";
       const dcLabel = document.createElement("label");
-      dcLabel.className = "spellCalcAdjLabel";
+      dcLabel.className = "vitalCalcAdjLabel";
       dcLabel.append("DC adj ");
       dcLabel.appendChild(spellAdjustInput(entry.dcAdjustment, `${abilityLabel(entry.ability)} DC adjustment`,
         (v) => { entry.dcAdjustment = v; }));
       const atkLabel = document.createElement("label");
-      atkLabel.className = "spellCalcAdjLabel";
+      atkLabel.className = "vitalCalcAdjLabel";
       atkLabel.append("Atk adj ");
       atkLabel.appendChild(spellAdjustInput(entry.attackAdjustment, `${abilityLabel(entry.ability)} attack adjustment`,
         (v) => { entry.attackAdjustment = v; }));
@@ -838,7 +855,7 @@ export function initVitalsPanel(deps = {}) {
     const remaining = CHARACTER_ABILITY_KEYS.filter((k) => !used.has(k));
     if (remaining.length) {
       const addWrap = document.createElement("div");
-      addWrap.className = "spellCalcAddRow";
+      addWrap.className = "vitalCalcAddRow";
       const select = document.createElement("select");
       select.className = "settingsSelect";
       select.setAttribute("aria-label", "Add a spellcasting ability");
@@ -880,7 +897,7 @@ export function initVitalsPanel(deps = {}) {
     }
     for (const profile of model.profiles) {
       const line = document.createElement("div");
-      line.className = "spellCalcPreviewLine";
+      line.className = "vitalCalcPreviewLine";
       line.textContent = `${profile.label || "Fixed"}: DC ${profile.dcLabel} · Attack ${profile.attackLabel}`;
       previewBody.appendChild(line);
     }
@@ -913,6 +930,403 @@ export function initVitalsPanel(deps = {}) {
     renderSpellcastingTiles();
   }
 
+  // ── Armor Class: derived-plus-adjustment or fixed override (contract
+  // "Structured Vitals"). Builder characters derive via computeArmorClass
+  // (armor / shield / Dex caps / unarmored-defense formulas / Defense style);
+  // freeform characters have no structured armor, so their AC stays a manual
+  // snapshot input with no adoption affordance. Legacy values are shown
+  // verbatim until the user explicitly adopts a calculation. ──
+
+  function getAcBundle() {
+    const character = getCurrentCharacter();
+    if (!character) return null;
+    let derived = null;
+    if (isBuilderCharacter(character)) {
+      try {
+        derived = deriveCharacter(character);
+      } catch (err) {
+        console.warn("Vitals AC derivation failed:", err);
+      }
+    }
+    return { character, derived, model: getArmorClassDisplayModel(character, derived) };
+  }
+
+  function describeAcModel(model) {
+    if (model.mode === "fixed") return "Fixed value";
+    if (!model.canDerive) return model.warnings[0] || "";
+    const adj = model.adjustment;
+    const adjText = adj ? ` ${adj > 0 ? "+" : "−"} ${Math.abs(adj)} adj` : "";
+    return `${model.formula}${adjText}`;
+  }
+
+  function renderAcTile() {
+    const bundle = getAcBundle();
+    if (!bundle) return;
+    const { model } = bundle;
+    const input = guard.els.charAC;
+    const tile = input ? input.closest(".charTile") : null;
+    if (!input || !tile) return;
+
+    if (model.mode === "legacy" && !model.canDerive) {
+      // Freeform legacy: the manual input is the whole story — no calc
+      // affordance is added, and previously added parts (character switch
+      // from a builder character) are cleared.
+      const existingBtn = tile.querySelector(":scope > .vitalCalcEditBtn");
+      const existingValue = tile.querySelector(":scope > .acDerivedValue");
+      const existingSub = tile.querySelector(":scope > .vitalCalcProvenance");
+      if (existingBtn) existingBtn.remove();
+      if (existingValue) existingValue.remove();
+      if (existingSub) existingSub.remove();
+      tile.classList.remove("vitalCalcTile");
+      input.hidden = false;
+      return;
+    }
+
+    const parts = ensureVitalCalcTileParts(tile, {
+      valueClass: "acDerivedValue",
+      onEdit: openAcEditor
+    });
+
+    if (model.mode === "legacy") {
+      input.hidden = false;
+      parts.derivedValue.hidden = true;
+      parts.sub.textContent = "Snapshot — tap ✎ to calculate";
+      parts.editBtn.setAttribute("aria-label", "Set up Armor Class calculation");
+      parts.editBtn.title = "Set up Armor Class calculation";
+      return;
+    }
+
+    input.hidden = true;
+    parts.derivedValue.hidden = false;
+    parts.derivedValue.textContent = model.value == null ? "—" : String(model.value);
+    parts.sub.textContent = describeAcModel(model);
+    parts.editBtn.setAttribute("aria-label", "Edit Armor Class calculation");
+    parts.editBtn.title = "Edit Armor Class calculation";
+  }
+
+  // ── Shared scalar calculation editor (AC now, max HP in the same shape).
+  // One value, one derived base + adjustment, or one fixed number. ──
+  let scalarCalcOverlay = null;
+  /** @type {null | { config: ScalarCalcConfig, draft: { mode: "derived" | "fixed", adjustment: number, fixedValue: number | null } }} */
+  let scalarCalcSession = null;
+
+  /**
+   * @typedef {{ mode: string, value: number | null, base: number | null, adjustment: number, formula: string, canDerive: boolean, warnings: string[] }} ScalarCalcModel
+   *
+   * @typedef {{
+   *   title: string,
+   *   valueNoun: string,
+   *   getBundle: () => (null | { character: unknown, derived: unknown, model: ScalarCalcModel }),
+   *   describeBase: (model: ScalarCalcModel) => string,
+   *   apply: (draft: { mode: "derived" | "fixed", adjustment: number, fixedValue: number | null }) => void,
+   *   getFocusAnchor: () => (Element | null | undefined)
+   * }} ScalarCalcConfig
+   */
+
+  function ensureScalarCalcDialog() {
+    if (scalarCalcOverlay && document.contains(scalarCalcOverlay)) return scalarCalcOverlay;
+
+    const overlay = document.createElement("div");
+    overlay.className = "modalOverlay vitalCalcDialogOverlay scalarCalcDialogOverlay";
+    overlay.hidden = true;
+    overlay.setAttribute("aria-hidden", "true");
+
+    const panel = document.createElement("div");
+    panel.className = "modalPanel vitalCalcDialogPanel scalarCalcDialogPanel";
+    panel.setAttribute("role", "dialog");
+    panel.setAttribute("aria-modal", "true");
+    panel.setAttribute("aria-labelledby", "scalarCalcDialogTitle");
+    panel.setAttribute("tabindex", "-1");
+
+    const header = document.createElement("div");
+    header.className = "uiDialogHeader";
+    const title = document.createElement("div");
+    title.className = "modalTitle";
+    title.id = "scalarCalcDialogTitle";
+    const close = document.createElement("button");
+    close.type = "button";
+    close.className = "npcSmallBtn";
+    close.dataset.scalarCalcCancel = "true";
+    close.setAttribute("aria-label", "Close calculation editor");
+    close.textContent = "✕";
+    header.appendChild(title);
+    header.appendChild(close);
+
+    const body = document.createElement("div");
+    body.className = "uiDialogBody vitalCalcDialogBody scalarCalcDialogBody";
+
+    const footer = document.createElement("div");
+    footer.className = "uiDialogFooter vitalCalcDialogFooter";
+    const cancel = document.createElement("button");
+    cancel.type = "button";
+    cancel.className = "npcSmallBtn";
+    cancel.dataset.scalarCalcCancel = "true";
+    cancel.textContent = "Cancel";
+    const save = document.createElement("button");
+    save.type = "button";
+    save.className = "npcSmallBtn";
+    save.dataset.scalarCalcSave = "true";
+    save.textContent = "Save";
+    footer.appendChild(cancel);
+    footer.appendChild(save);
+
+    panel.appendChild(header);
+    panel.appendChild(body);
+    panel.appendChild(footer);
+    overlay.appendChild(panel);
+    document.body.appendChild(overlay);
+
+    addListener(overlay, "click", (event) => {
+      const target = event.target;
+      if (target === overlay) { closeScalarCalcEditor(); return; }
+      if (target instanceof HTMLElement && target.closest("[data-scalar-calc-cancel]")) {
+        closeScalarCalcEditor();
+      } else if (target instanceof HTMLElement && target.closest("[data-scalar-calc-save]")) {
+        saveScalarCalcEditor();
+      }
+    });
+
+    addListener(document, "keydown", (event) => {
+      if (overlay.hidden || destroyed) return;
+      const e = /** @type {KeyboardEvent} */ (event);
+      if (e.key === "Escape") {
+        e.preventDefault();
+        e.stopPropagation();
+        closeScalarCalcEditor();
+        return;
+      }
+      if (e.key === "Tab") {
+        const focusables = /** @type {HTMLElement[]} */ (Array.from(panel.querySelectorAll(
+          "button:not([disabled]), input:not([disabled]), select:not([disabled])"
+        ))).filter((node) => !node.closest("[hidden]") && node.offsetParent !== null);
+        if (!focusables.length) return;
+        const first = focusables[0];
+        const last = focusables[focusables.length - 1];
+        if (e.shiftKey) {
+          if (document.activeElement === first || document.activeElement === panel) {
+            e.preventDefault();
+            last.focus();
+          }
+        } else if (document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    }, { capture: true });
+
+    scalarCalcOverlay = overlay;
+    return overlay;
+  }
+
+  /** @param {ScalarCalcConfig} config */
+  function openScalarCalcEditor(config) {
+    if (destroyed) return;
+    const bundle = config.getBundle();
+    if (!bundle) return;
+    const { model } = bundle;
+    /** @type {{ mode: "derived" | "fixed", adjustment: number, fixedValue: number | null }} */
+    let draft;
+    if (model.mode === "derived") {
+      draft = { mode: "derived", adjustment: model.adjustment, fixedValue: model.value };
+    } else if (model.mode === "fixed") {
+      draft = { mode: "fixed", adjustment: 0, fixedValue: model.value };
+    } else {
+      // Legacy adoption default: calculated when a base exists, else fixed
+      // pre-filled with the stored snapshot. Nothing is written until Save.
+      draft = model.canDerive
+        ? { mode: "derived", adjustment: 0, fixedValue: model.value }
+        : { mode: "fixed", adjustment: 0, fixedValue: model.value };
+    }
+    scalarCalcSession = { config, draft };
+
+    const overlay = ensureScalarCalcDialog();
+    renderScalarCalcDialog();
+    overlay.hidden = false;
+    overlay.setAttribute("aria-hidden", "false");
+    const panel = overlay.querySelector(".scalarCalcDialogPanel");
+    requestAnimationFrame(() => {
+      if (destroyed) return;
+      const focusTarget = overlay.querySelector("select, input, button:not([data-scalar-calc-cancel])");
+      try { (focusTarget || panel)?.focus?.({ preventScroll: true }); } catch { (focusTarget || panel)?.focus?.(); }
+    });
+  }
+
+  function closeScalarCalcEditor({ restoreFocus = true } = {}) {
+    const overlay = scalarCalcOverlay;
+    if (!overlay || overlay.hidden) return;
+    const config = scalarCalcSession?.config;
+    scalarCalcSession = null;
+    overlay.hidden = true;
+    overlay.setAttribute("aria-hidden", "true");
+    if (!restoreFocus || !config) return;
+    requestAnimationFrame(() => {
+      if (destroyed) return;
+      const btn = config.getFocusAnchor();
+      try { /** @type {HTMLElement | null} */ (btn)?.focus?.({ preventScroll: true }); } catch { /** @type {HTMLElement | null} */ (btn)?.focus?.(); }
+    });
+  }
+
+  function renderScalarCalcDialog() {
+    const overlay = ensureScalarCalcDialog();
+    const body = overlay.querySelector(".scalarCalcDialogBody");
+    const titleEl = overlay.querySelector("#scalarCalcDialogTitle");
+    if (!body || !scalarCalcSession) return;
+    const { config, draft } = scalarCalcSession;
+    if (titleEl) titleEl.textContent = config.title;
+    body.replaceChildren();
+    const bundle = config.getBundle();
+    const model = bundle?.model || null;
+
+    const modeField = document.createElement("label");
+    modeField.className = "vitalCalcField";
+    const modeLabel = document.createElement("span");
+    modeLabel.className = "modalLabel";
+    modeLabel.textContent = "Calculation";
+    modeField.appendChild(modeLabel);
+    const modeSelect = document.createElement("select");
+    modeSelect.className = "settingsSelect";
+    const modeOptions = model?.canDerive
+      ? [{ value: "derived", label: "Calculated" }, { value: "fixed", label: "Fixed value" }]
+      : [{ value: "fixed", label: "Fixed value" }];
+    for (const opt of modeOptions) {
+      const el = document.createElement("option");
+      el.value = opt.value;
+      el.textContent = opt.label;
+      if (opt.value === draft.mode) el.selected = true;
+      modeSelect.appendChild(el);
+    }
+    modeSelect.setAttribute("aria-label", `How ${config.valueNoun} is calculated`);
+    modeField.appendChild(modeSelect);
+    body.appendChild(modeField);
+    addListener(modeSelect, "change", () => {
+      draft.mode = modeSelect.value === "fixed" ? "fixed" : "derived";
+      renderScalarCalcDialog();
+    });
+
+    if (draft.mode === "derived") {
+      const formulaNote = document.createElement("div");
+      formulaNote.className = "vitalCalcFormulaNote";
+      formulaNote.textContent = model ? config.describeBase(model) : "";
+      body.appendChild(formulaNote);
+
+      const adjField = document.createElement("label");
+      adjField.className = "vitalCalcField";
+      const adjLabel = document.createElement("span");
+      adjLabel.className = "modalLabel";
+      adjLabel.textContent = "Adjustment";
+      adjField.appendChild(adjLabel);
+      const adjInput = document.createElement("input");
+      adjInput.type = "number";
+      adjInput.className = "vitalCalcAdjInput";
+      adjInput.value = draft.adjustment ? String(draft.adjustment) : "";
+      adjInput.placeholder = "0";
+      adjInput.setAttribute("aria-label", `${config.valueNoun} adjustment`);
+      addListener(adjInput, "input", () => {
+        const n = numberOrNull(adjInput.value);
+        draft.adjustment = Number.isFinite(n) ? Number(n) : 0;
+        renderScalarCalcPreview();
+      });
+      adjField.appendChild(adjInput);
+      body.appendChild(adjField);
+    } else {
+      const valueField = document.createElement("label");
+      valueField.className = "vitalCalcField";
+      const valueLabel = document.createElement("span");
+      valueLabel.className = "modalLabel";
+      valueLabel.textContent = config.title;
+      valueField.appendChild(valueLabel);
+      const valueInput = document.createElement("input");
+      valueInput.type = "number";
+      valueInput.className = "vitalCalcAdjInput";
+      valueInput.value = draft.fixedValue == null ? "" : String(draft.fixedValue);
+      valueInput.setAttribute("aria-label", `Fixed ${config.valueNoun}`);
+      addListener(valueInput, "input", () => {
+        draft.fixedValue = numberOrNull(valueInput.value);
+        renderScalarCalcPreview();
+      });
+      valueField.appendChild(valueInput);
+      body.appendChild(valueField);
+
+      const note = document.createElement("div");
+      note.className = "mutedSmall";
+      note.textContent = "A fixed value never changes automatically.";
+      body.appendChild(note);
+    }
+
+    const preview = document.createElement("div");
+    preview.className = "vitalCalcPreview";
+    const previewLabel = document.createElement("div");
+    previewLabel.className = "mutedSmall";
+    previewLabel.textContent = "Preview";
+    const previewBody = document.createElement("div");
+    previewBody.className = "vitalCalcPreviewBody scalarCalcPreviewBody";
+    preview.appendChild(previewLabel);
+    preview.appendChild(previewBody);
+    body.appendChild(preview);
+    renderScalarCalcPreview();
+  }
+
+  function renderScalarCalcPreview() {
+    const overlay = scalarCalcOverlay;
+    if (!overlay || !scalarCalcSession) return;
+    const previewBody = overlay.querySelector(".scalarCalcPreviewBody");
+    if (!previewBody) return;
+    const { config, draft } = scalarCalcSession;
+    const bundle = config.getBundle();
+    const model = bundle?.model || null;
+    const line = document.createElement("div");
+    line.className = "vitalCalcPreviewLine";
+    if (draft.mode === "derived" && model?.base != null) {
+      const total = model.base + draft.adjustment;
+      line.textContent = draft.adjustment
+        ? `${config.title} ${total} = ${model.base} ${draft.adjustment > 0 ? "+" : "−"} ${Math.abs(draft.adjustment)}`
+        : `${config.title} ${total}`;
+    } else if (draft.mode === "derived") {
+      line.textContent = model?.warnings[0] || `${config.title} cannot be calculated.`;
+    } else {
+      line.textContent = draft.fixedValue == null
+        ? "No value set — the current value is kept."
+        : `${config.title} ${draft.fixedValue} (fixed)`;
+    }
+    previewBody.replaceChildren(line);
+  }
+
+  function saveScalarCalcEditor() {
+    if (!scalarCalcSession) { closeScalarCalcEditor(); return; }
+    const { config, draft } = scalarCalcSession;
+    config.apply({ ...draft });
+    closeScalarCalcEditor();
+  }
+
+  function openAcEditor() {
+    openScalarCalcEditor({
+      title: "Armor Class",
+      valueNoun: "Armor Class",
+      getBundle: getAcBundle,
+      describeBase: (model) => (model.canDerive && model.formula
+        ? `Formula: ${model.formula}`
+        : (model.warnings[0] || "")),
+      getFocusAnchor: () => guard.els.charAC?.closest(".charTile")?.querySelector(".vitalCalcEditBtn"),
+      apply: (draft) => {
+        const bundle = getAcBundle();
+        const updated = mutateCharacter((character) => {
+          if (draft.mode === "derived") {
+            character.acCalc = { mode: "derived", adjustment: draft.adjustment };
+            const model = getArmorClassDisplayModel(character, bundle?.derived || null);
+            if (model.value != null) character.ac = model.value;
+          } else {
+            character.acCalc = { mode: "fixed", adjustment: 0 };
+            if (draft.fixedValue != null) character.ac = draft.fixedValue;
+          }
+          return true;
+        }, { queueSave: false });
+        if (updated) markVitalsChanged();
+        renderAcTile();
+        refreshVitalNumberField("charAC", () => getCurrentCharacter()?.ac);
+      }
+    });
+  }
+
   function refreshBuilderOwnedVitalNumberFields() {
     const shouldRefreshBuilderOwnedVitals = isBuilderCharacter(getCurrentCharacter()) ||
       guard.els.hitDieAmt?.dataset.builderOwned === "true" ||
@@ -934,6 +1348,7 @@ export function initVitalsPanel(deps = {}) {
     });
     renderBreathWeaponDCTile();
     renderSpellcastingTiles();
+    renderAcTile();
   }
 
   function bindVitalsNumbers() {
@@ -1580,6 +1995,7 @@ export function initVitalsPanel(deps = {}) {
     refreshBuilderOwnedVitalNumberFields();
     renderBreathWeaponDCTile();
     renderSpellcastingTiles();
+    renderAcTile();
     setupVitalsTileReorder({
       state,
       SaveManager,
@@ -1602,6 +2018,8 @@ export function initVitalsPanel(deps = {}) {
       resourceSettingsOverlay = null;
       spellcastingOverlay?.remove?.();
       spellcastingOverlay = null;
+      scalarCalcOverlay?.remove?.();
+      scalarCalcOverlay = null;
     }
   };
 }

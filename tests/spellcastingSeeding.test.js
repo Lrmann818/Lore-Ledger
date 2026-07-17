@@ -52,13 +52,35 @@ describe("spell DC / attack seeding (F2)", () => {
     expect(patch.spellDC).toBeUndefined(); // flat fields already set → fill-when-empty no-op
   });
 
-  it("keeps the flat fill-when-empty guard: a user-set spellDC is not replaced", () => {
+  it("does not stamp a calc block over a diverged legacy value (manual 99 stays a snapshot)", () => {
     const character = makeCleric({ wis: 16 });
-    character.spellDC = 99;
+    character.spellDC = 99; // manual edit under the old snapshot model
     const patch = getBuilderFinishSheetSeedPatch(character);
     expect(patch.spellDC).toBeUndefined();
-    // The calc block is still stamped so the tile can derive going forward.
-    expect(patch.spellcastingCalc?.mode).toBe("derived");
+    // Stamping would visibly flip the tile from 99 to the derived 13 without
+    // the user choosing adoption — so the character stays legacy.
+    expect(patch.spellcastingCalc).toBeUndefined();
+  });
+
+  it("stamps the calc block on re-seed when the stored value already matches the derivation", () => {
+    const character = makeCleric({ wis: 16 });
+    character.spellDC = 13; // untouched seeded value (Wis 16, prof +2)
+    character.spellAttack = 5;
+    const patch = getBuilderFinishSheetSeedPatch(character);
+    expect(patch.spellcastingCalc?.mode).toBe("derived"); // display unchanged at stamp time
+  });
+
+  it("refreshes the flat mirror on re-seed for an existing derived block", () => {
+    const character = makeCleric({ wis: 16 });
+    character.spellcastingCalc = {
+      mode: "derived",
+      bySource: { wis: { dcAdjustment: 1, attackAdjustment: 0 } },
+      freeform: [],
+      fixed: { dc: null, attack: null }
+    };
+    character.spellDC = 13; // stale mirror: derived 13 + adj 1 = 14
+    const patch = getBuilderFinishSheetSeedPatch(character);
+    expect(patch.spellDC).toBe(14);
   });
 
   it("survives sanitizeForSave without a schema migration (open-shape passthrough)", () => {

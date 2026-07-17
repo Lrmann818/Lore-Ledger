@@ -496,7 +496,13 @@ export function setCombatParticipantAc(state, participantId, value, options = {}
         source.card,
         /** @type {Record<string, unknown>} */ (state)
       );
-      currentAc = nonNegativeNumberOrNull(sourceDisplay.ac);
+      // Calc-managed characters (contract "Structured Vitals") never take
+      // canonical AC writes from combat; the participant's own `ac` acts as
+      // the temporary combat value layered over the calculated base, so the
+      // currently displayed value is participant-local first.
+      currentAc = sourceDisplay.acManaged
+        ? (nonNegativeNumberOrNull(current.ac) ?? nonNegativeNumberOrNull(sourceDisplay.ac))
+        : nonNegativeNumberOrNull(sourceDisplay.ac);
     }
     if (currentAc === nextAc) return false;
 

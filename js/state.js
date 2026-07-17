@@ -552,6 +552,7 @@ function normalizeTrackerSessions(input) {
  *   spellAttack: NullableNumber,
  *   spellDC: NullableNumber,
  *   spellcastingCalc?: import("./domain/spellcastingCalculation.js").SpellcastingCalc,
+ *   acCalc?: import("./domain/armorClassCalculation.js").AcCalc,
  *   resources: CharacterResource[],
  *   manualFeatureCards: ManualFeatureCard[],
  *   featureUses: FeatureUsesState,

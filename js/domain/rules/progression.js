@@ -735,11 +735,20 @@ export function getGrantedSpells(levels, subclassByClass, registry) {
   return out;
 }
 
+// Fighting Style: Defense — "+1 bonus to AC while you are wearing armor."
+// The chosen-subfeature id differs per class in features.json.
+const DEFENSE_FIGHTING_STYLE_FEATURE_IDS = Object.freeze([
+  "fighter-fighting-style-defense",
+  "fighting-style-defense",
+  "ranger-fighting-style-defense"
+]);
+
 /**
  * Armor class derivation.
  * Priority: equipped armor → best applicable unarmored-defense formula →
  * base 10 + Dex. Shields stack except where the formula disallows them
- * (Monk Unarmored Defense).
+ * (Monk Unarmored Defense). The Defense fighting style applies only on the
+ * worn-armor path — never to unarmored formulas.
  *
  * @param {{
  *   abilityModifiers: Record<string, number | null>,
@@ -754,6 +763,7 @@ export function getGrantedSpells(levels, subclassByClass, registry) {
 export function computeArmorClass(input) {
   const { abilityModifiers, armorEntry, hasShield, shieldEntry = null, featureIds, acBonus = 0 } = input;
   const dex = abilityModifiers.dex;
+  const featureSet = new Set(featureIds);
   const shieldBonus = hasShield
     ? (finiteNumberOrNull(shieldEntry?.data?.acBonus) ?? 2)
     : 0;
@@ -770,8 +780,10 @@ export function computeArmorClass(input) {
         dexPart = maxDex != null ? Math.min(dex, maxDex) : dex;
         formula += ` + Dex${maxDex != null ? ` (max ${maxDex})` : ""}`;
       }
-      const value = baseAC + dexPart + shieldBonus + acBonus;
+      const defenseBonus = DEFENSE_FIGHTING_STYLE_FEATURE_IDS.some((id) => featureSet.has(id)) ? 1 : 0;
+      const value = baseAC + dexPart + shieldBonus + defenseBonus + acBonus;
       if (shieldBonus) formula += ` + Shield ${shieldBonus}`;
+      if (defenseBonus) formula += ` + Defense ${defenseBonus}`;
       if (acBonus) formula += ` + Bonus ${acBonus}`;
       return { value, formula };
     }
@@ -779,7 +791,6 @@ export function computeArmorClass(input) {
 
   // Unarmored-defense-style formulas are optional: the plain 10 + Dex
   // (+ shield) calculation competes and wins when it is higher.
-  const featureSet = new Set(featureIds);
   /** @type {{ base: number, addAbilities: readonly string[], allowShield: boolean } | null} */
   let best = null;
   let bestValue = null;

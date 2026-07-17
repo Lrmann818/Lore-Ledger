@@ -2,6 +2,7 @@
 // Centralized Character <-> tracker card linking helpers.
 
 import { getCharacterById } from "./characterHelpers.js";
+import { getDisplayedArmorClass, getAcManagedMode } from "./armorClassCalculation.js";
 import { withAllowedStateMutation } from "../utils/dev.js";
 
 /** @typedef {import("../state.js").State} State */
@@ -61,6 +62,7 @@ export function getLinkedCharacter(card, state) {
  *   hpCurrent: number | null,
  *   hpMax: number | null,
  *   ac: number | null,
+ *   acManaged: "derived" | "fixed" | null,
  *   status: string,
  *   imgBlobId: string | null,
  *   isLinked: boolean,
@@ -82,6 +84,7 @@ export function resolveCardDisplayData(card, state) {
       hpCurrent: base.hpCurrent ?? null,
       hpMax: base.hpMax ?? null,
       ac: baseRecord.ac ?? null,
+      acManaged: null,
       status: typeof base.status === "string" ? base.status : "",
       imgBlobId: typeof base.imgBlobId === "string" ? base.imgBlobId : null,
       isLinked: false,
@@ -96,7 +99,11 @@ export function resolveCardDisplayData(card, state) {
     className: character.classLevel || "",
     hpCurrent: character.hpCur ?? null,
     hpMax: character.hpMax ?? null,
-    ac: character.ac ?? null,
+    // Calc-aware: a character whose AC derives (contract "Structured Vitals")
+    // shows the same live value here as on the sheet; legacy/fixed characters
+    // keep the flat snapshot.
+    ac: getDisplayedArmorClass(character) ?? null,
+    acManaged: getAcManagedMode(character),
     status: character.status || "",
     imgBlobId: character.imgBlobId || null,
     isLinked: true,
@@ -118,6 +125,15 @@ export function writeCardLinkedField(card, field, value, state, deps = {}) {
 
   const character = isLinkedField(field) ? getLinkedCharacter(card, state) : null;
   const target = character ? "character" : "card";
+
+  // A calc-managed AC (contract "Structured Vitals") is owned by the character
+  // sheet's calculation editor: side surfaces must not overwrite the flat
+  // mirror (derived) or silently change the intentional fixed value. Callers
+  // receive written:false and keep their own local/temporary state instead.
+  if (character && field === "ac" && getAcManagedMode(character)) {
+    return { target, written: false };
+  }
+
   const wrote = withAllowedStateMutation(() => {
     if (character && isLinkedField(field)) {
       const characterField = LINKED_FIELD_MAP[field];
@@ -153,6 +169,9 @@ export function snapshotLinkedFieldsToCard(card, state) {
     for (const [cardField, characterField] of Object.entries(LINKED_FIELD_MAP)) {
       card[cardField] = character[characterField];
     }
+    // The card keeps what the user was seeing: a calc-managed AC snapshots
+    // the displayed (derived + adjustment) value, not a stale flat mirror.
+    card.ac = getDisplayedArmorClass(character) ?? card.ac;
     card.characterId = null;
     return true;
   });

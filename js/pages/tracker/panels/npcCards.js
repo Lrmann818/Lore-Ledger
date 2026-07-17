@@ -253,6 +253,11 @@ function createNpcCardsController(deps = {}) {
       if (document.activeElement !== acEl) {
         acEl.value = display.ac != null ? String(display.ac) : "";
       }
+      // A calc-managed AC renders read-only (no input listener); rebuild the
+      // card when the managed state flips so the right wiring is attached.
+      if (acEl.readOnly !== !!display.acManaged) {
+        needsRerender = true;
+      }
     });
     if (needsRerender) renderNpcCards();
   }
@@ -555,10 +560,18 @@ function createNpcCardsController(deps = {}) {
     acInput.dataset.linkedField = "ac";
     acInput.value = display.ac != null ? String(display.ac) : "";
     autoSizeInput(acInput, { min: 30, max: 70 });
-    acInput.addEventListener("input", () => {
-      autoSizeInput(acInput, { min: 30, max: 70 });
-      updateNpcLinkedField(npc, "ac", numberOrNull(acInput.value), false);
-    });
+    if (display.isLinked && display.acManaged) {
+      // The linked character's AC is calc-managed (derived or fixed): it is
+      // edited through the character sheet, not overwritten from a card.
+      acInput.readOnly = true;
+      acInput.setAttribute("aria-readonly", "true");
+      acInput.title = "Managed on the character sheet — edit it there.";
+    } else {
+      acInput.addEventListener("input", () => {
+        autoSizeInput(acInput, { min: 30, max: 70 });
+        updateNpcLinkedField(npc, "ac", numberOrNull(acInput.value), false);
+      });
+    }
 
     acWrap.appendChild(acInput);
     acRow.append(acLabel, acWrap);

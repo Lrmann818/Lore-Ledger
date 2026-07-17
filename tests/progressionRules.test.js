@@ -185,6 +185,40 @@ describe("armor class", () => {
     expect(computeArmorClass({ abilityModifiers: mods(), armorEntry: null, hasShield: false, featureIds: [] }).value).toBe(12);
   });
 
+  it("adds the Defense fighting style +1 only while wearing armor", () => {
+    const chainMail = registry.byKindId.get("armor:chain-mail");
+    for (const featureId of [
+      "fighter-fighting-style-defense",
+      "fighting-style-defense",
+      "ranger-fighting-style-defense"
+    ]) {
+      const armored = computeArmorClass({
+        abilityModifiers: mods(), armorEntry: chainMail, hasShield: false, featureIds: [featureId]
+      });
+      expect(armored.value).toBe(17);
+      expect(armored.formula).toContain("Defense");
+      // Unarmored: Defense does not apply (10 + Dex only).
+      expect(computeArmorClass({
+        abilityModifiers: mods(), armorEntry: null, hasShield: false, featureIds: [featureId]
+      }).value).toBe(12);
+    }
+    // Shield without armor is not "wearing armor".
+    expect(computeArmorClass({
+      abilityModifiers: mods(), armorEntry: null, hasShield: true,
+      shieldEntry: registry.byKindId.get("armor:shield"),
+      featureIds: ["fighter-fighting-style-defense"]
+    }).value).toBe(14);
+  });
+
+  it("stacks armor + shield + Defense together (bonuses, not alternative formulas)", () => {
+    const leather = registry.byKindId.get("armor:leather-armor");
+    const shield = registry.byKindId.get("armor:shield");
+    expect(computeArmorClass({
+      abilityModifiers: mods(), armorEntry: leather, hasShield: true, shieldEntry: shield,
+      featureIds: ["fighter-fighting-style-defense"]
+    }).value).toBe(11 + 2 + 2 + 1);
+  });
+
   it("derives AC from build equipment on the character", () => {
     const derived = deriveCharacter(makeBuilder({
       levels: levelsOf("fighter"),

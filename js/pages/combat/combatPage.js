@@ -92,6 +92,8 @@ import { DEV_MODE } from "../../utils/dev.js";
  *   hpDisplayLabel: string,
  *   acLabel: string,
  *   hasAc: boolean,
+ *   acManaged: "derived" | "fixed" | null,
+ *   acTempActive: boolean,
  *   tempHp: number,
  *   hasTempHp: boolean,
  *   hpState: "normal" | "temp" | "zero",
@@ -300,8 +302,13 @@ export function getCombatCardViewModels(state) {
     const hpDisplay = displayHp == null ? "--" : String(displayHp);
     const hpState = tempHp > 0 ? "temp" : displayHp === 0 ? "zero" : "normal";
     const sourceAc = sourceDisplay ? getCombatAcFromSource(sourceDisplay) : null;
-    const ac = sourceAc ?? participant.ac;
+    // Calc-managed characters never take canonical AC writes from combat, so
+    // the participant-local value is the temporary combat AC and wins while
+    // set; legacy/unmanaged sources keep canonical-first precedence.
+    const acManaged = sourceDisplay?.acManaged ?? null;
+    const ac = acManaged ? (participant.ac ?? sourceAc) : (sourceAc ?? participant.ac);
     const acLabel = ac == null ? "--" : String(ac);
+    const acTempActive = !!acManaged && participant.ac != null;
     const deathSaves = participant.deathSaves || { successes: 0, failures: 0 };
 
     return {
@@ -317,6 +324,8 @@ export function getCombatCardViewModels(state) {
       hpDisplayLabel: hpDisplay,
       acLabel,
       hasAc: ac != null,
+      acManaged,
+      acTempActive,
       tempHp,
       hasTempHp: tempHp > 0,
       hpState,
@@ -714,7 +723,16 @@ function renderCombatCard(card, blobIdToObjectUrl, Popovers) {
     acInput.placeholder = "AC";
     acInput.dataset.combatAcInput = "true";
     acInput.value = card.acLabel === "--" ? "" : card.acLabel;
-    acInput.setAttribute("aria-label", `Armor Class for ${card.name}`);
+    if (card.acManaged) {
+      // Edits here are combat-only for calc-managed characters: they layer a
+      // temporary value over the calculated base instead of rewriting it.
+      acInput.setAttribute("aria-label",
+        `Temporary combat Armor Class for ${card.name} — clear to return to the calculated value`);
+      acInput.title = "Temporary combat AC. Clear to return to the calculated value.";
+      if (card.acTempActive) acInput.classList.add("combatAcTemp");
+    } else {
+      acInput.setAttribute("aria-label", `Armor Class for ${card.name}`);
+    }
     acField.appendChild(acLabel);
     acField.appendChild(acInput);
     vitalsRow.appendChild(acField);
