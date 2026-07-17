@@ -21,6 +21,9 @@ async function installRestState(page) {
       const cleric = collection.entries.find((entry) => entry?.id === collection.activeId);
       cleric.hpCur = 4;
       cleric.hpMax = 16;
+      // The manufactured 16 replaces the Finish-derived max: declare it as an
+      // intentional fixed override so the calc-aware rest flow honors it.
+      cleric.hpMaxCalc = { mode: "fixed", adjustment: 0 };
       cleric.rest = { hitDiceSpent: { "class:cleric": 1 }, preparedByClass: { cleric: ["cure-wounds"] } };
       cleric.deathSaves = { successes: 1, failures: 1 };
       cleric.build.spellcasting.cleric.preparedIds = ["cure-wounds"];

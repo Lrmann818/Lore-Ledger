@@ -25,6 +25,12 @@ import {
 } from "../../../domain/hpMaxCalculation.js";
 import { notifyPanelDataChanged, subscribePanelDataChanged } from "../../../ui/panelInvalidation.js";
 
+// Monotonic id distinguishing vitals-panel instances. Static tile parts (the
+// calc ✎ buttons) survive a panel re-init in the DOM, but their listeners die
+// with the old instance's AbortController — each instance stamps the buttons
+// it wired and rebuilds any it does not own.
+let vitalsPanelInstanceCounter = 0;
+
 function notifyStatus(setStatus, message) {
   if (typeof setStatus === "function") {
     setStatus(message);
@@ -200,6 +206,7 @@ export function initVitalsPanel(deps = {}) {
 
   let destroyed = false;
   const panelInstance = {};
+  const vitalCalcOwnerId = String(++vitalsPanelInstanceCounter);
   let resourceSettingsOverlay = null;
   let pendingResourceLongPress = null;
 
@@ -461,10 +468,16 @@ export function initVitalsPanel(deps = {}) {
       tile.appendChild(sub);
     }
     let editBtn = /** @type {HTMLButtonElement | null} */ (tile.querySelector(":scope > .vitalCalcEditBtn"));
+    if (editBtn && editBtn.dataset.vitalCalcOwner !== vitalCalcOwnerId) {
+      // Left over from a destroyed panel instance: its click listener is gone.
+      editBtn.remove();
+      editBtn = null;
+    }
     if (!editBtn) {
       editBtn = document.createElement("button");
       editBtn.type = "button";
       editBtn.className = "iconBtn vitalCalcEditBtn";
+      editBtn.dataset.vitalCalcOwner = vitalCalcOwnerId;
       editBtn.textContent = "✎";
       addListener(editBtn, "click", (event) => {
         event.preventDefault();
@@ -685,7 +698,9 @@ export function initVitalsPanel(deps = {}) {
     overlay.setAttribute("aria-hidden", "false");
     const panel = overlay.querySelector(".spellCalcDialogMarker");
     requestAnimationFrame(() => {
-      if (destroyed) return;
+      // Bail if the dialog closed before this frame ran (fast Escape) so a
+      // stale open-focus can never fight the close-time restore.
+      if (destroyed || overlay.hidden) return;
       const focusTarget = overlay.querySelector("select, input, button:not([data-spell-calc-cancel])");
       try { (focusTarget || panel)?.focus?.({ preventScroll: true }); } catch { (focusTarget || panel)?.focus?.(); }
     });
@@ -695,13 +710,23 @@ export function initVitalsPanel(deps = {}) {
     const overlay = spellcastingOverlay;
     if (!overlay || overlay.hidden) return;
     spellcastingSession = null;
+    const focusAnchor = () => {
+      const btn = /** @type {HTMLElement | null} */ (
+        guard.els.charSpellDC?.closest(".charTile")?.querySelector(".vitalCalcEditBtn") || null
+      );
+      if (!btn) return null;
+      try { btn.focus({ preventScroll: true }); } catch { btn.focus(); }
+      return btn;
+    };
+    // Move focus out BEFORE hiding (see closeScalarCalcEditor).
+    if (restoreFocus) focusAnchor();
     overlay.hidden = true;
     overlay.setAttribute("aria-hidden", "true");
     if (!restoreFocus) return;
     requestAnimationFrame(() => {
       if (destroyed) return;
       const btn = guard.els.charSpellDC?.closest(".charTile")?.querySelector(".vitalCalcEditBtn");
-      try { btn?.focus?.({ preventScroll: true }); } catch { btn?.focus?.(); }
+      if (btn && document.activeElement !== btn) focusAnchor();
     });
   }
 
@@ -1163,7 +1188,9 @@ export function initVitalsPanel(deps = {}) {
     overlay.setAttribute("aria-hidden", "false");
     const panel = overlay.querySelector(".scalarCalcDialogPanel");
     requestAnimationFrame(() => {
-      if (destroyed) return;
+      // Bail if the dialog closed before this frame ran (fast Escape) so a
+      // stale open-focus can never fight the close-time restore.
+      if (destroyed || overlay.hidden) return;
       const focusTarget = overlay.querySelector("select, input, button:not([data-scalar-calc-cancel])");
       try { (focusTarget || panel)?.focus?.({ preventScroll: true }); } catch { (focusTarget || panel)?.focus?.(); }
     });
@@ -1174,13 +1201,23 @@ export function initVitalsPanel(deps = {}) {
     if (!overlay || overlay.hidden) return;
     const config = scalarCalcSession?.config;
     scalarCalcSession = null;
+    const focusAnchor = () => {
+      const btn = config ? /** @type {HTMLElement | null} */ (config.getFocusAnchor() || null) : null;
+      if (!btn) return null;
+      try { btn.focus({ preventScroll: true }); } catch { btn.focus(); }
+      return btn;
+    };
+    // Move focus out BEFORE hiding the overlay: hiding a subtree that still
+    // contains the focused element makes the browser fix focus up to <body>
+    // on its own schedule, clobbering any later restore.
+    if (restoreFocus) focusAnchor();
     overlay.hidden = true;
     overlay.setAttribute("aria-hidden", "true");
     if (!restoreFocus || !config) return;
     requestAnimationFrame(() => {
       if (destroyed) return;
-      const btn = config.getFocusAnchor();
-      try { /** @type {HTMLElement | null} */ (btn)?.focus?.({ preventScroll: true }); } catch { /** @type {HTMLElement | null} */ (btn)?.focus?.(); }
+      const btn = config ? /** @type {HTMLElement | null} */ (config.getFocusAnchor() || null) : null;
+      if (btn && document.activeElement !== btn) focusAnchor();
     });
   }
 
@@ -1397,10 +1434,16 @@ export function initVitalsPanel(deps = {}) {
       tile.appendChild(sub);
     }
     let editBtn = /** @type {HTMLButtonElement | null} */ (tile.querySelector(":scope > .vitalCalcEditBtn"));
+    if (editBtn && editBtn.dataset.vitalCalcOwner !== vitalCalcOwnerId) {
+      // Left over from a destroyed panel instance: its click listener is gone.
+      editBtn.remove();
+      editBtn = null;
+    }
     if (!editBtn) {
       editBtn = document.createElement("button");
       editBtn.type = "button";
       editBtn.className = "iconBtn vitalCalcEditBtn";
+      editBtn.dataset.vitalCalcOwner = vitalCalcOwnerId;
       editBtn.textContent = "✎";
       addListener(editBtn, "click", (event) => {
         event.preventDefault();

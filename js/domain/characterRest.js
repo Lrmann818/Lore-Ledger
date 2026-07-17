@@ -6,6 +6,7 @@ import {
   normalizeManualFeatureCards
 } from "./manualFeatureCards.js";
 import { recoverDerivedFeatureUses } from "./featureUses.js";
+import { getDisplayedHpMax } from "./hpMaxCalculation.js";
 import { deriveCharacter } from "./rules/deriveCharacter.js";
 import { getActiveContentRegistry, getContentByKind, listContentByKind } from "./rules/registry.js";
 import { getHitDicePools } from "./rules/progression.js";
@@ -332,7 +333,10 @@ export function applyShortRest(character, selection = {}, options = {}) {
   }
 
   const hpCur = finiteNumber(character.hpCur);
-  const hpMax = finiteNumber(character.hpMax);
+  // Calc-aware (contract "Structured Vitals"): a derived max HP heals up to
+  // the displayed value, not a potentially stale flat mirror. Legacy and
+  // fixed characters resolve to the flat field exactly as before.
+  const hpMax = finiteNumber(getDisplayedHpMax(character));
   if (spentTotal > 0 && (hpCur == null || hpMax == null || hpMax < 0)) {
     return { character, changed: false, error: "missing-hp-for-hit-dice" };
   }
@@ -464,7 +468,8 @@ export function validateBuilderPreparedSpellSelections(character, preparedByClas
 export function applyLongRest(character, selection = {}) {
   if (!character || typeof character !== "object") return { character, changed: false, error: "invalid-character" };
   const hpCur = finiteNumber(character.hpCur);
-  const hpMax = finiteNumber(character.hpMax);
+  // Calc-aware: Long Rest restores to the displayed max (see applyShortRest).
+  const hpMax = finiteNumber(getDisplayedHpMax(character));
   if (hpCur == null || hpCur < 1 || hpMax == null || hpMax < 1) {
     return { character, changed: false, error: "long-rest-requires-positive-hp" };
   }
