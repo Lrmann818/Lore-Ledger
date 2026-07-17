@@ -147,17 +147,14 @@ test("freeform casters declare a profile; freeform AC and max HP stay manual", a
   await page.locator("#charActionMenuBtn").click();
   await page.locator("#charActionNewBtn").click();
 
-  // Freeform sheet inputs: proficiency +3, Charisma 18 (+4).
-  await page.evaluate(async () => {
-    const load = (path) => import(new URL(path, window.location.href).href);
-    const devMod = await load("js/utils/dev.js");
-    devMod.withAllowedStateMutation(() => {
-      const collection = globalThis.__APP_STATE__.characters;
-      const character = collection.entries.find((entry) => entry?.id === collection.activeId);
-      character.proficiency = 3;
-      character.abilities = { ...(character.abilities || {}), cha: { score: 18 } };
-      return true;
-    });
+  // Freeform sheet inputs: proficiency +3, Charisma 18 (+4). Mutated directly
+  // on the state object — source modules are not importable from the bundled
+  // production build this smoke also runs against.
+  await page.evaluate(() => {
+    const collection = globalThis.__APP_STATE__.characters;
+    const character = collection.entries.find((entry) => entry?.id === collection.activeId);
+    character.proficiency = 3;
+    character.abilities = { ...(character.abilities || {}), cha: { score: 18 } };
   });
 
   // AC and HP tiles have no calculation affordance for freeform characters —

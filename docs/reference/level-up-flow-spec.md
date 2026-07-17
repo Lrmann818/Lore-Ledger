@@ -453,6 +453,16 @@ the active character changed, and mutate neither the opening nor newly active ch
 | **Accumulate** | `hpMax`, `hpCur`, spell slot `total`/`used` | Apply the _delta_ between derived-before and derived-after. Preserves any manual offset the user had. |
 | **Recompute-if-untouched** | `ac`, `spellDC`, `spellAttack` | If the stored value equals derived-before, set it to derived-after. If it diverges, the user overrode it: **leave it, and surface it in the summary's Preserved list.** |
 
+> **Structured Vitals overlay (F2, 2026-07-17).** These two policies now apply
+> only to **legacy** fields (no calc block). A field carrying a `derived` calc
+> block (`spellcastingCalc`/`acCalc`/`hpMaxCalc` — see
+> `docs/reference/character-calculation-contract.md` → "Structured Vitals
+> ownership") re-derives its flat mirror at Level Up (adjustment included; for
+> HP, `hpCur` moves by the max delta so a wound gap survives, clamped to the
+> new max). A `fixed` field is left alone and reported in the Preserved list
+> ("… — fixed value kept"). Legacy behavior is byte-identical to the table
+> above.
+
 Worked example for HP:
 
 ```text

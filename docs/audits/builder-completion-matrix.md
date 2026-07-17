@@ -1,6 +1,6 @@
 # SRD 5.1 Builder Completion Matrix
 
-_Status: **planning artifact — audited against code 2026-07-15** (post Level Up Phases 1–3, B1–B3, attribution gate, class granted spells, ASI cap guidance, matrix #15 authoring, and the unified calculation contract: live-deriving attacks + reusable choice-based granted spells)._
+_Status: **planning artifact — audited against code 2026-07-17** (post Level Up Phases 1–3, B1–B3, attribution gate, class granted spells, ASI cap guidance, matrix #15 authoring, the unified calculation contract with live-deriving attacks + reusable choice-based granted spells, and the F2 Structured Vitals conversion: live-deriving spell DC/attack, AC, and max HP)._
 
 This is the canonical capability matrix for the question: *what remains before Lore
 Ledger can accurately claim a fully functioning SRD 5.1 character builder with robust
@@ -26,7 +26,7 @@ claim · **P2** polish/depth. Status: ✅ shipped · 🟡 partial · ⬜ not bui
 | 6 | Spellcasting models (known / prepared / spellbook / pact / granted / ritual) | ✅ | `progression.js`, `characterRest.js`, `levelUpWizard.js` | All four models + subclass granted spells; ritual flag displayed | Custom classes: models keyed off `preparationMode`/`progression` fields | Class-level `grantedSpells` consumed since 2026-07-13 (`getGrantedSpells` walks class records; custom classes can grant spells); spellbook growth constants (6/+2) not per-class configurable; prepared-capacity formula fixed at `level(+half) + mod` | P2 | — | 6 | Custom overrides for spellbook growth / prepared formulas documented or supported |
 | 7 | Prepared-spell play-state (Long Rest flow) | ✅ | `characterRest.js`, `restFlow.js`, `rest.preparedByClass` | Cleric/Druid/Paladin/Wizard | Works for custom prepared casters | None — Level Up correctly reports capacity only | — | — | — | — |
 | 8 | Rest and recovery (Short/Long, Hit Dice, slots, pact, death saves, tagged resources) | ✅ | `characterRest.js`, `restFlow.js` | P0 complete + Level Up integration tested | Recovery vocabulary available to custom cards/resources | Partial-regain features (e.g. "regain 1d6 uses") unmodeled | P2 | — | 9 | Tagged partial recovery modes designed before implementation |
-| 9 | Derived calculations (AC, HP, saves, skills, initiative, passive perception, DC/attack, prof) | ✅ | `deriveCharacter.js`, `computeArmorClass`, `computeMaxHp`, `js/domain/attackCalculation.js`, `attackPanel.js` | Armor/unarmored/shield formulas; retro-Con HP; **attacks are now live-derived (2026-07-15)** through one canonical calculator for builder and freeform characters — ability/proficiency changes update `bonus`/`damage`/`range`/`type` automatically with no recalc action. Structured `calc` block (weapon/ability/spell/fixed), explicit `attackAdjustment`/`damageAdjustment`, intentional fixed mode, safe legacy conversion; `name`/`notes`/order user-owned; `builderSeed: "weapon:<id>"` provenance (never name-matched); re-seed dedupes by marker. **The broken "Recalculate from Build" dialog was removed.** AC/spellDC/spellAttack/HP remain snapshot fields (audit F2, deferred) | Custom weapons derive through the same registry path | AC/spellDC/spellAttack/HP still snapshot-based (contract deviation F2, needs owner scope) | — | — | — | Attacks derive live (contract-conformant); one calculator; no manual recalc ✅ |
+| 9 | Derived calculations (AC, HP, saves, skills, initiative, passive perception, DC/attack, prof) | ✅ | `deriveCharacter.js`, `computeArmorClass`, `computeMaxHp`, `js/domain/attackCalculation.js`, `js/domain/spellcastingCalculation.js`, `js/domain/armorClassCalculation.js`, `js/domain/hpMaxCalculation.js`, `vitalsPanel.js` | Armor/unarmored/shield formulas (+ **Defense fighting style while armored, 2026-07-17**); retro-Con HP (+ structured **Dwarven Toughness** `hpPerLevelBonus`); **attacks live-derived (2026-07-15)** through one canonical calculator; **spell DC/attack, AC, and max HP live-derived (F2, 2026-07-16/17)** — optional per-field calc blocks (`spellcastingCalc` profiles per source ability, `acCalc`, `hpMaxCalc`), explicit adjustments, intentional fixed overrides, legacy snapshots preserved verbatim with editor-based adoption, calc-aware Finish/Level Up/rest/tracker/combat surfaces, temporary combat AC layered over the calculated base | Custom weapons/armor/classes derive through the same registry path | **F2 closed.** Freeform AC/max HP stay manual inputs by contract (no structured armor / level history); freeform initiative (F1) still snapshot | — | — | — | Attacks + all four vitals derive live (contract-conformant); one calculator each; no manual recalc ✅ |
 | 10 | Equipment effects | 🟡 | `builderSheetSeeding.js`, `equipment.*.json` | AC from armor/shield; weapons → attacks; packs → pockets | Custom armor/weapons consumed | No currency deduction, no encumbrance, magic items deferred by greenlist | P2 | greenlist change for magic items | 11 | Documented as out of scope, or greenlist deliberately expanded |
 | 11 | Editable post-creation sheet surfaces | ✅ | `js/pages/character/panels/*` | All play-state fields editable; **B1 shipped 2026-07-13:** Builder Identity/Abilities panels are read-only routing surfaces (Edit in Builder); structural edits go through guarded wizard flows only | n/a | Builder Summary remains a display-only review scaffold (harmless; retire only with a deliberate product decision) | — | — | — | — |
 | 12 | Spell detail seeding (descriptions, ranges, components) | ✅ | `spellsPanel.js#renderSpellSrdDetails` | **B2 shipped 2026-07-13:** builder-managed rows show the full live-derived SRD detail block (school/level, ritual/concentration, casting time, range, components+material, duration, description, higher-level text) above user notes | Custom spells resolve through the same kind-aware lookup | Details are display-only (deliberate: notes stay purely user-owned; no materialized copies) | — | — | — | — |
@@ -85,22 +85,34 @@ legacy conversion in the per-row editor (the broken Recalc dialog and
 `attackRecalculation.js` were removed). The same session added the reusable
 choice-based granted-spell mechanism and the **High Elf wizard-cantrip choice**
 (#6-adjacent — filtered spell choice, Finish gating, INT provenance,
-non-caster seeding). Remaining open items, in rough order: AC/spellDC/
-spellAttack/HP snapshot→derived conversion (audit F2, needs owner scope),
-subclass 1-use feature-action counters (#13 follow-up), partial-regain recovery
-modes (#8, design first), prepared-formula/spellbook-growth overrides (#16,
-design first), equipment depth (#10, product decisions), Half-Elf ability/skill
-choices and Tiefling cantrip grant (choice audit, deferred), and the
-keyboard-only a11y pass (#19). Handoff:
-`docs/reference/session-handoff-2026-07-15.md`.
+non-caster seeding).
+
+**Audit F2 — spell DC/attack, AC, max HP snapshot→derived: shipped
+2026-07-16/17** (owner-authorized 2026-07-15). Optional per-field calc blocks
+on the open entry shape (no migration): derived by default for new builder
+characters, explicit adjustments, intentional fixed overrides, legacy
+snapshots preserved verbatim with an adoption-safety stamp rule and
+editor-based conversion; per-source spellcasting profiles (never one universal
+DC); Defense fighting style and structured Dwarven Toughness added to the
+engine; calc-aware Level Up/rest/tracker/combat surfaces with temporary combat
+AC. See `docs/audits/character-calculation-audit-2026-07.md` → Phase B and the
+contract doc. Remaining open items, in rough order: subclass 1-use
+feature-action counters (#13 follow-up), partial-regain recovery modes (#8,
+design first), prepared-formula/spellbook-growth overrides (#16, design
+first), equipment depth (#10, product decisions), Half-Elf ability/skill
+choices and Tiefling cantrip grant (choice audit, deferred), freeform
+initiative F1, the keyboard-only a11y pass (#19), and production-preview
+compatibility for the 7 dev-only smoke harnesses (follow-up filed
+2026-07-17). Handoff: `docs/reference/session-handoff-2026-07-17.md`.
 
 ## 4. Verification basis
 
-Attacks/High-Elf re-audited 2026-07-15: 1135 unit tests (66 files) incl. 27
-attack-calculator + 10 attack-editor + 12 High-Elf/choice tests, and Playwright
-smokes for the attack editor (automatic update after a STR change, adjustment
-persistence, fixed mode) and the High Elf cantrip (only wizard cantrips shown,
-Finish-gated, INT spell DC, reload); `npm run verify` green. Prior basis
-(matrix #15, 2026-07-14): 1083 unit tests (65 files), 54 smokes. Statements
-about unconsumed data (`classSpecificByLevel`) were grep-verified against
-`js/domain/rules/*`.
+F2 structured vitals audited 2026-07-17: **1219 unit tests (72 files)**,
+dev-mode smoke gate **61/61** (incl. the three-part `structuredVitals.smoke.js`),
+and the new production-preview gate (`playwright.preview.config.js`, real
+`dist/` build) green for every F2-related suite (54/61 overall; the 7 failures
+are pre-existing dev-only harnesses that import source modules — follow-up
+filed); manual production-preview acceptance at desktop and 380px recorded in
+the Phase B section of the calculation audit. Prior basis (attacks/High-Elf,
+2026-07-15): 1135 unit tests (66 files), 58 smokes. Statements about unconsumed
+data (`classSpecificByLevel`) were grep-verified against `js/domain/rules/*`.

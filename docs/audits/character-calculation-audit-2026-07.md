@@ -1,8 +1,9 @@
 # Character Calculation Architecture Audit — 2026-07-14
 
-_Status: audit complete; the attack correction and the High Elf choice
-**shipped** in the same owner-authorized session (2026-07-15). The normative
-contract lives in
+_Status: audit complete. The attack correction and the High Elf choice
+**shipped 2026-07-15**; the F2 Structured Vitals conversion (spell DC/attack,
+AC, max HP) **shipped 2026-07-16/17** — see "Phase B — F2 implementation
+record" at the end. The normative contract lives in
 [`docs/reference/character-calculation-contract.md`](../reference/character-calculation-contract.md);
 this document records what was found and what was decided._
 
@@ -442,3 +443,114 @@ sufficient (freeform HP is documented as manual, not guessed); no destructive
 migration is required (open-shape additive blocks); old data is preserved by the
 no-calc-block legacy default. The remaining choices (per-source tiles; freeform
 manual AC/HP) are normal implementation decisions, made and documented above.
+
+---
+
+# Phase B — F2 implementation record (2026-07-16/17)
+
+Batches 2–5 shipped. The normative behavior lives in the contract doc
+("Structured Vitals ownership"); this section records what the implementation
+found and decided beyond the Phase A plan.
+
+## Shipped shape
+
+- One display resolver per field over the existing engine formulas:
+  `js/domain/spellcastingCalculation.js` (per-ability **profiles** with
+  provenance labels — class casters + granted-spell sources such as the High
+  Elf INT cantrip — never a universal scalar; freeform casters declare
+  profiles), `js/domain/armorClassCalculation.js`, `js/domain/hpMaxCalculation.js`.
+- Vitals tiles render legacy (editable snapshot + "tap ✎ to calculate" when
+  derivable), derived (read-only value + formula/provenance + adjustment note),
+  or fixed ("Fixed value"); extra spellcasting sources render as additional
+  read-only tiles. One shared scalar calculation editor serves AC and max HP;
+  the spellcasting editor handles per-source adjustments, freeform ability
+  declaration, and fixed DC/attack. Cancel/Escape never mutates; Save writes
+  the calc block + flat mirror in one mutation.
+- Finish seeding stamps derived blocks under the **adoption-safety rule**
+  (stored value empty or equal to the derivation — stamping can never change
+  the displayed number); Level Up applies calc-aware policies (derived
+  re-derives the mirror, fixed preserved + reported, legacy byte-identical).
+- Calc-managed side surfaces: tracker linked cards + combat seeding resolve
+  displayed values; linked writes decline; combat AC edits become
+  participant-local temporaries; Short/Long Rest heal to the displayed max.
+
+## Findings made during implementation (beyond Phase A)
+
+1. **Defense fighting style was missing from `computeArmorClass`.** The chosen
+   subfeature ids (`fighter-fighting-style-defense`, `fighting-style-defense`,
+   `ranger-fighting-style-defense`) reached `featureIdSet` but nothing consumed
+   them. Added: +1 only on the worn-armor path (SRD: "while you are wearing
+   armor"), never on unarmored formulas; a shield alone is not armor.
+2. **Dwarven Toughness was prose-only**, so derived max HP would have silently
+   under-counted Hill Dwarves by 1/level. Made structural: `racesAdapter.js`
+   emits `hpPerLevelBonus: 1` on `hill-dwarf` (mechanic keyed by stable trait
+   id, the UNARMORED_AC_FORMULAS precedent; races.json regenerated, one-line
+   diff) and `deriveCharacter` stacks race/subrace per-level bonuses with feat
+   effects into `computeMaxHp`.
+3. **Combat AC edits wrote through to the canonical character**
+   (`setCombatParticipantAc` → `writeCardLinkedField`), so "temporary combat
+   AC" did not exist for linked characters. For calc-managed characters the
+   write is now declined and the participant-local value acts as the temporary
+   layer (display prefers it while set; clearing returns to the calculated
+   base). Legacy characters keep write-through unchanged.
+4. **Rest healed to the flat snapshot.** `applyShortRest`/`applyLongRest` read
+   `character.hpMax` directly; with a derived max that flat field is a mirror.
+   Both now resolve through `getDisplayedHpMax` (legacy/fixed unchanged).
+5. **Panel re-init left dead ✎ buttons.** Edit in Builder re-initializes the
+   character page; statically-hosted tile parts survive in the DOM while their
+   listeners die with the old instance's AbortController. Calc buttons now
+   carry an instance-ownership stamp and are rebuilt by the next instance.
+6. **Hiding a dialog that still contains focus loses the restore.** The
+   browser fixes focus up to `<body>` on its own schedule when the focused
+   subtree is hidden, clobbering a later `requestAnimationFrame` restore. Both
+   calculation dialogs move focus back to the opener **before** hiding the
+   overlay (plus a one-frame re-assert).
+7. **Number-stepper wrappers must hide with their inputs.**
+   `enhanceNumberSteppers` wraps every vitals number input in a `.numWrap`
+   with buttons; hiding only the input left orphaned steppers. All tile
+   show/hide paths go through a wrapper-aware helper, re-asserted after the
+   async enhancement pass.
+
+## Verification basis (final tree)
+
+- `npm run typecheck` clean; `npm run test:run` **1219/1219** (72 files; +58
+  net this session: 17 spellcasting calculator + 11 spellcasting seeding + 12
+  AC calculator + 14 AC seeding/linking/combat + 14 HP calculator + 13 HP
+  seeding/Level-Up/linking + 2 Defense-style progression + 2 races-adapter −
+  reorganized); `npm run verify` green.
+- Dev-mode smoke gate (`npm run test:smoke`): **61/61**, including the new
+  three-part `structuredVitals.smoke.js` (builder tiles derive live and update
+  automatically after an Edit-in-Builder ability change; AC adjustment + HP
+  fixed override through the editors with Escape cancel-safety and reload
+  persistence; freeform caster profile declaration; keyboard-only editor
+  operation at 380px with no horizontal overflow).
+- **Production preview** (`vite preview` over the real `dist/`, via the new
+  `playwright.preview.config.js`): **54/61** — every F2-related suite green
+  (structuredVitals, characterRest, attackEditor, attackKeyboard,
+  builderWizard, levelUp, highElfCantrip, customContent). The 7 failures are
+  pre-existing dev-only test harnesses that `import()` source modules into the
+  page (backup, panel-lifecycle ×4, one combatShell case, trackerPanelLifecycle)
+  — impossible against a bundle; follow-up filed. `characterRest` and
+  `structuredVitals` were made production-compatible in this session.
+- Manual production-preview acceptance (real browser over `npm run preview`):
+  builder cleric Finish stamps all three blocks; tiles show 13 / +5 / 12
+  ("10 + Dex") / 10 ("Calculated from levels"); AC editor Save applies +1
+  adjustment (tile 13, provenance "10 + Dex + 1 adj", mirror 13); HP fixed 25
+  with `hpCur` 10 untouched; Escape with a typed 99 mutates nothing; full
+  reload preserves all three modes; 380px renders with **zero** horizontal
+  overflow and visible provenance. Keyboard trap/Escape/focus-return at 380px
+  is pinned by the preview-mode smoke (real key events against the same build).
+
+## Intentionally not done
+
+- Freeform AC / max HP derivation (no structured armor / level history) — the
+  tiles keep plain manual inputs with no calc affordance, by contract.
+- Alternate-formula *selection UI* for rare unarmored ties (best-of is
+  deterministic; equipment remains the primary input; fixed/adjustment cover
+  intentional deviations).
+- A shield/armor quick-toggle on the sheet (equipment stays a guarded build
+  choice edited through Edit in Builder; noted as possible future quick-edit).
+- Rewriting the 7 dev-only smoke harnesses for preview compatibility
+  (follow-up chip filed).
+- F1 (freeform initiative) and the deferred choice/backlog items — unchanged,
+  still need owner scope.

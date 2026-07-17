@@ -10,22 +10,38 @@ This note records the current local browser smoke layer for Lore Ledger as it ex
 
 ## Current suite
 
-- The current Chromium suite has 46 smoke tests across:
+- The current Chromium suite has 61 smoke tests (2026-07-17) across:
   - `tests/smoke/app.smoke.js`
+  - `tests/smoke/attackEditor.smoke.js`
+  - `tests/smoke/attackKeyboard.smoke.js`
   - `tests/smoke/backup.smoke.js`
   - `tests/smoke/builderWizard.smoke.js`
   - `tests/smoke/characterMapPolish.smoke.js`
   - `tests/smoke/characterPanelLifecycle.smoke.js`
+  - `tests/smoke/characterRest.smoke.js`
   - `tests/smoke/combatShell.smoke.js`
+  - `tests/smoke/customContent.smoke.js`
   - `tests/smoke/dropdownRegression.smoke.js`
+  - `tests/smoke/highElfCantrip.smoke.js`
+  - `tests/smoke/levelUp.smoke.js`
   - `tests/smoke/npcPortrait.smoke.js`
   - `tests/smoke/partyLocationPanels.smoke.js`
   - `tests/smoke/sessionTabReorder.smoke.js`
   - `tests/smoke/sessionTabTouch.smoke.js`
   - `tests/smoke/splash.smoke.js`
+  - `tests/smoke/structuredVitals.smoke.js`
   - `tests/smoke/trackerPanelLifecycle.smoke.js`
 - The suite runs through a dedicated Vite server in production mode on the production base path `/`.
 - `npm run test:smoke` runs locally and in CI. Release validation still depends on the manual coverage described in [`docs/testing-guide.md`](./testing-guide.md).
+- **Production-preview variant (2026-07-17):** `npm run build && npx playwright test
+  --config playwright.preview.config.js` runs the same suite against the real
+  `dist/` build via `vite preview`. This is the blocking gate for UI-flow
+  changes (a dialog Apply once passed dev-mode smokes but failed only under
+  preview). Known limitation: a handful of harnesses drive the app by
+  `import()`ing source modules into the page (`backup`,
+  `characterPanelLifecycle`, one `combatShell` case, `trackerPanelLifecycle`),
+  which cannot work against a bundle — they fail under the preview config by
+  construction until their harnesses are reworked (follow-up filed).
 
 ## Current smoke scope
 

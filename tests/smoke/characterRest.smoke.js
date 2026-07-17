@@ -2,32 +2,35 @@ import { expect, test } from "@playwright/test";
 import { expectNoFatalSignals, openSmokeApp } from "./helpers/smokeApp.js";
 
 async function installRestState(page) {
-  await page.evaluate(async () => {
-    const load = (path) => import(new URL(path, window.location.href).href);
-    const [helpersMod, devMod] = await Promise.all([
-      load("js/domain/characterHelpers.js"),
-      load("js/utils/dev.js"),
-    ]);
-    const freeform = helpersMod.makeDefaultCharacterEntry("Unaffected Freeform");
-    freeform.id = "char_rest_freeform";
-    freeform.hpCur = 3;
-    freeform.hpMax = 10;
-    freeform.hitDieAmt = 1;
-    freeform.hitDieSize = 8;
-    freeform.rest = { hitDiceSpent: {}, preparedByClass: {} };
+  // Mutated directly on the state object — source modules (characterHelpers,
+  // dev) are not importable from the bundled production build this smoke also
+  // runs against. The freeform entry carries only the fields the rest flow
+  // and this test's assertions read; it is never activated in the UI.
+  await page.evaluate(() => {
+    const collection = globalThis.__APP_STATE__.characters;
+    const cleric = collection.entries.find((entry) => entry?.id === collection.activeId);
+    cleric.hpCur = 4;
+    cleric.hpMax = 16;
+    // The manufactured 16 replaces the Finish-derived max: declare it as an
+    // intentional fixed override so the calc-aware rest flow honors it.
+    cleric.hpMaxCalc = { mode: "fixed", adjustment: 0 };
+    cleric.rest = { hitDiceSpent: { "class:cleric": 1 }, preparedByClass: { cleric: ["cure-wounds"] } };
+    cleric.deathSaves = { successes: 1, failures: 1 };
+    cleric.build.spellcasting.cleric.preparedIds = ["cure-wounds"];
 
-    devMod.withAllowedStateMutation(() => {
-      const collection = globalThis.__APP_STATE__.characters;
-      const cleric = collection.entries.find((entry) => entry?.id === collection.activeId);
-      cleric.hpCur = 4;
-      cleric.hpMax = 16;
-      // The manufactured 16 replaces the Finish-derived max: declare it as an
-      // intentional fixed override so the calc-aware rest flow honors it.
-      cleric.hpMaxCalc = { mode: "fixed", adjustment: 0 };
-      cleric.rest = { hitDiceSpent: { "class:cleric": 1 }, preparedByClass: { cleric: ["cure-wounds"] } };
-      cleric.deathSaves = { successes: 1, failures: 1 };
-      cleric.build.spellcasting.cleric.preparedIds = ["cure-wounds"];
-      collection.entries.push(freeform);
+    collection.entries.push({
+      id: "char_rest_freeform",
+      name: "Unaffected Freeform",
+      build: null,
+      hpCur: 3,
+      hpMax: 10,
+      hitDieAmt: 1,
+      hitDieSize: 8,
+      rest: { hitDiceSpent: {}, preparedByClass: {} },
+      deathSaves: { successes: 0, failures: 0 },
+      resources: [],
+      attacks: [],
+      spells: { levels: [] }
     });
   });
 }
@@ -81,13 +84,10 @@ test("Long Rest prepared flow preserves No, applies Yes, and stays character-iso
     expect.objectContaining({ id: "char_rest_freeform", hpCur: 3 }),
   ]));
 
-  await page.evaluate(async () => {
-    const devMod = await import(new URL("js/utils/dev.js", window.location.href).href);
-    devMod.withAllowedStateMutation(() => {
-      const state = globalThis.__APP_STATE__;
-      const cleric = state.characters.entries.find((entry) => entry?.build);
-      cleric.hpCur = 5;
-    });
+  await page.evaluate(() => {
+    const state = globalThis.__APP_STATE__;
+    const cleric = state.characters.entries.find((entry) => entry?.build);
+    cleric.hpCur = 5;
   });
   await page.locator("#charLongRestBtn").click();
   await expect(page.locator("#characterRestOverlay")).toBeVisible();
@@ -100,15 +100,12 @@ test("Long Rest prepared flow preserves No, applies Yes, and stays character-iso
     return { hpCur: cleric.hpCur, prepared: cleric.rest?.preparedByClass?.cleric || [] };
   })).toEqual({ hpCur: 16, prepared: [] });
 
-  await page.evaluate(async () => {
-    const devMod = await import(new URL("js/utils/dev.js", window.location.href).href);
-    devMod.withAllowedStateMutation(() => {
-      const state = globalThis.__APP_STATE__;
-      const cleric = state.characters.entries.find((entry) => entry?.build);
-      cleric.hpCur = 5;
-      cleric.deathSaves = { successes: 2, failures: 1 };
-      cleric.rest.preparedByClass = { cleric: ["cure-wounds"] };
-    });
+  await page.evaluate(() => {
+    const state = globalThis.__APP_STATE__;
+    const cleric = state.characters.entries.find((entry) => entry?.build);
+    cleric.hpCur = 5;
+    cleric.deathSaves = { successes: 2, failures: 1 };
+    cleric.rest.preparedByClass = { cleric: ["cure-wounds"] };
   });
   await page.locator("#charLongRestBtn").click();
   await expect(page.locator("#characterRestOverlay")).toBeVisible();
@@ -123,11 +120,8 @@ test("Long Rest prepared flow preserves No, applies Yes, and stays character-iso
     deathSaves: entry.deathSaves,
     rest: entry.rest
   })));
-  await page.evaluate(async () => {
-    const devMod = await import(new URL("js/utils/dev.js", window.location.href).href);
-    devMod.withAllowedStateMutation(() => {
-      globalThis.__APP_STATE__.characters.activeId = "char_rest_freeform";
-    });
+  await page.evaluate(() => {
+    globalThis.__APP_STATE__.characters.activeId = "char_rest_freeform";
   });
   await page.getByRole("button", { name: "Take Long Rest" }).click();
   await expect(page.locator("#characterRestOverlay")).toBeHidden();
@@ -140,12 +134,9 @@ test("Long Rest prepared flow preserves No, applies Yes, and stays character-iso
   })));
   expect(afterRace).toEqual(beforeRace);
 
-  await page.evaluate(async () => {
-    const devMod = await import(new URL("js/utils/dev.js", window.location.href).href);
-    devMod.withAllowedStateMutation(() => {
-      const state = globalThis.__APP_STATE__;
-      state.characters.activeId = state.characters.entries.find((entry) => entry?.build)?.id || null;
-    });
+  await page.evaluate(() => {
+    const state = globalThis.__APP_STATE__;
+    state.characters.activeId = state.characters.entries.find((entry) => entry?.build)?.id || null;
   });
   await page.locator("#charSelector").selectOption("char_rest_freeform");
   await expect.poll(() => page.evaluate(() => globalThis.__APP_STATE__.characters.activeId)).toBe("char_rest_freeform");

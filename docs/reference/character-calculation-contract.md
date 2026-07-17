@@ -79,19 +79,11 @@ Full audit: [`docs/audits/character-calculation-audit-2026-07.md`](../audits/cha
 Conforming today: ability scores/modifiers, saving throws, skills/expertise
 (live-derived for both modes with explicit adjustments), builder speed / proficiency
 / initiative / hit dice (live-derived, read-only), class resources (derived pools
-with preserved manual offsets).
-
-Under conversion (owner-authorized F2 batch, 2026-07-15):
-
-- **`ac`, `spellDC`, `spellAttack`, `hpMax`** were seeded snapshots governed by
-  the Level Up spec's _accumulate_ (`hpMax`) and _recompute-if-untouched_
-  policies, where a manual edit acted as an implicit fixed override. They are
-  being brought under this contract through the **Structured Vitals** model
-  below (derived + explicit adjustment + intentional fixed override), mirroring
-  the shipped attack `calc` precedent, with a no-calc-block legacy default that
-  preserves every existing sheet. See
-  [`docs/audits/character-calculation-audit-2026-07.md`](../audits/character-calculation-audit-2026-07.md)
-  → "Phase A — F2 field-by-field audit" for the plan and batch boundaries.
+with preserved manual offsets), **and — as of the 2026-07-17 F2 session — spell
+save DC / spell attack, Armor Class, and maximum HP** through the Structured
+Vitals model below. See
+[`docs/audits/character-calculation-audit-2026-07.md`](../audits/character-calculation-audit-2026-07.md)
+→ "Phase A/B" for the audit and the implementation record.
 
 Documented policies that predate this contract and remain acceptable until a
 future authorized batch:
@@ -125,7 +117,7 @@ future authorized batch:
   (`calc.proficient`), defaulted from the character's derived proficiencies when a
   weapon is chosen, never assumed merely because an attack is weapon-backed.
 
-## Structured Vitals ownership (normative — F2, 2026-07-15)
+## Structured Vitals ownership (normative — F2; implemented 2026-07-17)
 
 Armor Class, maximum HP, spell save DC, and spell attack bonus follow the same
 three-state model as attacks. Each keeps its existing flat snapshot field
@@ -133,6 +125,15 @@ three-state model as attacks. Each keeps its existing flat snapshot field
 **optional** structured calc block on the open character-entry shape — the exact
 `AttackEntry.calc` / `builderSeed` precedent, so **no schema migration** is
 required (`sanitizeForSave` leaves entries as-is).
+
+Implementation map: `js/domain/spellcastingCalculation.js`,
+`js/domain/armorClassCalculation.js`, `js/domain/hpMaxCalculation.js` (one
+display resolver per field over the existing engine formulas), the Vitals-panel
+tiles + calculation editors in `js/pages/character/panels/vitalsPanel.js`
+(shared by the combat embedded Vitals panel), calc-aware Finish/Level Up
+policies in `js/domain/builderSheetSeeding.js`, and calc-aware side surfaces in
+`js/domain/cardLinking.js` / `js/domain/combatEncounterActions.js` /
+`js/domain/characterRest.js`.
 
 ```js
 character.acCalc     = { mode: "derived" | "fixed", adjustment: number }
@@ -174,16 +175,39 @@ Field-specific rules:
   their own profile(s) by picking an ability; DC = `8 + proficiency +
   mod(ability)`, attack = `proficiency + mod(ability)`.
 - **AC formula selection** stays deterministic via `computeArmorClass`, which
-  picks the best eligible formula (armor, or an unarmored-defense formula, or
-  `10 + Dex`) and returns a human-readable `formula` string surfaced in the
-  editor preview. Mutually exclusive formulas are never combined. Temporary
-  combat AC remains separate combat state; it is not folded into the durable
-  builder input.
+  picks the best eligible formula (worn armor always wins while equipped; else
+  the best unarmored-defense formula vs `10 + Dex`) and returns a human-readable
+  `formula` string surfaced in the editor preview and the tile provenance line.
+  Mutually exclusive formulas are never combined; **bonuses** (shield where the
+  formula allows it, the Defense fighting style **only while wearing armor**,
+  structured feat `acBonus`) stack onto the selected formula. Equipment state is
+  the primary input — equipping armor selects the armor formula even when an
+  unarmored formula would be higher; a user who wants a different valid total
+  uses the explicit adjustment or fixed override.
+- **Calc-managed AC/HP on side surfaces.** Linked tracker cards and combat
+  participant seeding resolve the displayed value through
+  `getDisplayedArmorClass` / `getDisplayedHpMax`, so every surface agrees with
+  the sheet. Linked-field writes to a calc-managed `ac`/`hpMax` are declined
+  (`writeCardLinkedField` returns `written: false`; the card input renders
+  read-only) — a derived value is never silently overwritten and a fixed value
+  is never silently changed from a side surface. **Temporary combat AC**: for a
+  calc-managed character, a combat-card AC edit stays participant-local (it
+  layers over the calculated base and wins while set; clearing the input
+  returns to the calculated value). Legacy characters keep the historical
+  canonical write-through behavior byte-for-byte.
 - **Max HP interacts with current HP.** When a derived/fixed max drops below
   `hpCur`, `hpCur` is clamped to the new max (consistent with the combat clamp
   `Math.min(hpMax, hpCurrent + healing)`). Increasing the max never auto-heals
   except through the shipped Level Up delta. Temp HP is untouched. Freeform max
-  HP has no level history to derive from and stays a manual input.
+  HP has no level history to derive from and stays a manual input. Short/Long
+  Rest resolve the healing cap through `getDisplayedHpMax`, so rests heal to
+  the displayed max. Structured per-level race bonuses (Hill Dwarf
+  `hpPerLevelBonus`) and feat effects are part of the derivation.
+- **Freeform sheets.** Spell DC/attack derive for freeform characters once they
+  declare casting abilities through the editor (profiles, same math). Freeform
+  AC and max HP have no derivable base, so their tiles keep the plain manual
+  input with **no** calc affordance — an explicit "fixed" state would behave
+  identically to the manual input and only add ceremony.
 
 Legacy adoption (the safe path for existing sheets):
 
@@ -193,9 +217,18 @@ Legacy adoption (the safe path for existing sheets):
 3. They pick calculated, calculated + adjustment, or fixed. Cancel/Escape never
    mutates. The stored number's meaning is never inferred automatically.
 
+**Adoption-safety stamp rule (Finish seeding).** Builder Finish/Edit re-seeds
+stamp a `derived` calc block only when doing so cannot change what the user
+sees: the stored flat value must be empty or already equal to the current
+derived value. A diverged legacy value (a manual edit under the old snapshot
+model) stays a legacy snapshot until the user adopts a calculation through the
+editor. An existing block is never overwritten by a re-seed; in derived mode
+the re-seed refreshes the flat mirror (adjustment included).
+
 The Level Up patch (`getLevelUpSheetSeedPatch`) keeps accumulate/recompute
 policies for legacy (no-calc-block) fields; a field in `derived` mode simply
-re-derives, and a `fixed` field is left alone and reported as preserved.
+re-derives its mirror (for HP, current HP moves by the max delta so a wound gap
+survives), and a `fixed` field is left alone and reported as preserved.
 
 ## Rules for future work
 

@@ -268,6 +268,19 @@ Notes:
 - if later needed, trait definitions can live in a separate trait registry or embedded structured objects
 - keep the initial version simple enough to support builder derivation without overengineering
 
+#### Per-level HP bonus (`hpPerLevelBonus`, 2026-07-17)
+
+A race or subrace record may carry an optional structured
+`"hpPerLevelBonus": <number>` when one of its traits raises maximum HP by a
+flat amount at every character level. The only SRD 5.1 instance is the Hill
+Dwarf's Dwarven Toughness (`hpPerLevelBonus: 1`); the adapter emits it keyed by
+the stable trait id (`racesAdapter.js` → `HP_PER_LEVEL_TRAIT_BONUSES` — the
+mechanic is rules text, so like the unarmored AC formulas it lives in code, not
+in trait prose). `deriveCharacter()` stacks race + subrace values with feat
+`hp_per_level_bonus` effects when calling `computeMaxHp`, so derived max HP
+(contract "Structured Vitals") scales correctly. Custom races may author the
+field through JSON import.
+
 #### Spell-grant note for races
 
 If a race grants a cantrip or spell as part of builtin builder content, that should be represented as structured data rather than buried in prose.
