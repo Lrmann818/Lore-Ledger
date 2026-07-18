@@ -171,6 +171,96 @@ export async function returnToHubFromSettings(page) {
 }
 
 /**
+ * From the Campaign Hub, opens an existing campaign by name and waits for the
+ * campaign shell to come back.
+ *
+ * @param {import("@playwright/test").Page} page
+ * @param {string} campaignName
+ */
+export async function reopenCampaignFromHub(page, campaignName) {
+  await expectHubShell(page);
+  const campaignItem = page
+    .locator("#hubCampaignList .hubCampaignItem")
+    .filter({ hasText: campaignName });
+  await campaignItem.getByRole("button", { name: "Open" }).click();
+  await expect(page.getByRole("tab", { name: "Tracker" })).toHaveAttribute("aria-selected", "true");
+  await expect(page.locator("#campaignTitle")).toHaveText(campaignName);
+}
+
+/**
+ * Leaves the active campaign for the Hub and re-opens it. This drives the
+ * app's real campaign-module lifecycle (`destroyCampaignModules()` followed by
+ * `initCampaignModules()` in `app.js`), so page controllers are torn down and
+ * re-initialized exactly as they are in production. It is the preview-safe way
+ * for smoke tests to exercise a destroy + re-init cycle: it works identically
+ * against the dev server and the built `dist/` bundle, unlike `import()`ing
+ * source modules into the page (which only the dev server can serve).
+ *
+ * @param {import("@playwright/test").Page} page
+ * @param {string} campaignName
+ */
+export async function cycleCampaignShell(page, campaignName) {
+  await returnToHubFromSettings(page);
+  await reopenCampaignFromHub(page, campaignName);
+}
+
+/**
+ * Fills and submits the app's shared prompt dialog (`initDialogs()` UI). The
+ * trailing hidden assertion doubles as a duplicate-binding guard: a
+ * double-bound trigger button queues a second prompt, which keeps the overlay
+ * on screen and fails the expectation.
+ *
+ * @param {import("@playwright/test").Page} page
+ * @param {string} value
+ */
+export async function submitPromptDialog(page, value) {
+  const overlay = page.locator("#uiDialogOverlay").filter({ has: page.locator(".uiDialogPanel") });
+  await expect(overlay).toBeVisible();
+  await overlay.locator("#uiDialogInput").fill(value);
+  await overlay.locator("#uiDialogOk").click();
+  await expect(page.locator("#uiDialogOverlay")).toBeHidden();
+}
+
+/**
+ * Reads the persisted spell-note body for the active campaign straight from
+ * the app's IndexedDB texts store using only public browser APIs, so it works
+ * identically in dev-server and production-preview smoke runs. The database /
+ * store / key shapes intentionally mirror the persisted storage contract
+ * (`js/storage/idb.js` + `js/storage/texts-idb.js`) — this is the same
+ * storage seam class as reading `localStorage["localCampaignTracker_v1"]`
+ * directly, asserting on the artifact the app actually persists. If the
+ * storage contract ever changes shape, update this reader alongside it.
+ *
+ * @param {import("@playwright/test").Page} page
+ * @param {string} spellId
+ * @returns {Promise<string>} the stored note text, or "" when missing
+ */
+export async function readStoredSpellNote(page, spellId) {
+  return page.evaluate(async (id) => {
+    const campaignId = globalThis.__APP_STATE__?.appShell?.activeCampaignId;
+    if (!campaignId) return "";
+    const textKey = `spell_notes_${campaignId}__${id}`;
+    const db = await new Promise((resolve, reject) => {
+      const openReq = indexedDB.open("localCampaignTracker_db");
+      openReq.onsuccess = () => resolve(openReq.result);
+      openReq.onerror = () => reject(openReq.error);
+    });
+    try {
+      if (!db.objectStoreNames.contains("texts")) return "";
+      const record = await new Promise((resolve, reject) => {
+        const tx = db.transaction("texts", "readonly");
+        const getReq = tx.objectStore("texts").get(textKey);
+        getReq.onsuccess = () => resolve(getReq.result ?? null);
+        getReq.onerror = () => reject(getReq.error);
+      });
+      return record?.text ?? "";
+    } finally {
+      db.close();
+    }
+  }, spellId);
+}
+
+/**
  * @param {import("@playwright/test").Page} page
  */
 export async function openMapWorkspace(page) {
