@@ -2,15 +2,12 @@ import { expect, test } from "@playwright/test";
 import {
   ensureActiveCharacter,
   expectNoFatalSignals,
-  openSmokeApp
+  openSmokeApp,
+  readStoredSpellNote
 } from "./helpers/smokeApp.js";
 
 async function readActiveCampaignSpellNote(page, spellId) {
-  return page.evaluate(async (id) => {
-    const { getText, textKey_spellNotes } = await import(new URL("js/storage/texts-idb.js", window.location.href).href);
-    const campaignId = globalThis.__APP_STATE__?.appShell?.activeCampaignId;
-    return getText(textKey_spellNotes(campaignId, id));
-  }, spellId);
+  return readStoredSpellNote(page, spellId);
 }
 
 async function readSpellPanelRows(page, rootSelector) {

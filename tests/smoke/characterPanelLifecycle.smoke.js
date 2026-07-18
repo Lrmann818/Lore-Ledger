@@ -1,100 +1,31 @@
 import { expect, test } from "@playwright/test";
-import { ensureActiveCharacter, expectNoFatalSignals, openSmokeApp } from "./helpers/smokeApp.js";
+import {
+  cycleCampaignShell,
+  ensureActiveCharacter,
+  expectNoFatalSignals,
+  openSmokeApp,
+  reopenCampaignFromHub,
+  returnToHubFromSettings,
+  submitPromptDialog
+} from "./helpers/smokeApp.js";
 
-async function reinitCharacterPageForLifecycleTest(page, characterOverrides = {}) {
-  await page.evaluate(async (overrides) => {
-    const load = (path) => import(new URL(path, window.location.href).href);
-    const [
-      characterPageMod,
-      stateMod,
-      saveManagerMod,
-      popoversMod,
-      characterHelpersMod,
-    ] = await Promise.all([
-      load("js/pages/character/characterPage.js"),
-      load("js/state.js"),
-      load("js/storage/saveManager.js"),
-      load("js/ui/popovers.js"),
-      load("js/domain/characterHelpers.js"),
-    ]);
+const CAMPAIGN_NAME = "Character Lifecycle Smoke";
 
-    globalThis.__characterLifecycleHarness?.destroy?.();
-    globalThis.__characterLifecyclePromptCounter = 0;
+// The character page controller is initialized inside initTrackerPage(...) and
+// destroyed with it whenever the campaign shell changes
+// (destroyCampaignModules() -> initCampaignModules() in app.js). These tests
+// drive that real lifecycle through the Hub instead of importing source
+// modules into the page, so they run identically against the dev server and
+// the built production bundle. The panel add controls and ability inputs live
+// in the static index.html shell: a destroy() that leaked listeners would
+// leave them double-bound after re-init, and the exact-count / exact-value
+// assertions below would fail.
 
-    const testState = stateMod.migrateState(stateMod.sanitizeForSave(stateMod.state));
-    const entry = {
-      ...characterHelpersMod.makeDefaultCharacterEntry("Lifecycle Character"),
-      id: "char_lifecycle_smoke",
-      inventoryItems: [{ title: "Inventory", notes: "" }],
-      activeInventoryIndex: 0,
-      inventorySearch: "",
-      spells: { levels: [] },
-      resources: [{ id: "res_1", name: "Ki", cur: 1, max: 2 }],
-      attacks: [],
-      ...overrides,
-    };
-    testState.characters = {
-      activeId: entry.id,
-      entries: [entry],
-    };
-
-    const SaveManager = saveManagerMod.createSaveManager({
-      saveAll: () => true,
-      setStatus: () => {},
-    });
-    SaveManager.init();
-
-    const Popovers = popoversMod.createPopoverManager({
-      positionFn: () => {},
-    });
-
-    const controller = characterPageMod.initCharacterPageUI({
-      state: testState,
-      SaveManager,
-      Popovers,
-      uiPrompt: async (_message, opts = {}) => {
-        const next = ++globalThis.__characterLifecyclePromptCounter;
-        return `${opts.defaultValue || "Item"} ${next}`;
-      },
-      uiAlert: async () => {},
-      uiConfirm: async () => true,
-      setStatus: () => {},
-      ImagePicker: null,
-      pickCropStorePortrait: async () => undefined,
-      deleteBlob: async () => true,
-      putBlob: async () => true,
-      cropImageModal: null,
-      getPortraitAspect: () => 1,
-      blobIdToObjectUrl: async () => null,
-      autoSizeInput: () => {},
-      enhanceNumberSteppers: () => {},
-      applyTextareaSize: () => {},
-      textKey_spellNotes: (spellId) => `spellNotes:${spellId}`,
-      putText: async () => {},
-      getText: async () => "",
-      deleteText: async () => {},
-    });
-
-    globalThis.__characterLifecycleHarness = {
-      state: testState,
-      destroy() {
-        try { controller?.destroy?.(); } catch { /* noop */ }
-        try { Popovers?.destroy?.(); } catch { /* noop */ }
-      },
-    };
-  }, characterOverrides);
-}
-
-async function destroyCharacterPageLifecycleHarness(page) {
-  await page.evaluate(() => {
-    globalThis.__characterLifecycleHarness?.destroy?.();
-  });
-}
-
-async function readCharacterLifecycleState(page) {
+async function readActiveCharacterPanelState(page) {
   return page.evaluate(() => {
-    const collection = globalThis.__characterLifecycleHarness?.state?.characters;
-    const character = collection?.entries?.find((entry) => entry?.id === collection?.activeId) || {};
+    const collection = globalThis.__APP_STATE__?.characters;
+    const entries = Array.isArray(collection?.entries) ? collection.entries : [];
+    const character = entries.find((entry) => entry?.id === collection?.activeId) || {};
     const attacks = Array.isArray(character.attacks) ? character.attacks : [];
     const resources = Array.isArray(character.resources) ? character.resources : [];
     return {
@@ -107,10 +38,11 @@ async function readCharacterLifecycleState(page) {
   });
 }
 
-async function readCharacterAbilitiesLifecycleState(page) {
+async function readActiveCharacterAbilitiesState(page) {
   return page.evaluate(() => {
-    const collection = globalThis.__characterLifecycleHarness?.state?.characters;
-    const character = collection?.entries?.find((entry) => entry?.id === collection?.activeId) || {};
+    const collection = globalThis.__APP_STATE__?.characters;
+    const entries = Array.isArray(collection?.entries) ? collection.entries : [];
+    const character = entries.find((entry) => entry?.id === collection?.activeId) || {};
     const abilities = character.abilities || {};
     const skills = character.skills || {};
     const saveOptions = character.saveOptions || {};
@@ -129,13 +61,29 @@ async function readCharacterAbilitiesLifecycleState(page) {
   });
 }
 
+/**
+ * While the app sits on the Hub the campaign modules are destroyed; poking a
+ * static control must be a no-op. If a stale listener survived destroy() it
+ * would either throw here (caught by the fatal-signal check) or stack with the
+ * fresh listener after re-init (caught by the exact-count assertions).
+ */
+async function pokeStaticControlWhileDestroyed(page, elementId) {
+  await page.evaluate((id) => {
+    const el = document.getElementById(id);
+    if (el instanceof HTMLElement) el.click();
+  }, elementId);
+}
+
 test("character panels stay safe after repeated character page init", async ({ page }) => {
-  const fatalSignals = await openSmokeApp(page);
+  const fatalSignals = await openSmokeApp(page, { campaignName: CAMPAIGN_NAME });
 
   await ensureActiveCharacter(page);
 
-  await reinitCharacterPageForLifecycleTest(page);
-  await reinitCharacterPageForLifecycleTest(page);
+  // Two full Hub round trips: the character page has now been initialized
+  // three times against the same static DOM shell.
+  await cycleCampaignShell(page, CAMPAIGN_NAME);
+  await cycleCampaignShell(page, CAMPAIGN_NAME);
+  await ensureActiveCharacter(page);
 
   const weaponsBefore = await page.locator("#attackList .attackRow").count();
   await page.locator("#addAttackBtn").click();
@@ -143,10 +91,12 @@ test("character panels stay safe after repeated character page init", async ({ p
 
   const spellLevelsBefore = await page.locator("#spellLevels .spellLevel").count();
   await page.locator("#addSpellLevelBtn").click();
+  await submitPromptDialog(page, "Lifecycle Level");
   await expect(page.locator("#spellLevels .spellLevel")).toHaveCount(spellLevelsBefore + 1);
 
   const inventoryTabsBefore = await page.locator("#inventoryTabs .sessionTab").count();
   await page.locator("#addInventoryBtn").click();
+  await submitPromptDialog(page, "Lifecycle Satchel");
   await expect(page.locator("#inventoryTabs .sessionTab")).toHaveCount(inventoryTabsBefore + 1);
 
   const resourceTilesBefore = await page.locator('#charVitalsTiles .charTile[data-vital-key^="res:"]').count();
@@ -157,154 +107,115 @@ test("character panels stay safe after repeated character page init", async ({ p
 });
 
 test("attack panel listeners are removed on destroy and rebound once on re-init", async ({ page }) => {
-  const fatalSignals = await openSmokeApp(page);
+  const fatalSignals = await openSmokeApp(page, { campaignName: CAMPAIGN_NAME });
 
   await ensureActiveCharacter(page);
 
-  await reinitCharacterPageForLifecycleTest(page, {
-    attacks: [{ id: "atk_seed", name: "Dagger", notes: "", bonus: "+5", damage: "1d4+3", range: "20/60", type: "Piercing" }]
-  });
-
-  const nameInput = page.locator("#attackList .attackRow").first().locator(".attackName");
-  await nameInput.fill("Shortsword");
-  await expect.poll(() => readCharacterLifecycleState(page).then((state) => state.attackNames[0])).toBe("Shortsword");
-
-  await destroyCharacterPageLifecycleHarness(page);
-
-  await nameInput.fill("Hammer");
   await page.locator("#addAttackBtn").click();
-
-  await expect.poll(() => readCharacterLifecycleState(page)).toEqual({
-    attackCount: 1,
-    attackNames: ["Shortsword"],
-    hpCur: null,
-    resourceCount: 1,
-    firstResourceCur: 1,
-  });
   await expect(page.locator("#attackList .attackRow")).toHaveCount(1);
+  await page.locator("#attackList .attackRow").first().locator(".attackName").fill("Shortsword");
+  await expect.poll(() => readActiveCharacterPanelState(page).then((state) => state.attackNames[0])).toBe("Shortsword");
 
-  await reinitCharacterPageForLifecycleTest(page, {
-    attacks: [{ id: "atk_fresh", name: "Bow", notes: "", bonus: "+4", damage: "1d6+2", range: "80/320", type: "Piercing" }]
-  });
+  await returnToHubFromSettings(page);
+  await pokeStaticControlWhileDestroyed(page, "addAttackBtn");
 
-  const freshNameInput = page.locator("#attackList .attackRow").first().locator(".attackName");
-  await freshNameInput.fill("Longbow");
+  await reopenCampaignFromHub(page, CAMPAIGN_NAME);
+  await ensureActiveCharacter(page);
+
+  // The persisted attack renders exactly once and the Hub-time poke left no
+  // trace behind.
+  await expect(page.locator("#attackList .attackRow")).toHaveCount(1);
+  await expect(page.locator("#attackList .attackRow").first().locator(".attackName")).toHaveValue("Shortsword");
+
+  await page.locator("#attackList .attackRow").first().locator(".attackName").fill("Longbow");
+  await expect.poll(() => readActiveCharacterPanelState(page).then((state) => state.attackNames)).toEqual(["Longbow"]);
+
+  // New attacks are prepended; a double-bound add button would produce three
+  // rows here instead of two.
   await page.locator("#addAttackBtn").click();
-
-  await expect.poll(() => readCharacterLifecycleState(page)).toEqual({
-    attackCount: 2,
-    attackNames: ["", "Longbow"],
-    hpCur: null,
-    resourceCount: 1,
-    firstResourceCur: 1,
-  });
   await expect(page.locator("#attackList .attackRow")).toHaveCount(2);
+  await expect.poll(() => readActiveCharacterPanelState(page).then((state) => state.attackNames)).toEqual(["", "Longbow"]);
 
   await expectNoFatalSignals(page, fatalSignals);
 });
 
 test("vitals panel listeners are removed on destroy and rebound once on re-init", async ({ page }) => {
-  const fatalSignals = await openSmokeApp(page);
+  const fatalSignals = await openSmokeApp(page, { campaignName: CAMPAIGN_NAME });
 
   await ensureActiveCharacter(page);
 
-  await reinitCharacterPageForLifecycleTest(page, {
-    hpCur: 9,
-    resources: [{ id: "res_seed", name: "Ki", cur: 1, max: 2 }]
-  });
+  const resourceTiles = page.locator('#charVitalsTiles .charTile[data-vital-key^="res:"]');
 
-  const hpCurInput = page.locator("#charHpCur");
-  await hpCurInput.fill("11");
+  await page.locator("#charHpCur").fill("11");
 
-  const resourceCurInput = page.locator('#charVitalsTiles .resourceTile input[placeholder="Cur"]').first();
-  await resourceCurInput.fill("2");
+  // The vitals panel seeds one blank resource row for a fresh character, so
+  // count relative to whatever the first render produced. A double-bound add
+  // button would jump by two.
+  const resourcesBefore = (await readActiveCharacterPanelState(page)).resourceCount;
+  const tilesBefore = await resourceTiles.count();
   await page.locator("#addResourceBtn").click();
+  await expect(resourceTiles).toHaveCount(tilesBefore + 1);
+  await page.locator('#charVitalsTiles .resourceTile input[placeholder="Cur"]').first().fill("2");
 
-  await expect.poll(() => readCharacterLifecycleState(page)).toEqual({
-    attackCount: 0,
-    attackNames: [],
+  await expect.poll(() => readActiveCharacterPanelState(page)).toMatchObject({
     hpCur: 11,
-    resourceCount: 2,
+    resourceCount: resourcesBefore + 1,
     firstResourceCur: 2,
   });
 
-  await destroyCharacterPageLifecycleHarness(page);
+  await returnToHubFromSettings(page);
+  await pokeStaticControlWhileDestroyed(page, "addResourceBtn");
 
-  await hpCurInput.fill("15");
-  await resourceCurInput.fill("7");
+  await reopenCampaignFromHub(page, CAMPAIGN_NAME);
+  await ensureActiveCharacter(page);
+
+  // Persisted vitals render exactly once; the destroyed-time poke added
+  // nothing.
+  await expect(page.locator("#charHpCur")).toHaveValue("11");
+  await expect(resourceTiles).toHaveCount(tilesBefore + 1);
+
+  await page.locator("#charHpCur").fill("7");
+  await page.locator('#charVitalsTiles .resourceTile input[placeholder="Cur"]').first().fill("5");
   await page.locator("#addResourceBtn").click();
 
-  await expect.poll(() => readCharacterLifecycleState(page)).toEqual({
-    attackCount: 0,
-    attackNames: [],
-    hpCur: 11,
-    resourceCount: 2,
-    firstResourceCur: 2,
-  });
-  await expect(page.locator('#charVitalsTiles .charTile[data-vital-key^="res:"]')).toHaveCount(2);
-
-  await reinitCharacterPageForLifecycleTest(page, {
-    hpCur: 3,
-    resources: [{ id: "res_fresh", name: "Rage", cur: 4, max: 6 }]
-  });
-
-  const freshHpCurInput = page.locator("#charHpCur");
-  const freshResourceCurInput = page.locator('#charVitalsTiles .resourceTile input[placeholder="Cur"]').first();
-  await freshHpCurInput.fill("7");
-  await freshResourceCurInput.fill("5");
-  await page.locator("#addResourceBtn").click();
-
-  await expect.poll(() => readCharacterLifecycleState(page)).toEqual({
-    attackCount: 0,
-    attackNames: [],
+  await expect.poll(() => readActiveCharacterPanelState(page)).toMatchObject({
     hpCur: 7,
-    resourceCount: 2,
+    resourceCount: resourcesBefore + 2,
     firstResourceCur: 5,
   });
-  await expect(page.locator('#charVitalsTiles .charTile[data-vital-key^="res:"]')).toHaveCount(2);
+  await expect(resourceTiles).toHaveCount(tilesBefore + 2);
 
   await expectNoFatalSignals(page, fatalSignals);
 });
 
 test("abilities panel listeners are removed on destroy and rebound once on re-init", async ({ page }) => {
-  const fatalSignals = await openSmokeApp(page);
+  const fatalSignals = await openSmokeApp(page, { campaignName: CAMPAIGN_NAME });
 
   await ensureActiveCharacter(page);
-
-  await reinitCharacterPageForLifecycleTest(page, {
-    proficiency: 2,
-    abilities: {
-      str: { score: 10, saveProf: false },
-    },
-    skills: {
-      athletics: { level: "none", misc: 0, value: 0 }
-    },
-    saveOptions: {
-      misc: { str: 0, dex: 0, con: 0, int: 0, wis: 0, cha: 0 },
-      modToAll: ""
-    }
-  });
+  await page.locator("#charProf").fill("2");
 
   const strBlock = page.locator('.abilityBlock[data-ability="str"]');
-  const strScoreInput = strBlock.locator(".abilityScore");
-  const strSaveProfInput = strBlock.locator('[data-stat="saveProf"]');
   const athleticsBtn = strBlock.locator(".skillProfBtn");
 
+  // The skill-proficiency buttons and ability reorder controls are injected by
+  // the abilities panel controller, exactly once per init.
   await expect(athleticsBtn).toHaveCount(1);
   await expect(strBlock.locator(".abilityMoves")).toHaveCount(1);
   await expect(strBlock.locator(".abilityMoves .moveBtn")).toHaveCount(2);
 
-  await strScoreInput.fill("14");
-  await strSaveProfInput.check();
+  await strBlock.locator(".abilityScore").fill("14");
+  await strBlock.locator('[data-stat="saveProf"]').check();
   await page.locator("#saveOptionsBtn").click();
   await page.locator("#miscSave_str").fill("1");
-  await athleticsBtn.click();
+  await page.keyboard.press("Escape");
+  await expect(page.locator("#saveOptionsBtn")).toHaveAttribute("aria-expanded", "false");
 
+  await athleticsBtn.click();
   const firstSkillMenu = page.locator(".skillProfMenu:not([hidden])").first();
   await expect(firstSkillMenu).toBeVisible();
   await firstSkillMenu.getByRole("checkbox", { name: "Proficient", exact: true }).check();
 
-  await expect.poll(() => readCharacterAbilitiesLifecycleState(page)).toEqual({
+  await expect.poll(() => readActiveCharacterAbilitiesState(page)).toEqual({
     strScore: 14,
     strSaveProf: true,
     strSaveMisc: 1,
@@ -313,57 +224,34 @@ test("abilities panel listeners are removed on destroy and rebound once on re-in
     athleticsValue: 4,
   });
 
-  await destroyCharacterPageLifecycleHarness(page);
+  await returnToHubFromSettings(page);
 
+  // destroy() really ran: the injected controls are removed with the
+  // controller while the app sits on the Hub.
   await expect(strBlock.locator(".skillProfBtn")).toHaveCount(0);
   await expect(strBlock.locator(".abilityMoves")).toHaveCount(0);
 
-  await strScoreInput.fill("8");
-  await strSaveProfInput.uncheck();
+  await reopenCampaignFromHub(page, CAMPAIGN_NAME);
+  await ensureActiveCharacter(page);
 
-  await expect.poll(() => readCharacterAbilitiesLifecycleState(page)).toEqual({
-    strScore: 14,
-    strSaveProf: true,
-    strSaveMisc: 1,
-    athleticsLevel: "prof",
-    athleticsMisc: 0,
-    athleticsValue: 4,
-  });
+  // Rebuilt exactly once — a leaked previous init would duplicate them.
+  await expect(athleticsBtn).toHaveCount(1);
+  await expect(strBlock.locator(".abilityMoves")).toHaveCount(1);
+  await expect(strBlock.locator(".abilityMoves .moveBtn")).toHaveCount(2);
 
-  await reinitCharacterPageForLifecycleTest(page, {
-    proficiency: 3,
-    abilities: {
-      str: { score: 10, saveProf: false },
-    },
-    skills: {
-      athletics: { level: "none", misc: 0, value: 0 }
-    },
-    saveOptions: {
-      misc: { str: 0, dex: 0, con: 0, int: 0, wis: 0, cha: 0 },
-      modToAll: ""
-    }
-  });
-
-  const freshStrBlock = page.locator('.abilityBlock[data-ability="str"]');
-  const freshStrScoreInput = freshStrBlock.locator(".abilityScore");
-  const freshStrSaveProfInput = freshStrBlock.locator('[data-stat="saveProf"]');
-  const freshAthleticsBtn = freshStrBlock.locator(".skillProfBtn");
-
-  await expect(freshAthleticsBtn).toHaveCount(1);
-  await expect(freshStrBlock.locator(".abilityMoves")).toHaveCount(1);
-  await expect(freshStrBlock.locator(".abilityMoves .moveBtn")).toHaveCount(2);
-
-  await freshStrScoreInput.fill("16");
-  await freshStrSaveProfInput.check();
+  await page.locator("#charProf").fill("3");
+  await strBlock.locator(".abilityScore").fill("16");
   await page.locator("#saveOptionsBtn").click();
   await page.locator("#miscSave_str").fill("2");
-  await freshAthleticsBtn.click();
+  await page.keyboard.press("Escape");
+  await expect(page.locator("#saveOptionsBtn")).toHaveAttribute("aria-expanded", "false");
 
+  await athleticsBtn.click();
   const secondSkillMenu = page.locator(".skillProfMenu:not([hidden])").first();
   await expect(secondSkillMenu).toBeVisible();
   await secondSkillMenu.getByRole("checkbox", { name: "Expert (double)", exact: true }).check();
 
-  await expect.poll(() => readCharacterAbilitiesLifecycleState(page)).toEqual({
+  await expect.poll(() => readActiveCharacterAbilitiesState(page)).toEqual({
     strScore: 16,
     strSaveProf: true,
     strSaveMisc: 2,

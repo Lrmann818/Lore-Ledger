@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { readFile } from "node:fs/promises";
-import { createCampaignFromHub, ensureActiveCharacter, expectNoFatalSignals, openSmokeApp } from "./helpers/smokeApp.js";
+import { createCampaignFromHub, ensureActiveCharacter, expectNoFatalSignals, openSmokeApp, readStoredSpellNote } from "./helpers/smokeApp.js";
 
 /**
  * @param {import("@playwright/test").Page} page
@@ -73,11 +73,7 @@ test("backup export round-trips tracker data into a fresh browser context", asyn
     const spellsList = character?.spells?.levels?.[0]?.spells || [];
     return spellsList.at(-1)?.id || "";
   });
-  await expect.poll(() => page.evaluate(async (id) => {
-    const { getText, textKey_spellNotes } = await import(new URL("js/storage/texts-idb.js", window.location.href).href);
-    const campaignId = globalThis.__APP_STATE__?.appShell?.activeCampaignId;
-    return getText(textKey_spellNotes(campaignId, id));
-  }, spellId)).toBe(spellNoteText);
+  await expect.poll(() => readStoredSpellNote(page, spellId)).toBe(spellNoteText);
 
   await openDataPanel(page);
 
