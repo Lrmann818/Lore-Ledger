@@ -16,7 +16,8 @@ vi.mock("../js/pages/tracker/panels/locationCards.js", () => ({
   initLocationsPanel: vi.fn(() => ({ destroy: vi.fn(), render: vi.fn() }))
 }));
 vi.mock("../js/pages/character/characterPage.js", () => ({
-  initCharacterPageUI: vi.fn(() => ({ destroy: vi.fn() }))
+  initCharacterPageUI: vi.fn(() => ({ destroy: vi.fn() })),
+  destroyActiveCharacterPageUI: vi.fn()
 }));
 vi.mock("../js/ui/panelHeaderCollapse.js", () => ({
   initPanelHeaderCollapse: vi.fn(() => ({ destroy: vi.fn() }))

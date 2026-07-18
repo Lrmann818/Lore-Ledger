@@ -54,6 +54,19 @@ let _activeCharacterPageController = null;
 const _dismissedEmptyStateCampaignIds = new Set();
 
 /**
+ * Destroys whichever character page controller is currently live. The page
+ * replaces its own controller through rerender() after character CRUD
+ * actions, so shell-level teardown (destroyCampaignModules() -> tracker page
+ * destroy) must resolve the live controller at destroy time — holding on to
+ * the instance created at page init would leak any rerender() replacement
+ * past teardown.
+ */
+export function destroyActiveCharacterPageUI() {
+  _activeCharacterPageController?.destroy?.();
+  _activeCharacterPageController = null;
+}
+
+/**
  * Initial wizard selections become rest play-state at character creation.
  * Existing per-class rest selections win during Edit in Builder, because a
  * prepared list is no longer a guarded build choice after creation.

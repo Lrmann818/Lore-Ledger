@@ -9,7 +9,7 @@ import { initSessionsPanel } from "./panels/sessions.js";
 import { initNpcsPanel } from "./panels/npcCards.js";
 import { initPartyPanel } from "./panels/partyCards.js";
 import { initLocationsPanel } from "./panels/locationCards.js";
-import { initCharacterPageUI } from "../character/characterPage.js";
+import { destroyActiveCharacterPageUI, initCharacterPageUI } from "../character/characterPage.js";
 import { COMBAT_ENCOUNTER_CHANGED_EVENT } from "../combat/combatEvents.js";
 import { initPanelHeaderCollapse } from "../../ui/panelHeaderCollapse.js";
 import { subscribePanelDataChanged } from "../../ui/panelInvalidation.js";
@@ -344,30 +344,36 @@ export function initTrackerPage(deps = {}) {
   }));
 
   // ----- Character sheet UI -----
-  runPanelInit("Character page", () => initCharacterPageUI({
-    state,
-    SaveManager,
-    Popovers,
-    ImagePicker,
-    pickCropStorePortrait,
-    getBlob,
-    deleteBlob,
-    putBlob,
-    cropImageModal,
-    getPortraitAspect,
-    blobIdToObjectUrl,
-    textKey_spellNotes,
-    putText,
-    getText,
-    deleteText,
-    autoSizeInput,
-    applyTextareaSize,
-    enhanceNumberSteppers,
-    uiAlert,
-    uiConfirm,
-    uiPrompt,
-    setStatus,
-  }));
+  runPanelInit("Character page", () => {
+    initCharacterPageUI({
+      state,
+      SaveManager,
+      Popovers,
+      ImagePicker,
+      pickCropStorePortrait,
+      getBlob,
+      deleteBlob,
+      putBlob,
+      cropImageModal,
+      getPortraitAspect,
+      blobIdToObjectUrl,
+      textKey_spellNotes,
+      putText,
+      getText,
+      deleteText,
+      autoSizeInput,
+      applyTextareaSize,
+      enhanceNumberSteppers,
+      uiAlert,
+      uiConfirm,
+      uiPrompt,
+      setStatus,
+    });
+    // The character page swaps in a fresh controller on rerender() (character
+    // CRUD), so teardown must destroy the controller that is live at destroy
+    // time, not the one created here.
+    return { destroy: destroyActiveCharacterPageUI };
+  });
   
   // Runs after the Tracker + Character DOM is present.
   runPanelInit("Panel collapse wiring", () => initPanelHeaderCollapse({ state, SaveManager, setStatus }));
