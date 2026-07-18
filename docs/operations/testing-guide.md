@@ -46,7 +46,7 @@ The automated story is split intentionally:
 | `npm run test:run` | Vitest once; append `-- tests/state.migrate.test.js` for one suite |
 | `npm run typecheck` | Repo-wide CheckJS pass (pinned `typescript@5.9.3`) |
 | `npm run test:smoke` | Playwright Chromium smoke suite, production-mode Vite **dev** server |
-| `npm run build && npx playwright test --config playwright.preview.config.js` | The same smokes against the real `dist/` build via `vite preview` — the blocking gate for UI-flow changes (an Apply once passed dev-mode smokes but failed only here). A few dev-only harnesses that `import()` source modules are expected to fail under it; see the config header |
+| `npm run build && npx playwright test --config playwright.preview.config.js` | The same smokes against the real `dist/` build via `vite preview` — the blocking gate for UI-flow changes (an Apply once passed dev-mode smokes but failed only here). The full suite passes under both configs; new harnesses must stay preview-compatible — see [`browser-smoke-status.md`](./browser-smoke-status.md) → "Preview-safe harness rules" |
 | `npm run preview` | Serves the production build — required for any PWA/offline check |
 
 Use `npm run verify` as the default pre-merge and pre-release check. The narrower commands

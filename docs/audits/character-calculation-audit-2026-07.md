@@ -527,11 +527,14 @@ found and decided beyond the Phase A plan.
 - **Production preview** (`vite preview` over the real `dist/`, via the new
   `playwright.preview.config.js`): **54/61** — every F2-related suite green
   (structuredVitals, characterRest, attackEditor, attackKeyboard,
-  builderWizard, levelUp, highElfCantrip, customContent). The 7 failures are
+  builderWizard, levelUp, highElfCantrip, customContent). The 7 failures were
   pre-existing dev-only test harnesses that `import()` source modules into the
   page (backup, panel-lifecycle ×4, one combatShell case, trackerPanelLifecycle)
   — impossible against a bundle; follow-up filed. `characterRest` and
   `structuredVitals` were made production-compatible in this session.
+  *(Follow-up closed 2026-07-18: all 7 harnesses reworked onto preview-safe
+  seams; the preview gate is now 61/61 — see
+  `docs/operations/browser-smoke-status.md` → "Preview-safe harness rules".)*
 - Manual production-preview acceptance (real browser over `npm run preview`):
   builder cleric Finish stamps all three blocks; tiles show 13 / +5 / 12
   ("10 + Dex") / 10 ("Calculated from levels"); AC editor Save applies +1
@@ -551,6 +554,6 @@ found and decided beyond the Phase A plan.
 - A shield/armor quick-toggle on the sheet (equipment stays a guarded build
   choice edited through Edit in Builder; noted as possible future quick-edit).
 - Rewriting the 7 dev-only smoke harnesses for preview compatibility
-  (follow-up chip filed).
+  (follow-up chip filed; completed 2026-07-18).
 - F1 (freeform initiative) and the deferred choice/backlog items — unchanged,
   still need owner scope.

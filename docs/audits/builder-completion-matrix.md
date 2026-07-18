@@ -101,9 +101,11 @@ feature-action counters (#13 follow-up), partial-regain recovery modes (#8,
 design first), prepared-formula/spellbook-growth overrides (#16, design
 first), equipment depth (#10, product decisions), Half-Elf ability/skill
 choices and Tiefling cantrip grant (choice audit, deferred), freeform
-initiative F1, the keyboard-only a11y pass (#19), and production-preview
-compatibility for the 7 dev-only smoke harnesses (follow-up filed
-2026-07-17). Handoff: `docs/reference/session-handoff-2026-07-17.md`.
+initiative F1, and the keyboard-only a11y pass (#19). (The 2026-07-17
+follow-up for production-preview compatibility of the 7 dev-only smoke
+harnesses was completed 2026-07-18; both smoke gates are 61/61 — see
+`docs/reference/session-handoff-2026-07-18.md`.) Handoff:
+`docs/reference/session-handoff-2026-07-17.md`.
 
 ## 4. Verification basis
 
@@ -111,8 +113,12 @@ F2 structured vitals audited 2026-07-17: **1219 unit tests (72 files)**,
 dev-mode smoke gate **61/61** (incl. the three-part `structuredVitals.smoke.js`),
 and the new production-preview gate (`playwright.preview.config.js`, real
 `dist/` build) green for every F2-related suite (54/61 overall; the 7 failures
-are pre-existing dev-only harnesses that import source modules — follow-up
+were pre-existing dev-only harnesses that import source modules — follow-up
 filed); manual production-preview acceptance at desktop and 380px recorded in
-the Phase B section of the calculation audit. Prior basis (attacks/High-Elf,
+the Phase B section of the calculation audit. **Update 2026-07-18:** the 7
+dev-only harnesses were reworked onto preview-safe seams (real campaign-shell
+lifecycle + direct IndexedDB reads) and the production-preview gate is now
+**61/61**; the rework also fixed a character-page teardown leak
+(`destroyActiveCharacterPageUI()`). Prior basis (attacks/High-Elf,
 2026-07-15): 1135 unit tests (66 files), 58 smokes. Statements about unconsumed
 data (`classSpecificByLevel`) were grep-verified against `js/domain/rules/*`.

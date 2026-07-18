@@ -10,7 +10,7 @@ This note records the current local browser smoke layer for Lore Ledger as it ex
 
 ## Current suite
 
-- The current Chromium suite has 61 smoke tests (2026-07-17) across:
+- The current Chromium suite has 61 smoke tests (2026-07-18, green under both the dev-mode and production-preview configs) across:
   - `tests/smoke/app.smoke.js`
   - `tests/smoke/attackEditor.smoke.js`
   - `tests/smoke/attackKeyboard.smoke.js`
@@ -37,11 +37,57 @@ This note records the current local browser smoke layer for Lore Ledger as it ex
   --config playwright.preview.config.js` runs the same suite against the real
   `dist/` build via `vite preview`. This is the blocking gate for UI-flow
   changes (a dialog Apply once passed dev-mode smokes but failed only under
-  preview). Known limitation: a handful of harnesses drive the app by
-  `import()`ing source modules into the page (`backup`,
-  `characterPanelLifecycle`, one `combatShell` case, `trackerPanelLifecycle`),
-  which cannot work against a bundle — they fail under the preview config by
-  construction until their harnesses are reworked (follow-up filed).
+  preview). Since 2026-07-18 the **full suite passes under both configs**
+  (61/61): the seven harnesses that used to `import()` source modules into the
+  page (`backup`, `characterPanelLifecycle` ×4, one `combatShell` case,
+  `trackerPanelLifecycle`) were reworked onto preview-safe seams — see
+  "Preview-safe harness rules" below. Reworking the lifecycle harnesses onto
+  the real campaign-shell cycle also exposed and fixed a genuine teardown
+  leak: the character page controller created by its internal `rerender()`
+  used to escape `destroyCampaignModules()`, staying live while the app sat on
+  the Hub (`destroyActiveCharacterPageUI()` in
+  `js/pages/character/characterPage.js` now resolves the live controller at
+  destroy time).
+
+## Preview-safe harness rules
+
+The preview config serves only the built `dist/` bundle. Repository source
+paths such as `js/...` or `tests/...` do not exist there, so a smoke harness
+must never depend on browser-side dynamic `import()` of source modules — that
+pattern fails against the bundle by construction (it is also a weaker test:
+it exercises a synthetic module graph instead of the shipped app). The final
+gate for any smoke-harness change is:
+
+```bash
+npm run test:smoke                                                  # dev-mode gate
+npm run build && npx playwright test --config playwright.preview.config.js  # production gate
+```
+
+Both must be fully green. Write harnesses against these seams, all of which
+behave identically under both configs:
+
+1. **Visible UI** — real clicks, fills, and dialogs (`submitPromptDialog(...)`
+   in `tests/smoke/helpers/smokeApp.js` drives the shared prompt dialog).
+2. **The real campaign-shell lifecycle** — `cycleCampaignShell(...)` /
+   `reopenCampaignFromHub(...)` leave for the Hub and re-enter, which runs the
+   production `destroyCampaignModules()` → `initCampaignModules()` path. This
+   is the preview-safe replacement for the old dev-only pattern of importing
+   page modules and re-initializing them by hand, and it tests the real
+   teardown wiring instead of a synthetic one.
+3. **Persisted storage** — read/write `localStorage["localCampaignTracker_v1"]`
+   directly, and read IndexedDB through public browser APIs
+   (`readStoredSpellNote(...)` mirrors the persisted texts-store contract from
+   `js/storage/idb.js` + `js/storage/texts-idb.js`; update it alongside any
+   storage-shape change).
+4. **The DEV-mode `__APP_STATE__` escape hatch** — available under both
+   configs because they serve on `127.0.0.1` (`detectDevMode()` treats local
+   hosts as DEV). Use it for state assertions, not for driving mutations.
+5. **Node-side setup** — file fixtures, `addInitScript` environment shaping,
+   and Playwright APIs run in the test process and are always safe.
+
+Do not add new globals or production code branches for tests, do not skip or
+expected-fail tests under one config, and do not branch selectors per
+environment.
 
 ## Current smoke scope
 
@@ -50,8 +96,8 @@ The suite currently covers:
 1. App shell boot, Campaign Hub first-run/create/open/rename/delete flows, and Hub responsive layout checks.
 2. Opening the Map workspace and one structured reload-persistence path through campaign title editing.
 3. Backup export/import in a fresh browser context plus invalid import failure handling.
-4. Tracker page re-init safety so repeated `initTrackerPage(...)` calls do not leave duplicate panel bindings behind.
-5. Character page re-init safety so repeated `initCharacterPageUI(...)` calls keep representative panel actions single-bound after teardown/re-init.
+4. Tracker page re-init safety: repeated real campaign-shell cycles (Hub round trips through `destroyCampaignModules()` → `initCampaignModules()`) leave the static add/section controls single-bound.
+5. Character page re-init safety: the same real shell cycles keep representative panel actions (attacks, spell levels, inventory tabs, resources, abilities/skills) single-bound, verify the dynamically injected ability controls are removed at the Hub and rebuilt exactly once, and pin persistence of edits across the cycle.
 6. Targeted tracker card-panel behavior for NPC, Party, and Location panels:
    - portrait toggle and portrait save flows
    - search and location filter behavior
@@ -89,5 +135,7 @@ Intentionally out of scope for this version's automated smoke layer:
 
 - `@playwright/test` as a dev dependency
 - `playwright.config.js` targeting the production base path in Chromium smoke tests
-- `tests/smoke/*.smoke.js` for the focused browser suite
+- `playwright.preview.config.js` running the identical suite against the built `dist/` via `vite preview`
+- `tests/smoke/*.smoke.js` for the focused browser suite, with shared preview-safe helpers in `tests/smoke/helpers/smokeApp.js`
 - `npm run test:smoke` to run the local Chromium smoke suite
+- `npm run build && npx playwright test --config playwright.preview.config.js` for the production-preview gate
