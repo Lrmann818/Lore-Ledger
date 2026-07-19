@@ -43,6 +43,7 @@ restore obsolete behavior.
 | **Release, testing, PWA** | `docs/operations/testing-guide.md` → the focused checklist it links → `docs/operations/release-process.md` | `docs/archive/**`, `docs/operations/ios-packaging.md` |
 | **iOS / App Store packaging** | `docs/operations/ios-packaging.md` | The web release doc, unless you are also shipping web |
 | **Levelling / level-up flow** | "Level Up Rules" below → `docs/reference/level-up-flow-spec.md` (Phases 1–3 shipped) | — |
+| **Snapshots / Restore Character / Edit-in-Builder retirement** | "Current Working Order" below → `docs/reference/restore-character-spec.md` → `docs/audits/edit-in-builder-retirement-audit-2026-07.md` | Implementing any of it without the working-order authorization |
 | **Roadmap / what's next** | "Current Working Order" below → `docs/plans/new-features-roadmap.md` | `docs/archive/lore-ledger-builder-plan.md` |
 | **Builder gap audit / stabilization** | "Current Working Order" below, first | `docs/audits/**` batch prompts (B1–B3 shipped 2026-07-13; the completion matrix is the live audit) |
 
@@ -56,6 +57,7 @@ restore obsolete behavior.
 - `docs/reference/builder-scope-greenlist.md`, `docs/reference/content-registry-plan.md`
 - `docs/reference/rest-rules-spec.md`
 - `docs/reference/level-up-flow-spec.md` — canonical Level Up contract; **Phases 1–3 are implemented** (2026-07-12/13)
+- `docs/reference/restore-character-spec.md` — normative pre-Level-Up snapshot + Restore Character contract (**specification only; implementation not yet authorized**)
 - `docs/operations/**`
 - `docs/plans/new-features-roadmap.md`, `docs/plans/combat-workspace-plan.md`
 
@@ -688,6 +690,16 @@ exists, the normal sheet is the primary editing surface for play-state. Builder 
 exist to guard *structural* choices, not to be the everyday way a player edits HP or adds
 a weapon.
 
+> **Ratified direction (2026-07-18), not yet implemented:** the general user-facing
+> "Edit in Builder" action will be **retired**. The Builder creates characters; it is
+> not a general-purpose tool for retroactively rewriting race, class, subclass,
+> background, equipment, feat, or prior progression decisions. Its "fix a mistake" role
+> moves to **pre-Level-Up snapshots + Restore Character** — see
+> `docs/reference/restore-character-spec.md` (normative) and
+> `docs/audits/edit-in-builder-retirement-audit-2026-07.md` (dependency audit and open
+> owner decisions D1–D4). Until retirement phase R5 is authorized and shipped, Edit in
+> Builder remains current behavior and everything in this section stays accurate.
+
 Prepared spell lists are **play-state**, not build choices. See rest rules below.
 
 ### Rest Rules
@@ -722,7 +734,9 @@ menu appends exactly one level through `js/pages/character/levelUpWizard.js`, pl
 into `character.resources[]`, and Level Up grows them by delta — covering Phase 3's
 resource deltas. Down-leveling remains ratified out of scope. Ratified decisions:
 
-- **Down-leveling is out of scope.** Do not build reverse level-up logic.
+- **Down-leveling is out of scope.** Do not build reverse level-up logic. (The ratified
+  undo path is pre-Level-Up snapshots + Restore Character — restore a pre-mistake copy
+  and redo the Level Up; see `docs/reference/restore-character-spec.md`.)
 - Level Up **appends exactly one level** and asks only for choices that level unlocks.
 - Prepared casters: Level Up reports new spell levels and prepared **capacity**; the actual
   prepared selection happens through the Long Rest flow.
@@ -785,8 +799,10 @@ listed so agents do not repeat them:
 15. [x] **Matrix #9 — attack "Recalculate from Build" — implemented** (2026-07-14, owner-authorized): pure proposal engine in `js/domain/attackRecalculation.js` sharing the canonical weapon→attack calculator with Finish seeding; seeded attacks carry the stable `builderSeed: "weapon:<id>"` marker; the Attacks-panel action previews old→proposed values with per-field acceptance, keeps `name`/`notes` user-owned, links legacy rows only through an explicit weapon picker, and applies atomically. **Superseded the same day by step 16:** manual acceptance failed (Apply did not work in `npm run preview`) and the owner ratified that routine manual recalculation is not the intended product behavior.
 16. [x] **Unified calculation contract + High Elf choice work — shipped 2026-07-15** (owner-authorized): (a) calculation-architecture audit (`docs/audits/character-calculation-audit-2026-07.md`) + the input/derived/adjustment/fixed-override contract (`docs/reference/character-calculation-contract.md`); (b) the snapshot attack model was replaced with **structured, live-deriving attacks** through one canonical calculator (`js/domain/attackCalculation.js`) — automatic updates on ability/proficiency change, explicit `attackAdjustment`/`damageAdjustment`, intentional `calc.mode: "fixed"`, marker-based provenance + re-seed dedup, safe legacy conversion in a per-row editor; the broken "Recalculate from Build" dialog and `attackRecalculation.js` were removed; (c) reusable choice-based granted spells (`js/domain/rules/spellChoices.js`) + the **High Elf wizard-cantrip** choice (filtered spell picker, Finish gating, INT provenance, non-caster seeding); (d) choice-completeness report (audit §"Choice completeness"); (e) docs updated. **Deferred (need new owner scope):** AC/spellDC/spellAttack/HP snapshot→derived (audit F2); Half-Elf ability/skill choices, Tiefling cantrip grant, race-trait fixed proficiencies (F3), Dwarf tools.
 17. [x] **Audit F2 — AC / max HP / spell save DC / spell attack snapshot→derived: shipped 2026-07-16/17** (owner-authorized 2026-07-15). All four fields follow the calculation contract through optional per-field calc blocks on the open entry shape (`spellcastingCalc` per-source profiles, `acCalc`, `hpMaxCalc` — no schema migration): derived by default for new builder characters with live updates, explicit adjustments, intentional fixed overrides, and verbatim legacy snapshots with editor-based adoption (a re-seed stamps a derived block only when it cannot change the displayed value). The engine gained the Defense fighting style (+1 while armored) and structured Dwarven Toughness (`hpPerLevelBonus` on race records). Level Up/rest/tracker/combat are calc-aware; combat AC edits on calc-managed characters are participant-local temporaries; freeform casters declare DC/attack profiles while freeform AC/max HP stay manual inputs by contract. See `docs/reference/character-calculation-contract.md` → "Structured Vitals ownership" and `docs/audits/character-calculation-audit-2026-07.md` → Phase B. A production-preview smoke gate exists (`playwright.preview.config.js`); **the 7 dev-only smoke harnesses were reworked for preview compatibility on 2026-07-18** — the full 61-test suite now passes under both configs, smoke harnesses must never `import()` source modules into the page, and the rework surfaced + fixed a real teardown leak (the character page controller created by `rerender()` escaped `destroyCampaignModules()`; `destroyActiveCharacterPageUI()` now resolves the live controller at destroy time). See `docs/operations/browser-smoke-status.md` → "Preview-safe harness rules".
-18. [ ] **Still open after F2 (needs new owner scope):** the remaining P2 backlog in `docs/audits/builder-completion-matrix.md` §3 (feature-action counters, partial-regain recovery, prepared-formula overrides, equipment depth, keyboard a11y pass), the deferred choice work above (Half-Elf ability/skill choices, Tiefling cantrip grant, race-trait fixed proficiencies, Dwarf tools), and freeform initiative (audit F1). (Preview-compatibility for the dev-only smoke harnesses was completed 2026-07-18 — see step 17.)
-19. [ ] **Still blocked / out of scope:** down-leveling (ratified out of scope), builtin content expansion beyond the SRD 5.1 greenlist, and any work outside the character-builder system
+18. [x] **Restore Character / snapshot specification batch (2026-07-18, owner-directed):** the owner ratified the product model — the Builder is for initial creation; general user-facing **Edit in Builder will be retired**; Lore Ledger saves a complete character snapshot immediately before every successful Level Up commit (one safe transaction); a **Restore Character** flow restores any snapshot as a **separate playable copy** (new stable ID, never overwrites or mutates the current or source character, repeatable, snapshots retained until individually deleted). The binding design is `docs/reference/restore-character-spec.md`; the dependency audit and open owner decisions (D1 B1-panel disposition, D2 base-ability correction path, D3 incomplete-choice completion, D4 delete-time snapshot offer) are in `docs/audits/edit-in-builder-retirement-audit-2026-07.md`. **Specification only — no runtime change shipped.**
+19. [ ] **Restore Character implementation phases R1–R6 (defined in the spec §8): each requires explicit owner authorization before code changes.** R1 schema v13 + pre-Level-Up capture → R2 restore engine → R3 Restore Character UI → R4 backup asset completeness → R5 Edit-in-Builder retirement (**additionally gated on owner decisions D1–D3**) → R6 shipped-behavior doc close-out. R5 must not precede R1. Do not self-start any phase from this list.
+20. [ ] **Still open after F2 (needs new owner scope):** the remaining P2 backlog in `docs/audits/builder-completion-matrix.md` §3 (feature-action counters, partial-regain recovery, prepared-formula overrides, equipment depth, keyboard a11y pass), the deferred choice work above (Half-Elf ability/skill choices, Tiefling cantrip grant, race-trait fixed proficiencies, Dwarf tools), and freeform initiative (audit F1). (Preview-compatibility for the dev-only smoke harnesses was completed 2026-07-18 — see step 17.)
+21. [ ] **Still blocked / out of scope:** down-leveling (ratified out of scope; the undo path is Restore Character per step 18), builtin content expansion beyond the SRD 5.1 greenlist, and any work outside the character-builder system
 
 `docs/audits/srd-5-1-character-builder-gap-audit-stabilization-docs.md` is a **planning
 artifact, not a work order**. Steps 1-7 above are complete. Its batches **B1

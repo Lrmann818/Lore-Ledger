@@ -28,7 +28,7 @@ claim · **P2** polish/depth. Status: ✅ shipped · 🟡 partial · ⬜ not bui
 | 8 | Rest and recovery (Short/Long, Hit Dice, slots, pact, death saves, tagged resources) | ✅ | `characterRest.js`, `restFlow.js` | P0 complete + Level Up integration tested | Recovery vocabulary available to custom cards/resources | Partial-regain features (e.g. "regain 1d6 uses") unmodeled | P2 | — | 9 | Tagged partial recovery modes designed before implementation |
 | 9 | Derived calculations (AC, HP, saves, skills, initiative, passive perception, DC/attack, prof) | ✅ | `deriveCharacter.js`, `computeArmorClass`, `computeMaxHp`, `js/domain/attackCalculation.js`, `js/domain/spellcastingCalculation.js`, `js/domain/armorClassCalculation.js`, `js/domain/hpMaxCalculation.js`, `vitalsPanel.js` | Armor/unarmored/shield formulas (+ **Defense fighting style while armored, 2026-07-17**); retro-Con HP (+ structured **Dwarven Toughness** `hpPerLevelBonus`); **attacks live-derived (2026-07-15)** through one canonical calculator; **spell DC/attack, AC, and max HP live-derived (F2, 2026-07-16/17)** — optional per-field calc blocks (`spellcastingCalc` profiles per source ability, `acCalc`, `hpMaxCalc`), explicit adjustments, intentional fixed overrides, legacy snapshots preserved verbatim with editor-based adoption, calc-aware Finish/Level Up/rest/tracker/combat surfaces, temporary combat AC layered over the calculated base | Custom weapons/armor/classes derive through the same registry path | **F2 closed.** Freeform AC/max HP stay manual inputs by contract (no structured armor / level history); freeform initiative (F1) still snapshot | — | — | — | Attacks + all four vitals derive live (contract-conformant); one calculator each; no manual recalc ✅ |
 | 10 | Equipment effects | 🟡 | `builderSheetSeeding.js`, `equipment.*.json` | AC from armor/shield; weapons → attacks; packs → pockets | Custom armor/weapons consumed | No currency deduction, no encumbrance, magic items deferred by greenlist | P2 | greenlist change for magic items | 11 | Documented as out of scope, or greenlist deliberately expanded |
-| 11 | Editable post-creation sheet surfaces | ✅ | `js/pages/character/panels/*` | All play-state fields editable; **B1 shipped 2026-07-13:** Builder Identity/Abilities panels are read-only routing surfaces (Edit in Builder); structural edits go through guarded wizard flows only | n/a | Builder Summary remains a display-only review scaffold (harmless; retire only with a deliberate product decision) | — | — | — | — |
+| 11 | Editable post-creation sheet surfaces | ✅ | `js/pages/character/panels/*` | All play-state fields editable; **B1 shipped 2026-07-13:** Builder Identity/Abilities panels are read-only routing surfaces (Edit in Builder); structural edits go through guarded wizard flows only. **2026-07-18: Edit in Builder retirement + Restore Character replacement ratified but not implemented** — see §3 and `docs/reference/restore-character-spec.md` | n/a | Builder Summary remains a display-only review scaffold (harmless; retire only with a deliberate product decision) | — | — | — | — |
 | 12 | Spell detail seeding (descriptions, ranges, components) | ✅ | `spellsPanel.js#renderSpellSrdDetails` | **B2 shipped 2026-07-13:** builder-managed rows show the full live-derived SRD detail block (school/level, ritual/concentration, casting time, range, components+material, duration, description, higher-level text) above user notes | Custom spells resolve through the same kind-aware lookup | Details are display-only (deliberate: notes stay purely user-owned; no materialized copies) | — | — | — | — |
 | 13 | Feature detail seeding depth | ✅ | `abilitiesFeaturesPanel.js#collectReferenceFeatures`, `deriveCharacter.js#raceTraits` | **B3 shipped 2026-07-13:** display-only rules-reference cards for every class/subclass feature, chosen feat, and race trait with full SRD descriptions | Custom features/traits resolve through the same registry | Feature-specific use counters with DCs (subclass 1-use features) remain future feature-action work | P2 | — | 7 | Fiend/Open Hand style 1-use subclass features get tracked feature-action cards |
 | 14 | Custom content persistence & registry merge | ✅ | `js/domain/customContent.js`, `rules/registry.js`, `content.custom` (schema v11), `js/storage/campaignVault.js` | n/a | Same shapes as SRD records, `source: "custom"`, cannot shadow builtin | **Fixed 2026-07-13:** the campaign vault used to drop `state.content` at save/project/hydrate, so custom content silently vanished on reload (only full backups kept it); now pinned by vault round-trip tests + a reload smoke | — | — | — | — |
@@ -106,6 +106,21 @@ follow-up for production-preview compatibility of the 7 dev-only smoke
 harnesses was completed 2026-07-18; both smoke gates are 61/61 — see
 `docs/reference/session-handoff-2026-07-18.md`.) Handoff:
 `docs/reference/session-handoff-2026-07-17.md`.
+
+**Restore Character / Edit-in-Builder retirement — specification ratified 2026-07-18
+(owner-directed), implementation not authorized.** The owner ratified the product
+model: the Builder is for initial creation; the general Edit in Builder action will
+retire; a complete pre-Level-Up snapshot is saved transactionally with every
+successful Level Up commit; **Restore Character** restores any snapshot as a separate
+playable copy (new stable ID, source and current characters untouched, snapshots
+retained until individually deleted, included in backups). Normative design:
+`docs/reference/restore-character-spec.md` (data model `characters.snapshots` +
+schema v13, identity/naming rules, single-vault-write transaction, backup collector
+additions, grouped-by-character dialog UI, phases R1–R6). Dependency audit + the four
+open owner decisions (D1–D4) gating the retirement phase:
+`docs/audits/edit-in-builder-retirement-audit-2026-07.md`. Matrix impact when
+implemented: #11's B1 routing surfaces are re-decided (D1) and this matrix gains a
+Restore Character capability row.
 
 ## 4. Verification basis
 

@@ -501,6 +501,12 @@ the level-up entry point. `getBuilderFinishSheetSeedPatch()` must keep its
 fill-only-when-empty behavior for Edit-in-Builder. Implement the level-up patch
 as a **separate exported function**, not a flag on the existing one.
 
+> **2026-07-18 note:** Edit in Builder is slated for retirement
+> (`docs/reference/restore-character-spec.md`), but the fill-only-when-empty rule
+> outlives it — the same Finish seed patch also runs from the **Long Rest**
+> prepared-spell path (`characterPage.js` rest action), so the two-policy split in
+> this section remains binding after retirement.
+
 ---
 
 ## 7. Recommended phasing
@@ -680,9 +686,15 @@ them, and do not implement against the alternatives._
    part of Level Up. A user who made a mistake can use "Edit in Builder" or create a
    corrected character.
 
+   > **2026-07-18 update:** the ratified mistake remedy going forward is **pre-Level-Up
+   > snapshots + Restore Character** (`docs/reference/restore-character-spec.md`):
+   > restore the pre-mistake copy and redo the Level Up. Edit in Builder remains the
+   > interim remedy only until its retirement (spec phase R5) ships.
+
    _Known adjacent bug, not introduced by this spec:_ "Edit in Builder" removes levels via
    `removeLevelAt()` but does not reverse the stored `hpMax`. Track separately; do not fix
-   it inside the Level Up batch.
+   it inside the Level Up batch. (It retires together with Edit in Builder — audit item A5
+   in `docs/audits/edit-in-builder-retirement-audit-2026-07.md`.)
 
 2. **Level Up appends exactly one level.** It asks **only** for the choices that the
    newly-appended level actually unlocks. Steps with nothing to ask are skipped. It never
@@ -723,7 +735,9 @@ covered Phase 1 only, and completing it authorizes nothing further:
 Known Phase 1 implementation notes (intentional):
 
 - Spell pickers cap selections at the exact delta but allow choosing fewer; unpicked
-  grants are recoverable via Edit in Builder.
+  grants are recoverable via Edit in Builder. (After Edit in Builder retires, this
+  recovery promise needs the owner-decision D3 resolution — see
+  `docs/audits/edit-in-builder-retirement-audit-2026-07.md` §3.)
 - Optional feature/ASI choices are not hard-required at Apply (matching the creation
   wizard); only the newly unlocked subclass and a usable HP result are required.
 - Seeded attack rows are user-owned and are not recalculated when proficiency grows.
