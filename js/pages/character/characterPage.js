@@ -26,7 +26,10 @@ import {
   makeDefaultCharacterEntry
 } from "../../domain/characterHelpers.js";
 import { getBuilderFinishSheetSeedPatch, getLevelUpSheetSeedPatch } from "../../domain/builderSheetSeeding.js";
+import { appendPreLevelUpSnapshot, buildPreLevelUpSnapshot } from "../../domain/characterSnapshots.js";
 import { MAX_CHARACTER_LEVEL, normalizeBuildLevels } from "../../domain/rules/progression.js";
+import { getActiveContentRegistry } from "../../domain/rules/registry.js";
+import { CURRENT_SCHEMA_VERSION } from "../../state.js";
 import {
   applyLongRest,
   applyShortRest,
@@ -394,7 +397,7 @@ export function initCharacterPageUI(deps) {
       root: document,
       Popovers,
       setStatus,
-      onApply: ({ characterId, build, toLevel }) => {
+      onApply: ({ characterId, build, classId, toLevel }) => {
         // Same-character apply guard, mirroring the shipped rest guard: check
         // the active id before mutating and again inside the mutation.
         if (!characterId || getActiveCharacter(state)?.id !== characterId) {
@@ -404,7 +407,7 @@ export function initCharacterPageUI(deps) {
           return;
         }
         let applyError = "";
-        const updated = mutateCharacter((character) => {
+        const updated = mutateCharacter((character, s) => {
           if (character.id !== characterId) {
             applyError = "active-character-changed";
             return false;
@@ -423,10 +426,26 @@ export function initCharacterPageUI(deps) {
             applyError = "invalid-level-up";
             return false;
           }
-          // Compute the entire sheet patch before writing anything so the
-          // build replacement and the patch commit as one atomic mutation.
+          // Compute the entire sheet patch AND the pre-Level-Up snapshot
+          // record before writing anything: validation and construction can
+          // fail without touching state, and the writes below are plain-data
+          // assignments of precomputed values. Snapshot append + character
+          // update commit inside this one mutation, so the single vault
+          // write persists both together or neither (Restore Character R1).
           const afterCharacter = { ...beforeSnapshot, build };
           const { patch } = getLevelUpSheetSeedPatch(beforeSnapshot, afterCharacter);
+          const snapshotRecord = buildPreLevelUpSnapshot({
+            character: /** @type {import("../../state.js").CharacterEntry} */ (beforeSnapshot),
+            toClassId: classId,
+            registry: getActiveContentRegistry(),
+            schemaVersion: CURRENT_SCHEMA_VERSION
+          });
+          if (!snapshotRecord) {
+            applyError = "snapshot-failed";
+            return false;
+          }
+          if (!Array.isArray(s.characters.snapshots)) s.characters.snapshots = [];
+          appendPreLevelUpSnapshot(s.characters.snapshots, snapshotRecord);
           character.build = build;
           Object.assign(character, patch);
           return true;

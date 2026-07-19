@@ -71,6 +71,7 @@ import {
   listContentByKind
 } from "../js/domain/rules/registry.js";
 import { deriveCharacter } from "../js/domain/rules/deriveCharacter.js";
+import { CURRENT_SCHEMA_VERSION } from "../js/state.js";
 import {
   rollBuilderAbilityScore,
   rollBuilderAbilityScorePool
@@ -4249,6 +4250,7 @@ describe("level up flow", () => {
     expect(document.getElementById("levelUpOverlay").hidden).toBe(false);
     expect(JSON.stringify(deps.state.characters.entries[0])).toBe(snapshot);
     expect(deps.SaveManager.markDirty).not.toHaveBeenCalled();
+    expect(deps.state.characters.snapshots ?? []).toHaveLength(0);
 
     controller.destroy();
   });
@@ -4266,6 +4268,7 @@ describe("level up flow", () => {
     expect(document.getElementById("levelUpOverlay").hidden).toBe(true);
     expect(JSON.stringify(deps.state.characters.entries[0])).toBe(snapshot);
     expect(deps.SaveManager.markDirty).not.toHaveBeenCalled();
+    expect(deps.state.characters.snapshots ?? []).toHaveLength(0);
 
     controller.destroy();
   });
@@ -4283,6 +4286,7 @@ describe("level up flow", () => {
     expect(document.getElementById("levelUpOverlay").hidden).toBe(true);
     expect(JSON.stringify(deps.state.characters.entries[0])).toBe(snapshot);
     expect(deps.SaveManager.markDirty).not.toHaveBeenCalled();
+    expect(deps.state.characters.snapshots ?? []).toHaveLength(0);
 
     controller.destroy();
   });
@@ -4334,6 +4338,8 @@ describe("level up flow", () => {
     const updated = deps.state.characters.entries.find((e) => e.id === "char_levelup");
     expect(updated.build.levels).toHaveLength(2);
     expect(deps.SaveManager.markDirty).toHaveBeenCalledTimes(1);
+    // Repeated submission captured exactly one pre-Level-Up snapshot.
+    expect(deps.state.characters.snapshots).toHaveLength(1);
 
     controller.destroy();
   });
@@ -4412,6 +4418,7 @@ describe("level up flow", () => {
     expect(deps.state.characters.entries[0].build.levels).toHaveLength(1);
     expect(deps.state.characters.entries[1].build).toBeNull();
     expect(deps.SaveManager.markDirty).not.toHaveBeenCalled();
+    expect(deps.state.characters.snapshots ?? []).toHaveLength(0);
     expect(deps.setStatus).toHaveBeenCalledWith(
       "Level Up was canceled because the active character changed.", { stickyMs: 2500 });
 
@@ -4433,6 +4440,101 @@ describe("level up flow", () => {
     expect(document.getElementById("levelUpClassValidation").hidden).toBe(false);
     expect(JSON.stringify(deps.state.characters.entries[0])).toBe(snapshot);
     expect(deps.SaveManager.markDirty).not.toHaveBeenCalled();
+    expect(deps.state.characters.snapshots ?? []).toHaveLength(0);
+
+    controller.destroy();
+  });
+
+  it("a successful apply captures exactly one complete pre-Level-Up snapshot in the same mutation", async () => {
+    const character = makeLeveledBuilderCharacter({ flatFields: { hpMax: 12, hpCur: 9 } });
+    const before = JSON.parse(JSON.stringify(character));
+    const { deps, controller, actionMenuButton } = setupLevelUp(character);
+
+    openLevelUp(actionMenuButton);
+    clickLevelUp(document, "levelUpNext"); // class → features
+    clickLevelUp(document, "levelUpNext"); // features → hp
+    clickLevelUp(document, "levelUpNext"); // hp → summary
+    clickLevelUp(document, "levelUpApply");
+    await flushPromises();
+
+    // The capture happened inside the same mutation as the level-up commit:
+    // one markDirty covers both, so the single vault write persists them
+    // together (Restore Character R1).
+    expect(deps.SaveManager.markDirty).toHaveBeenCalledTimes(1);
+    const snapshots = deps.state.characters.snapshots;
+    expect(snapshots).toHaveLength(1);
+    const record = snapshots[0];
+    expect(record.id).toMatch(/^csnap_/);
+    expect(record.kind).toBe("pre-level-up");
+    expect(record.sourceCharacterId).toBe("char_levelup");
+    expect(record.sourceName).toBe("Level Up Mira");
+    expect(record.classSummary).toBe("Fighter 1");
+    expect(record.fromLevel).toBe(1);
+    expect(record.toLevel).toBe(2);
+    expect(record.toClassId).toBe("fighter");
+    expect(record.createdAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
+    expect(record.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
+    // The payload is the complete pre-Level-Up character, not the advanced one.
+    expect(record.payload).toEqual(before);
+
+    // The playable character advanced normally alongside the capture.
+    const updated = deps.state.characters.entries.find((e) => e.id === "char_levelup");
+    expect(updated.build.levels).toHaveLength(2);
+    expect(updated.hpMax).toBe(20);
+
+    controller.destroy();
+  });
+
+  it("later edits to the advanced character never leak into the captured snapshot", async () => {
+    const character = makeLeveledBuilderCharacter({ flatFields: { hpMax: 12, hpCur: 12 } });
+    const { deps, controller, actionMenuButton } = setupLevelUp(character);
+
+    openLevelUp(actionMenuButton);
+    clickLevelUp(document, "levelUpNext");
+    clickLevelUp(document, "levelUpNext");
+    clickLevelUp(document, "levelUpNext");
+    clickLevelUp(document, "levelUpApply");
+    await flushPromises();
+
+    const record = deps.state.characters.snapshots[0];
+    const frozen = JSON.parse(JSON.stringify(record.payload));
+
+    const updated = deps.state.characters.entries.find((e) => e.id === "char_levelup");
+    updated.name = "Renamed After Level Up";
+    updated.hpCur = 1;
+    updated.build.levels.push({ classId: "fighter", hp: 6 });
+    updated.resources.push({ id: "res_new", name: "New Pool", cur: 0, max: 1 });
+
+    expect(record.payload).toEqual(frozen);
+    expect(record.payload.name).toBe("Level Up Mira");
+    expect(record.payload.build.levels).toHaveLength(1);
+
+    controller.destroy();
+  });
+
+  it("deleting the source character keeps its snapshots", async () => {
+    const character = makeLeveledBuilderCharacter({ flatFields: { hpMax: 12, hpCur: 12 } });
+    const other = { id: "char_other", name: "Other", build: null };
+    const { deps, controller, actionMenuButton } = setupLevelUp(character, { extraEntries: [other] });
+    deps.uiConfirm.mockResolvedValue(true);
+
+    openLevelUp(actionMenuButton);
+    clickLevelUp(document, "levelUpNext");
+    clickLevelUp(document, "levelUpNext");
+    clickLevelUp(document, "levelUpNext");
+    clickLevelUp(document, "levelUpApply");
+    await flushPromises();
+    expect(deps.state.characters.snapshots).toHaveLength(1);
+
+    actionMenuButton.dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    document.getElementById("charActionDeleteBtn").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    await flushPromises();
+
+    expect(deps.state.characters.entries.map((entry) => entry.id)).toEqual(["char_other"]);
+    // Snapshots are campaign-owned: the source character's history survives
+    // its deletion and stays restorable (spec §5; owner decision D4).
+    expect(deps.state.characters.snapshots).toHaveLength(1);
+    expect(deps.state.characters.snapshots[0].sourceCharacterId).toBe("char_levelup");
 
     controller.destroy();
   });

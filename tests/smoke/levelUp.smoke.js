@@ -16,6 +16,13 @@ async function readActiveCharacter(page) {
   });
 }
 
+async function readCharacterSnapshots(page) {
+  return page.evaluate(() => {
+    const snapshots = globalThis.__APP_STATE__?.characters?.snapshots;
+    return Array.isArray(snapshots) ? JSON.parse(JSON.stringify(snapshots)) : [];
+  });
+}
+
 async function createFighterOne(page) {
   await page.locator("#charActionMenuBtn").click();
   await page.locator("#charActionNewBuilderBtn").click();
@@ -66,6 +73,8 @@ test("level up takes a Fighter 1 to Fighter 2 with more HP and Action Surge", as
   const afterCancel = await readActiveCharacter(page);
   expect(afterCancel.build.levels).toHaveLength(1);
   expect(afterCancel.hpMax).toBe(hpBefore);
+  // R1: opening and canceling Level Up never captures a snapshot.
+  expect(await readCharacterSnapshots(page)).toHaveLength(0);
 
   // The real Level Up: continue as Fighter (default), review the gained
   // Action Surge feature, keep the SRD-average HP, and Apply.
@@ -102,6 +111,23 @@ test("level up takes a Fighter 1 to Fighter 2 with more HP and Action Surge", as
   ]);
   expect(leveled.hpMax).toBe(20);
   expect(leveled.hpCur).toBe(20);
+
+  // R1: the successful apply captured exactly one complete pre-Level-Up
+  // snapshot in the same commit — the character as it was at Fighter 1.
+  const snapshots = await readCharacterSnapshots(page);
+  expect(snapshots).toHaveLength(1);
+  expect(snapshots[0]).toMatchObject({
+    kind: "pre-level-up",
+    sourceCharacterId: created.id,
+    sourceName: "Smoke Leveler",
+    classSummary: "Fighter 1",
+    fromLevel: 1,
+    toLevel: 2,
+    toClassId: "fighter"
+  });
+  expect(snapshots[0].id).toMatch(/^csnap_/);
+  expect(snapshots[0].payload.hpMax).toBe(12);
+  expect(snapshots[0].payload.build.levels).toHaveLength(1);
   // Phase 2: Second Wind seeded at creation, Action Surge added by Level Up,
   // both as canonical resources with recovery metadata and stable markers.
   const secondWind = leveled.resources.find((resource) => resource.builderSeed === "class-resource:second-wind");
@@ -130,6 +156,14 @@ test("level up takes a Fighter 1 to Fighter 2 with more HP and Action Surge", as
   expect(restored.build.levels).toHaveLength(2);
   expect(restored.hpMax).toBe(20);
   await expect(page.locator("#charFeatures")).toHaveValue(/Action Surge/);
+  // R1: the snapshot persisted through the campaign vault and the reload.
+  const restoredSnapshots = await readCharacterSnapshots(page);
+  expect(restoredSnapshots).toHaveLength(1);
+  expect(restoredSnapshots[0]).toMatchObject({
+    sourceCharacterId: created.id,
+    fromLevel: 1,
+    toLevel: 2
+  });
 
   await expectNoFatalSignals(page, fatalSignals);
 });
