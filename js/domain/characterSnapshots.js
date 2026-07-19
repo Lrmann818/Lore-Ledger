@@ -1,17 +1,27 @@
 // @ts-check
 // js/domain/characterSnapshots.js — pre-Level-Up character snapshot records
-// (Restore Character phase R1; see docs/reference/restore-character-spec.md).
+// (Restore Character phases R1 + R2; see docs/reference/restore-character-spec.md).
 //
-// R1 scope: building, normalizing, and appending snapshot records only.
-// Restoring a snapshot as a playable copy is phase R2 and does not exist yet.
+// R1: building, normalizing, and appending snapshot records (capture).
+// R2: the non-UI restore engine — resolving a snapshot, preparing a restored
+// playable copy (migrate-through, new identity, naming, spell-row id
+// regeneration), and the staged commit with rollback. No user-facing restore
+// UI exists yet; that is phase R3.
 
 import { getClassLevelTotals, normalizeBuildLevels } from "./rules/progression.js";
 import { getContentByKind } from "./rules/registry.js";
+import { makeDefaultCharacterEntry } from "./characterHelpers.js";
 
 /** @typedef {import("../state.js").CharacterEntry} CharacterEntry */
 /** @typedef {import("../state.js").CharacterSnapshot} CharacterSnapshot */
 
 export const PRE_LEVEL_UP_SNAPSHOT_KIND = "pre-level-up";
+
+/**
+ * Display fallback when a snapshot has no usable source name, matching the
+ * character selector's blank-name fallback ("Unnamed Character").
+ */
+export const RESTORED_CHARACTER_FALLBACK_NAME = "Unnamed Character";
 
 /**
  * @param {unknown} value
@@ -212,4 +222,308 @@ export function appendPreLevelUpSnapshot(snapshots, record) {
   if (idx >= 0) snapshots[idx] = record;
   else snapshots.push(record);
   return true;
+}
+
+// ---------------------------------------------------------------------------
+// Phase R2 — restore engine (non-UI). Restoring a snapshot creates a separate
+// playable character with a new stable id; it never mutates the source
+// character, the stored snapshot, or their external note/portrait records.
+// ---------------------------------------------------------------------------
+
+/**
+ * A note-copy instruction produced by preparation and executed by the commit:
+ * the external spell-note text stored under the old (source) row id is copied
+ * to the regenerated row id's key so source and restored notes stay
+ * independently editable.
+ * @typedef {{ oldRowId: string, newRowId: string }} RestoredNoteCopy
+ */
+
+/**
+ * The staged result of preparing a restore. Pure data — nothing has been
+ * written anywhere yet. `character.imgBlobId` is null until the commit stages
+ * the portrait duplicate described by `portraitCopy`.
+ * @typedef {{
+ *   character: CharacterEntry,
+ *   nameBase: string,
+ *   sourceSnapshotId: string,
+ *   sourceCharacterId: string,
+ *   noteCopies: RestoredNoteCopy[],
+ *   portraitCopy: { sourceBlobId: string } | null,
+ *   provenance: { restoredFromSnapshotId: string, restoredFromCharacterId: string, restoredAt: string },
+ *   committed?: boolean
+ * }} StagedCharacterRestore
+ */
+
+/**
+ * Resolves a snapshot record by id from a snapshot collection. Returns null
+ * when the id is blank, the collection is not an array, or no valid record
+ * matches.
+ *
+ * @param {unknown} snapshots
+ * @param {unknown} snapshotId
+ * @returns {CharacterSnapshot | null}
+ */
+export function getCharacterSnapshotById(snapshots, snapshotId) {
+  const id = cleanString(snapshotId);
+  if (!id || !Array.isArray(snapshots)) return null;
+  const found = snapshots.find((record) => isPlainRecord(record) && record.id === id);
+  return found ? /** @type {CharacterSnapshot} */ (found) : null;
+}
+
+/**
+ * Restored-name collision resolution (spec §3.4): the base name is used
+ * verbatim unless an existing character already has it (case-insensitive,
+ * trimmed), in which case ` (2)`, ` (3)`, … are tried in order and the first
+ * free suffix wins. Deterministic and pure. Names are never truncated.
+ *
+ * @param {string} nameBase
+ * @param {unknown} existingNames
+ * @returns {string}
+ */
+export function resolveRestoredCharacterName(nameBase, existingNames) {
+  const base = cleanString(nameBase) || RESTORED_CHARACTER_FALLBACK_NAME;
+  /** @type {Set<string>} */
+  const taken = new Set();
+  for (const name of Array.isArray(existingNames) ? existingNames : []) {
+    const key = cleanString(name).toLowerCase();
+    if (key) taken.add(key);
+  }
+  if (!taken.has(base.toLowerCase())) return base;
+  for (let suffix = 2; suffix <= 9999; suffix += 1) {
+    const candidate = `${base} (${suffix})`;
+    if (!taken.has(candidate.toLowerCase())) return candidate;
+  }
+  throw new Error("Could not find a free name for the restored character.");
+}
+
+/**
+ * Spell-row id factory matching the sheet's row-id shape
+ * (`spell_<rand36>_<ts36>`, see spellsPanel/builderSheetSeeding).
+ * @returns {string}
+ */
+function newRestoredSpellRowId() {
+  return `spell_${Math.random().toString(36).slice(2)}_${Date.now().toString(36)}`;
+}
+
+/**
+ * Collects every spell-row id owned by a character entry into `into`.
+ * @param {unknown} character
+ * @param {Set<string>} into
+ * @returns {void}
+ */
+function collectSpellRowIds(character, into) {
+  if (!isPlainRecord(character)) return;
+  const spells = isPlainRecord(character.spells) ? character.spells : null;
+  const levels = Array.isArray(spells?.levels) ? spells.levels : [];
+  for (const level of levels) {
+    if (!isPlainRecord(level) || !Array.isArray(level.spells)) continue;
+    for (const row of level.spells) {
+      if (!isPlainRecord(row)) continue;
+      const id = cleanString(row.id);
+      if (id) into.add(id);
+    }
+  }
+}
+
+/**
+ * Generates an id via `factory` that is not in `reserved`, retrying a bounded
+ * number of times. Throws when no free id can be found (only reachable with a
+ * degenerate injected factory).
+ * @param {() => string} factory
+ * @param {Set<string>} reserved
+ * @param {string} what
+ * @returns {string}
+ */
+function allocateUniqueId(factory, reserved, what) {
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    const candidate = cleanString(factory());
+    if (candidate && !reserved.has(candidate)) return candidate;
+  }
+  throw new Error(`Could not allocate a unique ${what} for the restored character.`);
+}
+
+/**
+ * Prepares a restored playable character from a snapshot record. Pure: no
+ * storage access, no state mutation, and the stored snapshot is never touched
+ * (all work happens on a deep clone of its payload). Throws on any snapshot
+ * that cannot safely become a playable character.
+ *
+ * Pipeline (spec §3.2):
+ * 1. Deep-clone the payload and strip recursive snapshot data.
+ * 2. Migrate-through the canonical `migrateState` pipeline (injected to keep
+ *    this module state-import-free). The snapshot's stored `schemaVersion` is
+ *    forwarded only so future-version payloads keep migrateState's existing
+ *    pass-through stance; for all current and past versions the invariant
+ *    re-run tail makes the outcome identical with or without it.
+ * 3. Allocate a new top-level character id (canonical `char_…` generator),
+ *    collision-checked against existing entries and the source character id.
+ * 4. Regenerate every spell-row id (they key external note texts), recording
+ *    an old→new map for the commit's note copies. All other nested ids —
+ *    attacks, resources, inventory, feature cards, spell-level ids,
+ *    featureUses keys, builderSeed markers, calc blocks, content refs — are
+ *    preserved verbatim.
+ * 5. Plan the portrait duplicate (`portraitCopy`) and null the restored
+ *    entry's `imgBlobId` until the commit stages the copy.
+ * 6. Stamp provenance (`restoredFromSnapshotId`, `restoredFromCharacterId`,
+ *    `restoredAt`) on the open entry shape.
+ * 7. Apply collision-safe naming (spec §3.4) against current entry names.
+ *
+ * @param {{
+ *   snapshot: CharacterSnapshot | Record<string, unknown> | null | undefined,
+ *   existingCharacters?: unknown,
+ *   migrateState: (raw: unknown) => import("../state.js").State,
+ *   createCharacterId?: () => string,
+ *   createRowId?: () => string,
+ *   now?: () => string
+ * }} options
+ * @returns {StagedCharacterRestore}
+ */
+export function prepareRestoredCharacter(options) {
+  const {
+    snapshot,
+    existingCharacters,
+    migrateState,
+    createCharacterId,
+    createRowId,
+    now
+  } = options || {};
+  if (typeof migrateState !== "function") {
+    throw new Error("prepareRestoredCharacter: migrateState is required.");
+  }
+  if (!isPlainRecord(snapshot)) throw new Error("No snapshot to restore.");
+
+  const sourceSnapshotId = cleanString(snapshot.id);
+  if (!sourceSnapshotId) throw new Error("Snapshot is missing its id.");
+  const kind = cleanString(snapshot.kind);
+  if (kind !== PRE_LEVEL_UP_SNAPSHOT_KIND) {
+    throw new Error(`Unsupported snapshot kind "${kind || "unknown"}".`);
+  }
+  const sourceCharacterId = cleanString(snapshot.sourceCharacterId);
+  if (!sourceCharacterId) throw new Error("Snapshot is missing its source character id.");
+  if (!isPlainRecord(snapshot.payload)) throw new Error("Snapshot payload is missing or malformed.");
+
+  // 1. Deep-clone the payload; the stored snapshot is never mutated.
+  /** @type {Record<string, unknown>} */
+  let payloadClone;
+  try {
+    payloadClone = JSON.parse(JSON.stringify(snapshot.payload));
+  } catch {
+    throw new Error("Snapshot payload could not be cloned.");
+  }
+  if (!isPlainRecord(payloadClone)) throw new Error("Snapshot payload is malformed.");
+  stripSnapshotRecursion(payloadClone);
+
+  // 2. Migrate-through the canonical pipeline on the smallest
+  // migration-owned shape.
+  const storedSchemaVersion = finiteNumberOrNull(snapshot.schemaVersion);
+  /** @type {Record<string, unknown>} */
+  const migrationWrapper = {
+    ...(storedSchemaVersion != null ? { schemaVersion: storedSchemaVersion } : {}),
+    characters: { activeId: null, entries: [payloadClone] }
+  };
+  /** @type {import("../state.js").State} */
+  let migrated;
+  try {
+    migrated = migrateState(migrationWrapper);
+  } catch (err) {
+    throw new Error("Snapshot payload could not be migrated.", { cause: err });
+  }
+  const migratedEntries = Array.isArray(migrated?.characters?.entries)
+    ? migrated.characters.entries
+    : [];
+  const character = isPlainRecord(migratedEntries[0])
+    ? /** @type {CharacterEntry & Record<string, unknown>} */ (migratedEntries[0])
+    : null;
+  if (!character) {
+    throw new Error("Snapshot payload could not be normalized into a playable character.");
+  }
+  // Defense in depth: campaign snapshot registries must never ride on an
+  // entry (normalization already strips them at capture and load).
+  stripSnapshotRecursion(character);
+
+  const existingEntries = Array.isArray(existingCharacters) ? existingCharacters : [];
+
+  // 3. New top-level identity. The restored id must not collide with any
+  // existing entry or with the source character id (tracker cards may still
+  // reference a deleted source).
+  /** @type {Set<string>} */
+  const takenCharacterIds = new Set([sourceCharacterId]);
+  const priorPayloadId = cleanString(character.id);
+  if (priorPayloadId) takenCharacterIds.add(priorPayloadId);
+  for (const entry of existingEntries) {
+    if (!isPlainRecord(entry)) continue;
+    const id = cleanString(entry.id);
+    if (id) takenCharacterIds.add(id);
+  }
+  const makeCharacterId = typeof createCharacterId === "function"
+    ? createCharacterId
+    : () => makeDefaultCharacterEntry().id;
+  character.id = allocateUniqueId(makeCharacterId, takenCharacterIds, "character id");
+
+  // 4. Regenerate spell-row ids (they key external IndexedDB note texts;
+  // keeping them would share mutable note storage with the source). New ids
+  // must not collide with any live row id in the campaign, or a staged note
+  // copy could overwrite a live note.
+  /** @type {Set<string>} */
+  const reservedRowIds = new Set();
+  for (const entry of existingEntries) collectSpellRowIds(entry, reservedRowIds);
+  collectSpellRowIds(character, reservedRowIds);
+  const makeRowId = typeof createRowId === "function" ? createRowId : newRestoredSpellRowId;
+  /** @type {RestoredNoteCopy[]} */
+  const noteCopies = [];
+  const spellLevels = isPlainRecord(character.spells) && Array.isArray(character.spells.levels)
+    ? character.spells.levels
+    : [];
+  for (const level of spellLevels) {
+    if (!isPlainRecord(level) || !Array.isArray(level.spells)) continue;
+    for (const row of level.spells) {
+      if (!isPlainRecord(row)) continue;
+      const oldRowId = cleanString(row.id);
+      const newRowId = allocateUniqueId(makeRowId, reservedRowIds, "spell row id");
+      reservedRowIds.add(newRowId);
+      row.id = newRowId;
+      if (oldRowId) noteCopies.push({ oldRowId, newRowId });
+    }
+  }
+
+  // 5. Portrait-copy plan. The commit duplicates the source blob and assigns
+  // the staged id; a missing source blob fails soft to null.
+  const sourcePortraitBlobId = cleanString(character.imgBlobId);
+  const portraitCopy = sourcePortraitBlobId ? { sourceBlobId: sourcePortraitBlobId } : null;
+  character.imgBlobId = null;
+
+  // 6. Provenance on the open entry shape (the builderSeed precedent — no
+  // schema migration needed for additive optional fields).
+  const restoredAt = (typeof now === "function" ? cleanString(now()) : "") || new Date().toISOString();
+  character.restoredFromSnapshotId = sourceSnapshotId;
+  character.restoredFromCharacterId = sourceCharacterId;
+  character.restoredAt = restoredAt;
+
+  // 7. Naming (spec §3.4). The pre-Level-Up level comes from the snapshot;
+  // a normalized record that lost it falls back to the migrated payload's
+  // own level count.
+  const storedFromLevel = finiteNumberOrNull(snapshot.fromLevel);
+  let fromLevel = storedFromLevel != null && storedFromLevel >= 1 ? Math.trunc(storedFromLevel) : 0;
+  if (!fromLevel) fromLevel = normalizeBuildLevels(character.build).length;
+  if (fromLevel < 1) throw new Error("Snapshot has no usable pre-Level-Up level.");
+  const sourceName = cleanString(snapshot.sourceName)
+    || cleanString(character.name)
+    || RESTORED_CHARACTER_FALLBACK_NAME;
+  const nameBase = `${sourceName} — Restored Level ${fromLevel}`;
+  const existingNames = existingEntries.map((entry) => (isPlainRecord(entry) ? entry.name : ""));
+  character.name = resolveRestoredCharacterName(nameBase, existingNames);
+
+  return {
+    character: /** @type {CharacterEntry} */ (character),
+    nameBase,
+    sourceSnapshotId,
+    sourceCharacterId,
+    noteCopies,
+    portraitCopy,
+    provenance: {
+      restoredFromSnapshotId: sourceSnapshotId,
+      restoredFromCharacterId: sourceCharacterId,
+      restoredAt
+    }
+  };
 }
