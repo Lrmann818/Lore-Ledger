@@ -232,19 +232,27 @@ transaction order below is the contract it implements.
 
 ### 4.3 Failure and edge semantics
 
-- **Duplicate prevention.** `(sourceCharacterId, fromLevel)` is unique per character
-  by construction — Level Up only appends and down-leveling is ratified out of scope,
-  so a character can never be at the same total level twice. The append still
-  **replaces** any existing record with the same `(sourceCharacterId, fromLevel)` as
-  a belt-and-suspenders invariant; restored copies level independently under their own
-  new ids and are unaffected.
+- **Duplicate prevention.** `(kind, sourceCharacterId, fromLevel)` is unique per
+  character by construction — Level Up only appends and down-leveling is ratified out
+  of scope, so a character can never be at the same total level twice. The append still
+  **replaces** any existing record with the same `(kind, sourceCharacterId, fromLevel)`
+  as a belt-and-suspenders invariant; restored copies level independently under their
+  own new ids and are unaffected. Temporary pre-R5 limitation (as implemented, R1):
+  while Edit in Builder can still remove levels, re-crossing the same total level
+  replaces that level's earlier snapshot; that window closes when Edit in Builder
+  retires (phase R5).
 - **Double submit.** Wizard `applying` flag + button disable + close-on-apply
   (existing); the level-delta validation makes a stale second apply fail before
   capture.
 - **Save failure.** SaveManager enters ERROR with the export banner (existing).
   In-memory state holds snapshot + level-up consistently; localStorage still holds
   the pre-Level-Up state. Recovery is the existing contract: retry saves on next
-  markDirty, or export a backup. No partial persist is possible.
+  markDirty, or export a backup. No partial persist is possible. Pinned end-to-end
+  by the forced vault-write-failure lifecycle test in `tests/characterPage.test.js`
+  (2026-07-19 post-R1 review): nothing persists, the runtime vault cache keeps the
+  pre-Level-Up vault (a failed attempt can never be committed later), live state
+  keeps the pair together, reload yields the consistent pre-Level-Up state, and the
+  retry commits snapshot + advancement atomically.
 - **App interruption** between commit and flush: both changes are lost **together**;
   reload returns the consistent pre-Level-Up state.
 - **Active-character change mid-flow:** existing double guard cancels without
@@ -369,7 +377,11 @@ playwright.preview.config.js`) — both smoke gates are blocking per
   source-deletion survival), capture coverage in `tests/characterPage.test.js`
   ("level up flow": capture-on-apply record shape + payload equality, deep-copy
   independence, no-capture on open/cancel/Escape/invalid/wrong-character,
-  double-submit single capture, delete-keeps-snapshots), a real-`importBackup`
+  double-submit single capture, delete-keeps-snapshots, and — added by the
+  2026-07-19 post-R1 review — the forced persistence-failure lifecycle over the
+  real SaveManager + `saveAllLocal` pipeline: a failed vault write persists
+  neither snapshot nor advancement and can never split the pair, and a failed
+  apply leaves nothing live for a later unrelated save to commit), a real-`importBackup`
   retention test in `tests/storage.backup.test.js`, and end-to-end snapshot
   assertions (cancel-none / apply-one / reload-persists) in
   `tests/smoke/levelUp.smoke.js`. **R1 limitation:** snapshot *records* fully
