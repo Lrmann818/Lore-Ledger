@@ -21,7 +21,7 @@ function expectDefaultSingleSession(sessions) {
   }));
 }
 
-const EMPTY_CHARACTERS = { activeId: null, entries: [] };
+const EMPTY_CHARACTERS = { activeId: null, entries: [], snapshots: [] };
 
 const DEFAULT_COMBAT_STATE = {
   workspace: {
@@ -213,7 +213,7 @@ describe("migrateState", () => {
       });
 
       expect(migrated.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
-      expect(CURRENT_SCHEMA_VERSION).toBe(12);
+      expect(CURRENT_SCHEMA_VERSION).toBe(13);
       expect(migrated.combat).toEqual(DEFAULT_COMBAT_STATE);
       expect(migrated.tracker.campaignTitle).toBe("Moonfall");
       expect(migrated.tracker.misc).toBe("Preserve this");

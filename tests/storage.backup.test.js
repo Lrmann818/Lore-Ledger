@@ -829,10 +829,54 @@ describe("importBackup", () => {
     expect(state.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
     expect(state.tracker.campaignTitle).toBe("Legacy Campaign");
     expect(charOf(state).inventoryItems[0].notes).toBe("50 ft rope");
+    // Backups predating v13 have no snapshot collection; import migrates to
+    // an empty one without inventing history (Restore Character R1).
+    expect(state.characters.snapshots).toEqual([]);
     expect(uiAlert).toHaveBeenCalledWith(
       "This backup did not include images. Existing portraits were kept.",
       { title: "Import complete" }
     );
+    expect(input.value).toBe("");
+  });
+
+  it("retains character snapshot records through a real backup import", async () => {
+    const state = makeState();
+    const incoming = makeState();
+    incoming.characters.snapshots = [
+      {
+        id: "csnap_backup_1",
+        kind: "pre-level-up",
+        sourceCharacterId: "char_test",
+        sourceName: "Test",
+        classSummary: "Fighter 1",
+        fromLevel: 1,
+        toLevel: 2,
+        toClassId: "fighter",
+        createdAt: "2026-07-18T12:00:00.000Z",
+        schemaVersion: 13,
+        payload: { id: "char_test", name: "Test", build: { levels: [{ classId: "fighter", hp: null }] } }
+      }
+    ];
+
+    const input = makeInput({
+      version: 2,
+      state: sanitizeForSave(incoming),
+      blobs: {},
+      texts: {}
+    });
+
+    await importBackup(
+      { target: input },
+      makeImportDeps({ state, migrateState })
+    );
+
+    expect(state.characters.snapshots).toHaveLength(1);
+    expect(state.characters.snapshots[0]).toMatchObject({
+      id: "csnap_backup_1",
+      kind: "pre-level-up",
+      sourceCharacterId: "char_test",
+      fromLevel: 1
+    });
     expect(input.value).toBe("");
   });
 

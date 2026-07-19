@@ -25,7 +25,7 @@ describe("captured save fixtures migrate to the merged schema", () => {
     const migrated = migrateState(cloneFixture(v7MobileFixture));
 
     expect(migrated.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
-    expect(CURRENT_SCHEMA_VERSION).toBe(12);
+    expect(CURRENT_SCHEMA_VERSION).toBe(13);
 
     // develop's v6/v7 stable ids were already present and must survive untouched.
     expect(migrated.tracker.sessions.map((session) => session.id)).toEqual(originalSessionIds);

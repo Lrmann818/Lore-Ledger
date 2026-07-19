@@ -7,7 +7,7 @@ import {
 } from "../js/domain/characterHelpers.js";
 import { migrateState, sanitizeForSave, CURRENT_SCHEMA_VERSION } from "../js/state.js";
 
-const EMPTY_CHARACTERS = { activeId: null, entries: [] };
+const EMPTY_CHARACTERS = { activeId: null, entries: [], snapshots: [] };
 
 /** Returns the first (and only) character entry from a migrated state. */
 function activeEntry(state) {
@@ -162,7 +162,7 @@ describe("schema version", () => {
   it("always sets schemaVersion to the current version after migration", () => {
     const fromLegacy = migrateState({ character: { name: "Arlen" } });
     expect(fromLegacy.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
-    expect(CURRENT_SCHEMA_VERSION).toBe(12);
+    expect(CURRENT_SCHEMA_VERSION).toBe(13);
 
     const fromEmpty = migrateState({});
     expect(fromEmpty.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);

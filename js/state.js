@@ -9,6 +9,7 @@ import {
   normalizeCharacterRestState,
   normalizeDeathSaves
 } from "./domain/characterHelpers.js";
+import { normalizeCharacterSnapshots } from "./domain/characterSnapshots.js";
 import { normalizeManualFeatureCard } from "./domain/manualFeatureCards.js";
 import { normalizeFeatureUses } from "./domain/featureUses.js";
 
@@ -16,7 +17,7 @@ export const STORAGE_KEY = "localCampaignTracker_v1";
 export const ACTIVE_TAB_KEY = "localCampaignTracker_activeTab";
 
 // Save schema versioning
-export const CURRENT_SCHEMA_VERSION = 12;
+export const CURRENT_SCHEMA_VERSION = 13;
 
 /** @typedef {import("./domain/factories.js").NpcCard & PortraitRef} NpcCard */
 /** @typedef {import("./domain/factories.js").PartyMemberCard & PortraitRef} PartyMemberCard */
@@ -94,6 +95,11 @@ export const SCHEMA_MIGRATION_HISTORY = Object.freeze([
     version: 12,
     date: "2026-07-09",
     changes: "Added per-character rest bookkeeping (spent Hit Dice and builder prepared selections) plus death-save tracking."
+  },
+  {
+    version: 13,
+    date: "2026-07-18",
+    changes: "Added the campaign-scoped pre-Level-Up character snapshot collection (characters.snapshots) for the Restore Character feature."
   }
 ]);
 
@@ -586,9 +592,32 @@ function normalizeTrackerSessions(input) {
  */
 
 /**
+ * A pre-Level-Up character snapshot (Restore Character R1). `payload` is the
+ * complete canonical CharacterEntry exactly as it existed immediately before
+ * the captured Level Up committed. Snapshots live on the campaign characters
+ * collection — never on character entries — so payloads cannot legitimately
+ * nest snapshot history; normalization strips any that appears.
+ * @typedef {{
+ *   id: string,
+ *   kind: string,
+ *   sourceCharacterId: string,
+ *   sourceName: string,
+ *   classSummary: string,
+ *   fromLevel: number | null,
+ *   toLevel: number | null,
+ *   toClassId: string,
+ *   createdAt: string,
+ *   schemaVersion: number | null,
+ *   payload: CharacterEntry,
+ *   [key: string]: unknown
+ * }} CharacterSnapshot
+ */
+
+/**
  * @typedef {{
  *   activeId: string | null,
- *   entries: CharacterEntry[]
+ *   entries: CharacterEntry[],
+ *   snapshots: CharacterSnapshot[]
  * }} CharactersCollection
  */
 
@@ -747,7 +776,8 @@ export const state = {
   },
   characters: {
     activeId: null,
-    entries: []
+    entries: [],
+    snapshots: []
   },
   map: {
     // Multi-map support
@@ -1616,6 +1646,18 @@ export function migrateState(raw) {
     }
   }
 
+  // Campaign-scoped pre-Level-Up snapshot collection (Restore Character R1).
+  // Purely structural: guarantees the array and normalizes stored records via
+  // the single normalization source of truth. Never invents snapshots for
+  // existing characters — historical Level Ups have no retroactive capture.
+  function migrateToV13() {
+    const characters = data.characters && typeof data.characters === "object" && !Array.isArray(data.characters)
+      ? /** @type {CharactersCollection & Record<string, unknown>} */ (data.characters)
+      : null;
+    if (!characters) return;
+    characters.snapshots = normalizeCharacterSnapshots(characters.snapshots);
+  }
+
   const SCHEMA_MIGRATIONS = Object.freeze({
     0: migrateToV1,
     1: migrateToV2,
@@ -1628,7 +1670,8 @@ export function migrateState(raw) {
     8: migrateToV9,
     9: migrateToV10,
     10: migrateToV11,
-    11: migrateToV12
+    11: migrateToV12,
+    12: migrateToV13
   });
 
   function applyMigrationStep(version) {
@@ -1664,6 +1707,7 @@ export function migrateState(raw) {
   migrateToV10();
   migrateToV11();
   migrateToV12();
+  migrateToV13();
 
   data.schemaVersion = CURRENT_SCHEMA_VERSION;
   return normalizeState(/** @type {State} */ (data));
