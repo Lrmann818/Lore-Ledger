@@ -71,7 +71,13 @@ import {
   listContentByKind
 } from "../js/domain/rules/registry.js";
 import { deriveCharacter } from "../js/domain/rules/deriveCharacter.js";
-import { CURRENT_SCHEMA_VERSION } from "../js/state.js";
+import { CURRENT_SCHEMA_VERSION, migrateState, sanitizeForSave } from "../js/state.js";
+import { createSaveManager } from "../js/storage/saveManager.js";
+import { saveAllLocal } from "../js/storage/persistence.js";
+import {
+  normalizeCampaignVault,
+  projectActiveCampaignState
+} from "../js/storage/campaignVault.js";
 import {
   rollBuilderAbilityScore,
   rollBuilderAbilityScorePool
@@ -4537,6 +4543,214 @@ describe("level up flow", () => {
     expect(deps.state.characters.snapshots[0].sourceCharacterId).toBe("char_levelup");
 
     controller.destroy();
+  });
+
+  // ---- R1 persistence-failure lifecycle ----------------------------------
+  // Unlike the rest of this suite (stub SaveManager), these tests wire the
+  // page to the REAL persistence pipeline — createSaveManager → saveAllLocal
+  // → campaign vault → a stubbed localStorage — so a forced vault-write
+  // failure exercises the exact production path and pins what it can and
+  // cannot leave behind (restore-character-spec.md §4.1–§4.3).
+
+  function setupLevelUpWithRealPersistence(character) {
+    const TEST_VAULT_KEY = "test_localCampaignTracker_v1";
+    const dom = installCharacterSelectorDom();
+    installLevelUpWizardDom(dom.document);
+    const Popovers = createFakePopovers();
+    const deps = createCharacterPageDeps(Popovers);
+    deps.state.characters.entries = [character];
+    deps.state.characters.activeId = character.id;
+
+    // localStorage stand-in with a switchable quota-style write failure.
+    const stored = new Map();
+    const storage = {
+      failWrites: false,
+      getItem: (key) => (stored.has(key) ? stored.get(key) : null),
+      setItem(key, value) {
+        if (this.failWrites) throw new Error("QuotaExceededError (forced by test)");
+        stored.set(key, String(value));
+      },
+      removeItem: (key) => { stored.delete(key); }
+    };
+    vi.stubGlobal("localStorage", storage);
+
+    const vaultRuntime = { current: null };
+    const saveStatus = vi.fn();
+    const showSaveBanner = vi.fn();
+    const hideSaveBanner = vi.fn();
+    const SaveManager = createSaveManager({
+      saveAll: () => saveAllLocal({
+        storageKey: TEST_VAULT_KEY,
+        state: deps.state,
+        migrateState,
+        sanitizeForSave,
+        vaultRuntime
+      }),
+      setStatus: saveStatus,
+      showSaveBanner,
+      hideSaveBanner,
+      // Saves are driven deterministically through SaveManager.flush(); the
+      // large debounce keeps the queued timer from racing the assertions.
+      debounceMs: 60_000
+    });
+    SaveManager.init();
+    deps.SaveManager = SaveManager;
+
+    const controller = initCharacterPageUI(deps);
+
+    const readPersistedRaw = () => storage.getItem(TEST_VAULT_KEY);
+    const readPersistedDoc = () => {
+      const vault = JSON.parse(readPersistedRaw());
+      return vault.campaignDocs[vault.appShell.activeCampaignId];
+    };
+    const projectPersistedState = () => {
+      const { vault } = normalizeCampaignVault(
+        JSON.parse(readPersistedRaw()),
+        { migrateState, sanitizeForSave }
+      );
+      return projectActiveCampaignState(vault, migrateState);
+    };
+
+    return {
+      ...dom,
+      deps,
+      controller,
+      storage,
+      vaultRuntime,
+      SaveManager,
+      saveStatus,
+      showSaveBanner,
+      hideSaveBanner,
+      readPersistedRaw,
+      readPersistedDoc,
+      projectPersistedState
+    };
+  }
+
+  it("a failed vault write after Level Up persists neither the snapshot nor the advancement, and never lets them split", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => { });
+    const character = makeLeveledBuilderCharacter({ flatFields: { hpMax: 12, hpCur: 9 } });
+    const h = setupLevelUpWithRealPersistence(character);
+
+    // Baseline: persist the pre-Level-Up campaign once, successfully.
+    h.SaveManager.markDirty();
+    await h.SaveManager.flush();
+    const baselineRaw = h.readPersistedRaw();
+    expect(baselineRaw).toBeTruthy();
+    const baselineDoc = h.readPersistedDoc();
+    expect(baselineDoc.characters.entries[0].build.levels).toHaveLength(1);
+    expect(baselineDoc.characters.snapshots ?? []).toHaveLength(0);
+
+    // Force the vault write to fail, then apply a real Level Up.
+    h.storage.failWrites = true;
+    openLevelUp(h.actionMenuButton);
+    clickLevelUp(document, "levelUpNext"); // class → features
+    clickLevelUp(document, "levelUpNext"); // features → hp
+    clickLevelUp(document, "levelUpNext"); // hp → summary
+    clickLevelUp(document, "levelUpApply");
+    await flushPromises();
+    await h.SaveManager.flush(); // the queued save attempt → write fails
+
+    // Persisted state is byte-identical to the baseline: no persisted
+    // snapshot, no persisted level advancement. The vault is one atomic
+    // localStorage key, so a partial persist cannot exist.
+    expect(h.readPersistedRaw()).toBe(baselineRaw);
+
+    // The failed attempt cannot be committed later: saveAllLocal discards
+    // the failed vault object (vaultRuntime.current is only reassigned on
+    // success), and every future save re-extracts from live state.
+    const cachedDoc = h.vaultRuntime.current.campaignDocs.campaign_alpha;
+    expect(cachedDoc.characters.entries[0].build.levels).toHaveLength(1);
+    expect(cachedDoc.characters.snapshots ?? []).toHaveLength(0);
+
+    // Live state keeps the committed pair TOGETHER — advanced character and
+    // snapshot, never one without the other. Spec §4.3 save-failure
+    // semantics: in-memory truth stays consistent and dirty for retry (an
+    // automatic rollback would destroy the user's applied Level Up while the
+    // export banner exists precisely to save that in-memory truth).
+    const live = h.deps.state.characters;
+    expect(live.entries[0].build.levels).toHaveLength(2);
+    expect(live.snapshots).toHaveLength(1);
+    expect(live.snapshots[0]).toMatchObject({
+      kind: "pre-level-up",
+      sourceCharacterId: "char_levelup",
+      fromLevel: 1,
+      toLevel: 2
+    });
+
+    // The user got the existing error handling: ERROR lifecycle, the
+    // export banner, and the status message.
+    expect(h.SaveManager.getStatus()).toMatchObject({ stateNow: "ERROR", dirty: true });
+    expect(h.saveStatus).toHaveBeenCalledWith("Save failed (local). Export a backup.");
+    expect(h.showSaveBanner).toHaveBeenCalled();
+
+    // Interruption equivalence: reloading the persisted vault right now
+    // yields the consistent pre-Level-Up state — snapshot and advancement
+    // are absent together; a split state cannot be constructed from storage.
+    const reloaded = h.projectPersistedState();
+    expect(reloaded.characters.entries[0].build.levels).toHaveLength(1);
+    expect(reloaded.characters.snapshots).toEqual([]);
+
+    // Recovery: a later unrelated save re-extracts live state and commits
+    // the pair atomically alongside the unrelated edit — still never split.
+    h.storage.failWrites = false;
+    h.deps.state.tracker.campaignTitle = "After Failure";
+    h.SaveManager.markDirty();
+    await h.SaveManager.flush();
+    const recoveredDoc = h.readPersistedDoc();
+    expect(recoveredDoc.tracker.campaignTitle).toBe("After Failure");
+    expect(recoveredDoc.characters.entries[0].build.levels).toHaveLength(2);
+    expect(recoveredDoc.characters.snapshots).toHaveLength(1);
+    expect(recoveredDoc.characters.snapshots[0].payload.build.levels).toHaveLength(1);
+    expect(h.hideSaveBanner).toHaveBeenCalled();
+    expect(h.SaveManager.getStatus()).toMatchObject({ stateNow: "SAVED", dirty: false });
+
+    h.SaveManager.init();
+    h.controller.destroy();
+  });
+
+  it("a Level Up apply that fails mid-commit leaves no live snapshot or advancement, and a later unrelated save persists no trace of it", async () => {
+    const character = makeLeveledBuilderCharacter({ flatFields: { hpMax: 12, hpCur: 9 } });
+    const h = setupLevelUpWithRealPersistence(character);
+
+    h.SaveManager.markDirty();
+    await h.SaveManager.flush();
+
+    openLevelUp(h.actionMenuButton);
+    clickLevelUp(document, "levelUpNext"); // class → features
+    clickLevelUp(document, "levelUpNext"); // features → hp
+    clickLevelUp(document, "levelUpNext"); // hp → summary
+    // Make the pre-commit deep clone fail after the wizard has validated:
+    // the apply mutation aborts ("snapshot-failed") before writing anything,
+    // because all validation and construction precede every write.
+    const live = h.deps.state.characters.entries[0];
+    live.__cycle = live;
+    clickLevelUp(document, "levelUpApply");
+    await flushPromises();
+    delete live.__cycle;
+
+    // No live snapshot left behind, no live level advancement left behind.
+    expect(live.build.levels).toHaveLength(1);
+    expect(h.deps.state.characters.snapshots ?? []).toHaveLength(0);
+    // The user got the existing failure status; nothing was queued to save.
+    expect(h.deps.setStatus).toHaveBeenCalledWith(
+      "Level Up could not be applied. No changes were made.",
+      { stickyMs: 2500 }
+    );
+    expect(h.SaveManager.getStatus().dirty).toBe(false);
+
+    // A later unrelated save cannot commit any part of the failed Level Up:
+    // it persists live state, which never gained a snapshot or a level.
+    h.deps.state.tracker.campaignTitle = "Unrelated Edit";
+    h.SaveManager.markDirty();
+    await h.SaveManager.flush();
+    const doc = h.readPersistedDoc();
+    expect(doc.tracker.campaignTitle).toBe("Unrelated Edit");
+    expect(doc.characters.entries[0].build.levels).toHaveLength(1);
+    expect(doc.characters.snapshots ?? []).toHaveLength(0);
+
+    h.SaveManager.init();
+    h.controller.destroy();
   });
 });
 
