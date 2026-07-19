@@ -443,6 +443,13 @@ draft; then a **level-up-specific patch** is applied.
 5. Compute/apply the build replacement and sheet patch as one mutation.
 6. Mark dirty once, rerender once, close, and show success.
 
+> **Restore Character R1 (2026-07-18):** step 5's mutation now also appends one
+> complete **pre-Level-Up snapshot record** to `state.characters.snapshots`
+> immediately before the build/patch writes — constructed from the step-1 plain
+> before-copy after all validation, so open/cancel/invalid/failed applies never
+> capture, and the single vault write persists the snapshot and the advanced
+> character together. See `docs/reference/restore-character-spec.md` §4.
+
 If either identity check fails, close/cancel safely, show that Level Up was canceled because
 the active character changed, and mutate neither the opening nor newly active character.
 

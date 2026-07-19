@@ -108,19 +108,27 @@ harnesses was completed 2026-07-18; both smoke gates are 61/61 — see
 `docs/reference/session-handoff-2026-07-17.md`.
 
 **Restore Character / Edit-in-Builder retirement — specification ratified 2026-07-18
-(owner-directed), implementation not authorized.** The owner ratified the product
-model: the Builder is for initial creation; the general Edit in Builder action will
-retire; a complete pre-Level-Up snapshot is saved transactionally with every
-successful Level Up commit; **Restore Character** restores any snapshot as a separate
-playable copy (new stable ID, source and current characters untouched, snapshots
-retained until individually deleted, included in backups). Normative design:
-`docs/reference/restore-character-spec.md` (data model `characters.snapshots` +
-schema v13, identity/naming rules, single-vault-write transaction, backup collector
-additions, grouped-by-character dialog UI, phases R1–R6). Dependency audit + the four
-open owner decisions (D1–D4) gating the retirement phase:
-`docs/audits/edit-in-builder-retirement-audit-2026-07.md`. Matrix impact when
-implemented: #11's B1 routing surfaces are re-decided (D1) and this matrix gains a
-Restore Character capability row.
+(owner-directed); phase R1 shipped the same day; R2–R6 still gated.** The owner
+ratified the product model: the Builder is for initial creation; the general Edit in
+Builder action will retire; a complete pre-Level-Up snapshot is saved transactionally
+with every successful Level Up commit; **Restore Character** restores any snapshot as
+a separate playable copy (new stable ID, source and current characters untouched,
+snapshots retained until individually deleted, included in backups). Normative
+design: `docs/reference/restore-character-spec.md` (data model
+`characters.snapshots` + schema v13, identity/naming rules, single-vault-write
+transaction, backup collector additions, grouped-by-character dialog UI, phases
+R1–R6). Dependency audit + owner decisions D1–D4 (**ruled 2026-07-18**):
+`docs/audits/edit-in-builder-retirement-audit-2026-07.md` §3.
+
+**R1 shipped (2026-07-18, owner-authorized):** schema v13 + `characters.snapshots`,
+one complete deep-cloned snapshot captured inside the same mutation as each
+successful Level Up commit (never on open/cancel/invalid/failed apply;
+replace-append on `(kind, sourceCharacterId, fromLevel)`), records persist through
+sanitize/vault/backups and survive source-character deletion. **No user-facing
+Restore UI exists yet** — R1 creates and preserves history only; snapshot-payload
+external assets (portrait blob / spell-note texts after source deletion) join
+backups in R4. Matrix impact when R2+/R5 land: #11's B1 routing surfaces retire per
+D1 and this matrix gains a Restore Character capability row.
 
 ## 4. Verification basis
 

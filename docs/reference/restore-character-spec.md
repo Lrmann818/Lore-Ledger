@@ -1,9 +1,12 @@
 # Restore Character & Pre-Level-Up Snapshots — Implementation Spec
 
 _Status: **normative specification, ratified by owner decision 2026-07-18.
-Implementation NOT yet authorized** — see §9 and the binding
-[Working Order](../../AGENTS.md#current-working-order). Runtime behavior is unchanged
-until the phases below are explicitly authorized._
+Phase R1 (schema v13 + transactional pre-Level-Up snapshot capture) was
+owner-authorized and shipped 2026-07-18** — see the implementation notes in §2.3,
+§4.2, and §8. Owner decisions D1–D4 are ruled (audit doc §3). **R2–R6 remain gated
+on explicit owner authorization** per §9 and the binding
+[Working Order](../../AGENTS.md#current-working-order); no restore, deletion, or
+retirement UI exists yet — R1 creates and preserves snapshot history only._
 
 Read with [`AGENTS.md`](../../AGENTS.md),
 [`level-up-flow-spec.md`](./level-up-flow-spec.md),
@@ -101,16 +104,23 @@ Why this location (alternatives audited):
   uses, frozen as text so the list renders without a registry lookup and survives
   custom-class deletion.
 
-### 2.3 Schema v13 migration
+### 2.3 Schema v13 migration — **implemented (R1, 2026-07-18)**
 
-- Append `SCHEMA_MIGRATION_HISTORY` v13: "Added campaign character snapshot
-  collection (`characters.snapshots`) for pre-Level-Up restore points."
-- `migrateToV13()` (and the invariant re-run tail): ensure `characters.snapshots` is
-  an array; drop non-object records; drop records missing `id`, `kind`,
-  `sourceCharacterId`, or an object `payload`; de-duplicate ids (keep first);
-  normalize numeric/string fields defensively. Append-only, test-backed, exactly the
-  existing migration idiom.
+- `SCHEMA_MIGRATION_HISTORY` v13: "Added the campaign-scoped pre-Level-Up character
+  snapshot collection (characters.snapshots) for the Restore Character feature."
+- `migrateToV13()` (registered in `SCHEMA_MIGRATIONS` and the invariant re-run
+  tail) delegates to `normalizeCharacterSnapshots()` in
+  `js/domain/characterSnapshots.js` — the single normalization source of truth:
+  guarantees an array; drops non-object records and records missing `id`, `kind`,
+  `sourceCharacterId`, or a plain-object `payload`; de-duplicates ids (first wins);
+  normalizes scalars defensively; strips recursive `payload.snapshots` data;
+  preserves unknown extra fields on valid records; never invents snapshots for
+  existing characters (no retroactive capture for historical Level Ups).
 - `makeDefaultCharacterEntry` is untouched — snapshots are not an entry field.
+- Pinned by `tests/characterSnapshots.test.js` (migration, sanitization, vault
+  save→reload→re-persist, backup-envelope round trip, old-doc/old-backup
+  compatibility) plus a real-`importBackup` retention test in
+  `tests/storage.backup.test.js`.
 
 ## 3. Identity and restoration (Phase C)
 
@@ -189,7 +199,14 @@ character commit **atomically** with no new machinery, provided the snapshot app
 happens inside the existing apply mutation. IndexedDB is *not* part of the Level Up
 transaction (capture touches no blobs/texts), which is why capture stays synchronous.
 
-### 4.2 Required commit order (extends `characterPage.js` onApply, lines 393-448)
+### 4.2 Required commit order — **implemented as specified (R1, 2026-07-18)**
+
+As-built: the capture lives inside the existing `onApply` mutation in
+`js/pages/character/characterPage.js` — `buildPreLevelUpSnapshot()` constructs the
+record (deep-cloned payload, injectable clock, registry-resolved class summary)
+after validation and patch computation, `appendPreLevelUpSnapshot()` performs the
+replace-append, and only then are the build and sheet patch assigned. The original
+transaction order below is the contract it implements.
 
 1. Wizard-side validation (`levelUpWizard.js:1109-1143`): `applying` re-entrancy
    flag + disabled Apply button (double-click protection), draft delta = exactly one
@@ -342,14 +359,23 @@ production-preview gate (`npm run build && npx playwright test --config
 playwright.preview.config.js`) — both smoke gates are blocking per
 `docs/operations/browser-smoke-status.md`.
 
-- **R1 — Schema v13 + capture.** `js/state.js` (default, history, `migrateToV13`),
-  snapshot-record builder + capture inside the Level Up apply mutation
-  (`characterPage.js`), injectable clock. Tests: migration (v12→v13, malformed
-  records, id dedup), vault round-trip pins `characters.snapshots` (extract →
-  project → replace), backup export/import round-trip retains snapshots,
-  `sanitizeForSave` passthrough, capture-on-apply, no-capture on
-  open/cancel/invalid/failed apply, replace-dedup on `(sourceCharacterId,
-  fromLevel)`, double-submit.
+- **R1 — Schema v13 + capture. ✅ Shipped 2026-07-18 (owner-authorized).**
+  `js/state.js` (default, history, `migrateToV13`), the new
+  `js/domain/characterSnapshots.js` (record builder, normalization, replace-append),
+  capture inside the Level Up apply mutation (`characterPage.js`), injectable clock.
+  Tests landed: `tests/characterSnapshots.test.js` (26 — builder/normalize/append,
+  v12→v13 + malformed + recursion migration, sanitize, vault
+  save→reload→re-persist, backup-envelope + old-backup round trips,
+  source-deletion survival), capture coverage in `tests/characterPage.test.js`
+  ("level up flow": capture-on-apply record shape + payload equality, deep-copy
+  independence, no-capture on open/cancel/Escape/invalid/wrong-character,
+  double-submit single capture, delete-keeps-snapshots), a real-`importBackup`
+  retention test in `tests/storage.backup.test.js`, and end-to-end snapshot
+  assertions (cancel-none / apply-one / reload-persists) in
+  `tests/smoke/levelUp.smoke.js`. **R1 limitation:** snapshot *records* fully
+  round-trip; backup bundling of snapshot-only external assets (portrait blob,
+  spell-note texts once the source character is gone) is deferred to R4.
+  Single-character export remains unchanged and excludes snapshots.
 - **R2 — Restore engine.** New `js/domain/characterSnapshots.js`: record builder
   (shared with R1), migrate-through preparation, id regeneration + note-key map,
   naming, `commitRestore` with staging/rollback. Tests: pure preparation (new ids,

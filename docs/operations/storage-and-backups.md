@@ -80,9 +80,21 @@ Current character state uses:
 ```js
 characters: {
   activeId: string | null,
-  entries: CharacterEntry[]
+  entries: CharacterEntry[],
+  snapshots: CharacterSnapshot[]   // pre-Level-Up restore points (schema v13)
 }
 ```
+
+`characters.snapshots[]` (Restore Character R1, 2026-07-18) holds one complete
+pre-Level-Up character snapshot per successful Level Up commit, captured inside the
+same state mutation as the commit so the single vault write persists both together.
+Snapshot records are campaign-owned: they ride through `sanitizeForSave`, the
+campaign vault, and full backup export/import, and they survive deleting the source
+playable character. See `docs/state-schema.md` → "Pre-Level-Up snapshots" for the
+record shape. **R4 limitation:** the backup blob/text collectors do not yet walk
+snapshot payloads, so a snapshot's portrait blob and spell-note texts are bundled
+into backups only while the source character still exists; extending the collectors
+is Restore Character phase R4.
 
 The legacy singleton `character` bucket is accepted only when migrating or importing old saves/backups. It must not be emitted by current production save paths.
 

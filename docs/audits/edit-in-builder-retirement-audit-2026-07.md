@@ -1,8 +1,9 @@
 # Edit in Builder Retirement Audit — 2026-07
 
-_Status: **audit record, ratified owner direction — implementation NOT yet authorized.**
-Audited against code at `builder-wizard` HEAD `47a0439` on 2026-07-18. The normative
-replacement design lives in
+_Status: **audit record, ratified owner direction. Phase R1 (snapshot capture)
+shipped 2026-07-18; owner decisions D1–D4 ruled the same day (§3). R2–R6 remain
+gated on explicit owner authorization.** Audited against code at `builder-wizard`
+HEAD `47a0439` on 2026-07-18. The normative replacement design lives in
 [`docs/reference/restore-character-spec.md`](../reference/restore-character-spec.md);
 the binding work order remains
 [`AGENTS.md` → Current Working Order](../../AGENTS.md#current-working-order)._
@@ -184,34 +185,55 @@ unnecessary).
 
 ---
 
-## 3. Open owner decisions (blocking R5, not R1–R4)
+## 3. Owner decisions — **ruled 2026-07-18** (bind the R5 design; R1 shipped without depending on them)
 
-- **D1 — B1 panel disposition.** Builder Identity / Builder Abilities panels exist to
-  display guarded choices and route to Edit in Builder. Options: (a) make them pure
-  display (drop the Edit buttons), (b) retire both panels (Basics + Abilities panels
-  already display the same derived data), (c) keep buttons but route to a narrowed
-  flow per D2/D3. **Recommendation: (b)** — retire the panels with the flow; they were
-  B1 scaffolding, and the Builder Summary panel note in matrix #11 already anticipates
-  deliberate retirement. (Feature-removal concerns are owner-owned per the Hard Bans;
-  this is exactly the "deliberate product decision" the matrix reserved.)
-- **D2 — base-ability-score correction path.** Options: (a) accept restore-only
-  coverage and document that creation typos need a re-created character, (b) add a
-  guarded "Correct base ability scores" editor (confirmation-gated, same wizard
-  primitives, no other build fields), (c) keep a hidden/dev-only edit mode. 
-  **Recommendation: (b)** — smallest surface that closes the gap, keeps T5/T6 smoke
-  levers honest, and stays inside the Editing Model's "guarded wizard-style flows"
-  definition.
-- **D3 — incomplete-choice completion.** Options: (a) make creation Finish blocking
-  for count-bearing choices (changes creation UX; contradicts the shipped non-blocking
-  stance), (b) add a narrow "Complete pending choices" guarded flow that renders only
-  `getIncompleteChoiceSummaries` items, (c) accept the loss and reword the Summary
-  guidance. **Recommendation: (b)**, sharing the D2 surface if both are approved; it
-  reuses the existing choice renderers and cannot rewrite completed choices.
-- **D4 — snapshot offer on source-character deletion.** See spec §5; recommendation
-  is keep-by-default with an informational line, no extra checkbox in v1.
+- **D1 — B1 panel disposition: RULED.** Both general Builder-edit panels (Builder
+  Identity, Builder Abilities) retire during R5, **provided ordinary play-state
+  editors remain available elsewhere**. Ordinary sheet editors must not be removed
+  merely because they share code with Edit in Builder (the Keep-shared rows in §1.3
+  stay).
+- **D2 — base ability-score editing: RULED.** Retiring Edit in Builder must preserve
+  base ability-score editing **through the existing editor on the Abilities & Skills
+  page**. Do **not** create a new "Correct Ability Scores" flow. The existing editor
+  is the canonical user-facing path for base ability scores, saving throw
+  proficiencies, and miscellaneous saving throw bonuses.
 
-D1–D3 gate only the retirement phase (R5). Snapshot capture, Restore Character, and
-export/import phases (R1–R4) have no dependency on them.
+  **R1 audit of that editor (2026-07-18, code-verified, no changes made):**
+  - *Freeform characters:* score inputs write `character.abilities[key].score`
+    directly; the save-proficiency checkbox writes `abilities[key].saveProf`; save
+    totals recompute as `mod + (saveProf ? proficiency : 0) + extra save mod`
+    (`abilitiesPanel.js` `createAbilityRecalc`). Conforms to the ruling today.
+  - *Builder characters:* ability **adjustments** (`overrides.abilities`, the
+    `.abilityMoves` controls), save-proficiency toggles (manual toggle merges with
+    class-derived proficiency), and misc save bonuses are already sheet-editable and
+    recalculate live through `deriveCharacter()` — the shared engine (proven
+    end-to-end by the structuredVitals/attackEditor smokes). **Documented R5 gap:**
+    the base-score inputs themselves are currently `disabled`/`readOnly` with the
+    hint "Builder mode ability scores are controlled by Builder Abilities for now"
+    (`abilitiesPanel.js:444, 719-727`) — a deliberate B1-era guard that routes to
+    Edit in Builder. R5 must enable those inputs for builder characters, writing
+    through to `build.abilities.base` so every dependent derived value (modifiers,
+    saves, skills, attacks, spell DC/attack, AC, HP) recalculates through the
+    existing engine, and update the hint text plus the T5/T6 smoke levers to use
+    the sheet editor instead of Edit in Builder. No correctness, persistence, or
+    accessibility defect was found in the existing editor beyond that deliberate
+    disable; nothing blocks R1.
+- **D3 — incomplete required choices: RULED.** The Edit-in-Builder dependency is
+  replaced by a future **contextual incomplete-choices banner** for the currently
+  open character: shown only while that character has objectively unresolved
+  *required* creation or granted-content choices; explains setup is incomplete;
+  offers a `Complete Choices` action opening a narrow flow containing **only** the
+  unresolved required choices; never reopens completed choices; disappears
+  immediately on resolution; persists across reload until complete; follows the
+  responsive/keyboard/focus/screen-reader conventions. Not part of R1; design and
+  build land with R5 (or a dedicated pre-R5 batch).
+- **D4 — source-character deletion: RULED.** Deleting a playable character keeps its
+  snapshots by default. The future delete confirmation states that Restore Character
+  versions remain available. No "also delete snapshots" option in v1. (R1 pins the
+  keep-by-default behavior in tests; the confirmation copy lands with the R3 UI.)
+
+These rulings unblock the R5 design. They do **not** authorize R2–R6; each phase
+still requires explicit owner authorization per the working order.
 
 ---
 

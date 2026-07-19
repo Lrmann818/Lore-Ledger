@@ -41,6 +41,7 @@ Current history:
 - `10`: added character-owned derived feature-use storage on character entries (renumbered from v8)
 - `11`: added the campaign custom content bucket (`content.custom`) and migrated builder characters to the level-by-level build model (`build.version` 2) with bare SRD registry ids
 - `12`: added per-character rest bookkeeping (`rest.hitDiceSpent`, `rest.preparedByClass`) plus `deathSaves` tracking on character entries
+- `13`: added the campaign-scoped pre-Level-Up character snapshot collection (`characters.snapshots`) for the Restore Character feature (structural only; no snapshots are invented for existing characters)
 
 Schema numbering note: the builder branch originally claimed versions 6-8 in
 parallel with the mobile branch's 6-7. The develop numbering wins; builder
@@ -63,7 +64,8 @@ Runtime state still exposes one active campaign through this familiar top-level 
   tracker: object,
   characters: {
     activeId: string | null,
-    entries: CharacterEntry[]
+    entries: CharacterEntry[],
+    snapshots: CharacterSnapshot[]
   },
   map: object,
   combat: object,
@@ -80,7 +82,8 @@ Runtime state still exposes one active campaign through this familiar top-level 
   tracker: object,
   characters: {
     activeId: string | null,
-    entries: CharacterEntry[]
+    entries: CharacterEntry[],
+    snapshots: CharacterSnapshot[]
   },
   map: object,
   combat: object,
@@ -278,11 +281,48 @@ Older saves may also contain the typo `tracker.ui.textareaHeigts`. Current code 
 ```js
 characters: {
   activeId: string | null,
-  entries: CharacterEntry[]
+  entries: CharacterEntry[],
+  snapshots: CharacterSnapshot[]
 }
 ```
 
 `state.characters.entries[]` contains character sheet content, some lazily-created per-panel settings, and a few legacy compatibility fields. `state.characters.activeId` selects the active entry. Character panels resolve that entry through `getActiveCharacter(state)` and write through state action helpers such as `mutateCharacter(...)` and `updateCharacterField(...)`.
+
+### Pre-Level-Up snapshots (`characters.snapshots`, schema v13)
+
+`state.characters.snapshots[]` is the campaign-owned Restore Character history
+(R1, 2026-07-18). One record is captured inside the same state mutation as each
+successful Level Up commit — never on open, cancel, or a failed apply — so the
+single vault write persists the snapshot and the advanced character together.
+Records survive source-character deletion (they are campaign-owned, not
+entry-owned) and ride through `sanitizeForSave`, the campaign vault, and full
+backups. The normative record (built and normalized by
+`js/domain/characterSnapshots.js`, the single normalization source of truth):
+
+```js
+{
+  id: string,                 // "csnap_<ts36>_<rand36>"
+  kind: "pre-level-up",       // closed capture-reason vocabulary
+  sourceCharacterId: string,  // stable id; may no longer resolve to an entry
+  sourceName: string,         // display fields frozen at capture time
+  classSummary: string,       //   e.g. "Fighter 3" / "Sorcerer 11, Ranger 5"
+  fromLevel: number | null,
+  toLevel: number | null,
+  toClassId: string,
+  createdAt: string,          // ISO timestamp
+  schemaVersion: number | null,
+  payload: CharacterEntry     // complete pre-Level-Up character, deep-cloned
+}
+```
+
+The payload is the canonical character record only — no combat encounter,
+tracker, or campaign state — and can never nest snapshots (normalization strips
+a `snapshots` key from payloads defensively). Duplicate protection replaces an
+existing record with the same `(kind, sourceCharacterId, fromLevel)`; that key
+is unique per character because Level Up only appends and down-leveling is out
+of scope. Restore/deletion UI is phase R2+ and does not exist yet; external
+assets referenced by payloads (portrait blob, spell-note texts) are bundled
+into backups only for live characters until phase R4 extends the collectors.
 
 The legacy singleton `state.character` key is accepted only by migration/backward-compatibility paths for old saves/backups. Do not add new production code that reads or writes `state.character`.
 
