@@ -175,8 +175,13 @@ the canonical generators). Implementation notes:
 - The new character id is collision-checked against all existing entry ids
   **and** the source character id (tracker cards may still reference a deleted
   source); regenerated spell-row ids are collision-checked against every live
-  row id in the campaign so a staged note copy can never overwrite a live note.
-  Both allocators retry a bounded number of times, then fail the preparation.
+  row id in the campaign **and every row id referenced by a retained snapshot
+  payload** (2026-07-22 correction: a deleted source's snapshot may be the
+  only remaining owner of a note key), so a staged note copy can never
+  overwrite — nor its rollback delete — a note the restore does not own.
+  `restoreCharacterFromSnapshot` supplies the complete retained-snapshot
+  collection to preparation as this reservation context. Both allocators
+  retry a bounded number of times, then fail the preparation.
 - All other character-local ids (§3.1 table) are preserved verbatim by simply
   not touching them — the payload clone is the restored character.
 - Unknown extra fields on the snapshot record stay on the record; they are
@@ -204,10 +209,23 @@ Documented behavior, not an accident: the snapshot freezes the canonical record;
 external prose rides along at restore time.
 
 **As-built (R2, 2026-07-22):** `commitRestoredCharacter(staged, deps)` in
-`js/domain/characterSnapshots.js` implements this protocol with two deliberate
-strengthenings over the outline above (the header's "staging before state
-mutation" principle applied uniformly):
+`js/domain/characterSnapshots.js` implements this protocol with these
+deliberate strengthenings over the outline above (the header's "staging before
+state mutation" principle applied uniformly):
 
+- **A validated rollback clone precedes every external write** (2026-07-22
+  correction). The commit clones and validates `state.characters` before the
+  portrait or any note is staged — not in outline step 2's position after
+  portrait staging. If the collection cannot be cloned into a valid rollback
+  snapshot (cyclic or malformed), the restore aborts immediately with nothing
+  staged and nothing mutated, so a later rollback can never replace
+  `state.characters` with `null` or another invalid value.
+- **Staged spell-row ids are re-checked immediately before staging**
+  (2026-07-22 correction). The staged new row ids are compared against the
+  current live entries **and retained snapshot payloads**; if state changed
+  between preparation and commit and a collision now exists, the commit
+  aborts before any external write or state mutation. A fresh preparation
+  retries safely.
 - **Note copies are staged in step 1½, before the state mutation**, not after
   it. The regenerated keys are unreachable until the entry is appended, so
   staging them early is safe — and it upgrades the guarantee from "committed
@@ -468,7 +486,7 @@ playwright.preview.config.js`) — both smoke gates are blocking per
   portrait/note writes before the mutation, rollback, double-commit guard,
   no default activation — as-built notes in §3.3), and
   `restoreCharacterFromSnapshot` (the orchestrator for R3). Tests landed:
-  `tests/characterSnapshots.restore.test.js` (40 — validation failures,
+  `tests/characterSnapshots.restore.test.js` (40, now 49 — validation failures,
   v1/v12-payload migrate-through with byte-equal stored snapshots,
   future-version pass-through, id/name collision handling incl. blank/long/
   already-suffixed names, nested-id preservation vs. spell-row regeneration,
@@ -479,7 +497,17 @@ playwright.preview.config.js`) — both smoke gates are blocking per
   2026-07-22: typecheck clean, 1291/1291 unit, both smoke gates 61/61, and a
   temporary preview-seam harness (deleted after the run) drove the real engine
   against the production build — restored copies accepted end-to-end across
-  reload with independent note keys and no console errors. **R2 ships no UI:
+  reload with independent note keys and no console errors.
+  **2026-07-22 same-day narrow correction (owner-authorized):** spell-row id
+  reservation extended to every retained snapshot payload (a deleted source's
+  snapshot may be the only remaining owner of a note key) with the
+  retained-snapshot context supplied by the orchestrator and a pre-staging
+  commit re-check that aborts on prepare-to-commit collisions before any
+  external write; the rollback clone of the characters collection is
+  validated and established before any portrait/note write, aborting with
+  nothing staged and nothing mutated when it cannot be — `state.characters`
+  is never replaced with an invalid value (see the §3.2/§3.3 as-built
+  notes; 9 tests added, suite now 49). **R2 ships no UI:
   nothing calls the engine in production yet.**
 - **R3 — Restore Character UI.** `index.html` overlay + menu item, new
   `js/pages/character/restoreCharacterDialog.js`, wiring in `characterPage.js`,

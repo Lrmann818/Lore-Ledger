@@ -152,10 +152,33 @@ function makeCommitDeps(state, stores, overrides = {}) {
   return { deps, counters };
 }
 
+// Commit deps that count every external-store call and state mutation, for
+// asserting that aborted commits touch nothing.
+function makeCountingDeps(state, stores, overrides = {}) {
+  const calls = { getBlob: 0, putBlob: 0, deleteBlob: 0, getText: 0, putText: 0, deleteText: 0, mutate: 0 };
+  const base = stores.deps;
+  const made = makeCommitDeps(state, stores, {
+    getBlob: async (id) => { calls.getBlob += 1; return base.getBlob(id); },
+    putBlob: async (blob) => { calls.putBlob += 1; return base.putBlob(blob); },
+    deleteBlob: async (id) => { calls.deleteBlob += 1; return base.deleteBlob(id); },
+    getText: async (id) => { calls.getText += 1; return base.getText(id); },
+    putText: async (text, id) => { calls.putText += 1; return base.putText(text, id); },
+    deleteText: async (id) => { calls.deleteText += 1; return base.deleteText(id); },
+    mutateState: (mutator) => { calls.mutate += 1; return mutator(state); },
+    ...overrides
+  });
+  return { ...made, calls };
+}
+
+const NO_EXTERNAL_CALLS = Object.freeze({
+  getBlob: 0, putBlob: 0, deleteBlob: 0, getText: 0, putText: 0, deleteText: 0, mutate: 0
+});
+
 function prepare(state, snapshot, overrides = {}) {
   return prepareRestoredCharacter({
     snapshot,
     existingCharacters: state.characters.entries,
+    existingSnapshots: state.characters.snapshots,
     migrateState,
     now: NOW,
     ...overrides
@@ -292,15 +315,22 @@ describe("prepareRestoredCharacter — preparation", () => {
     expect(character.build.raceId).toBe("human");
   });
 
-  it("never mutates the stored snapshot or the existing characters", () => {
+  it("never mutates the stored snapshot, the existing characters, or the retained snapshots", () => {
     const { state, snapshot } = makeRestoreState();
+    const orphanSource = makeSourceCharacter();
+    orphanSource.id = "char_gone";
+    orphanSource.name = "Vex";
+    orphanSource.spells.levels[0].spells[0].id = "spell_gone_row";
+    state.characters.snapshots.push(makeSnapshotOf(orphanSource, { id: "csnap_gone" }));
     const snapshotBefore = JSON.stringify(snapshot);
     const entriesBefore = JSON.stringify(state.characters.entries);
+    const snapshotsBefore = JSON.stringify(state.characters.snapshots);
 
     prepare(state, snapshot);
 
     expect(JSON.stringify(snapshot)).toBe(snapshotBefore);
     expect(JSON.stringify(state.characters.entries)).toBe(entriesBefore);
+    expect(JSON.stringify(state.characters.snapshots)).toBe(snapshotsBefore);
   });
 
   it("works when the source playable character no longer exists", () => {
@@ -419,6 +449,26 @@ describe("prepareRestoredCharacter — preparation", () => {
     const { state, snapshot } = makeRestoreState();
     expect(() => prepare(state, snapshot, { createRowId: () => "spell_fixed" }))
       .toThrow(/unique spell row id/);
+  });
+
+  it("rejects generator candidates owned only by another retained snapshot", () => {
+    const { state, snapshot } = makeRestoreState();
+    // The other snapshot's source character has been deleted — its payload is
+    // the only remaining owner of spell_snapshot_only's note key.
+    const deletedSource = makeSourceCharacter();
+    deletedSource.id = "char_deleted";
+    deletedSource.name = "Vex";
+    deletedSource.spells.levels[0].spells[0].id = "spell_snapshot_only";
+    state.characters.snapshots.push(makeSnapshotOf(deletedSource, { id: "csnap_orphan" }));
+    expect(state.characters.entries.some((entry) => entry.id === "char_deleted")).toBe(false);
+
+    const queue = [
+      "spell_snapshot_only", // owned only by the deleted source's snapshot — must be skipped
+      "spell_new_1", "spell_new_2", "spell_new_3", "spell_new_4"
+    ];
+    const staged = prepare(state, snapshot, { createRowId: () => queue.shift() ?? "spell_overflow" });
+    const newIds = staged.noteCopies.map((c) => c.newRowId);
+    expect(newIds).toEqual(["spell_new_1", "spell_new_2", "spell_new_3", "spell_new_4"]);
   });
 
   it("repeated preparation is deterministic and yields distinct identities", () => {
@@ -621,6 +671,132 @@ describe("commitRestoredCharacter", () => {
     expect(state.characters.entries).toHaveLength(2);
   });
 
+  it("aborts before any external access when a snapshot captured after preparation owns a staged row id", async () => {
+    const { state, snapshot } = makeRestoreState();
+    const stores = makeStores();
+    const { deps, calls } = makeCountingDeps(state, stores);
+    const queue = ["spell_new_1", "spell_new_2", "spell_new_3", "spell_new_4"];
+    const staged = prepare(state, snapshot, { createRowId: () => queue.shift() ?? "spell_overflow" });
+
+    // Between prepare and commit, a Level Up captures a snapshot whose
+    // payload owns one of the staged ids.
+    const lateSource = makeSourceCharacter();
+    lateSource.id = "char_late";
+    lateSource.name = "Late";
+    lateSource.spells.levels[0].spells[0].id = "spell_new_2";
+    state.characters.snapshots.push(makeSnapshotOf(lateSource, { id: "csnap_late" }));
+
+    const charactersBefore = JSON.stringify(state.characters);
+    await expect(commitRestoredCharacter(staged, deps)).rejects.toThrow(/Spell data changed/);
+    expect(JSON.stringify(state.characters)).toBe(charactersBefore);
+    expect(calls).toEqual(NO_EXTERNAL_CALLS);
+    expect(stores.textStore.size).toBe(2);
+    expect([...stores.blobStore.keys()]).toEqual(["blob_src_portrait"]);
+
+    // A fresh preparation reserves against the new snapshot and succeeds.
+    const retry = prepare(state, snapshot);
+    const result = await commitRestoredCharacter(retry, makeCommitDeps(state, stores).deps);
+    expect(result.name).toBe("Gail — Restored Level 2");
+    expect(state.characters.entries).toHaveLength(2);
+  });
+
+  it("aborts before any external access when a live character gains a staged row id after preparation", async () => {
+    const { state, snapshot } = makeRestoreState();
+    const stores = makeStores();
+    const { deps, calls } = makeCountingDeps(state, stores);
+    const queue = ["spell_new_1", "spell_new_2", "spell_new_3", "spell_new_4"];
+    const staged = prepare(state, snapshot, { createRowId: () => queue.shift() ?? "spell_overflow" });
+
+    const lateEntry = makeSourceCharacter();
+    lateEntry.id = "char_other";
+    lateEntry.name = "Other";
+    lateEntry.spells.levels[0].spells[0].id = "spell_new_3";
+    state.characters.entries.push(lateEntry);
+
+    await expect(commitRestoredCharacter(staged, deps)).rejects.toThrow(/Spell data changed/);
+    expect(state.characters.entries).toHaveLength(2);
+    expect(calls).toEqual(NO_EXTERNAL_CALLS);
+    expect(stores.textStore.size).toBe(2);
+    expect([...stores.blobStore.keys()]).toEqual(["blob_src_portrait"]);
+  });
+
+  it("aborts with nothing staged and nothing mutated when rollback state cannot be prepared", async () => {
+    const { state, snapshot } = makeRestoreState();
+    const stores = makeStores();
+    const { deps, calls } = makeCountingDeps(state, stores);
+    const staged = prepare(state, snapshot);
+
+    // The collection becomes unclonable (cyclic) after preparation.
+    state.characters.cycle = state.characters;
+    await expect(commitRestoredCharacter(staged, deps)).rejects.toThrow(/rollback state/);
+    expect(calls).toEqual(NO_EXTERNAL_CALLS);
+    expect(state.characters.entries).toHaveLength(1);
+    expect(state.characters.cycle).toBe(state.characters);
+    expect(stores.textStore.size).toBe(2);
+    expect([...stores.blobStore.keys()]).toEqual(["blob_src_portrait"]);
+
+    // Nothing was consumed by the aborted attempt: once the collection is
+    // clonable again the same staged restore commits cleanly.
+    delete state.characters.cycle;
+    const result = await commitRestoredCharacter(staged, makeCommitDeps(state, stores).deps);
+    expect(result.name).toBe("Gail — Restored Level 2");
+    expect(state.characters.entries).toHaveLength(2);
+  });
+
+  it("aborts without inventing a characters collection when the state has none", async () => {
+    const { state, snapshot } = makeRestoreState();
+    const staged = prepare(state, snapshot);
+    const stores = makeStores();
+    const bareState = { appShell: { activeCampaignId: CAMPAIGN_ID } };
+    const { deps, calls } = makeCountingDeps(bareState, stores);
+
+    await expect(commitRestoredCharacter(staged, deps)).rejects.toThrow(/rollback state/);
+    expect(calls).toEqual(NO_EXTERNAL_CALLS);
+    // state.characters was never assigned — not even null.
+    expect("characters" in bareState).toBe(false);
+  });
+
+  it("rolls back cleanly when the state mutation reports failure", async () => {
+    const { state, snapshot } = makeRestoreState();
+    const stores = makeStores();
+    const { deps, counters } = makeCommitDeps(state, stores, { mutateState: () => false });
+    const charactersBefore = JSON.stringify(state.characters);
+    const staged = prepare(state, snapshot);
+
+    await expect(commitRestoredCharacter(staged, deps)).rejects.toThrow(/Failed to add the restored character/);
+    expect(JSON.stringify(state.characters)).toBe(charactersBefore);
+    expect(state.characters).not.toBeNull();
+    expect(counters.markDirty).toBe(0);
+    // Staged records were cleaned up; sources are untouched.
+    expect(stores.textStore.size).toBe(2);
+    expect([...stores.blobStore.keys()]).toEqual(["blob_src_portrait"]);
+
+    // Retry with working deps succeeds.
+    await commitRestoredCharacter(prepare(state, snapshot), makeCommitDeps(state, stores).deps);
+    expect(state.characters.entries).toHaveLength(2);
+  });
+
+  it("commits successfully with no blob operations when the payload has no portrait", async () => {
+    const { state } = makeRestoreState();
+    const plainSource = makeSourceCharacter();
+    plainSource.imgBlobId = null;
+    const record = makeSnapshotOf(plainSource, { id: "csnap_plain" });
+    state.characters.snapshots.push(record);
+    const stores = makeStores();
+    const { deps, counters, calls } = makeCountingDeps(state, stores);
+
+    const staged = prepare(state, record);
+    expect(staged.portraitCopy).toBeNull();
+
+    const result = await commitRestoredCharacter(staged, deps);
+    expect(result.name).toBe("Gail — Restored Level 2");
+    expect(calls.getBlob).toBe(0);
+    expect(calls.putBlob).toBe(0);
+    expect(counters.markDirty).toBe(1);
+    expect(state.characters.entries).toHaveLength(2);
+    expect(state.characters.entries[1].imgBlobId).toBeNull();
+  });
+
   it("cannot append twice for one staged restore", async () => {
     const { state, snapshot } = makeRestoreState();
     const stores = makeStores();
@@ -631,7 +807,28 @@ describe("commitRestoredCharacter", () => {
     await expect(commitRestoredCharacter(staged, deps)).rejects.toThrow(/already been committed/);
     expect(state.characters.entries).toHaveLength(2);
 
-    // Even with the latch tampered away, the in-mutation id guard holds.
+    // Even with the latch tampered away, the pre-staging row-id recheck sees
+    // the committed copy's rows as live and aborts before staging — the
+    // committed restore's note copies survive the tampered attempt.
+    staged.committed = false;
+    await expect(commitRestoredCharacter(staged, deps)).rejects.toThrow(/Spell data changed/);
+    expect(state.characters.entries).toHaveLength(2);
+    expect(stores.textStore.size).toBe(4);
+  });
+
+  it("the in-mutation id guard still blocks a tampered latch when the payload has no spell rows", async () => {
+    const { state } = makeRestoreState();
+    const rowlessSource = makeSourceCharacter();
+    rowlessSource.imgBlobId = null;
+    rowlessSource.spells = { levels: [] };
+    const record = makeSnapshotOf(rowlessSource, { id: "csnap_rowless" });
+    state.characters.snapshots.push(record);
+    const stores = makeStores();
+    const { deps } = makeCommitDeps(state, stores);
+    const staged = prepare(state, record);
+    expect(staged.noteCopies).toHaveLength(0);
+
+    await commitRestoredCharacter(staged, deps);
     staged.committed = false;
     await expect(commitRestoredCharacter(staged, deps)).rejects.toThrow(/already been committed/);
     expect(state.characters.entries).toHaveLength(2);
@@ -720,6 +917,43 @@ describe("restoreCharacterFromSnapshot", () => {
     expect(state.characters.entries).toHaveLength(2);
     expect(state.characters.snapshots).toHaveLength(1);
     expect(getCharacterSnapshotById(state.characters.snapshots, "csnap_1")).toBe(snapshot);
+  });
+
+  it("protects a spell note owned only by a deleted source's snapshot", async () => {
+    const { state } = makeRestoreState();
+    // Character "Vex" leveled up (snapshot captured), then was deleted: the
+    // snapshot payload is now the only owner of spell_orphan_row's note key.
+    const deletedSource = makeSourceCharacter();
+    deletedSource.id = "char_deleted";
+    deletedSource.name = "Vex";
+    deletedSource.imgBlobId = null;
+    deletedSource.spells.levels[0].spells[0].id = "spell_orphan_row";
+    state.characters.snapshots.push(makeSnapshotOf(deletedSource, { id: "csnap_orphan" }));
+    const orphanKey = textKey_spellNotes(CAMPAIGN_ID, "spell_orphan_row");
+    const stores = makeStores();
+    stores.textStore.set(orphanKey, "Orphan-only note");
+    const { deps } = makeCommitDeps(state, stores);
+    const snapshotsBefore = JSON.stringify(state.characters.snapshots);
+
+    // The generator's first candidate is the snapshot-owned row id; the
+    // orchestrator must reserve it and retry with the next candidates.
+    const queue = ["spell_orphan_row", "spell_new_1", "spell_new_2", "spell_new_3", "spell_new_4"];
+    const result = await restoreCharacterFromSnapshot({
+      snapshotId: "csnap_1",
+      migrateState,
+      now: NOW,
+      createRowId: () => queue.shift() ?? "spell_overflow",
+      ...deps
+    });
+
+    expect(result.name).toBe("Gail — Restored Level 2");
+    const restored = state.characters.entries[1];
+    const restoredRowIds = restored.spells.levels.flatMap((level) => level.spells).map((row) => row.id);
+    expect(restoredRowIds).toEqual(["spell_new_1", "spell_new_2", "spell_new_3", "spell_new_4"]);
+    expect(restoredRowIds).not.toContain("spell_orphan_row");
+    // The orphan snapshot's note and record are untouched.
+    expect(stores.textStore.get(orphanKey)).toBe("Orphan-only note");
+    expect(JSON.stringify(state.characters.snapshots)).toBe(snapshotsBefore);
   });
 
   it("fails safely when the snapshot id does not resolve", async () => {

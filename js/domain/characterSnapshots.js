@@ -327,6 +327,23 @@ function collectSpellRowIds(character, into) {
 }
 
 /**
+ * Collects every spell-row id referenced by the payloads of a retained
+ * snapshot collection into `into`. Snapshot payload rows key external note
+ * texts exactly like live rows do, and a deleted source's snapshot may be
+ * the only remaining owner of a note key — so restore id reservation must
+ * treat snapshot-owned row ids like live ones.
+ * @param {unknown} snapshots
+ * @param {Set<string>} into
+ * @returns {void}
+ */
+function collectSnapshotSpellRowIds(snapshots, into) {
+  if (!Array.isArray(snapshots)) return;
+  for (const record of snapshots) {
+    if (isPlainRecord(record)) collectSpellRowIds(record.payload, into);
+  }
+}
+
+/**
  * Generates an id via `factory` that is not in `reserved`, retrying a bounded
  * number of times. Throws when no free id can be found (only reachable with a
  * degenerate injected factory).
@@ -359,10 +376,13 @@ function allocateUniqueId(factory, reserved, what) {
  * 3. Allocate a new top-level character id (canonical `char_…` generator),
  *    collision-checked against existing entries and the source character id.
  * 4. Regenerate every spell-row id (they key external note texts), recording
- *    an old→new map for the commit's note copies. All other nested ids —
- *    attacks, resources, inventory, feature cards, spell-level ids,
- *    featureUses keys, builderSeed markers, calc blocks, content refs — are
- *    preserved verbatim.
+ *    an old→new map for the commit's note copies. New ids are reserved
+ *    against every live entry, every retained snapshot payload
+ *    (`existingSnapshots` — a deleted source's snapshot may be the only
+ *    remaining owner of a note key), and the payload being restored. All
+ *    other nested ids — attacks, resources, inventory, feature cards,
+ *    spell-level ids, featureUses keys, builderSeed markers, calc blocks,
+ *    content refs — are preserved verbatim.
  * 5. Plan the portrait duplicate (`portraitCopy`) and null the restored
  *    entry's `imgBlobId` until the commit stages the copy.
  * 6. Stamp provenance (`restoredFromSnapshotId`, `restoredFromCharacterId`,
@@ -372,6 +392,7 @@ function allocateUniqueId(factory, reserved, what) {
  * @param {{
  *   snapshot: CharacterSnapshot | Record<string, unknown> | null | undefined,
  *   existingCharacters?: unknown,
+ *   existingSnapshots?: unknown,
  *   migrateState: (raw: unknown) => import("../state.js").State,
  *   createCharacterId?: () => string,
  *   createRowId?: () => string,
@@ -383,6 +404,7 @@ export function prepareRestoredCharacter(options) {
   const {
     snapshot,
     existingCharacters,
+    existingSnapshots,
     migrateState,
     createCharacterId,
     createRowId,
@@ -463,11 +485,14 @@ export function prepareRestoredCharacter(options) {
 
   // 4. Regenerate spell-row ids (they key external IndexedDB note texts;
   // keeping them would share mutable note storage with the source). New ids
-  // must not collide with any live row id in the campaign, or a staged note
-  // copy could overwrite a live note.
+  // must not collide with any row id in the campaign — live entries or
+  // retained snapshot payloads (a deleted source's snapshot may be the only
+  // remaining owner of a note key) — or a staged note copy could overwrite,
+  // and its rollback delete, a note the restore does not own.
   /** @type {Set<string>} */
   const reservedRowIds = new Set();
   for (const entry of existingEntries) collectSpellRowIds(entry, reservedRowIds);
+  collectSnapshotSpellRowIds(existingSnapshots, reservedRowIds);
   collectSpellRowIds(character, reservedRowIds);
   const makeRowId = typeof createRowId === "function" ? createRowId : newRestoredSpellRowId;
   /** @type {RestoredNoteCopy[]} */
@@ -575,22 +600,32 @@ function snapshotCharactersCollection(stateLike) {
  * partially-restored playable character can exist.
  *
  * Order and guarantees:
- * 1. Stage the portrait duplicate (`getBlob` → `putBlob`). A missing source
+ * 1. Establish rollback state before anything external is written: a plain
+ *    validated clone of the characters collection. If the collection cannot
+ *    be cloned into a valid rollback snapshot (cyclic or malformed), the
+ *    restore aborts immediately — nothing staged, nothing mutated — so a
+ *    later rollback can never replace `state.characters` with null or
+ *    another invalid value.
+ * 2. Re-check the staged spell-row ids against the current live entries and
+ *    retained snapshot payloads. If state changed between preparation and
+ *    commit and a collision now exists, abort before any external write or
+ *    state mutation (a fresh preparation retries safely).
+ * 3. Stage the portrait duplicate (`getBlob` → `putBlob`). A missing source
  *    blob fails soft (restored `imgBlobId` stays null); a read/write failure
  *    aborts before anything else is written.
- * 2. Stage the spell-note copies at their **current** values (spec §3.3):
+ * 4. Stage the spell-note copies at their **current** values (spec §3.3):
  *    for each old→new row id with a non-empty stored note, `putText` under
  *    the new key. Missing notes are skipped (fail-soft). Any copy failure
  *    deletes the already-staged records and aborts — no restored character
  *    exists after a note-copy failure.
- * 3. Mutate state: append exactly one entry (double-commit guarded by the
+ * 5. Mutate state: append exactly one entry (double-commit guarded by the
  *    staged `committed` latch and an entry-id check inside the mutation) and
  *    re-resolve the restored name against the live entries. `activate`
  *    defaults to false — a domain-only restore never silently changes the
  *    active character; the R3 UI opts in per spec §7. On mutation failure
- *    the characters collection is restored from a pre-mutation clone and all
- *    staged external records are deleted.
- * 4. `SaveManager.markDirty()` queues the campaign persist. Persistence
+ *    the characters collection is restored from the step-1 rollback clone
+ *    and all staged external records are deleted.
+ * 6. `SaveManager.markDirty()` queues the campaign persist. Persistence
  *    failure afterwards follows the SaveManager ERROR contract (one atomic
  *    vault write — never partial); staged IndexedDB records are then
  *    referenced only by the unpersisted in-memory entry, so a reload leaves
@@ -634,6 +669,38 @@ export async function commitRestoredCharacter(staged, deps) {
   const character = /** @type {CharacterEntry & Record<string, unknown>} */ (staged.character);
   const noteCopies = Array.isArray(staged.noteCopies) ? staged.noteCopies : [];
 
+  // 1. Establish rollback state before any external write. If the characters
+  // collection cannot be cloned into a valid rollback snapshot, abort now —
+  // nothing staged, nothing mutated — so a later rollback can never replace
+  // `state.characters` with null or another invalid value.
+  const previousCharacters = snapshotCharactersCollection(state);
+  if (!isPlainRecord(previousCharacters)) {
+    throw new Error("Failed to prepare rollback state for the restore.");
+  }
+
+  // 2. Re-check the staged row ids against the current campaign immediately
+  // before staging: entries or retained snapshots may have changed since
+  // preparation, and a collision would let a staged note copy overwrite —
+  // and its rollback delete — a note the restore does not own.
+  /** @type {Set<string>} */
+  const liveRowIds = new Set();
+  const liveEntries = Array.isArray(previousCharacters.entries) ? previousCharacters.entries : [];
+  for (const entry of liveEntries) collectSpellRowIds(entry, liveRowIds);
+  collectSnapshotSpellRowIds(previousCharacters.snapshots, liveRowIds);
+  /** @type {Set<string>} */
+  const stagedRowIds = new Set();
+  collectSpellRowIds(character, stagedRowIds);
+  for (const copy of noteCopies) {
+    if (!isPlainRecord(copy)) continue;
+    const newRowId = cleanString(copy.newRowId);
+    if (newRowId) stagedRowIds.add(newRowId);
+  }
+  for (const rowId of stagedRowIds) {
+    if (liveRowIds.has(rowId)) {
+      throw new Error("Spell data changed while preparing the restore. Try the restore again.");
+    }
+  }
+
   /** @type {string | null} */
   let stagedBlobId = null;
   /** @type {string[]} */
@@ -655,7 +722,7 @@ export async function commitRestoredCharacter(staged, deps) {
     }
   };
 
-  // 1. Stage the portrait duplicate.
+  // 3. Stage the portrait duplicate.
   const sourceBlobId = isPlainRecord(staged.portraitCopy)
     ? cleanString(staged.portraitCopy.sourceBlobId)
     : "";
@@ -678,7 +745,7 @@ export async function commitRestoredCharacter(staged, deps) {
     // portrait reference and the restore proceeds (spec §3.1).
   }
 
-  // 2. Stage the spell-note copies at their current values.
+  // 4. Stage the spell-note copies at their current values.
   try {
     for (const copy of noteCopies) {
       if (!isPlainRecord(copy)) continue;
@@ -696,9 +763,9 @@ export async function commitRestoredCharacter(staged, deps) {
     throw new Error("Failed to copy spell notes.", { cause: err });
   }
 
-  // 3. Commit the entry (single state mutation, rollback on failure).
+  // 5. Commit the entry (single state mutation, rollback to the step-1
+  // clone on failure).
   character.imgBlobId = stagedBlobId;
-  const previousCharacters = snapshotCharactersCollection(state);
   try {
     const result = mutateState((draft) => {
       if (!isPlainRecord(draft)) throw new Error("Character collection is unavailable.");
@@ -742,7 +809,8 @@ export async function commitRestoredCharacter(staged, deps) {
 
 /**
  * Convenience orchestrator for a full restore: resolve the snapshot from the
- * live state, prepare the restored copy, and commit it. This is the seam the
+ * live state, prepare the restored copy against the live entries and the
+ * complete retained-snapshot collection, and commit it. This is the seam the
  * R3 UI is expected to call.
  *
  * @param {{
@@ -770,6 +838,7 @@ export async function restoreCharacterFromSnapshot(options) {
   const staged = prepareRestoredCharacter({
     snapshot,
     existingCharacters: Array.isArray(collection?.entries) ? collection.entries : [],
+    existingSnapshots: Array.isArray(collection?.snapshots) ? collection.snapshots : [],
     migrateState,
     createCharacterId,
     createRowId,
