@@ -3,7 +3,8 @@
 // Covers the domain module (build/normalize/append), the v13 migration, save
 // sanitization, and the campaign-vault + full-backup state round trips. The
 // capture-on-Level-Up behavior is covered in tests/characterPage.test.js
-// ("level up flow"); restoring a snapshot is phase R2 and has no tests yet.
+// ("level up flow"); the R2 restore engine is covered in
+// tests/characterSnapshots.restore.test.js.
 
 import { describe, expect, it } from "vitest";
 
