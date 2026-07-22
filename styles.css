@@ -4369,6 +4369,163 @@ div.mutedSmall {
   opacity: 0.85;
 }
 
+/* Restore Character dialog (R3): grouped, newest-first pre-Level-Up snapshot
+   list restored through the R2 engine. Same modal skeleton as the wizards,
+   narrower; all layout scoped to .restoreCharacter* so nothing global shifts. */
+.restoreCharacterPanel {
+  width: min(520px, 100%);
+  max-height: calc(100dvh - 36px);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  overflow: hidden;
+}
+
+.restoreCharacterHeader,
+.restoreCharacterFooter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+}
+
+.restoreCharacterHeader {
+  justify-content: space-between;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.restoreCharacterFooter {
+  justify-content: flex-end;
+  border-top: 1px solid var(--hairline);
+  flex-wrap: wrap;
+}
+
+.restoreCharacterBody {
+  min-height: 0;
+  overflow: auto;
+  padding: 14px 8px;
+  display: grid;
+  gap: 12px;
+}
+
+.restoreCharacterIntro {
+  margin: 0;
+  font-size: 0.9em;
+  opacity: 0.85;
+}
+
+.restoreCharacterEmpty {
+  margin: 0;
+  padding: 12px;
+  border: 1px dashed var(--hairline);
+  border-radius: 10px;
+  font-size: 0.9em;
+  opacity: 0.9;
+}
+
+.restoreCharacterList {
+  display: grid;
+  gap: 14px;
+}
+
+.restoreCharacterGroup {
+  display: grid;
+  gap: 8px;
+}
+
+.restoreCharacterGroupHead {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.restoreCharacterGroupName {
+  margin: 0;
+  font-size: 1em;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.restoreCharacterGroupDeleted {
+  font-size: 0.8em;
+  font-weight: 500;
+  opacity: 0.7;
+}
+
+.restoreCharacterRows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.restoreCharacterRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 8px;
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+}
+
+.restoreCharacterRowInfo {
+  flex: 1 1 200px;
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.restoreCharacterRowPrimary {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.restoreCharacterRowSecondary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+  font-size: 0.82em;
+  opacity: 0.8;
+}
+
+.restoreCharacterRowSecondary span {
+  overflow-wrap: anywhere;
+}
+
+.restoreCharacterRestoreBtn {
+  flex: 0 0 auto;
+}
+
+.restoreCharacterPending {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent, currentColor);
+  border-radius: 10px;
+}
+
+.restoreCharacterPendingMsg {
+  margin: 0;
+  font-size: 0.88em;
+}
+
+/* Phone width: stack each row so the Restore button stays full-width and
+   comfortably tappable, and nothing overflows horizontally. */
+@media (max-width: 420px) {
+  .restoreCharacterRow {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .restoreCharacterRestoreBtn {
+    width: 100%;
+  }
+}
+
 .builderWizardHeader,
 .builderWizardFooter {
   display: flex;

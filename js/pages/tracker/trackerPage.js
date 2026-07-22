@@ -77,6 +77,7 @@ import { DEV_MODE } from "../../utils/dev.js";
  *   putText?: PutTextFn,
  *   getText?: GetTextFn,
  *   deleteText?: DeleteTextFn,
+ *   migrateState?: (raw: unknown) => State,
  *   autoSizeInput?: AutoSizeInputFn,
  *   applyTextareaSize?: (el: HTMLTextAreaElement | null | undefined) => void,
  *   [key: string]: unknown
@@ -141,6 +142,9 @@ export function initTrackerPage(deps = {}) {
     putText,
     getText,
     deleteText,
+
+    // canonical migration boundary (Restore Character engine)
+    migrateState,
 
     // character sheet autosize
     autoSizeInput,
@@ -361,6 +365,7 @@ export function initTrackerPage(deps = {}) {
       putText,
       getText,
       deleteText,
+      migrateState,
       autoSizeInput,
       applyTextareaSize,
       enhanceNumberSteppers,

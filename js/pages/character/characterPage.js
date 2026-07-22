@@ -12,6 +12,7 @@ import { initBuilderAbilitiesPanel } from "../character/panels/builderAbilitiesP
 import { initBuilderSummaryPanel } from "../character/panels/builderSummaryPanel.js";
 import { initBuilderWizard } from "../character/builderWizard.js";
 import { initLevelUpWizard } from "../character/levelUpWizard.js";
+import { initRestoreCharacterDialog } from "../character/restoreCharacterDialog.js";
 import { initProficienciesPanel } from "../character/panels/proficienciesPanel.js";
 import { initAbilitiesPanel } from "../character/panels/abilitiesPanel.js";
 import { initAbilitiesFeaturesPanel } from "../character/panels/abilitiesFeaturesPanel.js";
@@ -26,7 +27,7 @@ import {
   makeDefaultCharacterEntry
 } from "../../domain/characterHelpers.js";
 import { getBuilderFinishSheetSeedPatch, getLevelUpSheetSeedPatch } from "../../domain/builderSheetSeeding.js";
-import { appendPreLevelUpSnapshot, buildPreLevelUpSnapshot } from "../../domain/characterSnapshots.js";
+import { appendPreLevelUpSnapshot, buildPreLevelUpSnapshot, restoreCharacterFromSnapshot } from "../../domain/characterSnapshots.js";
 import { MAX_CHARACTER_LEVEL, normalizeBuildLevels } from "../../domain/rules/progression.js";
 import { getActiveContentRegistry } from "../../domain/rules/registry.js";
 import { CURRENT_SCHEMA_VERSION } from "../../state.js";
@@ -118,6 +119,10 @@ export function initCharacterPageUI(deps) {
     SaveManager,
     Popovers,
 
+    // Canonical migration boundary (threaded for the Restore Character engine;
+    // characterSnapshots.js must not import state.js — see spec §4).
+    migrateState,
+
     // Character portrait flow
     ImagePicker,
     pickCropStorePortrait,
@@ -130,6 +135,7 @@ export function initCharacterPageUI(deps) {
     blobIdToObjectUrl,
     getText,
     putText,
+    deleteText,
 
     // Common UI helpers
     autoSizeInput,
@@ -466,6 +472,44 @@ export function initCharacterPageUI(deps) {
     });
     addDestroy(() => levelUpWizard.destroy());
 
+    // Restore Character (R3): the dialog owns presentation + the persistence
+    // lock; every restoration decision (validation, migration, identity/naming,
+    // spell-row regeneration, note/portrait copy, rollback, retention) lives in
+    // the injected R2 engine. `restore` binds the canonical migration boundary
+    // and storage deps so characterSnapshots.js never imports state.js.
+    const restoreDialog = initRestoreCharacterDialog({
+      root: document,
+      state,
+      uiConfirm,
+      uiAlert,
+      setStatus,
+      restore: ({ snapshotId, activate }) => restoreCharacterFromSnapshot({
+        snapshotId,
+        migrateState,
+        state,
+        SaveManager,
+        mutateState,
+        getBlob,
+        putBlob,
+        deleteBlob,
+        getText,
+        putText,
+        deleteText,
+        activate
+      }),
+      flushSave: () => SaveManager.flush(),
+      // Owner authorization 2026-07-22: only after the save is CONFIRMED does R3
+      // notify the active-character change (once, with the captured previous
+      // id), rerender into the now-active restored character, and — after the
+      // rerender, so it stays visible — announce success.
+      finalizeRestore: ({ previousId, characterId, name }) => {
+        notifyActiveCharacterChanged({ previousId, activeId: characterId });
+        rerender();
+        if (typeof setStatus === "function") setStatus(`Restored "${name}"`, { stickyMs: 2500 });
+      }
+    });
+    addDestroy(() => restoreDialog.destroy());
+
     // --- populate selector ---
     const entries = state.characters?.entries ?? [];
     const activeId = state.characters?.activeId ?? null;
@@ -730,6 +774,12 @@ export function initCharacterPageUI(deps) {
       levelUpWizard.open({ character: activeChar });
     }
 
+    // Restore Character stays available even with zero snapshots — the dialog's
+    // empty state teaches how snapshots are created (spec §7).
+    function runRestoreCharacterAction() {
+      restoreDialog.open();
+    }
+
     async function runRenameCharacterAction() {
       const activeChar = getActiveCharacter(state);
       if (!activeChar) return;
@@ -957,6 +1007,8 @@ export function initCharacterPageUI(deps) {
         await runEditBuilderCharacterAction();
       } else if (action === "level-up") {
         await runLevelUpCharacterAction();
+      } else if (action === "restore-character") {
+        runRestoreCharacterAction();
       } else if (action === "rename") {
         await runRenameCharacterAction();
       } else if (action === "add-npc") {

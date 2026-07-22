@@ -541,6 +541,8 @@
               data-char-action="edit-builder">Edit in Builder</button>
             <button type="button" class="swatchOption charActionMenuItem" id="charActionLevelUpBtn"
               data-char-action="level-up">Level Up</button>
+            <button type="button" class="swatchOption charActionMenuItem" id="charActionRestoreBtn"
+              data-char-action="restore-character">Restore Character</button>
             <button type="button" class="swatchOption charActionMenuItem" id="charActionRenameBtn"
               data-char-action="rename">Rename Character</button>
             <button type="button" class="swatchOption charActionMenuItem" id="charActionAddNpcBtn"
@@ -1528,6 +1530,41 @@
         <button type="button" class="npcSmallBtn" id="levelUpBack" hidden>Back</button>
         <button type="button" class="npcSmallBtn" id="levelUpNext">Next</button>
         <button type="button" class="npcSmallBtn" id="levelUpApply" hidden>Apply</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Restore Character dialog (Restore Character R3) -->
+  <div id="restoreCharacterOverlay" class="modalOverlay" hidden aria-hidden="true">
+    <div class="modalPanel restoreCharacterPanel" id="restoreCharacterPanel" role="dialog" aria-modal="true"
+      aria-labelledby="restoreCharacterTitle" tabindex="-1">
+      <div class="restoreCharacterHeader">
+        <div class="modalTitle" id="restoreCharacterTitle">Restore Character</div>
+        <button type="button" class="npcSmallBtn" id="restoreCharacterClose" aria-label="Close">✕</button>
+      </div>
+
+      <div class="restoreCharacterBody" id="restoreCharacterBody">
+        <p class="restoreCharacterIntro" id="restoreCharacterIntro">
+          Restore a saved pre-Level-Up snapshot as a separate playable character. Your existing
+          characters are never changed, and the snapshot stays available for future restores.
+        </p>
+
+        <div class="restoreCharacterEmpty" id="restoreCharacterEmpty" hidden>
+          No snapshots yet. Lore Ledger automatically saves a snapshot of a character right before
+          every Level Up. Level a character up and its pre-Level-Up state will appear here.
+        </div>
+
+        <div class="restoreCharacterList" id="restoreCharacterList"></div>
+
+        <div class="restoreCharacterPending" id="restoreCharacterPending" role="alert" aria-live="assertive" hidden>
+          <p class="restoreCharacterPendingMsg" id="restoreCharacterPendingMsg"></p>
+        </div>
+      </div>
+
+      <div class="restoreCharacterFooter">
+        <button type="button" class="npcSmallBtn restoreCharacterRetrySaveBtn" id="restoreCharacterRetrySave"
+          hidden>Retry Save</button>
+        <button type="button" class="npcSmallBtn" id="restoreCharacterCancel">Close</button>
       </div>
     </div>
   </div>

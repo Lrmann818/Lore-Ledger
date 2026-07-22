@@ -383,6 +383,9 @@ function createTrackerPageDeps() {
     putText,
     getText,
     deleteText,
+    // Canonical migration boundary for the Restore Character engine (R3);
+    // threaded through so js/domain/characterSnapshots.js never imports state.js.
+    migrateState,
     autoSizeInput,
     // Resolve lazily so Tracker deps stay safe even if this assembly runs
     // before textarea sizing initialization assigns the implementation.
