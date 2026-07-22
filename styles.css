@@ -4521,6 +4521,12 @@ div.mutedSmall {
     align-items: stretch;
   }
 
+  /* In the column layout the horizontal flex-basis would otherwise act as a
+     200px height floor, leaving tall empty rows — reset it to content height. */
+  .restoreCharacterRowInfo {
+    flex: 0 0 auto;
+  }
+
   .restoreCharacterRestoreBtn {
     width: 100%;
   }
