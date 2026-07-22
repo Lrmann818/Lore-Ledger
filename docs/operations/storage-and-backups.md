@@ -96,6 +96,26 @@ snapshot payloads, so a snapshot's portrait blob and spell-note texts are bundle
 into backups only while the source character still exists; extending the collectors
 is Restore Character phase R4.
 
+**Restore commit protocol (R2, 2026-07-22 — engine only, no UI calls it yet):**
+`commitRestoredCharacter` in `js/domain/characterSnapshots.js` mirrors the
+character-import `commitImport` staging pattern. Every external write is staged
+**before** the state mutation: the portrait blob is duplicated
+(`getBlob` → `putBlob`; a missing source blob fails soft to a `null` reference,
+a read/write failure aborts), then each regenerated spell-row's note text is
+copied at its current value to the new `spell_notes_<campaignId>__<rowId>` key
+(missing notes are skipped; any copy failure deletes the already-staged records
+and aborts with no restored character). Only then does one state mutation append
+the restored entry; on mutation failure the characters collection is rolled back
+from a pre-mutation clone and all staged IndexedDB records are deleted.
+`SaveManager.markDirty()` queues the campaign persist — a later vault-write
+failure follows the standard SaveManager ERROR contract (the vault write is one
+atomic `localStorage.setItem`, never partial), and staged IndexedDB records are
+then referenced only by the unpersisted in-memory entry, so after a reload they
+are unreachable orphans — the same exposure class as `commitImport`'s staged
+portrait blob. True cross-store atomicity between localStorage and IndexedDB is
+not possible; this staged, rollback-on-failure protocol is the established
+guarantee.
+
 The legacy singleton `character` bucket is accepted only when migrating or importing old saves/backups. It must not be emitted by current production save paths.
 
 Important exclusions from the main JSON payload:

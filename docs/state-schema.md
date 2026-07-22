@@ -320,9 +320,28 @@ tracker, or campaign state — and can never nest snapshots (normalization strip
 a `snapshots` key from payloads defensively). Duplicate protection replaces an
 existing record with the same `(kind, sourceCharacterId, fromLevel)`; that key
 is unique per character because Level Up only appends and down-leveling is out
-of scope. Restore/deletion UI is phase R2+ and does not exist yet; external
+of scope. Restore/deletion UI is phase R3 and does not exist yet; external
 assets referenced by payloads (portrait blob, spell-note texts) are bundled
 into backups only for live characters until phase R4 extends the collectors.
+
+**R2 (2026-07-22) shipped the non-UI restore engine** in
+`js/domain/characterSnapshots.js`: `prepareRestoredCharacter` deep-clones a
+snapshot payload, runs it through the canonical `migrateState` pipeline, and
+stages a separate playable copy — new `char_…` id, regenerated spell-row ids
+(they key external IndexedDB note texts), every other character-local id
+preserved verbatim — and `commitRestoredCharacter` appends it with staged
+portrait/note copies and rollback (see the restore spec §3.2–§3.4). A restored
+entry carries three additive optional provenance fields on the open entry
+shape (no migration; the `builderSeed` precedent) — they exist only on restored
+copies:
+
+```js
+{
+  restoredFromSnapshotId: string,   // snapshot record id ("csnap_…")
+  restoredFromCharacterId: string,  // source character id; may no longer resolve
+  restoredAt: string                // ISO timestamp of the restore
+}
+```
 
 The legacy singleton `state.character` key is accepted only by migration/backward-compatibility paths for old saves/backups. Do not add new production code that reads or writes `state.character`.
 

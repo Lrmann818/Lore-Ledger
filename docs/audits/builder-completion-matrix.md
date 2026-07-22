@@ -108,7 +108,8 @@ harnesses was completed 2026-07-18; both smoke gates are 61/61 — see
 `docs/reference/session-handoff-2026-07-17.md`.
 
 **Restore Character / Edit-in-Builder retirement — specification ratified 2026-07-18
-(owner-directed); phase R1 shipped the same day; R2–R6 still gated.** The owner
+(owner-directed); phase R1 shipped the same day; R2 shipped 2026-07-22; R3–R6
+still gated.** The owner
 ratified the product model: the Builder is for initial creation; the general Edit in
 Builder action will retire; a complete pre-Level-Up snapshot is saved transactionally
 with every successful Level Up commit; **Restore Character** restores any snapshot as
@@ -127,8 +128,21 @@ replace-append on `(kind, sourceCharacterId, fromLevel)`), records persist throu
 sanitize/vault/backups and survive source-character deletion. **No user-facing
 Restore UI exists yet** — R1 creates and preserves history only; snapshot-payload
 external assets (portrait blob / spell-note texts after source deletion) join
-backups in R4. Matrix impact when R2+/R5 land: #11's B1 routing surfaces retire per
+backups in R4. Matrix impact when R3/R5 land: #11's B1 routing surfaces retire per
 D1 and this matrix gains a Restore Character capability row.
+
+**R2 shipped (2026-07-22, owner-authorized):** the non-UI restore engine in
+`js/domain/characterSnapshots.js` — snapshot resolution, pure
+`prepareRestoredCharacter` (payload deep-clone migrate-through the canonical
+migration pipeline, new collision-checked character id, spell-row id
+regeneration with an old→new note-copy map while all other character-local ids
+are preserved, provenance fields, deterministic `— Restored Level <N>` naming
+with `(2)`-style suffixes), and `commitRestoredCharacter` (portrait/note copies
+staged before the state mutation, rollback on any failure, double-commit guard,
+no default activation) plus the `restoreCharacterFromSnapshot` orchestrator for
+R3. Pinned by `tests/characterSnapshots.restore.test.js` (40 tests; suite
+1291/1291, both smoke gates 61/61 on 2026-07-22). **Still no user-facing
+Restore UI — nothing calls the engine in production until R3.**
 
 ## 4. Verification basis
 

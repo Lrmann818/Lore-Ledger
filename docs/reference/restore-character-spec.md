@@ -2,11 +2,13 @@
 
 _Status: **normative specification, ratified by owner decision 2026-07-18.
 Phase R1 (schema v13 + transactional pre-Level-Up snapshot capture) was
-owner-authorized and shipped 2026-07-18** — see the implementation notes in §2.3,
-§4.2, and §8. Owner decisions D1–D4 are ruled (audit doc §3). **R2–R6 remain gated
-on explicit owner authorization** per §9 and the binding
+owner-authorized and shipped 2026-07-18. Phase R2 (the non-UI restore engine)
+was owner-authorized and shipped 2026-07-22** — see the implementation notes in
+§2.3, §3.2, §3.3, §4.2, and §8. Owner decisions D1–D4 are ruled (audit doc §3).
+**R3–R6 remain gated on explicit owner authorization** per §9 and the binding
 [Working Order](../../AGENTS.md#current-working-order); no restore, deletion, or
-retirement UI exists yet — R1 creates and preserves snapshot history only._
+retirement UI exists yet — R1 creates and preserves snapshot history, and R2
+provides the domain engine the R3 UI will call._
 
 Read with [`AGENTS.md`](../../AGENTS.md),
 [`level-up-flow-spec.md`](./level-up-flow-spec.md),
@@ -155,6 +157,31 @@ with derivation warnings (matrix #17 behavior), never blocks restore.
 5. Apply collision-safe naming (§3.4).
 6. Commit (§3.3).
 
+**As-built (R2, 2026-07-22):** `prepareRestoredCharacter()` in
+`js/domain/characterSnapshots.js` implements steps 1–5 as one pure function
+(`migrateState` is injected to keep the domain module free of a `state.js`
+import cycle; id/row-id/clock factories are injectable for tests and default to
+the canonical generators). Implementation notes:
+
+- Validation rejects — without creating anything — a missing/absent snapshot
+  record, a blank snapshot id, any `kind` other than `pre-level-up`, a missing
+  `sourceCharacterId`, a missing/non-object/uncloneable `payload`, a payload
+  that cannot migrate into a plain character entry, and a record with no usable
+  pre-Level-Up level (no finite `fromLevel ≥ 1` and no derivable build levels).
+- The stored `schemaVersion` is forwarded on the migration wrapper solely so
+  future-version payloads keep `migrateState`'s pass-through stance; for every
+  current or past version the invariant re-run tail makes the outcome identical
+  with or without it (the field stays informational).
+- The new character id is collision-checked against all existing entry ids
+  **and** the source character id (tracker cards may still reference a deleted
+  source); regenerated spell-row ids are collision-checked against every live
+  row id in the campaign so a staged note copy can never overwrite a live note.
+  Both allocators retry a bounded number of times, then fail the preparation.
+- All other character-local ids (§3.1 table) are preserved verbatim by simply
+  not touching them — the payload clone is the restored character.
+- Unknown extra fields on the snapshot record stay on the record; they are
+  never copied onto the restored character.
+
 ### 3.3 Commit protocol (mirrors `commitImport`, `characterPortability.js:507-616`)
 
 Async staging **before** state mutation, rollback on failure:
@@ -176,6 +203,38 @@ would force async IndexedDB reads inside the Level Up commit (§4 forbids that).
 Documented behavior, not an accident: the snapshot freezes the canonical record;
 external prose rides along at restore time.
 
+**As-built (R2, 2026-07-22):** `commitRestoredCharacter(staged, deps)` in
+`js/domain/characterSnapshots.js` implements this protocol with two deliberate
+strengthenings over the outline above (the header's "staging before state
+mutation" principle applied uniformly):
+
+- **Note copies are staged in step 1½, before the state mutation**, not after
+  it. The regenerated keys are unreachable until the entry is appended, so
+  staging them early is safe — and it upgrades the guarantee from "committed
+  restore with warned-and-missing notes" to "a note-copy failure aborts the
+  restore with no restored character at all" (staged records are deleted on
+  abort). A **missing** source note still fails soft (the row simply has no
+  note); only read/write **failures** abort. Portrait semantics are unchanged:
+  missing source blob → `null` and proceed; a blob read/write failure aborts
+  before anything else is staged.
+- **The domain commit does not activate the restored character.** `activate`
+  defaults to false so a domain-only restore never silently changes
+  `characters.activeId`; the R3 UI passes `activate: true` to get the §7
+  activation behavior. Rollback restores the whole characters collection either
+  way.
+
+Further commit details: a staged result carries a `committed` latch and the
+mutation re-checks the entry id, so one staged restore can never append twice;
+the restored name is re-resolved against the live entries inside the mutation
+(collision safety holds even if entries changed between prepare and commit);
+`SaveManager.markDirty()` queues the persist, and a later vault-write failure
+follows the SaveManager ERROR contract — the vault write is one atomic
+`localStorage.setItem`, so no partial restore can persist, and staged IndexedDB
+records are then referenced only by the unpersisted in-memory entry (after a
+reload they are unreachable orphans, the same exposure class as
+`commitImport`'s staged blob). `restoreCharacterFromSnapshot()` is the
+resolve → prepare → commit orchestrator the R3 UI is expected to call.
+
 ### 3.4 Naming
 
 Audited conventions: character import keeps names verbatim; only default names
@@ -186,6 +245,18 @@ Adopting the owner's conceptual default with the repo's em-dash style:
 - Collision (case-insensitive, trimmed, against all current entry names): append
   ` (2)`, ` (3)`, … first free suffix. Deterministic, pure, unit-tested.
 - The name is an ordinary editable field afterward.
+
+**As-built (R2, 2026-07-22):** `resolveRestoredCharacterName()` implements the
+collision rule. Documented fallbacks: a blank `sourceName` falls back to the
+migrated payload's own `name`, and a blank there falls back to
+**"Unnamed Character"** (the character selector's blank-name display label), so
+the worst case is `Unnamed Character — Restored Level <N>`. `<N>` is the
+snapshot's `fromLevel`; a normalized record that lost it derives `<N>` from the
+migrated payload's build levels, and a record with neither fails preparation.
+Names are never truncated (long names keep the full text plus suffix, matching
+the app's no-max-length convention), and a source name that already contains a
+restored suffix simply gains another (`Gail — Restored Level 2 — Restored
+Level 2`) — the suffix is data, not parsed structure.
 
 ## 4. Level Up transaction (Phase D)
 
@@ -388,12 +459,28 @@ playwright.preview.config.js`) — both smoke gates are blocking per
   round-trip; backup bundling of snapshot-only external assets (portrait blob,
   spell-note texts once the source character is gone) is deferred to R4.
   Single-character export remains unchanged and excludes snapshots.
-- **R2 — Restore engine.** New `js/domain/characterSnapshots.js`: record builder
-  (shared with R1), migrate-through preparation, id regeneration + note-key map,
-  naming, `commitRestore` with staging/rollback. Tests: pure preparation (new ids,
-  kept ids, provenance, recursion strip, name collisions), migrate-through of a
-  v12-shaped payload, commit rollback on mutate failure, blob duplication and
-  missing-blob fail-soft, note-copy fail-soft, repeat restore of one snapshot.
+- **R2 — Restore engine. ✅ Shipped 2026-07-22 (owner-authorized).**
+  `js/domain/characterSnapshots.js` gained the non-UI engine:
+  `getCharacterSnapshotById` (resolution), `prepareRestoredCharacter` (pure
+  migrate-through preparation, new identity, spell-row regeneration + note-copy
+  map, provenance, §3.4 naming — as-built notes in §3.2/§3.4),
+  `resolveRestoredCharacterName`, `commitRestoredCharacter` (staged
+  portrait/note writes before the mutation, rollback, double-commit guard,
+  no default activation — as-built notes in §3.3), and
+  `restoreCharacterFromSnapshot` (the orchestrator for R3). Tests landed:
+  `tests/characterSnapshots.restore.test.js` (40 — validation failures,
+  v1/v12-payload migrate-through with byte-equal stored snapshots,
+  future-version pass-through, id/name collision handling incl. blank/long/
+  already-suffixed names, nested-id preservation vs. spell-row regeneration,
+  note copies at current values with independent editability, portrait
+  duplication + fail-soft, rollback on note/portrait/mutation failure with
+  clean retry, double-commit guards, activation opt-in, sanitize + vault
+  reload round trips, unpersisted-restore orphan unreachability). Verified
+  2026-07-22: typecheck clean, 1291/1291 unit, both smoke gates 61/61, and a
+  temporary preview-seam harness (deleted after the run) drove the real engine
+  against the production build — restored copies accepted end-to-end across
+  reload with independent note keys and no console errors. **R2 ships no UI:
+  nothing calls the engine in production yet.**
 - **R3 — Restore Character UI.** `index.html` overlay + menu item, new
   `js/pages/character/restoreCharacterDialog.js`, wiring in `characterPage.js`,
   additive `styles.css`. Tests: characterPage menu/action coverage (mirroring the
