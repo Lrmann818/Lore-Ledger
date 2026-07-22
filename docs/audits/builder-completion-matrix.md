@@ -108,8 +108,9 @@ harnesses was completed 2026-07-18; both smoke gates are 61/61 — see
 `docs/reference/session-handoff-2026-07-17.md`.
 
 **Restore Character / Edit-in-Builder retirement — specification ratified 2026-07-18
-(owner-directed); phase R1 shipped the same day; R2 shipped 2026-07-22; R3–R6
-still gated.** The owner
+(owner-directed); phase R1 shipped the same day; R2 shipped 2026-07-22; R3
+(restore-only Restore Character UI) shipped 2026-07-22; R4–R6 still gated, and
+snapshot deletion is deferred to a separately authorized future phase.** The owner
 ratified the product model: the Builder is for initial creation; the general Edit in
 Builder action will retire; a complete pre-Level-Up snapshot is saved transactionally
 with every successful Level Up commit; **Restore Character** restores any snapshot as

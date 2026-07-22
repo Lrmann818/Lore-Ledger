@@ -3,12 +3,15 @@
 _Status: **normative specification, ratified by owner decision 2026-07-18.
 Phase R1 (schema v13 + transactional pre-Level-Up snapshot capture) was
 owner-authorized and shipped 2026-07-18. Phase R2 (the non-UI restore engine)
-was owner-authorized and shipped 2026-07-22** — see the implementation notes in
-§2.3, §3.2, §3.3, §4.2, and §8. Owner decisions D1–D4 are ruled (audit doc §3).
-**R3–R6 remain gated on explicit owner authorization** per §9 and the binding
-[Working Order](../../AGENTS.md#current-working-order); no restore, deletion, or
-retirement UI exists yet — R1 creates and preserves snapshot history, and R2
-provides the domain engine the R3 UI will call._
+was owner-authorized and shipped 2026-07-22. Phase R3 (the user-facing Restore
+Character UI — restore-only) was owner-authorized and shipped 2026-07-22** — see
+the implementation notes in §2.3, §3.2, §3.3, §4.2, §5, §7, and §8. Owner
+decisions D1–D4 are ruled (audit doc §3). **Snapshot deletion is deferred to a
+separately authorized future phase — it is NOT part of R3 and is NOT assigned to
+R4/R5/R6.** **R4–R6 remain gated on explicit owner authorization** per §9 and
+the binding [Working Order](../../AGENTS.md#current-working-order): R1 creates and
+preserves snapshot history, R2 provides the domain engine, and R3 exposes restore
+(never delete) through an accessible, mobile-safe, persistence-confirming dialog._
 
 Read with [`AGENTS.md`](../../AGENTS.md),
 [`level-up-flow-spec.md`](./level-up-flow-spec.md),
@@ -29,14 +32,17 @@ interaction below is Lore Ledger's own.
    a selected one as a **separate playable character** with a new stable ID. It never
    overwrites or mutates the current character or the source character. The snapshot
    survives and may be restored repeatedly.
-3. Snapshots are retained per successful advancement — all of them — until the user
-   deletes one individually (or a future, separately designed retention feature).
-   Deleting a playable character does not delete its snapshots; deleting a snapshot
-   does not delete characters restored from it.
-4. Either playable version may later be deleted through the normal deletion flow.
-5. Restore is **not** destructive to current characters; its confirmation must say a
-   separate copy will be created and nothing existing will change. Snapshot deletion
-   **is** destructive and confirms accordingly.
+3. Snapshots are retained per successful advancement — all of them. No shipped path
+   deletes a snapshot: user-initiated per-snapshot deletion (and any automatic
+   retention/pruning) is deferred to a separately authorized future phase (§5).
+   Deleting a playable character does not delete its snapshots; a future snapshot
+   deletion would not delete characters restored from it.
+4. Either playable version may later be deleted through the normal character deletion
+   flow.
+5. Restore is **not** destructive to current characters; its confirmation says a
+   separate copy will be created and nothing existing will change. (Snapshot deletion,
+   when a future phase adds it, would be destructive and confirm accordingly — but it
+   is not part of R3, §5.)
 
 ## 2. Data model (Phase B)
 
@@ -371,11 +377,17 @@ transaction order below is the contract it implements.
   consumes a snapshot. No automatic pruning — a future retention feature is a
   separate, explicitly designed change (the record's `kind` vocabulary and stable ids
   are the hooks it would need).
-- **Snapshot deletion:** per-row control in the Restore dialog only. Confirmation
-  (destructive, via `uiConfirm`) identifies the snapshot fully — name, level, date —
-  and states: "Playable characters are not affected." Works keyboard-only and at
-  380px (the existing dialog system already satisfies both). Deleting a snapshot
-  whose source character is gone behaves identically.
+- **Snapshot deletion — DEFERRED (not part of R3).** Owner ruling 2026-07-22:
+  **R3 is restore-only.** The Restore dialog ships **no** delete button, delete
+  confirmation, retention control, automatic cleanup, or "also delete snapshots"
+  option. User-initiated per-snapshot deletion is deferred to a **separately
+  authorized future phase** and is **NOT** assigned to R4, R5, or R6. When that
+  phase is authorized, its design intent (retained here for provenance only) is a
+  per-row control in the Restore dialog with a destructive `uiConfirm` that
+  identifies the snapshot fully — name, level, date — and states "Playable
+  characters are not affected," keyboard-operable and 380px-safe, behaving
+  identically when the source character is gone. Until then, snapshots are only
+  created (R1), preserved, and restored (R3); nothing in the app deletes one.
 - **Source-character deletion:** snapshots **remain by default** (owner requirement:
   independently useful). The existing delete confirmation gains one informational
   line when snapshots exist: "Saved Level Up snapshots are kept — you can still
@@ -416,11 +428,16 @@ transaction order below is the contract it implements.
   bump and per-character snapshot filtering). Documented here as the reason required
   by the owner prompt; revisit only with an explicit format v2 decision.
 
-## 7. UI & accessibility (Phase F)
+## 7. UI & accessibility (Phase F) — **shipped as R3 (restore-only), 2026-07-22**
 
 All of this uses Lore Ledger's existing overlay/dialog system (`uiConfirm`/`uiAlert`
 stack above feature overlays, the `customContentManager`/`levelUpWizard` overlay
 pattern) — no new modal framework (hard ban), no reference-app visual copying.
+**R3 is restore-only: no delete control ships (§5).** The controller is
+`js/pages/character/restoreCharacterDialog.js` (`initRestoreCharacterDialog`), wired
+in `characterPage.js`; `groupSnapshotsForDisplay` is its pure grouping/ordering
+helper. All restoration logic stays in the R2 engine — the dialog owns only
+presentation, confirmation, the persistence lock, and finalization.
 
 - **Menu entry:** `Restore Character` (`data-char-action="restore-character"`,
   `#charActionRestoreBtn`) in the character action menu directly after Level Up.
@@ -428,13 +445,14 @@ pattern) — no new modal framework (hard ban), no reference-app visual copying.
   feature better than a silent disabled item.
 - **Dialog:** `#restoreCharacterOverlay` / `#restoreCharacterPanel`,
   `role="dialog" aria-modal="true"` labeled by the title "Restore Character".
-  Focus-trapped (Tab/Shift-Tab wrap), Escape closes (respecting open dropdowns, the
-  wizard idiom), overlay-click closes, focus returns to the invoking menu button on
-  close. Panel scrolls internally; max-width narrower than the builder wizard;
+  Focus-trapped (Tab/Shift-Tab wrap), defers to a stacked `#uiDialogOverlay`
+  confirm/alert while one is open, overlay-click and Escape close **only before a
+  restore has committed**, focus returns to the invoking menu button on an ordinary
+  cancel. Panel scrolls internally; max-width narrower than the builder wizard;
   single-column at ~380px with no horizontal scroll.
 - **Empty state:** "No snapshots yet. Lore Ledger automatically saves a snapshot of a
   character right before every Level Up. Level a character up and its pre-Level-Up
-  state will appear here." + Close.
+  state will appear here." (static markup in `index.html`).
 - **Grouping (decision): grouped by source character**, not one flat chronological
   list. The reference app's flat list repeats "Yaan'wae, Sorcerer 3" ambiguously;
   grouping scales with many characters and costs one group-by plus headers.
@@ -442,25 +460,45 @@ pattern) — no new modal framework (hard ban), no reference-app visual copying.
   longer resolves). Groups ordered by their newest snapshot, newest first; rows
   within a group by `createdAt` descending.
 - **Row content:** primary line `Level <fromLevel> — <classSummary>`; secondary line
-  `<localized date & time> · Before Level Up to <toLevel>`. Long names and multiclass
-  summaries wrap (no ellipsis-only truncation at 380px); the full text is the
-  accessible name.
-- **Controls per row:** a Restore button (the row's primary action) and a separate
-  delete icon button, both real `<button type="button">` elements with explicit
-  `aria-label`s: "Restore <name>, level <N>, <date>" / "Delete snapshot: <name>,
-  level <N>, <date>". Standard Tab order; no custom arrow-key grid required.
+  a localized date & time plus `Before Level Up to <toLevel>`. Long names and
+  multiclass summaries wrap (no ellipsis-only truncation at 380px); the full text is
+  the accessible name.
+- **Control per row:** a single real `Restore` `<button type="button">` with an
+  explicit `aria-label` identifying the snapshot: "Restore <name>, level <N>,
+  <date>". Standard Tab order; no custom arrow-key grid required. (No delete
+  control — R3 is restore-only, §5.)
 - **Restore confirmation** (`uiConfirm`, non-destructive tone, okText "Restore"):
-  "Restore \"<name>\" as it was at Level <N>?" body: "A separate new character will
-  be added to this campaign. No existing character will be changed. The snapshot
-  stays available for future restores."
-- **Snapshot delete confirmation** (`uiConfirm`, okText "Delete"): "Delete this
-  snapshot of \"<name>\" (Level <N>, <date>)? This cannot be undone." body:
-  "Playable characters are not affected."
-- **Success:** dialog closes; the restored copy is appended to the normal character
-  list, becomes the **active/selected character** (the import precedent), and
-  `#statusText` shows `Restored "<new name>"`.
-- **Errors:** `uiAlert` with the failure reason; state rolled back per §3.3; the
-  dialog stays open so the user can retry.
+  title "Restore \"<name>\" as it was at Level <N>?" body: "A separate playable
+  character will be created. Existing characters will not be changed. The snapshot
+  will remain available for future restores." Canceling has no side effects.
+- **Submission guards:** the snapshot is re-resolved by id at submission time (never
+  a stale row object); an active-campaign change since open aborts submission with a
+  clear alert; an active-character change never redirects the restore (it is
+  snapshot-addressed). One click equals one restore attempt — all Restore buttons
+  disable while confirming/restoring/saving, so repeated clicks cannot start a second
+  engine call.
+- **Persistence-confirmation contract (owner-authorized 2026-07-22).** A resolved
+  `restoreCharacterFromSnapshot()` means the restored character was committed **in
+  memory** and a save was requested; it does not prove durable persistence. After the
+  engine resolves, R3 calls `SaveManager.flush()` to confirm the save. A `false`
+  result means "not confirmed" — a real storage error **or** a save already in
+  progress; R3 never claims data loss. While unconfirmed, the dialog stays **locked
+  open** in a pending-save state: it shows a clear message and a `Retry Save` action,
+  blocks closing (close button, Cancel, Escape, overlay click) and any further
+  restore, keeps the single committed pending restore intact, and **never re-invokes
+  the engine** — `Retry Save` retries only `SaveManager.flush()`. Only once the save
+  is confirmed does R3 finalize, exactly once and idempotently: close the dialog,
+  call the active-character notification seam **once** with the captured previous id
+  and the restored id, rerender into the now-active restored character, then — after
+  the rerender, so it stays visible — set `#statusText` to `Restored "<new name>"`.
+  Finalization suppresses focus restore (the invoking menu button is replaced by the
+  rerender; do not focus a removed node).
+- **Errors before commit:** validation/migration/note-storage/portrait-storage/
+  mutation failures surface through `uiAlert` with the failure reason (no raw stack
+  traces), leave existing characters and snapshots unchanged (engine guarantee, §3.3),
+  keep the dialog open, and re-enable a fresh attempt. The ratified note-error
+  contract (§3.3) holds: a **missing** spell note fails soft; an actual note read/write
+  **storage error** aborts the restore with no restored character created.
 - **Desktop:** same dialog, wider rows; no separate layout system.
 
 ## 8. Implementation phases and required tests
@@ -530,13 +568,38 @@ playwright.preview.config.js`) — both smoke gates are blocking per
   clone is unavailable, the commit cleans up staged records and aborts before
   mutating (2 tests added, suite now 51). See the §3.2/§3.3 as-built notes.
   **R2 ships no UI: nothing calls the engine in production yet.**
-- **R3 — Restore Character UI.** `index.html` overlay + menu item, new
-  `js/pages/character/restoreCharacterDialog.js`, wiring in `characterPage.js`,
-  additive `styles.css`. Tests: characterPage menu/action coverage (mirroring the
-  Level Up cases), dialog list/grouping/empty-state, confirmations, deletion;
-  new `tests/smoke/restoreCharacter.smoke.js` (create → level up → restore → both
-  playable copies present and independent → delete snapshot), 380px + keyboard-trap
-  checks; both smoke gates.
+- **R3 — Restore Character UI (restore-only). ✅ Shipped 2026-07-22 (owner-authorized).**
+  `index.html` (menu item directly after Level Up + the `#restoreCharacterOverlay`
+  dialog + static empty-state copy), new `js/pages/character/restoreCharacterDialog.js`
+  (`initRestoreCharacterDialog` + the pure `groupSnapshotsForDisplay`), wiring in
+  `characterPage.js` (menu action, bound engine `restore`, `flushSave`, and the
+  finalize seam), the canonical `migrateState` threaded through `trackerPage.js` and
+  `app.js` (plus `deleteText`), and additive `styles.css`. The dialog implements the
+  phase model `idle → confirming → restoring → saving → pending-save → completed`,
+  the persistence-confirmation / `Retry Save` lock (§7), submission-time
+  campaign/snapshot re-checks, and one-time idempotent finalization. **Restore-only —
+  no snapshot deletion UI (§5).** Tests landed: `tests/restoreCharacterDialog.test.js`
+  (25 — grouping/ordering, empty-state copy + `index.html` markup pin, list rendering,
+  deleted-source labeling, long-label wrapping without altering stored data,
+  confirmation copy, cancel-no-mutation, engine receives `{ snapshotId, activate:true }`,
+  active-character-change does not redirect, active-campaign-change prevents submission,
+  vanished-snapshot refresh, one-engine-call for repeated clicks, pre-commit error keeps
+  the dialog open, confirmed-save finalize, unconfirmed-save pending + `Retry Save`
+  retries only flush + exactly one restored character, close/Escape/overlay/further-restore
+  blocked after commit, no snapshot consumed, cancel focus restoration, Tab trap, and
+  post-destroy inertness) and `tests/restoreCharacterWiring.test.js` (2 — the real
+  character page supplies the full engine dep set incl. `migrateState`/`state`/
+  `mutateState`/blob+text seams + `activate:true`, notifies once and shows
+  `Restored "<name>"` on a confirmed save, and does neither on an unconfirmed save).
+  The menu-order pin in `tests/characterPage.test.js` gained the `restore-character`
+  entry. New `tests/smoke/restoreCharacter.smoke.js` (create Fighter 1 → level to
+  Fighter 2 → restore the retained Level 1 snapshot → source stays Fighter 2, restored
+  is Level 1 with a distinct id, snapshot retained, survives reload, second restore
+  yields a `(2)` copy; keyboard/focus + Escape-before-submission; 380px no-overflow).
+  Verified 2026-07-22: typecheck clean, 1329/1329 unit, `npm run build` clean, both
+  smoke gates 64/64 (dev + production-preview). **No snapshot deletion, backup-collector,
+  or Edit-in-Builder-retirement work shipped — those remain R4/R5 (unauthorized) and,
+  for deletion, a separately authorized future phase (§5).**
 - **R4 — Backup asset completeness.** `backup.js` collectors + remap walk snapshot
   payloads. Tests: snapshot portrait/note export, import-cleanup keep-alive,
   campaign-remap of snapshot note keys.
