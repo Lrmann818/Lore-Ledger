@@ -177,8 +177,12 @@ the canonical generators). Implementation notes:
   source); regenerated spell-row ids are collision-checked against every live
   row id in the campaign **and every row id referenced by a retained snapshot
   payload** (2026-07-22 correction: a deleted source's snapshot may be the
-  only remaining owner of a note key), so a staged note copy can never
-  overwrite — nor its rollback delete — a note the restore does not own.
+  only remaining owner of a note key), so a staged note copy does not
+  overwrite — nor its rollback delete — a note the restore does not own. The
+  only residual exposure is a raw id-generator collision (two independently
+  generated `spell_…` ids happening to match), the same low-probability class
+  the app already tolerates for every generated id; deterministic application
+  flows cannot introduce a staged id into another owner's storage.
   `restoreCharacterFromSnapshot` supplies the complete retained-snapshot
   collection to preparation as this reservation context. Both allocators
   retry a bounded number of times, then fail the preparation.
@@ -213,13 +217,22 @@ external prose rides along at restore time.
 deliberate strengthenings over the outline above (the header's "staging before
 state mutation" principle applied uniformly):
 
-- **A validated rollback clone precedes every external write** (2026-07-22
-  correction). The commit clones and validates `state.characters` before the
-  portrait or any note is staged — not in outline step 2's position after
-  portrait staging. If the collection cannot be cloned into a valid rollback
-  snapshot (cyclic or malformed), the restore aborts immediately with nothing
-  staged and nothing mutated, so a later rollback can never replace
-  `state.characters` with `null` or another invalid value.
+- **Two rollback clones: an early capability gate, then a fresh pre-mutation
+  clone** (2026-07-22 corrections). The commit first clones and validates
+  `state.characters` **before** the portrait or any note is staged — not in
+  outline step 2's position after portrait staging. If the collection cannot
+  be cloned into a valid plain collection (cyclic or malformed), the restore
+  aborts immediately with nothing staged and nothing mutated, so
+  `state.characters` is never replaced with `null` or another invalid value.
+  That early clone is only a **capability gate** and the baseline for the
+  row-id recheck below; **rollback itself uses a second clone taken fresh
+  immediately before the mutation, with no `await` between the fresh clone and
+  the synchronous `mutateState()`.** This closes a freshness window: a
+  legitimate `state.characters` mutation that lands during the awaited
+  portrait/note staging is preserved on rollback rather than erased by the
+  stale commit-entry clone. If the fresh clone is unavailable (the collection
+  turned cyclic/malformed during staging), the commit deletes the staged
+  records and aborts before mutating — existing state stays untouched.
 - **Staged spell-row ids are re-checked immediately before staging**
   (2026-07-22 correction). The staged new row ids are compared against the
   current live entries **and retained snapshot payloads**; if state changed
@@ -232,9 +245,11 @@ state mutation" principle applied uniformly):
   restore with warned-and-missing notes" to "a note-copy failure aborts the
   restore with no restored character at all" (staged records are deleted on
   abort). A **missing** source note still fails soft (the row simply has no
-  note); only read/write **failures** abort. Portrait semantics are unchanged:
-  missing source blob → `null` and proceed; a blob read/write failure aborts
-  before anything else is staged.
+  note); only read/write **failures** abort. This note-error contract — a
+  missing note record fails soft, an actual note read/write **storage error**
+  aborts the entire restore — is **owner-ratified (2026-07-22)**, not merely
+  as-built. Portrait semantics are unchanged: missing source blob → `null` and
+  proceed; a blob read/write failure aborts before anything else is staged.
 - **The domain commit does not activate the restored character.** `activate`
   defaults to false so a domain-only restore never silently changes
   `characters.activeId`; the R3 UI passes `activate: true` to get the §7
@@ -486,7 +501,7 @@ playwright.preview.config.js`) — both smoke gates are blocking per
   portrait/note writes before the mutation, rollback, double-commit guard,
   no default activation — as-built notes in §3.3), and
   `restoreCharacterFromSnapshot` (the orchestrator for R3). Tests landed:
-  `tests/characterSnapshots.restore.test.js` (40, now 49 — validation failures,
+  `tests/characterSnapshots.restore.test.js` (40, then 49, now 51 — validation failures,
   v1/v12-payload migrate-through with byte-equal stored snapshots,
   future-version pass-through, id/name collision handling incl. blank/long/
   already-suffixed names, nested-id preservation vs. spell-row regeneration,
@@ -503,12 +518,18 @@ playwright.preview.config.js`) — both smoke gates are blocking per
   snapshot may be the only remaining owner of a note key) with the
   retained-snapshot context supplied by the orchestrator and a pre-staging
   commit re-check that aborts on prepare-to-commit collisions before any
-  external write; the rollback clone of the characters collection is
-  validated and established before any portrait/note write, aborting with
-  nothing staged and nothing mutated when it cannot be — `state.characters`
-  is never replaced with an invalid value (see the §3.2/§3.3 as-built
-  notes; 9 tests added, suite now 49). **R2 ships no UI:
-  nothing calls the engine in production yet.**
+  external write; an early capability clone of the characters collection is
+  validated before any portrait/note write, aborting with nothing staged and
+  nothing mutated when it cannot be — `state.characters` is never replaced
+  with an invalid value (9 tests added, suite 49). A **follow-up correction
+  the same day (owner-authorized)** closed a rollback-freshness window:
+  rollback no longer uses that early commit-entry clone but a **second clone
+  taken fresh immediately before the mutation** (no `await` in between), so a
+  legitimate `state.characters` mutation landing during the awaited staging is
+  preserved rather than erased on a restore-mutation failure; if the fresh
+  clone is unavailable, the commit cleans up staged records and aborts before
+  mutating (2 tests added, suite now 51). See the §3.2/§3.3 as-built notes.
+  **R2 ships no UI: nothing calls the engine in production yet.**
 - **R3 — Restore Character UI.** `index.html` overlay + menu item, new
   `js/pages/character/restoreCharacterDialog.js`, wiring in `characterPage.js`,
   additive `styles.css`. Tests: characterPage menu/action coverage (mirroring the

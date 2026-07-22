@@ -756,6 +756,83 @@ describe("commitRestoredCharacter", () => {
     expect("characters" in bareState).toBe(false);
   });
 
+  it("preserves a legitimate mid-staging character mutation when the restore mutation later fails", async () => {
+    const { state, snapshot } = makeRestoreState();
+    const stores = makeStores();
+    const snapshotsBefore = JSON.stringify(state.characters.snapshots);
+    const staged = prepare(state, snapshot);
+
+    let injected = false;
+    const { deps, counters } = makeCommitDeps(state, stores, {
+      // A legitimate rename of the source lands during the awaited note
+      // staging — after the commit-entry clone, before the mutation.
+      getText: async (id) => {
+        if (!injected) {
+          injected = true;
+          state.characters.entries[0].name = "Gail the Renamed";
+        }
+        return stores.textStore.get(id) ?? "";
+      },
+      // The restore's own mutation then fails.
+      mutateState: () => false
+    });
+
+    await expect(commitRestoredCharacter(staged, deps)).rejects.toThrow(/Failed to add the restored character/);
+
+    // The intervening rename survives: rollback used the fresh pre-mutation
+    // clone, not the stale commit-entry clone, so nothing legitimate is lost.
+    expect(state.characters.entries).toHaveLength(1);
+    expect(state.characters.entries[0].name).toBe("Gail the Renamed");
+    // Staged portrait + note records were cleaned up; sources untouched.
+    expect(stores.textStore.size).toBe(2);
+    expect([...stores.blobStore.keys()]).toEqual(["blob_src_portrait"]);
+    // No restored copy was appended and the snapshot is unchanged.
+    expect(JSON.stringify(state.characters.snapshots)).toBe(snapshotsBefore);
+    expect(counters.markDirty).toBe(0);
+
+    // Retry from a fresh preparation succeeds against the renamed source.
+    const retry = prepare(state, snapshot);
+    const result = await commitRestoredCharacter(retry, makeCommitDeps(state, stores).deps);
+    expect(result.name).toBe("Gail — Restored Level 2");
+    expect(state.characters.entries).toHaveLength(2);
+    expect(state.characters.entries[0].name).toBe("Gail the Renamed");
+  });
+
+  it("aborts before mutation and cleans up staged records when the fresh pre-mutation clone is unavailable", async () => {
+    const { state, snapshot } = makeRestoreState();
+    const stores = makeStores();
+    const staged = prepare(state, snapshot);
+
+    let injected = false;
+    const { deps, counters } = makeCommitDeps(state, stores, {
+      // The collection turns cyclic during the awaited note staging, so the
+      // fresh pre-mutation clone (step 5) cannot be taken.
+      getText: async (id) => {
+        const value = stores.textStore.get(id) ?? "";
+        if (!injected) {
+          injected = true;
+          state.characters.cycle = state.characters;
+        }
+        return value;
+      }
+    });
+
+    await expect(commitRestoredCharacter(staged, deps)).rejects.toThrow(/Failed to prepare rollback state/);
+    // No restored entry was appended and existing state is untouched.
+    expect(state.characters.entries).toHaveLength(1);
+    expect(state.characters.cycle).toBe(state.characters);
+    expect(counters.markDirty).toBe(0);
+    // Staged portrait + note records were cleaned up; sources untouched.
+    expect(stores.textStore.size).toBe(2);
+    expect([...stores.blobStore.keys()]).toEqual(["blob_src_portrait"]);
+
+    // Once the cycle is gone, a fresh preparation commits cleanly.
+    delete state.characters.cycle;
+    const result = await commitRestoredCharacter(prepare(state, snapshot), makeCommitDeps(state, stores).deps);
+    expect(result.name).toBe("Gail — Restored Level 2");
+    expect(state.characters.entries).toHaveLength(2);
+  });
+
   it("rolls back cleanly when the state mutation reports failure", async () => {
     const { state, snapshot } = makeRestoreState();
     const stores = makeStores();

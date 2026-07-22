@@ -600,12 +600,12 @@ function snapshotCharactersCollection(stateLike) {
  * partially-restored playable character can exist.
  *
  * Order and guarantees:
- * 1. Establish rollback state before anything external is written: a plain
- *    validated clone of the characters collection. If the collection cannot
- *    be cloned into a valid rollback snapshot (cyclic or malformed), the
- *    restore aborts immediately — nothing staged, nothing mutated — so a
- *    later rollback can never replace `state.characters` with null or
- *    another invalid value.
+ * 1. Validate rollback capability before anything external is written: prove
+ *    the characters collection can be cloned into a valid plain collection.
+ *    If it cannot (cyclic or malformed), abort immediately — nothing staged,
+ *    nothing mutated. This early clone is only a capability gate and a
+ *    baseline for the step-2 recheck; the clone rollback actually uses is
+ *    taken fresh in step 5.
  * 2. Re-check the staged spell-row ids against the current live entries and
  *    retained snapshot payloads. If state changed between preparation and
  *    commit and a collision now exists, abort before any external write or
@@ -618,13 +618,20 @@ function snapshotCharactersCollection(stateLike) {
  *    the new key. Missing notes are skipped (fail-soft). Any copy failure
  *    deletes the already-staged records and aborts — no restored character
  *    exists after a note-copy failure.
- * 5. Mutate state: append exactly one entry (double-commit guarded by the
- *    staged `committed` latch and an entry-id check inside the mutation) and
- *    re-resolve the restored name against the live entries. `activate`
- *    defaults to false — a domain-only restore never silently changes the
- *    active character; the R3 UI opts in per spec §7. On mutation failure
- *    the characters collection is restored from the step-1 rollback clone
- *    and all staged external records are deleted.
+ * 5. Take a FRESH rollback clone of the current characters collection
+ *    immediately before the synchronous mutation — with no `await` between
+ *    the clone and `mutateState()` — so a legitimate `state.characters`
+ *    mutation that landed during the awaited staging above is preserved on
+ *    rollback rather than erased by the stale commit-entry clone. If this
+ *    fresh clone is unavailable (the collection turned cyclic/malformed
+ *    during staging), delete the staged records and abort before mutating.
+ *    Otherwise mutate state: append exactly one entry (double-commit guarded
+ *    by the staged `committed` latch and an entry-id check inside the
+ *    mutation) and re-resolve the restored name against the live entries.
+ *    `activate` defaults to false — a domain-only restore never silently
+ *    changes the active character; the R3 UI opts in per spec §7. On mutation
+ *    failure the characters collection is restored from this fresh clone and
+ *    all staged external records are deleted.
  * 6. `SaveManager.markDirty()` queues the campaign persist. Persistence
  *    failure afterwards follows the SaveManager ERROR contract (one atomic
  *    vault write — never partial); staged IndexedDB records are then
@@ -669,12 +676,13 @@ export async function commitRestoredCharacter(staged, deps) {
   const character = /** @type {CharacterEntry & Record<string, unknown>} */ (staged.character);
   const noteCopies = Array.isArray(staged.noteCopies) ? staged.noteCopies : [];
 
-  // 1. Establish rollback state before any external write. If the characters
-  // collection cannot be cloned into a valid rollback snapshot, abort now —
-  // nothing staged, nothing mutated — so a later rollback can never replace
-  // `state.characters` with null or another invalid value.
-  const previousCharacters = snapshotCharactersCollection(state);
-  if (!isPlainRecord(previousCharacters)) {
+  // 1. Validate rollback capability before any external write. If the
+  // characters collection cannot be cloned into a valid plain collection,
+  // abort now — nothing staged, nothing mutated. This is only a capability
+  // gate and the baseline for the step-2 recheck; the clone rollback uses is
+  // taken fresh immediately before the mutation (step 5).
+  const charactersAtEntry = snapshotCharactersCollection(state);
+  if (!isPlainRecord(charactersAtEntry)) {
     throw new Error("Failed to prepare rollback state for the restore.");
   }
 
@@ -684,9 +692,9 @@ export async function commitRestoredCharacter(staged, deps) {
   // and its rollback delete — a note the restore does not own.
   /** @type {Set<string>} */
   const liveRowIds = new Set();
-  const liveEntries = Array.isArray(previousCharacters.entries) ? previousCharacters.entries : [];
+  const liveEntries = Array.isArray(charactersAtEntry.entries) ? charactersAtEntry.entries : [];
   for (const entry of liveEntries) collectSpellRowIds(entry, liveRowIds);
-  collectSnapshotSpellRowIds(previousCharacters.snapshots, liveRowIds);
+  collectSnapshotSpellRowIds(charactersAtEntry.snapshots, liveRowIds);
   /** @type {Set<string>} */
   const stagedRowIds = new Set();
   collectSpellRowIds(character, stagedRowIds);
@@ -763,9 +771,19 @@ export async function commitRestoredCharacter(staged, deps) {
     throw new Error("Failed to copy spell notes.", { cause: err });
   }
 
-  // 5. Commit the entry (single state mutation, rollback to the step-1
-  // clone on failure).
+  // 5. Commit the entry. Take a FRESH rollback clone of the current
+  // characters collection now, immediately before the synchronous mutation —
+  // there is no `await` between this clone and `mutateState()` — so any
+  // legitimate `state.characters` mutation that landed during the awaited
+  // staging above is preserved on rollback instead of being erased by the
+  // stale commit-entry clone. If the collection turned uncloneable during
+  // staging, delete the staged records and abort before mutating.
   character.imgBlobId = stagedBlobId;
+  const rollbackCharacters = snapshotCharactersCollection(state);
+  if (!isPlainRecord(rollbackCharacters)) {
+    await cleanupStagedRecords();
+    throw new Error("Failed to prepare rollback state for the restore.");
+  }
   try {
     const result = mutateState((draft) => {
       if (!isPlainRecord(draft)) throw new Error("Character collection is unavailable.");
@@ -795,7 +813,7 @@ export async function commitRestoredCharacter(staged, deps) {
   } catch (err) {
     try {
       if (isPlainRecord(state)) {
-        /** @type {Record<string, unknown>} */ (state).characters = previousCharacters;
+        /** @type {Record<string, unknown>} */ (state).characters = rollbackCharacters;
       }
     } catch (restoreErr) {
       console.warn("commitRestoredCharacter: failed to restore character state after commit failure.", restoreErr);
