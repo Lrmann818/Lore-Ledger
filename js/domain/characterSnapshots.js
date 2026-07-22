@@ -11,6 +11,7 @@
 import { getClassLevelTotals, normalizeBuildLevels } from "./rules/progression.js";
 import { getContentByKind } from "./rules/registry.js";
 import { makeDefaultCharacterEntry } from "./characterHelpers.js";
+import { textKey_spellNotes } from "../storage/texts-idb.js";
 
 /** @typedef {import("../state.js").CharacterEntry} CharacterEntry */
 /** @typedef {import("../state.js").CharacterSnapshot} CharacterSnapshot */
@@ -526,4 +527,253 @@ export function prepareRestoredCharacter(options) {
       restoredAt
     }
   };
+}
+
+/**
+ * @typedef {{
+ *   state: unknown,
+ *   SaveManager: { markDirty: () => unknown },
+ *   mutateState: (mutator: (state: any) => unknown, options?: { queueSave?: boolean }) => unknown,
+ *   getBlob: (id: string) => Promise<Blob | null>,
+ *   putBlob: (blob: Blob) => Promise<string>,
+ *   deleteBlob: (id: string) => Promise<void>,
+ *   getText: (id: string) => Promise<string>,
+ *   putText: (text: string, id: string) => Promise<unknown>,
+ *   deleteText: (id: string) => Promise<void>,
+ *   activate?: boolean
+ * }} CommitRestoredCharacterDeps
+ */
+
+/**
+ * @param {unknown} stateLike
+ * @returns {string}
+ */
+function getActiveCampaignId(stateLike) {
+  if (!isPlainRecord(stateLike) || !isPlainRecord(stateLike.appShell)) return "";
+  return cleanString(stateLike.appShell.activeCampaignId);
+}
+
+/**
+ * Plain deep clone of the characters collection for rollback (the
+ * commitImport precedent — JSON-safe by construction).
+ * @param {unknown} stateLike
+ * @returns {unknown}
+ */
+function snapshotCharactersCollection(stateLike) {
+  if (!isPlainRecord(stateLike)) return null;
+  try {
+    return JSON.parse(JSON.stringify(stateLike.characters ?? null));
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Commits a staged restore, mirroring the `commitImport` protocol
+ * (characterPortability.js): every external write is staged **before** the
+ * state mutation, and any failure rolls the staged records back so no
+ * partially-restored playable character can exist.
+ *
+ * Order and guarantees:
+ * 1. Stage the portrait duplicate (`getBlob` → `putBlob`). A missing source
+ *    blob fails soft (restored `imgBlobId` stays null); a read/write failure
+ *    aborts before anything else is written.
+ * 2. Stage the spell-note copies at their **current** values (spec §3.3):
+ *    for each old→new row id with a non-empty stored note, `putText` under
+ *    the new key. Missing notes are skipped (fail-soft). Any copy failure
+ *    deletes the already-staged records and aborts — no restored character
+ *    exists after a note-copy failure.
+ * 3. Mutate state: append exactly one entry (double-commit guarded by the
+ *    staged `committed` latch and an entry-id check inside the mutation) and
+ *    re-resolve the restored name against the live entries. `activate`
+ *    defaults to false — a domain-only restore never silently changes the
+ *    active character; the R3 UI opts in per spec §7. On mutation failure
+ *    the characters collection is restored from a pre-mutation clone and all
+ *    staged external records are deleted.
+ * 4. `SaveManager.markDirty()` queues the campaign persist. Persistence
+ *    failure afterwards follows the SaveManager ERROR contract (one atomic
+ *    vault write — never partial); staged IndexedDB records are then
+ *    referenced only by the unpersisted in-memory entry, so a reload leaves
+ *    them unreachable orphans, never shared or dangling references.
+ *
+ * @param {StagedCharacterRestore} staged
+ * @param {CommitRestoredCharacterDeps} deps
+ * @returns {Promise<{ characterId: string, name: string }>}
+ */
+export async function commitRestoredCharacter(staged, deps) {
+  if (!isPlainRecord(staged) || !isPlainRecord(staged.character)) {
+    throw new Error("commitRestoredCharacter: staged restore is required.");
+  }
+  if (staged.committed) {
+    throw new Error("This restore has already been committed.");
+  }
+  const {
+    state,
+    SaveManager,
+    mutateState,
+    getBlob,
+    putBlob,
+    deleteBlob,
+    getText,
+    putText,
+    deleteText,
+    activate = false
+  } = deps || {};
+  if (typeof SaveManager?.markDirty !== "function") throw new Error("commitRestoredCharacter: SaveManager.markDirty is required.");
+  if (typeof mutateState !== "function") throw new Error("commitRestoredCharacter: mutateState is required.");
+  if (typeof getBlob !== "function") throw new Error("commitRestoredCharacter: getBlob is required.");
+  if (typeof putBlob !== "function") throw new Error("commitRestoredCharacter: putBlob is required.");
+  if (typeof deleteBlob !== "function") throw new Error("commitRestoredCharacter: deleteBlob is required.");
+  if (typeof getText !== "function") throw new Error("commitRestoredCharacter: getText is required.");
+  if (typeof putText !== "function") throw new Error("commitRestoredCharacter: putText is required.");
+  if (typeof deleteText !== "function") throw new Error("commitRestoredCharacter: deleteText is required.");
+
+  const campaignId = getActiveCampaignId(state);
+  if (!campaignId) throw new Error("No active campaign.");
+
+  const character = /** @type {CharacterEntry & Record<string, unknown>} */ (staged.character);
+  const noteCopies = Array.isArray(staged.noteCopies) ? staged.noteCopies : [];
+
+  /** @type {string | null} */
+  let stagedBlobId = null;
+  /** @type {string[]} */
+  const stagedTextKeys = [];
+  const cleanupStagedRecords = async () => {
+    for (const key of stagedTextKeys) {
+      try {
+        await deleteText(key);
+      } catch (err) {
+        console.warn("commitRestoredCharacter: failed to clean up staged spell note.", err);
+      }
+    }
+    if (stagedBlobId) {
+      try {
+        await deleteBlob(stagedBlobId);
+      } catch (err) {
+        console.warn("commitRestoredCharacter: failed to clean up staged portrait blob.", err);
+      }
+    }
+  };
+
+  // 1. Stage the portrait duplicate.
+  const sourceBlobId = isPlainRecord(staged.portraitCopy)
+    ? cleanString(staged.portraitCopy.sourceBlobId)
+    : "";
+  if (sourceBlobId) {
+    /** @type {Blob | null} */
+    let sourceBlob = null;
+    try {
+      sourceBlob = await getBlob(sourceBlobId);
+    } catch (err) {
+      throw new Error("Failed to read the source portrait.", { cause: err });
+    }
+    if (sourceBlob) {
+      try {
+        stagedBlobId = await putBlob(sourceBlob);
+      } catch (err) {
+        throw new Error("Failed to copy the portrait.", { cause: err });
+      }
+    }
+    // Missing source blob: fail soft — the restored character keeps a null
+    // portrait reference and the restore proceeds (spec §3.1).
+  }
+
+  // 2. Stage the spell-note copies at their current values.
+  try {
+    for (const copy of noteCopies) {
+      if (!isPlainRecord(copy)) continue;
+      const oldRowId = cleanString(copy.oldRowId);
+      const newRowId = cleanString(copy.newRowId);
+      if (!oldRowId || !newRowId) continue;
+      const noteText = await getText(textKey_spellNotes(campaignId, oldRowId));
+      if (typeof noteText !== "string" || noteText === "") continue;
+      const newKey = textKey_spellNotes(campaignId, newRowId);
+      await putText(noteText, newKey);
+      stagedTextKeys.push(newKey);
+    }
+  } catch (err) {
+    await cleanupStagedRecords();
+    throw new Error("Failed to copy spell notes.", { cause: err });
+  }
+
+  // 3. Commit the entry (single state mutation, rollback on failure).
+  character.imgBlobId = stagedBlobId;
+  const previousCharacters = snapshotCharactersCollection(state);
+  try {
+    const result = mutateState((draft) => {
+      if (!isPlainRecord(draft)) throw new Error("Character collection is unavailable.");
+      if (!isPlainRecord(draft.characters)) {
+        draft.characters = { activeId: null, entries: [], snapshots: [] };
+      }
+      const characters = /** @type {{ activeId: string | null, entries?: unknown, snapshots?: unknown }} */ (draft.characters);
+      if (!Array.isArray(characters.entries)) characters.entries = [];
+      const entries = /** @type {CharacterEntry[]} */ (characters.entries);
+      if (entries.some((entry) => isPlainRecord(entry) && entry.id === character.id)) {
+        throw new Error("This restore has already been committed.");
+      }
+      // Re-resolve the name against the live entries so a commit that lands
+      // after other changes keeps collision-safe naming.
+      const nameBase = cleanString(staged.nameBase) || cleanString(character.name);
+      character.name = resolveRestoredCharacterName(
+        nameBase,
+        entries.map((entry) => (isPlainRecord(entry) ? entry.name : ""))
+      );
+      entries.push(character);
+      if (activate) characters.activeId = character.id;
+      return true;
+    }, { queueSave: false });
+    if (result === false) throw new Error("Failed to add the restored character.");
+    staged.committed = true;
+    SaveManager.markDirty();
+  } catch (err) {
+    try {
+      if (isPlainRecord(state)) {
+        /** @type {Record<string, unknown>} */ (state).characters = previousCharacters;
+      }
+    } catch (restoreErr) {
+      console.warn("commitRestoredCharacter: failed to restore character state after commit failure.", restoreErr);
+    }
+    await cleanupStagedRecords();
+    throw err;
+  }
+
+  return { characterId: character.id, name: character.name };
+}
+
+/**
+ * Convenience orchestrator for a full restore: resolve the snapshot from the
+ * live state, prepare the restored copy, and commit it. This is the seam the
+ * R3 UI is expected to call.
+ *
+ * @param {{
+ *   snapshotId: string,
+ *   migrateState: (raw: unknown) => import("../state.js").State,
+ *   createCharacterId?: () => string,
+ *   createRowId?: () => string,
+ *   now?: () => string
+ * } & CommitRestoredCharacterDeps} options
+ * @returns {Promise<{ characterId: string, name: string }>}
+ */
+export async function restoreCharacterFromSnapshot(options) {
+  const {
+    snapshotId,
+    migrateState,
+    createCharacterId,
+    createRowId,
+    now,
+    ...commitDeps
+  } = /** @type {typeof options} */ (options || {});
+  const stateLike = isPlainRecord(commitDeps.state) ? commitDeps.state : null;
+  const collection = stateLike && isPlainRecord(stateLike.characters) ? stateLike.characters : null;
+  const snapshot = getCharacterSnapshotById(collection?.snapshots, snapshotId);
+  if (!snapshot) throw new Error("Snapshot not found.");
+  const staged = prepareRestoredCharacter({
+    snapshot,
+    existingCharacters: Array.isArray(collection?.entries) ? collection.entries : [],
+    migrateState,
+    createCharacterId,
+    createRowId,
+    now
+  });
+  return commitRestoredCharacter(staged, commitDeps);
 }
