@@ -13,7 +13,7 @@ The source of truth is the code, primarily:
 
 This is intentionally a maintainer-focused document. It describes the state as it exists today, including a few legacy or duplicated fields that still appear because the app preserves backward compatibility.
 
-Current structured schema version: `12`
+Current structured schema version: `13`
 
 ## 2. Schema versioning policy
 
@@ -109,7 +109,8 @@ The main `localStorage["localCampaignTracker_v1"]` value is now a campaign vault
     tracker: object,
     characters: {
       activeId: string | null,
-      entries: CharacterEntry[]
+      entries: CharacterEntry[],
+      snapshots: CharacterSnapshot[]
     },
     map: object,
     combat: object
@@ -972,6 +973,9 @@ Current structural migrations:
   - normalize per-character `rest` state (`{ hitDiceSpent, preparedByClass }`) on every character entry
   - adopt initial builder prepared selections from `build.spellcasting[classId].preparedIds` into `rest.preparedByClass` when no rest-owned prepared state existed yet
   - normalize `deathSaves` (`{ successes: 0..3, failures: 0..3 }`) on every character entry
+- `12 -> 13`
+  - ensure the campaign-scoped `characters.snapshots` collection exists, normalized by `normalizeCharacterSnapshots(...)` in `js/domain/characterSnapshots.js` (drops malformed records, de-duplicates ids, strips recursive payload snapshot data)
+  - never invents snapshot records for existing characters (no retroactive capture)
 
 ### Automated migration coverage
 
