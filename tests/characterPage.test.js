@@ -1143,6 +1143,8 @@ describe("character page selector", () => {
       { action: "new-builder", label: "Create with Builder" },
       { action: "edit-builder", label: "Edit in Builder" },
       { action: "level-up", label: "Level Up" },
+      // Restore Character (R3) sits directly after Level Up (spec §7).
+      { action: "restore-character", label: "Restore Character" },
       { action: "rename", label: "Rename Character" },
       { action: "add-npc", label: "Add to NPCs" },
       { action: "add-party", label: "Add to Party" },
@@ -1150,6 +1152,9 @@ describe("character page selector", () => {
       { action: "import", label: "Import Character" },
       { action: "delete", label: "Delete Character" },
     ]);
+    // Restore Character is immediately after Level Up.
+    const levelUpIndex = actions.findIndex((a) => a.action === "level-up");
+    expect(actions[levelUpIndex + 1]).toEqual({ action: "restore-character", label: "Restore Character" });
   });
 
   it("dispatches the app-level active character change event", () => {
