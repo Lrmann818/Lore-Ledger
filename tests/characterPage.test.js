@@ -288,6 +288,24 @@ class FakeElement extends EventTarget {
   }
 
   closest(selector) {
+    // Attribute form (`[data-snapshot-id]`) — the Restore Character dialog
+    // delegates row clicks through it. `data-*` resolves against `dataset`,
+    // which is where this fake DOM keeps data attributes.
+    if (selector?.startsWith("[") && selector.endsWith("]")) {
+      const attr = selector.slice(1, -1);
+      const datasetKey = attr.startsWith("data-")
+        ? attr.slice(5).replace(/-([a-z])/g, (_, ch) => ch.toUpperCase())
+        : "";
+      let node = this;
+      while (node) {
+        const matched = datasetKey
+          ? node.dataset?.[datasetKey] != null
+          : !!node.attributes?.has(attr);
+        if (matched) return node;
+        node = node.parentElement;
+      }
+      return null;
+    }
     if (!selector?.startsWith(".")) return null;
     const className = selector.slice(1);
     let node = this;
@@ -428,6 +446,7 @@ function installCharacterSelectorDom() {
     ["charActionNewBuilderBtn", "new-builder", "Create with Builder"],
     ["charActionEditBuilderBtn", "edit-builder", "Edit in Builder"],
     ["charActionLevelUpBtn", "level-up", "Level Up"],
+    ["charActionRestoreBtn", "restore-character", "Restore Character"],
     ["charActionRenameBtn", "rename", "Rename Character"],
     ["charActionAddNpcBtn", "add-npc", "Add to NPCs"],
     ["charActionAddPartyBtn", "add-party", "Add to Party"],
@@ -757,6 +776,48 @@ function installLevelUpWizardDom(document) {
   return overlay;
 }
 
+/** Mirrors the #restoreCharacterOverlay markup in index.html (Restore Character R3). */
+function installRestoreCharacterDialogDom(document) {
+  const overlay = appendWithId(document, document.body, "div", "restoreCharacterOverlay", "modalOverlay");
+  overlay.hidden = true;
+  overlay.setAttribute("aria-hidden", "true");
+  const panel = appendWithId(document, overlay, "div", "restoreCharacterPanel", "modalPanel restoreCharacterPanel");
+  panel.setAttribute("role", "dialog");
+  panel.setAttribute("aria-modal", "true");
+  panel.setAttribute("aria-labelledby", "restoreCharacterTitle");
+  panel.setAttribute("tabindex", "-1");
+
+  const header = appendWithId(document, panel, "div", "restoreCharacterHeader", "restoreCharacterHeader");
+  appendWithId(document, header, "div", "restoreCharacterTitle", "modalTitle").textContent = "Restore Character";
+  const closeBtn = appendWithId(document, header, "button", "restoreCharacterClose", "npcSmallBtn");
+  closeBtn.type = "button";
+  closeBtn.setAttribute("aria-label", "Close");
+  closeBtn.textContent = "✕";
+
+  const body = appendWithId(document, panel, "div", "restoreCharacterBody", "restoreCharacterBody");
+  appendWithId(document, body, "p", "restoreCharacterIntro", "restoreCharacterIntro").textContent =
+    "Restore a saved pre-Level-Up snapshot as a separate playable character.";
+  const empty = appendWithId(document, body, "div", "restoreCharacterEmpty", "restoreCharacterEmpty");
+  empty.hidden = true;
+  empty.textContent = "No snapshots yet.";
+  appendWithId(document, body, "div", "restoreCharacterList", "restoreCharacterList");
+  const pending = appendWithId(document, body, "div", "restoreCharacterPending", "restoreCharacterPending");
+  pending.hidden = true;
+  pending.setAttribute("role", "alert");
+  pending.setAttribute("aria-live", "assertive");
+  appendWithId(document, pending, "p", "restoreCharacterPendingMsg", "restoreCharacterPendingMsg");
+
+  const footer = appendWithId(document, panel, "div", "restoreCharacterFooter", "restoreCharacterFooter");
+  const retryBtn = appendWithId(document, footer, "button", "restoreCharacterRetrySave", "npcSmallBtn restoreCharacterRetrySaveBtn");
+  retryBtn.type = "button";
+  retryBtn.hidden = true;
+  retryBtn.textContent = "Retry Save";
+  const cancelBtn = appendWithId(document, footer, "button", "restoreCharacterCancel", "npcSmallBtn");
+  cancelBtn.type = "button";
+  cancelBtn.textContent = "Close";
+  return overlay;
+}
+
 function makeLeveledBuilderCharacter({
   id = "char_levelup",
   name = "Level Up Mira",
@@ -776,6 +837,108 @@ function makeLeveledBuilderCharacter({
 
 function clickLevelUp(document, elementId) {
   document.getElementById(elementId).dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+}
+
+function clickEl(el) {
+  el.dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+}
+
+function openLevelUp(actionMenuButton) {
+  clickEl(actionMenuButton);
+  clickLevelUp(document, "charActionLevelUpBtn");
+}
+
+// Unlike the rest of this suite (stub SaveManager), this harness wires the
+// character page to the REAL persistence pipeline — createSaveManager →
+// saveAllLocal → campaign vault → a stubbed localStorage — so a forced
+// vault-write failure exercises the exact production path. It also installs
+// the Level Up and Restore Character dialog DOM and supplies the canonical
+// migration boundary + text seam the Restore Character engine needs, so
+// Restore (R3) and Level Up (R1) failure lifecycles share one production
+// shape (restore-character-spec.md §4.1–§4.3).
+//
+// `options.migrateStateImpl` replaces only the engine-facing `deps.migrateState`
+// (the vault's own migrateState stays the real import), which makes engine
+// invocations directly countable at the injection boundary.
+function setupCharacterPageWithRealPersistence(character, options = {}) {
+  const { snapshots = null, migrateStateImpl = migrateState } = options;
+  const TEST_VAULT_KEY = "test_localCampaignTracker_v1";
+  const dom = installCharacterSelectorDom();
+  installLevelUpWizardDom(dom.document);
+  installRestoreCharacterDialogDom(dom.document);
+  const Popovers = createFakePopovers();
+  const deps = createCharacterPageDeps(Popovers);
+  deps.state.characters.entries = [character];
+  deps.state.characters.activeId = character.id;
+  if (snapshots) deps.state.characters.snapshots = snapshots;
+  // Restore Character engine deps (app.js supplies these in production).
+  deps.migrateState = migrateStateImpl;
+  deps.deleteText = vi.fn();
+
+  // localStorage stand-in with a switchable quota-style write failure.
+  const stored = new Map();
+  const storage = {
+    failWrites: false,
+    getItem: (key) => (stored.has(key) ? stored.get(key) : null),
+    setItem(key, value) {
+      if (this.failWrites) throw new Error("QuotaExceededError (forced by test)");
+      stored.set(key, String(value));
+    },
+    removeItem: (key) => { stored.delete(key); }
+  };
+  vi.stubGlobal("localStorage", storage);
+
+  const vaultRuntime = { current: null };
+  const saveStatus = vi.fn();
+  const showSaveBanner = vi.fn();
+  const hideSaveBanner = vi.fn();
+  const SaveManager = createSaveManager({
+    saveAll: () => saveAllLocal({
+      storageKey: TEST_VAULT_KEY,
+      state: deps.state,
+      migrateState,
+      sanitizeForSave,
+      vaultRuntime
+    }),
+    setStatus: saveStatus,
+    showSaveBanner,
+    hideSaveBanner,
+    // Saves are driven deterministically through SaveManager.flush(); the
+    // large debounce keeps the queued timer from racing the assertions.
+    debounceMs: 60_000
+  });
+  SaveManager.init();
+  deps.SaveManager = SaveManager;
+
+  const controller = initCharacterPageUI(deps);
+
+  const readPersistedRaw = () => storage.getItem(TEST_VAULT_KEY);
+  const readPersistedDoc = () => {
+    const vault = JSON.parse(readPersistedRaw());
+    return vault.campaignDocs[vault.appShell.activeCampaignId];
+  };
+  const projectPersistedState = () => {
+    const { vault } = normalizeCampaignVault(
+      JSON.parse(readPersistedRaw()),
+      { migrateState, sanitizeForSave }
+    );
+    return projectActiveCampaignState(vault, migrateState);
+  };
+
+  return {
+    ...dom,
+    deps,
+    controller,
+    storage,
+    vaultRuntime,
+    SaveManager,
+    saveStatus,
+    showSaveBanner,
+    hideSaveBanner,
+    readPersistedRaw,
+    readPersistedDoc,
+    projectPersistedState
+  };
 }
 
 function installFlatAbilitiesDom(document) {
@@ -1293,6 +1456,7 @@ describe("character page selector", () => {
       "Create with Builder",
       "Edit in Builder",
       "Level Up",
+      "Restore Character",
       "Rename Character",
       "Add to NPCs",
       "Add to Party",
@@ -4220,11 +4384,6 @@ describe("level up flow", () => {
     return { ...dom, deps, controller };
   }
 
-  function openLevelUp(actionMenuButton) {
-    actionMenuButton.dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
-    clickLevelUp(document, "charActionLevelUpBtn");
-  }
-
   it("disables Level Up for freeform characters and at level 20, enables below 20", () => {
     const freeform = { id: "char_free", name: "Manual Mira", build: null };
     const first = setupLevelUp(freeform);
@@ -4551,91 +4710,15 @@ describe("level up flow", () => {
   });
 
   // ---- R1 persistence-failure lifecycle ----------------------------------
-  // Unlike the rest of this suite (stub SaveManager), these tests wire the
-  // page to the REAL persistence pipeline — createSaveManager → saveAllLocal
-  // → campaign vault → a stubbed localStorage — so a forced vault-write
-  // failure exercises the exact production path and pins what it can and
-  // cannot leave behind (restore-character-spec.md §4.1–§4.3).
-
-  function setupLevelUpWithRealPersistence(character) {
-    const TEST_VAULT_KEY = "test_localCampaignTracker_v1";
-    const dom = installCharacterSelectorDom();
-    installLevelUpWizardDom(dom.document);
-    const Popovers = createFakePopovers();
-    const deps = createCharacterPageDeps(Popovers);
-    deps.state.characters.entries = [character];
-    deps.state.characters.activeId = character.id;
-
-    // localStorage stand-in with a switchable quota-style write failure.
-    const stored = new Map();
-    const storage = {
-      failWrites: false,
-      getItem: (key) => (stored.has(key) ? stored.get(key) : null),
-      setItem(key, value) {
-        if (this.failWrites) throw new Error("QuotaExceededError (forced by test)");
-        stored.set(key, String(value));
-      },
-      removeItem: (key) => { stored.delete(key); }
-    };
-    vi.stubGlobal("localStorage", storage);
-
-    const vaultRuntime = { current: null };
-    const saveStatus = vi.fn();
-    const showSaveBanner = vi.fn();
-    const hideSaveBanner = vi.fn();
-    const SaveManager = createSaveManager({
-      saveAll: () => saveAllLocal({
-        storageKey: TEST_VAULT_KEY,
-        state: deps.state,
-        migrateState,
-        sanitizeForSave,
-        vaultRuntime
-      }),
-      setStatus: saveStatus,
-      showSaveBanner,
-      hideSaveBanner,
-      // Saves are driven deterministically through SaveManager.flush(); the
-      // large debounce keeps the queued timer from racing the assertions.
-      debounceMs: 60_000
-    });
-    SaveManager.init();
-    deps.SaveManager = SaveManager;
-
-    const controller = initCharacterPageUI(deps);
-
-    const readPersistedRaw = () => storage.getItem(TEST_VAULT_KEY);
-    const readPersistedDoc = () => {
-      const vault = JSON.parse(readPersistedRaw());
-      return vault.campaignDocs[vault.appShell.activeCampaignId];
-    };
-    const projectPersistedState = () => {
-      const { vault } = normalizeCampaignVault(
-        JSON.parse(readPersistedRaw()),
-        { migrateState, sanitizeForSave }
-      );
-      return projectActiveCampaignState(vault, migrateState);
-    };
-
-    return {
-      ...dom,
-      deps,
-      controller,
-      storage,
-      vaultRuntime,
-      SaveManager,
-      saveStatus,
-      showSaveBanner,
-      hideSaveBanner,
-      readPersistedRaw,
-      readPersistedDoc,
-      projectPersistedState
-    };
-  }
+  // These tests use the module-level setupCharacterPageWithRealPersistence()
+  // harness: the page is wired to the REAL persistence pipeline so a forced
+  // vault-write failure exercises the exact production path and pins what it
+  // can and cannot leave behind (restore-character-spec.md §4.1–§4.3).
 
   it("a failed vault write after Level Up persists neither the snapshot nor the advancement, and never lets them split", async () => {
     vi.spyOn(console, "warn").mockImplementation(() => { });
     const character = makeLeveledBuilderCharacter({ flatFields: { hpMax: 12, hpCur: 9 } });
-    const h = setupLevelUpWithRealPersistence(character);
+    const h = setupCharacterPageWithRealPersistence(character);
 
     // Baseline: persist the pre-Level-Up campaign once, successfully.
     h.SaveManager.markDirty();
@@ -4716,7 +4799,7 @@ describe("level up flow", () => {
 
   it("a Level Up apply that fails mid-commit leaves no live snapshot or advancement, and a later unrelated save persists no trace of it", async () => {
     const character = makeLeveledBuilderCharacter({ flatFields: { hpMax: 12, hpCur: 9 } });
-    const h = setupLevelUpWithRealPersistence(character);
+    const h = setupCharacterPageWithRealPersistence(character);
 
     h.SaveManager.markDirty();
     await h.SaveManager.flush();
@@ -4756,6 +4839,263 @@ describe("level up flow", () => {
 
     h.SaveManager.init();
     h.controller.destroy();
+  });
+});
+
+describe("Restore Character (R3) — page-level lifecycle", () => {
+  /** A retained snapshot whose source character no longer exists in the campaign. */
+  function makeOrphanedSnapshot({
+    id = "csnap_deleted_1",
+    sourceCharacterId = "char_gone",
+    sourceName = "Deleted Mira"
+  } = {}) {
+    return {
+      id,
+      kind: "pre-level-up",
+      sourceCharacterId,
+      sourceName,
+      classSummary: "Fighter 1",
+      fromLevel: 1,
+      toLevel: 2,
+      toClassId: "fighter",
+      createdAt: "2026-07-21T10:00:00.000Z",
+      schemaVersion: CURRENT_SCHEMA_VERSION,
+      payload: makeLeveledBuilderCharacter({
+        id: sourceCharacterId,
+        name: sourceName,
+        flatFields: { hpMax: 12, hpCur: 9 }
+      })
+    };
+  }
+
+  function openRestoreDialog(actionMenuButton) {
+    clickEl(actionMenuButton);
+    clickEl(document.getElementById("charActionRestoreBtn"));
+  }
+
+  const restoreRowButtons = () => document.querySelectorAll(".restoreCharacterRestoreBtn");
+  const statusMessages = (setStatus) => setStatus.mock.calls.map(([message]) => String(message));
+
+  // ---- real-persistence failure and retry ---------------------------------
+  // Production-shaped end to end: the real Restore Character UI drives the real
+  // R2 engine, which commits through the real SaveManager → saveAllLocal →
+  // campaign vault → a stubbed localStorage whose write is forced to fail. No
+  // portrait or spell-note assets are involved (R2 owns asset ownership); this
+  // pins only the persistence boundary (spec §4.1–§4.3, §5).
+  it("locks the dialog on a failed vault write, then finalizes exactly once when Retry Save succeeds", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => { });
+    const character = makeLeveledBuilderCharacter({ flatFields: { hpMax: 12, hpCur: 9 } });
+    // deps.migrateState is the engine's own migration boundary and is called
+    // exactly once per restoreCharacterFromSnapshot(), so this spy counts
+    // engine invocations. The vault keeps the real migrateState import.
+    const engineMigrate = vi.fn((raw) => migrateState(raw));
+    const h = setupCharacterPageWithRealPersistence(character, { migrateStateImpl: engineMigrate });
+    h.deps.uiConfirm.mockResolvedValue(true);
+
+    // 1. A persisted campaign with one live character and one retained
+    //    snapshot, produced by a real Level Up and a successful save.
+    openLevelUp(h.actionMenuButton);
+    clickLevelUp(document, "levelUpNext"); // class → features
+    clickLevelUp(document, "levelUpNext"); // features → hp
+    clickLevelUp(document, "levelUpNext"); // hp → summary
+    clickLevelUp(document, "levelUpApply");
+    await flushPromises();
+    h.SaveManager.markDirty();
+    await h.SaveManager.flush();
+
+    const snapshotId = h.deps.state.characters.snapshots[0].id;
+    const baselineRaw = h.readPersistedRaw();
+    const baselineDoc = h.readPersistedDoc();
+    expect(baselineDoc.characters.entries).toHaveLength(1);
+    expect(baselineDoc.characters.snapshots).toHaveLength(1);
+    expect(h.SaveManager.getStatus()).toMatchObject({ stateNow: "SAVED", dirty: false });
+    expect(engineMigrate).not.toHaveBeenCalled();
+
+    // Watch the two finalization side effects that must not fire early.
+    /** @type {unknown[]} */
+    const activeChanges = [];
+    const onActiveChanged = (event) => activeChanges.push(event.detail ?? null);
+    window.addEventListener(ACTIVE_CHARACTER_CHANGED_EVENT, onActiveChanged);
+
+    // 2. Force the campaign-vault write to fail.
+    h.storage.failWrites = true;
+
+    // 3. Restore through the real Character-page UI.
+    openRestoreDialog(h.actionMenuButton);
+    const overlay = document.getElementById("restoreCharacterOverlay");
+    expect(overlay.hidden).toBe(false);
+    const rows = restoreRowButtons();
+    expect(rows).toHaveLength(1);
+    expect(rows[0].dataset.snapshotId).toBe(snapshotId);
+    clickEl(rows[0]);
+    await flushPromises();
+
+    // 4. Exactly one restored character is committed in memory.
+    const live = h.deps.state.characters;
+    expect(live.entries).toHaveLength(2);
+    const restored = live.entries[1];
+    expect(restored.id).not.toBe("char_levelup");
+    expect(restored.name).toBe("Level Up Mira — Restored Level 1");
+    expect(restored.restoredFromSnapshotId).toBe(snapshotId);
+    expect(restored.restoredFromCharacterId).toBe("char_levelup");
+    expect(restored.build.levels).toHaveLength(1);
+    expect(live.activeId).toBe(restored.id);
+    expect(engineMigrate).toHaveBeenCalledTimes(1);
+    // The source character is untouched and the snapshot is not consumed.
+    expect(live.entries[0].build.levels).toHaveLength(2);
+    expect(live.snapshots).toHaveLength(1);
+
+    // 5. The persisted vault is byte-identical to its previous state.
+    expect(h.readPersistedRaw()).toBe(baselineRaw);
+
+    // 6. The dialog stays open and locked.
+    expect(overlay.hidden).toBe(false);
+    expect(document.getElementById("restoreCharacterPending").hidden).toBe(false);
+    expect(document.getElementById("restoreCharacterClose").disabled).toBe(true);
+    expect(document.getElementById("restoreCharacterCancel").disabled).toBe(true);
+    expect(restoreRowButtons().map((button) => button.disabled)).toEqual([true]);
+
+    // 7. Retry Save is visible, enabled, and focused.
+    const retryBtn = document.getElementById("restoreCharacterRetrySave");
+    expect(retryBtn.hidden).toBe(false);
+    expect(retryBtn.disabled).toBe(false);
+    expect(document.activeElement).toBe(retryBtn);
+
+    // 8. Nothing has been announced as done: no success status, no
+    //    active-character notification.
+    expect(activeChanges).toHaveLength(0);
+    expect(statusMessages(h.deps.setStatus).some((m) => m.startsWith("Restored \""))).toBe(false);
+    expect(statusMessages(h.deps.setStatus)).toContain("Restore not yet saved — choose Retry Save.");
+
+    // 9. Close, Cancel, Escape, overlay click, and repeated Restore can
+    //    neither dismiss the pending operation nor create a second character.
+    const entriesBefore = JSON.stringify(live.entries);
+    clickEl(document.getElementById("restoreCharacterClose"));
+    clickEl(document.getElementById("restoreCharacterCancel"));
+    const escape = new Event("keydown", { bubbles: true, cancelable: true });
+    escape.key = "Escape";
+    document.dispatchEvent(escape);
+    clickEl(overlay);
+    restoreRowButtons().forEach((button) => clickEl(button));
+    await flushPromises();
+
+    expect(overlay.hidden).toBe(false);
+    expect(document.getElementById("restoreCharacterPending").hidden).toBe(false);
+    expect(live.entries).toHaveLength(2);
+    expect(JSON.stringify(live.entries)).toBe(entriesBefore);
+    expect(engineMigrate).toHaveBeenCalledTimes(1);
+    expect(h.readPersistedRaw()).toBe(baselineRaw);
+    expect(activeChanges).toHaveLength(0);
+
+    // 10. The existing save-failure recovery affordances stay available.
+    expect(h.SaveManager.getStatus()).toMatchObject({ stateNow: "ERROR", dirty: true });
+    expect(h.saveStatus).toHaveBeenCalledWith("Save failed (local). Export a backup.");
+    expect(h.showSaveBanner).toHaveBeenCalled();
+
+    // 11-12. Storage recovers; the user chooses Retry Save.
+    h.storage.failWrites = false;
+    clickEl(retryBtn);
+    await flushPromises();
+
+    // 13. Only persistence was retried — the engine never ran a second time,
+    //     and the committed entry is the same object it always was.
+    expect(engineMigrate).toHaveBeenCalledTimes(1);
+    expect(h.deps.state.characters.entries).toHaveLength(2);
+    expect(h.deps.state.characters.entries[1]).toBe(restored);
+    expect(h.deps.state.characters.snapshots).toHaveLength(1);
+
+    // 14. The dialog closed and finalized exactly once.
+    expect(overlay.hidden).toBe(true);
+    expect(activeChanges).toEqual([{ previousId: "char_levelup", activeId: restored.id }]);
+    expect(statusMessages(h.deps.setStatus).filter((m) => m === `Restored "${restored.name}"`))
+      .toHaveLength(1);
+    expect(h.SaveManager.getStatus()).toMatchObject({ stateNow: "SAVED", dirty: false });
+    expect(h.hideSaveBanner).toHaveBeenCalled();
+
+    // 15. Everything survives a reload from the persisted vault.
+    const reloaded = h.projectPersistedState();
+    expect(reloaded.characters.entries).toHaveLength(2);
+    const reloadedRestored = reloaded.characters.entries.find((entry) => entry.id === restored.id);
+    expect(reloadedRestored).toBeTruthy();
+    expect(reloadedRestored.name).toBe(restored.name);
+    expect(reloadedRestored.build.levels).toHaveLength(1);
+    expect(reloadedRestored.restoredFromSnapshotId).toBe(snapshotId);
+    expect(reloadedRestored.restoredFromCharacterId).toBe("char_levelup");
+    expect(reloadedRestored.restoredAt).toBe(restored.restoredAt);
+    expect(reloaded.characters.activeId).toBe(restored.id);
+    expect(reloaded.characters.snapshots).toHaveLength(1);
+    expect(reloaded.characters.snapshots[0].id).toBe(snapshotId);
+
+    window.removeEventListener(ACTIVE_CHARACTER_CHANGED_EVENT, onActiveChanged);
+    h.SaveManager.init();
+    h.controller.destroy();
+  });
+
+  // ---- no live character --------------------------------------------------
+  it("keeps Restore Character usable when every character is deleted but snapshots remain", async () => {
+    const dom = installCharacterSelectorDom();
+    installRestoreCharacterDialogDom(dom.document);
+    const Popovers = createFakePopovers();
+    const deps = createCharacterPageDeps(Popovers);
+    const snapshot = makeOrphanedSnapshot();
+    deps.state.characters = { activeId: null, entries: [], snapshots: [snapshot] };
+    deps.migrateState = migrateState;
+    deps.deleteText = vi.fn();
+    deps.SaveManager.flush = vi.fn().mockResolvedValue(true);
+    deps.uiConfirm.mockResolvedValue(true);
+    const snapshotBefore = JSON.stringify(snapshot);
+
+    const controller = initCharacterPageUI(deps);
+
+    // Restore Character is campaign-scoped, so it stays enabled with no
+    // active character; every active-character-only action is disabled.
+    const restoreBtn = document.getElementById("charActionRestoreBtn");
+    expect(restoreBtn.disabled).toBe(false);
+    expect(restoreBtn.getAttribute("aria-disabled")).not.toBe("true");
+    [
+      "charActionEditBuilderBtn",
+      "charActionLevelUpBtn",
+      "charActionAddNpcBtn",
+      "charActionAddPartyBtn",
+      "charActionExportBtn",
+      "charShortRestBtn",
+      "charLongRestBtn"
+    ].forEach((id) => {
+      expect(document.getElementById(id).disabled).toBe(true);
+      expect(document.getElementById(id).getAttribute("aria-disabled")).toBe("true");
+    });
+
+    // The retained snapshot is listed, labeled as a deleted source.
+    openRestoreDialog(dom.actionMenuButton);
+    expect(document.getElementById("restoreCharacterOverlay").hidden).toBe(false);
+    expect(document.getElementById("restoreCharacterEmpty").hidden).toBe(true);
+    expect(document.querySelectorAll(".restoreCharacterRow")).toHaveLength(1);
+    expect(document.querySelector(".restoreCharacterGroupName").textContent).toBe("Deleted Mira");
+    expect(document.querySelector(".restoreCharacterGroupDeleted").textContent).toBe("(character deleted)");
+    expect(document.querySelector(".restoreCharacterRowPrimary").textContent).toBe("Level 1 — Fighter 1");
+
+    // Restoring creates and activates one playable character.
+    const rows = restoreRowButtons();
+    expect(rows).toHaveLength(1);
+    clickEl(rows[0]);
+    await flushPromises();
+
+    expect(deps.state.characters.entries).toHaveLength(1);
+    const restored = deps.state.characters.entries[0];
+    expect(restored.id).not.toBe("char_gone");
+    expect(restored.name).toBe("Deleted Mira — Restored Level 1");
+    expect(restored.build.levels).toHaveLength(1);
+    expect(restored.restoredFromSnapshotId).toBe("csnap_deleted_1");
+    expect(restored.restoredFromCharacterId).toBe("char_gone");
+    expect(deps.state.characters.activeId).toBe(restored.id);
+    expect(deps.SaveManager.markDirty).toHaveBeenCalled();
+    expect(document.getElementById("restoreCharacterOverlay").hidden).toBe(true);
+
+    // R3 is restore-only: the snapshot is retained, byte-for-byte.
+    expect(deps.state.characters.snapshots).toHaveLength(1);
+    expect(JSON.stringify(deps.state.characters.snapshots[0])).toBe(snapshotBefore);
+
+    controller.destroy();
   });
 });
 

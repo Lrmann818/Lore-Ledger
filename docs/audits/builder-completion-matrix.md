@@ -1,6 +1,7 @@
 # SRD 5.1 Builder Completion Matrix
 
-_Status: **planning artifact — audited against code 2026-07-17** (post Level Up Phases 1–3, B1–B3, attribution gate, class granted spells, ASI cap guidance, matrix #15 authoring, the unified calculation contract with live-deriving attacks + reusable choice-based granted spells, and the F2 Structured Vitals conversion: live-deriving spell DC/attack, AC, and max HP)._
+_Status: **planning artifact — audited against code 2026-07-17** (post Level Up Phases 1–3, B1–B3, attribution gate, class granted spells, ASI cap guidance, matrix #15 authoring, the unified calculation contract with live-deriving attacks + reusable choice-based granted spells, and the F2 Structured Vitals conversion: live-deriving spell DC/attack, AC, and max HP). Restore Character rows and
+passages re-audited against code 2026-07-23 (R1–R3 shipped)._
 
 This is the canonical capability matrix for the question: *what remains before Lore
 Ledger can accurately claim a fully functioning SRD 5.1 character builder with robust
@@ -28,7 +29,7 @@ claim · **P2** polish/depth. Status: ✅ shipped · 🟡 partial · ⬜ not bui
 | 8 | Rest and recovery (Short/Long, Hit Dice, slots, pact, death saves, tagged resources) | ✅ | `characterRest.js`, `restFlow.js` | P0 complete + Level Up integration tested | Recovery vocabulary available to custom cards/resources | Partial-regain features (e.g. "regain 1d6 uses") unmodeled | P2 | — | 9 | Tagged partial recovery modes designed before implementation |
 | 9 | Derived calculations (AC, HP, saves, skills, initiative, passive perception, DC/attack, prof) | ✅ | `deriveCharacter.js`, `computeArmorClass`, `computeMaxHp`, `js/domain/attackCalculation.js`, `js/domain/spellcastingCalculation.js`, `js/domain/armorClassCalculation.js`, `js/domain/hpMaxCalculation.js`, `vitalsPanel.js` | Armor/unarmored/shield formulas (+ **Defense fighting style while armored, 2026-07-17**); retro-Con HP (+ structured **Dwarven Toughness** `hpPerLevelBonus`); **attacks live-derived (2026-07-15)** through one canonical calculator; **spell DC/attack, AC, and max HP live-derived (F2, 2026-07-16/17)** — optional per-field calc blocks (`spellcastingCalc` profiles per source ability, `acCalc`, `hpMaxCalc`), explicit adjustments, intentional fixed overrides, legacy snapshots preserved verbatim with editor-based adoption, calc-aware Finish/Level Up/rest/tracker/combat surfaces, temporary combat AC layered over the calculated base | Custom weapons/armor/classes derive through the same registry path | **F2 closed.** Freeform AC/max HP stay manual inputs by contract (no structured armor / level history); freeform initiative (F1) still snapshot | — | — | — | Attacks + all four vitals derive live (contract-conformant); one calculator each; no manual recalc ✅ |
 | 10 | Equipment effects | 🟡 | `builderSheetSeeding.js`, `equipment.*.json` | AC from armor/shield; weapons → attacks; packs → pockets | Custom armor/weapons consumed | No currency deduction, no encumbrance, magic items deferred by greenlist | P2 | greenlist change for magic items | 11 | Documented as out of scope, or greenlist deliberately expanded |
-| 11 | Editable post-creation sheet surfaces | ✅ | `js/pages/character/panels/*` | All play-state fields editable; **B1 shipped 2026-07-13:** Builder Identity/Abilities panels are read-only routing surfaces (Edit in Builder); structural edits go through guarded wizard flows only. **2026-07-18: Edit in Builder retirement + Restore Character replacement ratified but not implemented** — see §3 and `docs/reference/restore-character-spec.md` | n/a | Builder Summary remains a display-only review scaffold (harmless; retire only with a deliberate product decision) | — | — | — | — |
+| 11 | Editable post-creation sheet surfaces | ✅ | `js/pages/character/panels/*` | All play-state fields editable; **B1 shipped 2026-07-13:** Builder Identity/Abilities panels are read-only routing surfaces (Edit in Builder); structural edits go through guarded wizard flows only. **2026-07-18: Edit in Builder retirement + Restore Character replacement ratified.** Restore Character shipped through R3 (2026-07-22, row #21); the Edit-in-Builder retirement itself (D1 — retiring these B1 routing surfaces) is still gated at R5 — see §3 and `docs/reference/restore-character-spec.md` | n/a | Builder Summary remains a display-only review scaffold (harmless; retire only with a deliberate product decision) | — | — | — | — |
 | 12 | Spell detail seeding (descriptions, ranges, components) | ✅ | `spellsPanel.js#renderSpellSrdDetails` | **B2 shipped 2026-07-13:** builder-managed rows show the full live-derived SRD detail block (school/level, ritual/concentration, casting time, range, components+material, duration, description, higher-level text) above user notes | Custom spells resolve through the same kind-aware lookup | Details are display-only (deliberate: notes stay purely user-owned; no materialized copies) | — | — | — | — |
 | 13 | Feature detail seeding depth | ✅ | `abilitiesFeaturesPanel.js#collectReferenceFeatures`, `deriveCharacter.js#raceTraits` | **B3 shipped 2026-07-13:** display-only rules-reference cards for every class/subclass feature, chosen feat, and race trait with full SRD descriptions | Custom features/traits resolve through the same registry | Feature-specific use counters with DCs (subclass 1-use features) remain future feature-action work | P2 | — | 7 | Fiend/Open Hand style 1-use subclass features get tracked feature-action cards |
 | 14 | Custom content persistence & registry merge | ✅ | `js/domain/customContent.js`, `rules/registry.js`, `content.custom` (schema v11), `js/storage/campaignVault.js` | n/a | Same shapes as SRD records, `source: "custom"`, cannot shadow builtin | **Fixed 2026-07-13:** the campaign vault used to drop `state.content` at save/project/hydrate, so custom content silently vanished on reload (only full backups kept it); now pinned by vault round-trip tests + a reload smoke | — | — | — | — |
@@ -38,6 +39,7 @@ claim · **P2** polish/depth. Status: ✅ shipped · 🟡 partial · ⬜ not bui
 | 18 | Migration & backward compatibility | ✅ | `js/state.js` (v12), `tests/state.migrate*.test.js`, `saveCompatibility.test.js` | Single lineage v0→v12 | Custom bucket migrates with campaign | None pending — Level Up Phase 1 required no schema change (verified) | — | — | — | — |
 | 19 | Accessibility & mobile | 🟡 | wizard focus traps, aria labels, phone-width smokes | Level Up + builder wizard verified at 380px | n/a | Abilities & Features menu keyboard pass still queued (roadmap); no automated a11y audit | P2 | — | 9 | Keyboard-only run of both wizards + panels documented |
 | 20 | Licensing & attribution | ✅ | `LEGAL.md`, `js/ui/dataPanel.js` (About dialog), `tests/attribution.test.js` | CC-BY-4.0 statement in repo **and** in-app (Data & Settings → About → Legal / Licenses), pinned by a release-gate test (2026-07-13 audit correction: the in-app surface already existed) | Custom content untouched by attribution | None | — | — | — | — |
+| 21 | Restore Character (restore a retained pre-Level-Up snapshot as a separate playable character) | ✅ R1–R3 | `js/domain/characterSnapshots.js`, `js/pages/character/restoreCharacterDialog.js`, `js/pages/character/characterPage.js`, `index.html` (`#restoreCharacterOverlay`) | Snapshot captured transactionally inside every successful Level Up commit (R1, 2026-07-18); non-UI restore engine — migrate-through, new identity, spell-row regeneration, staged asset copies with rollback (R2, 2026-07-22); **restore-only Restore Character dialog shipped 2026-07-22 (R3)** — snapshots grouped by source character newest-first, deleted sources labeled and still restorable, one non-destructive confirmation, persistence-confirmation lock with `Retry Save` (retries the save only, never the engine), one-time finalization | Restored characters and snapshot payloads carry custom content through the same registry path | **R3 is restore-only**: no snapshot delete/retention control ships, and snapshot deletion is deferred to a separately authorized future phase. R4–R6 remain gated (backup coverage for snapshot-payload external assets; Edit-in-Builder retirement per D1; cleanup) | — | #18 | — | A user can restore any retained snapshot as a separate playable character, leaving existing characters and the snapshot itself unchanged ✅ |
 
 ## 2. What the audit explicitly rejects
 
@@ -101,7 +103,9 @@ feature-action counters (#13 follow-up), partial-regain recovery modes (#8,
 design first), prepared-formula/spellbook-growth overrides (#16, design
 first), equipment depth (#10, product decisions), Half-Elf ability/skill
 choices and Tiefling cantrip grant (choice audit, deferred), freeform
-initiative F1, and the keyboard-only a11y pass (#19). (The 2026-07-17
+initiative F1, and the keyboard-only a11y pass (#19). Snapshot deletion is
+deliberately absent from this list: it is deferred to a separately authorized
+future phase and is not assigned to R4, R5, or R6. (The 2026-07-17
 follow-up for production-preview compatibility of the 7 dev-only smoke
 harnesses was completed 2026-07-18; both smoke gates are 61/61 — see
 `docs/reference/session-handoff-2026-07-18.md`.) Handoff:
@@ -115,7 +119,8 @@ ratified the product model: the Builder is for initial creation; the general Edi
 Builder action will retire; a complete pre-Level-Up snapshot is saved transactionally
 with every successful Level Up commit; **Restore Character** restores any snapshot as
 a separate playable copy (new stable ID, source and current characters untouched,
-snapshots retained until individually deleted, included in backups). Normative
+snapshots are retained indefinitely in the current implementation — deletion is
+deferred to a separately authorized future phase — and included in backups). Normative
 design: `docs/reference/restore-character-spec.md` (data model
 `characters.snapshots` + schema v13, identity/naming rules, single-vault-write
 transaction, backup collector additions, grouped-by-character dialog UI, phases
@@ -126,11 +131,12 @@ R1–R6). Dependency audit + owner decisions D1–D4 (**ruled 2026-07-18**):
 one complete deep-cloned snapshot captured inside the same mutation as each
 successful Level Up commit (never on open/cancel/invalid/failed apply;
 replace-append on `(kind, sourceCharacterId, fromLevel)`), records persist through
-sanitize/vault/backups and survive source-character deletion. **No user-facing
-Restore UI exists yet** — R1 creates and preserves history only; snapshot-payload
-external assets (portrait blob / spell-note texts after source deletion) join
-backups in R4. Matrix impact when R3/R5 land: #11's B1 routing surfaces retire per
-D1 and this matrix gains a Restore Character capability row.
+sanitize/vault/backups and survive source-character deletion. **R1 itself shipped no
+UI** — it creates and preserves history only; R3 has since added the restore-only
+Restore Character UI (see the R3 paragraph below and capability row #21).
+Snapshot-payload external assets (portrait blob / spell-note texts after source
+deletion) join backups in R4. Still-pending matrix impact: #11's B1 routing surfaces
+retire per D1 when R5 lands.
 
 **R2 shipped (2026-07-22, owner-authorized):** the non-UI restore engine in
 `js/domain/characterSnapshots.js` — snapshot resolution, pure
@@ -142,8 +148,31 @@ with `(2)`-style suffixes), and `commitRestoredCharacter` (portrait/note copies
 staged before the state mutation, rollback on any failure, double-commit guard,
 no default activation) plus the `restoreCharacterFromSnapshot` orchestrator for
 R3. Pinned by `tests/characterSnapshots.restore.test.js` (40 tests; suite
-1291/1291, both smoke gates 61/61 on 2026-07-22). **Still no user-facing
-Restore UI — nothing calls the engine in production until R3.**
+1291/1291, both smoke gates 61/61 on 2026-07-22). **R2 itself shipped no UI —
+nothing called the engine in production until R3, which landed the same day.**
+
+**R3 shipped (2026-07-22, owner-authorized): the restore-only Restore Character
+UI.** `js/pages/character/restoreCharacterDialog.js` presents the campaign's
+retained snapshots grouped by source character (newest-first groups and rows,
+deleted sources labeled `(character deleted)` and still restorable, empty state)
+and restores a selection by calling the R2 engine — no restoration logic is
+reproduced in the UI. The dialog runs an explicit phase model (idle → confirming
+→ restoring → saving → pending-save → completed): one non-destructive
+confirmation, submission-time active-campaign and snapshot re-checks, one-click-
+one-restore disabling, and the owner-ratified persistence-confirmation contract —
+an unconfirmed save locks the dialog open with `Retry Save` (which retries the
+save only, never the engine) and blocks close/Cancel/Escape/overlay/further
+restore, while only a confirmed save finalizes once (notify active-character
+change → rerender → `Restored "<name>"`). The **Restore Character** menu item sits
+directly after Level Up and stays enabled with no active character, since
+snapshots are campaign-owned. **R3 is restore-only: no snapshot delete or
+retention control ships**, and snapshot deletion remains deferred to a separately
+authorized future phase (it is not assigned to R4, R5, or R6). Pinned by
+`tests/restoreCharacterDialog.test.js`, `tests/restoreCharacterWiring.test.js`,
+`tests/smoke/restoreCharacter.smoke.js`, and two page-level lifecycle tests in
+`tests/characterPage.test.js` (real SaveManager → vault write failure → locked
+dialog → `Retry Save` → single finalization survives reload; and the
+no-live-character menu-gating case). See capability row #21.
 
 ## 4. Verification basis
 
@@ -160,3 +189,12 @@ lifecycle + direct IndexedDB reads) and the production-preview gate is now
 (`destroyActiveCharacterPageUI()`). Prior basis (attacks/High-Elf,
 2026-07-15): 1135 unit tests (66 files), 58 smokes. Statements about unconsumed
 data (`classSpecificByLevel`) were grep-verified against `js/domain/rules/*`.
+
+**Update 2026-07-23 (R3 approval closure):** capability row #21 and the R1/R2/R3
+passages above were re-audited against code. Basis: **1331 unit tests (76 files)**,
+dev smoke gate **64/64**, production-preview gate **64/64** (real `dist/` build),
+`npm run typecheck` and `npm run verify` clean. The pass added two page-level
+Restore Character lifecycle tests to `tests/characterPage.test.js` (real
+SaveManager → forced campaign-vault write failure → locked dialog with
+`Retry Save` → save-only retry → single finalization surviving reload; plus the
+no-live-character menu-gating case) and made no runtime change.
