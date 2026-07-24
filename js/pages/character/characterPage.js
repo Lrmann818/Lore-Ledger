@@ -983,7 +983,21 @@ export function initCharacterPageUI(deps) {
       const linkedWarning = linkedSummary
         ? `\n\nThis character has linked cards in: ${linkedSummary}. Linked cards will keep their last known data and become standalone.`
         : "";
-      const ok = await uiConfirm?.(`Delete ${charName}? This cannot be undone.${linkedWarning}`, {
+      // Deleting a character keeps its pre-Level-Up snapshots (retirement audit
+      // §3 D4 / restore spec §5), so say so whenever any survive the deletion.
+      // Optional and malformed snapshot data fails soft: anything we cannot
+      // read as a record for this character counts as no snapshot.
+      const snapshots = state.characters?.snapshots;
+      const hasRetainedSnapshots = Array.isArray(snapshots) && snapshots.some((record) => (
+        !!record
+        && typeof record === "object"
+        && !Array.isArray(record)
+        && record.sourceCharacterId === activeChar.id
+      ));
+      const retentionNote = hasRetainedSnapshots
+        ? "\n\nSaved Level Up snapshots are kept — you can still restore this character from Restore Character."
+        : "";
+      const ok = await uiConfirm?.(`Delete ${charName}? This cannot be undone.${linkedWarning}${retentionNote}`, {
         title: "Delete Character",
         okText: "Delete"
       });

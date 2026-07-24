@@ -4235,6 +4235,141 @@ describe("character page selector", () => {
 
     controller.destroy();
   });
+
+  // ---- delete-time snapshot retention copy (D4) ----------------------------
+  // Deleting a character keeps its pre-Level-Up snapshots (retirement audit §3
+  // D4 / restore spec §5). The confirmation says so — and only when a snapshot
+  // for THIS character actually survives. Nothing here deletes a snapshot.
+  const DELETE_BASE_COPY = "Delete \"Ada\"? This cannot be undone.";
+  const DELETE_LINKED_WARNING =
+    "\n\nThis character has linked cards in: NPCs (1). Linked cards will keep their last known data and become standalone.";
+  const DELETE_RETENTION_NOTE =
+    "\n\nSaved Level Up snapshots are kept — you can still restore this character from Restore Character.";
+
+  function makeRetainedSnapshot(sourceCharacterId, id = `csnap_${sourceCharacterId}`) {
+    return {
+      id,
+      kind: "pre-level-up",
+      sourceCharacterId,
+      sourceName: "Ada",
+      classSummary: "Wizard 5",
+      fromLevel: 5,
+      toLevel: 6,
+      toClassId: "wizard",
+      createdAt: "2026-07-23T10:00:00.000Z",
+      schemaVersion: CURRENT_SCHEMA_VERSION,
+      payload: { id: sourceCharacterId, name: "Ada" }
+    };
+  }
+
+  async function runDeleteAndReadConfirmMessage(deps, actionMenuButton) {
+    const controller = initCharacterPageUI(deps);
+    clickEl(actionMenuButton);
+    clickEl(document.getElementById("charActionDeleteBtn"));
+    await flushPromises();
+    const [message, options] = deps.uiConfirm.mock.calls.at(-1) || [];
+    return { controller, message, options };
+  }
+
+  it("keeps the ordinary delete copy when the campaign has no snapshots", async () => {
+    const { actionMenuButton } = installCharacterSelectorDom();
+    const deps = createCharacterPageDeps(createFakePopovers());
+    deps.state.characters.snapshots = [];
+    deps.uiConfirm.mockResolvedValue(false);
+
+    const { controller, message, options } = await runDeleteAndReadConfirmMessage(deps, actionMenuButton);
+
+    expect(message).toBe(DELETE_BASE_COPY);
+    expect(options).toEqual({ title: "Delete Character", okText: "Delete" });
+
+    controller.destroy();
+  });
+
+  it("adds the retention paragraph when a snapshot for the deleted character is retained", async () => {
+    const { actionMenuButton } = installCharacterSelectorDom();
+    const deps = createCharacterPageDeps(createFakePopovers());
+    deps.state.characters.snapshots = [makeRetainedSnapshot("char_a")];
+    deps.uiConfirm.mockResolvedValue(false);
+
+    const { controller, message, options } = await runDeleteAndReadConfirmMessage(deps, actionMenuButton);
+
+    expect(message).toBe(`${DELETE_BASE_COPY}${DELETE_RETENTION_NOTE}`);
+    expect(options).toEqual({ title: "Delete Character", okText: "Delete" });
+
+    controller.destroy();
+  });
+
+  it("omits the retention paragraph when every snapshot belongs to another character", async () => {
+    const { actionMenuButton } = installCharacterSelectorDom();
+    const deps = createCharacterPageDeps(createFakePopovers());
+    deps.state.characters.snapshots = [
+      makeRetainedSnapshot("char_b"),
+      makeRetainedSnapshot("char_gone", "csnap_gone")
+    ];
+    deps.uiConfirm.mockResolvedValue(false);
+
+    const { controller, message } = await runDeleteAndReadConfirmMessage(deps, actionMenuButton);
+
+    expect(message).toBe(DELETE_BASE_COPY);
+
+    controller.destroy();
+  });
+
+  it("composes the retention paragraph after the existing linked-card warning", async () => {
+    const { actionMenuButton } = installCharacterSelectorDom();
+    const deps = createCharacterPageDeps(createFakePopovers());
+    deps.state.tracker.npcs = [{ id: "npc_1", characterId: "char_a", name: "Old NPC" }];
+    deps.state.characters.snapshots = [makeRetainedSnapshot("char_a")];
+    deps.uiConfirm.mockResolvedValue(false);
+
+    const { controller, message } = await runDeleteAndReadConfirmMessage(deps, actionMenuButton);
+
+    expect(message).toBe(`${DELETE_BASE_COPY}${DELETE_LINKED_WARNING}${DELETE_RETENTION_NOTE}`);
+
+    controller.destroy();
+  });
+
+  it("falls back to the ordinary copy for missing, non-array, or malformed snapshot data", async () => {
+    const cases = [
+      undefined,
+      null,
+      { csnap_1: makeRetainedSnapshot("char_a") },
+      "csnap_1",
+      [null, undefined, 0, "csnap_1", [], { id: "csnap_2" }, { sourceCharacterId: null }]
+    ];
+
+    for (const snapshots of cases) {
+      const { actionMenuButton } = installCharacterSelectorDom();
+      const deps = createCharacterPageDeps(createFakePopovers());
+      if (snapshots !== undefined) deps.state.characters.snapshots = snapshots;
+      deps.uiConfirm.mockResolvedValue(false);
+
+      const { controller, message } = await runDeleteAndReadConfirmMessage(deps, actionMenuButton);
+
+      expect(message).toBe(DELETE_BASE_COPY);
+      expect(deps.state.characters.entries).toHaveLength(2);
+
+      controller.destroy();
+    }
+  });
+
+  it("retains every snapshot after the deletion is confirmed", async () => {
+    const { actionMenuButton } = installCharacterSelectorDom();
+    const deps = createCharacterPageDeps(createFakePopovers());
+    const snapshots = [makeRetainedSnapshot("char_a"), makeRetainedSnapshot("char_b")];
+    const before = JSON.parse(JSON.stringify(snapshots));
+    deps.state.characters.snapshots = snapshots;
+    deps.uiConfirm.mockResolvedValue(true);
+
+    const { controller, message } = await runDeleteAndReadConfirmMessage(deps, actionMenuButton);
+
+    expect(message).toBe(`${DELETE_BASE_COPY}${DELETE_RETENTION_NOTE}`);
+    expect(deps.state.characters.entries.map((entry) => entry.id)).toEqual(["char_b"]);
+    expect(deps.state.characters.activeId).toBe("char_b");
+    expect(deps.state.characters.snapshots).toEqual(before);
+
+    controller.destroy();
+  });
 });
 
 describe("builder wizard preserves interleaved multiclass level order", () => {
