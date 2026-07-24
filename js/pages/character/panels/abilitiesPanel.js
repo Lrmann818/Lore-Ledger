@@ -100,6 +100,27 @@ const ABILITY_SUFFIX_BY_KEY = /** @type {Record<AbilityKey, string>} */ ({
   cha: "Cha"
 });
 
+const ABILITY_NAME_BY_KEY = /** @type {Record<AbilityKey, string>} */ ({
+  str: "Strength",
+  dex: "Dexterity",
+  con: "Constitution",
+  int: "Intelligence",
+  wis: "Wisdom",
+  cha: "Charisma"
+});
+
+// Base ability-score bounds. These mirror the builder wizard's manual-entry
+// convention (`MIN_ABILITY_SCORE` / `MAX_ABILITY_SCORE` in builderWizard.js);
+// this editor corrects a base score after creation, so it uses the same limits
+// rather than inventing new ones. Point-buy / standard-array construction rules
+// are creation-time only and are deliberately not re-enforced here.
+const MIN_BASE_ABILITY_SCORE = 1;
+const MAX_BASE_ABILITY_SCORE = 20;
+
+// Builder score fields on the sheet itself stay read-only: the score shown there
+// is the derived total (base + adjustments), not an editable input.
+const BUILDER_SCORE_READONLY_TITLE = "Derived total — edit base scores from the ⋯ menu.";
+
 const DEFAULT_SAVE_MISC = /** @type {Record<AbilityKey, number>} */ ({
   str: 0,
   dex: 0,
@@ -287,8 +308,9 @@ export function initAbilitiesPanel(deps = {}) {
 
   /** @type {Map<AbilityKey, AbilityController>} */
   const abilityControllers = new Map();
+  /** Re-reads every ⋯ menu input (scores, adjustments, misc saves, mod-to-all) from state. */
   /** @type {() => void} */
-  let syncAdjustmentControls = () => {};
+  let syncAbilityMenuControls = () => {};
 
   /**
    * @param {EventTarget | null | undefined} target
@@ -441,7 +463,7 @@ export function initAbilitiesPanel(deps = {}) {
     const hint = document.createElement("p");
     hint.id = builderHintId;
     hint.className = "builderSheetHint builderAbilitiesNote";
-    hint.textContent = "Builder mode ability scores are controlled by Builder Abilities for now.";
+    hint.textContent = "Builder ability scores are edited from the ⋯ menu above.";
     hint.hidden = true;
     panelEl.insertBefore(hint, abilityGrid);
     builderHintEl = hint;
@@ -592,6 +614,73 @@ export function initAbilitiesPanel(deps = {}) {
   }
 
   /**
+   * The builder character's stored base score for one ability, or null when the
+   * active character is freeform or its builder ability data is malformed.
+   * @param {AbilityKey} key
+   * @returns {number | null}
+   */
+  function readBuilderAbilityBase(key) {
+    const character = getCharacter();
+    if (!hasValidBuilderAbilityBaseShape(character)) return null;
+    const build = /** @type {Record<string, unknown> | undefined} */ (character?.build);
+    const abilities = isRecord(build) ? build.abilities : null;
+    const base = isRecord(abilities) ? abilities.base : null;
+    const value = isRecord(base) ? base[key] : null;
+    return isFiniteNumber(value) ? value : null;
+  }
+
+  /**
+   * Writes one corrected base ability score into `build.abilities.base`.
+   *
+   * Base scores are a builder *input* (calculation contract §1): every derived
+   * value — modifiers, saves, skills, attacks, spell DC/attack, AC, max HP —
+   * recalculates from it through the shared engine, so nothing is materialized
+   * onto the flat sheet here. `build.abilities.method` is provenance for how the
+   * scores were originally generated and is deliberately left untouched.
+   *
+   * Rejects (without mutating or marking dirty) anything that is not an integer
+   * inside the builder's own score bounds, and any no-op re-entry of the current
+   * value.
+   * @param {AbilityKey} key
+   * @param {unknown} rawValue
+   * @returns {boolean} true when state actually changed
+   */
+  function updateBuilderAbilityBase(key, rawValue) {
+    const character = getCharacter();
+    if (!hasValidBuilderAbilityBaseShape(character)) return false;
+
+    const text = typeof rawValue === "string" ? rawValue.trim() : String(rawValue ?? "").trim();
+    if (!text) return false;
+
+    const nextValue = Number(text);
+    if (!Number.isFinite(nextValue) || !Number.isInteger(nextValue)) return false;
+    if (nextValue < MIN_BASE_ABILITY_SCORE || nextValue > MAX_BASE_ABILITY_SCORE) return false;
+
+    const currentValue = readBuilderAbilityBase(key);
+    if (currentValue == null || Object.is(currentValue, nextValue)) return false;
+
+    const updated = mutateCharacter((currentCharacter) => {
+      if (!hasValidBuilderAbilityBaseShape(currentCharacter)) return false;
+      const build = /** @type {Record<string, unknown>} */ (
+        /** @type {Record<string, unknown>} */ (currentCharacter).build
+      );
+      if (!isRecord(build)) return false;
+      const abilities = build.abilities;
+      if (!isRecord(abilities)) return false;
+      const base = abilities.base;
+      if (!isRecord(base)) return false;
+      base[key] = nextValue;
+      return true;
+    }, { queueSave: false });
+
+    if (!updated) return false;
+    markDirty();
+    recalcAllAbilities({ syncFromState: true });
+    notifyPanelDataChanged("character-fields", { source: panelSource });
+    return true;
+  }
+
+  /**
    * @param {AbilityKey} key
    * @returns {AbilityState}
    */
@@ -722,7 +811,7 @@ export function initAbilitiesPanel(deps = {}) {
     scoreEl.readOnly = builderOwned;
     if (builderOwned) {
       scoreEl.setAttribute("aria-readonly", "true");
-      scoreEl.setAttribute("title", "Controlled by Builder Abilities.");
+      scoreEl.setAttribute("title", BUILDER_SCORE_READONLY_TITLE);
     } else {
       removeElementAttribute(scoreEl, "aria-readonly");
       removeElementAttribute(scoreEl, "title");
@@ -734,7 +823,7 @@ export function initAbilitiesPanel(deps = {}) {
    */
   function recalcAllAbilities(opts = {}) {
     syncBuilderHint(isCurrentBuilderCharacter());
-    syncAdjustmentControls();
+    syncAbilityMenuControls();
     for (const controller of abilityControllers.values()) {
       controller.recalc({ syncFromState: opts.syncFromState !== false });
     }
@@ -839,29 +928,159 @@ export function initAbilitiesPanel(deps = {}) {
 
     /** @type {Partial<Record<AbilityKey, HTMLInputElement>>} */
     const miscInputs = {};
+    /** @type {Partial<Record<AbilityKey, HTMLInputElement>>} */
+    const baseScoreInputs = {};
+    /** @type {Partial<Record<AbilityKey, HTMLInputElement>>} */
+    const adjustmentInputs = {};
+    /** @type {HTMLSelectElement | null} */
+    let modToAllSelect = null;
 
-    function isBuilderAdjustmentMode() {
+    function isValidBuilderAbilityMode() {
       return hasValidBuilderAbilityBaseShape(getCharacter());
     }
 
-    function isMalformedBuilderAdjustmentMode() {
+    function isMalformedBuilderAbilityMode() {
       const character = getCharacter();
       return isBuilderCharacter(character) && !hasValidBuilderAbilityBaseShape(character);
     }
 
-    syncAdjustmentControls = () => {
-      const builderAdjustmentMode = isBuilderAdjustmentMode();
-      const malformedBuilderMode = isMalformedBuilderAdjustmentMode();
+    /**
+     * One 3-column input group inside the ⋯ menu, built from the same markup the
+     * shipped Misc Save Bonus grid uses so it inherits its styling, width, and
+     * 380px behavior. Built here rather than in `index.html` because the combat
+     * embedded host renders its own copy of the panel markup — building it once
+     * in the panel keeps both hosts identical and keeps the group's builder-only
+     * visibility in one place.
+     * @param {{
+     *   groupKey: string,
+     *   title: string,
+     *   labelSuffix: string,
+     *   describeInput: (name: string) => string,
+     *   target: Partial<Record<AbilityKey, HTMLInputElement>>
+     * }} config
+     * @returns {HTMLElement}
+     */
+    function buildAbilityMenuGroup(config) {
+      const titleId = `charAbilities_${config.groupKey}_${Math.random().toString(36).slice(2, 8)}`;
+
+      const groupEl = document.createElement("div");
+      groupEl.className = "saveOptionsGroup";
+      groupEl.dataset.abilityMenuGroup = config.groupKey;
+      groupEl.setAttribute("role", "group");
+      groupEl.setAttribute("aria-labelledby", titleId);
+
+      const titleEl = document.createElement("div");
+      titleEl.className = "saveOptionsTitle";
+      titleEl.id = titleId;
+      titleEl.textContent = config.title;
+      groupEl.appendChild(titleEl);
+
+      const gridEl = document.createElement("div");
+      gridEl.className = "saveOptionsGrid";
+      for (const key of ABILITY_KEYS) {
+        const cellEl = document.createElement("div");
+        cellEl.className = "saveOpt";
+
+        const topEl = document.createElement("div");
+        topEl.className = "saveOptTop";
+
+        const input = document.createElement("input");
+        input.type = "number";
+        input.step = "1";
+        input.dataset.abilityMenuInput = `${config.groupKey}:${key}`;
+        input.setAttribute("aria-label", config.describeInput(ABILITY_NAME_BY_KEY[key]));
+        topEl.appendChild(input);
+
+        const labelEl = document.createElement("div");
+        labelEl.className = "saveOptLabel";
+        labelEl.textContent = `${ABILITY_SUFFIX_BY_KEY[key]} ${config.labelSuffix}`;
+
+        cellEl.appendChild(topEl);
+        cellEl.appendChild(labelEl);
+        gridEl.appendChild(cellEl);
+        config.target[key] = input;
+      }
+      groupEl.appendChild(gridEl);
+
+      const dividerEl = document.createElement("div");
+      dividerEl.className = "settingsDivider";
+      groupEl.appendChild(dividerEl);
+
+      return groupEl;
+    }
+
+    // Menu order (owner-ratified): Ability Scores → Ability Adjustments →
+    // Misc Save Bonus → Ability Mod To All Saves. The last two already ship in
+    // the static markup, so the two new groups are prepended ahead of them.
+    const baseScoreGroupEl = buildAbilityMenuGroup({
+      groupKey: "scores",
+      title: "Ability Scores",
+      labelSuffix: "Score",
+      describeInput: (name) => `${name} base score`,
+      target: baseScoreInputs
+    });
+    const adjustmentGroupEl = buildAbilityMenuGroup({
+      groupKey: "adjustments",
+      title: "Ability Adjustments",
+      labelSuffix: "Adjust",
+      describeInput: (name) => `${name} adjustment`,
+      target: adjustmentInputs
+    });
+
+    for (const key of ABILITY_KEYS) {
+      const input = baseScoreInputs[key];
+      if (!input) continue;
+      input.min = String(MIN_BASE_ABILITY_SCORE);
+      input.max = String(MAX_BASE_ABILITY_SCORE);
+    }
+
+    menu.insertBefore(adjustmentGroupEl, menu.firstChild);
+    menu.insertBefore(baseScoreGroupEl, menu.firstChild);
+    addDestroy(() => {
+      baseScoreGroupEl.remove();
+      adjustmentGroupEl.remove();
+    });
+
+    // The menu carries ability inputs as well as save options now, so keep the
+    // trigger's accessible name accurate. Restored on destroy with the rest of
+    // the injected DOM.
+    const previousMenuBtnTitle = btn.getAttribute("title");
+    btn.setAttribute("title", "Ability and save options");
+    addDestroy(() => {
+      if (previousMenuBtnTitle == null) removeElementAttribute(btn, "title");
+      else btn.setAttribute("title", previousMenuBtnTitle);
+    });
+
+    syncAbilityMenuControls = () => {
+      const validBuilderMode = isValidBuilderAbilityMode();
+      const malformedBuilderMode = isMalformedBuilderAbilityMode();
+      const builderMode = validBuilderMode || malformedBuilderMode;
       const saveOptions = readSaveOptionsShape();
 
+      // Base scores are a builder-only input; a freeform sheet edits its scores
+      // directly on the ability blocks and never sees this group.
+      baseScoreGroupEl.hidden = !validBuilderMode;
+      adjustmentGroupEl.hidden = !builderMode;
+
       for (const key of ABILITY_KEYS) {
+        const baseInput = baseScoreInputs[key];
+        if (baseInput) {
+          const base = readBuilderAbilityBase(key);
+          baseInput.value = base == null ? "" : String(base);
+          baseInput.disabled = !validBuilderMode;
+          baseInput.readOnly = !validBuilderMode;
+        }
+
+        const adjustmentInput = adjustmentInputs[key];
+        if (adjustmentInput) {
+          adjustmentInput.value = validBuilderMode ? String(readBuilderAbilityAdjustment(key)) : "";
+          adjustmentInput.disabled = !validBuilderMode;
+          adjustmentInput.readOnly = !validBuilderMode;
+        }
+
         const input = miscInputs[key];
         if (!input) continue;
-        if (builderAdjustmentMode) {
-          input.value = String(readBuilderAbilityAdjustment(key));
-          input.disabled = false;
-          input.readOnly = false;
-        } else if (malformedBuilderMode) {
+        if (malformedBuilderMode) {
           input.value = "";
           input.disabled = true;
           input.readOnly = true;
@@ -871,7 +1090,45 @@ export function initAbilitiesPanel(deps = {}) {
           input.readOnly = false;
         }
       }
+
+      if (modToAllSelect) {
+        const nextModToAll = saveOptions.modToAll || "";
+        if (modToAllSelect.value !== nextModToAll) {
+          modToAllSelect.value = nextModToAll;
+          try { modToAllSelect.dispatchEvent(new Event("selectDropdown:sync")); } catch { /* noop */ }
+        }
+      }
     };
+
+    for (const key of ABILITY_KEYS) {
+      const input = baseScoreInputs[key];
+      if (!input) continue;
+      addListener(input, "input", () => {
+        if (destroyed) return;
+        // A rejected value (out of range, non-integer, mid-typing, or a no-op)
+        // leaves both state and the field alone so typing is not fought; the
+        // change handler below snaps the field back to what was actually stored.
+        updateBuilderAbilityBase(key, input.value);
+      });
+      addListener(input, "change", () => {
+        if (destroyed) return;
+        updateBuilderAbilityBase(key, input.value);
+        syncAbilityMenuControls();
+      });
+    }
+
+    for (const key of ABILITY_KEYS) {
+      const input = adjustmentInputs[key];
+      if (!input) continue;
+      addListener(input, "input", () => {
+        if (destroyed) return;
+        if (!isValidBuilderAbilityMode()) {
+          syncAbilityMenuControls();
+          return;
+        }
+        if (!updateBuilderAbilityAdjustment(key, input.value)) syncAbilityMenuControls();
+      });
+    }
 
     for (const key of ABILITY_KEYS) {
       const input = scope.querySelector(`#miscSave_${key}`);
@@ -879,24 +1136,25 @@ export function initAbilitiesPanel(deps = {}) {
       miscInputs[key] = input;
       addListener(input, "input", () => {
         if (destroyed) return;
-        if (isBuilderAdjustmentMode()) {
-          if (!updateBuilderAbilityAdjustment(key, input.value)) syncAdjustmentControls();
+        if (isMalformedBuilderAbilityMode()) {
+          syncAbilityMenuControls();
           return;
         }
-        if (isMalformedBuilderAdjustmentMode()) {
-          syncAdjustmentControls();
-          return;
-        }
-        ensureSaveOptionsShape().misc[key] = Number(input.value || 0);
+        const updated = mutateCharacter(() => {
+          ensureSaveOptionsShape().misc[key] = Number(input.value || 0);
+          return true;
+        }, { queueSave: false });
+        if (!updated) return;
         recalcAllAbilities();
         markDirty();
       });
     }
 
-    syncAdjustmentControls();
+    syncAbilityMenuControls();
 
     const select = scope.querySelector("#saveModToAllSelect");
     if (!(select instanceof HTMLSelectElement)) return;
+    modToAllSelect = select;
     select.value = readSaveOptionsShape().modToAll || "";
     const enhancedDropdown = enhanceSelectDropdown({
       select,
@@ -1123,7 +1381,7 @@ export function initAbilitiesPanel(deps = {}) {
       if (builderOwned) {
         scoreInput.setAttribute("aria-readonly", "true");
         scoreInput.setAttribute("aria-describedby", builderHintId);
-        scoreInput.setAttribute("title", "Controlled by Builder Abilities.");
+        scoreInput.setAttribute("title", BUILDER_SCORE_READONLY_TITLE);
       } else {
         removeElementAttribute(scoreInput, "aria-readonly");
         removeElementAttribute(scoreInput, "aria-describedby");

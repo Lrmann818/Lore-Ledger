@@ -79,22 +79,20 @@ test("builder vitals derive live, take adjustments and fixed overrides, and pers
   await expect(page.locator("#charHpCur")).toBeVisible();
   await expect(page.locator("#charHpCur")).toHaveValue("10");
 
-  // Raise Wisdom through Edit in Builder → spell DC/attack update AUTOMATICALLY.
-  await page.locator("#charBuilderIdentityEditBtn").click();
-  await expect(page.locator("#builderWizardTitle")).toHaveText("Edit with Builder");
-  await page.locator("#builderWizardNext").click();
-  await page.locator("#builderWizardNext").click();
-  await page.locator("#builderWizardNext").click();
-  await page.locator("#builderWizardNext").click();
-  await expect(page.locator("#builderWizardStepAbilities")).toBeVisible();
-  await page.locator("#builderWizardAbilityWis").fill("17"); // 18 → +4
-  await page.locator("#builderWizardNext").click(); // → spells
-  await expect(page.locator("#builderWizardStepSpells")).toBeVisible();
-  await page.locator("#builderWizardNext").click(); // → equipment
-  await page.locator("#builderWizardNext").click(); // → summary
-  await expect(page.locator("#builderWizardStepSummary")).toBeVisible();
-  await page.locator("#builderWizardFinish").click();
-  await expect(page.locator("#builderWizardPanel")).toBeHidden();
+  // Raise the base Wisdom from the Abilities & Skills ⋯ menu → spell DC/attack
+  // update AUTOMATICALLY through the shared derivation engine.
+  await expect(page.locator('.abilityBlock[data-ability="wis"] .abilityScore')).toBeDisabled();
+  await page.locator("#saveOptionsBtn").click();
+  const wisBaseScore = page.locator('[data-ability-menu-input="scores:wis"]');
+  await expect(wisBaseScore).toHaveValue("15");
+  await wisBaseScore.fill("17"); // 18 → +4
+  await page.keyboard.press("Escape");
+  await expect(page.locator("#saveOptionsBtn")).toHaveAttribute("aria-expanded", "false");
+  await expect.poll(() => page.evaluate(() => {
+    const collection = globalThis.__APP_STATE__?.characters;
+    const character = collection?.entries?.find((entry) => entry?.id === collection?.activeId);
+    return { base: character?.build?.abilities?.base?.wis, method: character?.build?.abilities?.method };
+  })).toEqual({ base: 17, method: "manual" });
   await expect(tile(page, "spellDC").locator(".spellDerivedValue")).toHaveText("14");
   await expect(tile(page, "spellAtk").locator(".spellDerivedValue")).toHaveText("+6");
 
@@ -182,6 +180,55 @@ test("freeform casters declare a profile; freeform AC and max HP stay manual", a
     const c = await readActiveCharacter(page);
     return { dc: c?.spellDC, attack: c?.spellAttack, mode: c?.spellcastingCalc?.mode };
   }).toEqual({ dc: 15, attack: 7, mode: "derived" });
+
+  await expectNoFatalSignals(page, fatalSignals);
+});
+
+test("ability score menu is keyboard-operable and fits at 380px", async ({ page }) => {
+  const fatalSignals = await openSmokeApp(page, { campaignName: "Ability Menu KB Smoke" });
+  await createBuilderCleric(page, { name: "KB Ability Cleric" });
+  await expect(tile(page, "spellDC").locator(".spellDerivedValue")).toHaveText("13");
+
+  await page.setViewportSize({ width: 380, height: 800 });
+
+  // Open the ⋯ menu from the keyboard.
+  await page.locator("#saveOptionsBtn").focus();
+  await page.keyboard.press("Enter");
+  await expect(page.locator("#saveOptionsMenu")).toBeVisible();
+  await expect(page.locator("#saveOptionsBtn")).toHaveAttribute("aria-expanded", "true");
+
+  // Builder groups in the ratified order.
+  await expect(page.locator("#saveOptionsMenu .saveOptionsTitle")).toHaveText([
+    "Ability Scores",
+    "Ability Adjustments",
+    "Misc Save Bonus"
+  ]);
+
+  // Nothing overflows or clips at 380px: the document does not scroll
+  // horizontally and the menu stays inside the viewport.
+  const overflow = await page.evaluate(() =>
+    document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(overflow).toBeLessThanOrEqual(1);
+  const menuFits = await page.evaluate(() => {
+    const menu = document.querySelector("#saveOptionsMenu");
+    const rect = menu.getBoundingClientRect();
+    return rect.left >= -1 && rect.right <= window.innerWidth + 1 && rect.width > 0;
+  });
+  expect(menuFits).toBe(true);
+
+  // Every group input is reachable and editable; the edit derives live.
+  const wisBase = page.locator('[data-ability-menu-input="scores:wis"]');
+  await wisBase.focus();
+  expect(await page.evaluate(() =>
+    document.activeElement?.dataset?.abilityMenuInput)).toBe("scores:wis");
+  await wisBase.fill("17");
+  await expect(tile(page, "spellDC").locator(".spellDerivedValue")).toHaveText("14");
+
+  // Escape closes the menu and returns focus to its trigger.
+  await page.keyboard.press("Escape");
+  await expect(page.locator("#saveOptionsMenu")).toBeHidden();
+  await expect(page.locator("#saveOptionsBtn")).toHaveAttribute("aria-expanded", "false");
+  expect(await page.evaluate(() => document.activeElement?.id)).toBe("saveOptionsBtn");
 
   await expectNoFatalSignals(page, fatalSignals);
 });

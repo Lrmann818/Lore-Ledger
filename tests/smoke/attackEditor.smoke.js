@@ -2,9 +2,10 @@ import { expect, test } from "@playwright/test";
 import { expectNoFatalSignals, openSmokeApp, waitForAppShell } from "./helpers/smokeApp.js";
 
 // Unified structured attacks: build a fighter with a longsword (Finish seeds
-// a structured, live-deriving attack), rename it, raise STR through Edit in
-// Builder and verify the displayed attack updates AUTOMATICALLY (no recalc
-// action) while the custom name survives, confirm persistence across reload,
+// a structured, live-deriving attack), rename it, raise the base STR from the
+// Abilities & Skills ⋯ menu and verify the displayed attack updates
+// AUTOMATICALLY (no recalc action) while the custom name survives, confirm
+// persistence across reload,
 // then create a manual structured attack and an explicit adjustment through
 // the editor and confirm a fixed attack does not derive.
 
@@ -65,19 +66,23 @@ test("structured attacks derive live, edit through the editor, and persist", asy
   // Give it a custom name (user-owned).
   await firstRow(page).locator(".attackName").fill("Grandfather's Blade");
 
-  // Raise STR to 18 through Edit in Builder. The attack updates AUTOMATICALLY.
-  await page.locator("#charBuilderIdentityEditBtn").click();
-  await expect(page.locator("#builderWizardTitle")).toHaveText("Edit with Builder");
-  await page.locator("#builderWizardNext").click();
-  await page.locator("#builderWizardNext").click();
-  await page.locator("#builderWizardNext").click();
-  await page.locator("#builderWizardNext").click();
-  await expect(page.locator("#builderWizardStepAbilities")).toBeVisible();
-  await page.locator("#builderWizardAbilityStr").fill("18");
-  await page.locator("#builderWizardNext").click(); // → equipment
-  await page.locator("#builderWizardNext").click(); // → summary
-  await page.locator("#builderWizardFinish").click();
-  await expect(page.locator("#builderWizardPanel")).toBeHidden();
+  // Raise the base STR to 18 from the Abilities & Skills ⋯ menu — the sheet's
+  // own score field stays read-only (it shows the derived total). The attack
+  // updates AUTOMATICALLY.
+  await expect(page.locator('.abilityBlock[data-ability="str"] .abilityScore')).toBeDisabled();
+  await page.locator("#saveOptionsBtn").click();
+  const strBaseScore = page.locator('[data-ability-menu-input="scores:str"]');
+  await expect(strBaseScore).toHaveValue("15");
+  await strBaseScore.fill("18");
+  await page.keyboard.press("Escape");
+  await expect(page.locator("#saveOptionsBtn")).toHaveAttribute("aria-expanded", "false");
+
+  // Only the base score moved; the generation method stays as provenance.
+  await expect.poll(() => page.evaluate(() => {
+    const collection = globalThis.__APP_STATE__?.characters;
+    const character = collection?.entries?.find((entry) => entry?.id === collection?.activeId);
+    return { base: character?.build?.abilities?.base?.str, method: character?.build?.abilities?.method };
+  })).toEqual({ base: 18, method: "manual" });
 
   // No Recalc button anywhere; the displayed values already reflect STR 19 (+4).
   await expect(page.getByRole("button", { name: "Recalculate from Build" })).toHaveCount(0);
