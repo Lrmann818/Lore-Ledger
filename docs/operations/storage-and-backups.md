@@ -91,10 +91,12 @@ same state mutation as the commit so the single vault write persists both togeth
 Snapshot records are campaign-owned: they ride through `sanitizeForSave`, the
 campaign vault, and full backup export/import, and they survive deleting the source
 playable character. See `docs/state-schema.md` → "Pre-Level-Up snapshots" for the
-record shape. **R4 limitation:** the backup blob/text collectors do not yet walk
-snapshot payloads, so a snapshot's portrait blob and spell-note texts are bundled
-into backups only while the source character still exists; extending the collectors
-is Restore Character phase R4.
+record shape. **Snapshot-owned external assets (Restore Character R4,
+2026-07-24):** the backup blob/text collectors walk snapshot payloads, so a
+snapshot's portrait blob and spell-note texts are bundled into full backups —
+and survive the post-import cleanup pass — even after the source playable
+character has been deleted. Malformed optional snapshot data is skipped rather
+than failing the export or import.
 
 **Restore commit protocol (R2, 2026-07-22 — engine only, no UI calls it yet):**
 `commitRestoredCharacter` in `js/domain/characterSnapshots.js` mirrors the
@@ -276,10 +278,12 @@ Current flow:
 1. Call `ensureMapManager()` so map references are in a consistent shape.
 2. Collect referenced blob IDs from:
    - `character.imgBlobId`
+   - each retained `characters.snapshots[].payload.imgBlobId`
    - tracker NPCs, party members, and locations
    - each map entry's `bgBlobId` and `drawingBlobId`
 3. Read each referenced blob from IndexedDB and convert it to a data URL.
-4. Collect referenced active-campaign text IDs from structured spell IDs.
+4. Collect referenced active-campaign text IDs from structured spell IDs, in both
+   live character entries and retained snapshot payloads.
 5. Read each referenced text record from IndexedDB.
 6. Build a backup object:
    - `version: 2`

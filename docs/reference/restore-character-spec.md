@@ -4,14 +4,16 @@ _Status: **normative specification, ratified by owner decision 2026-07-18.
 Phase R1 (schema v13 + transactional pre-Level-Up snapshot capture) was
 owner-authorized and shipped 2026-07-18. Phase R2 (the non-UI restore engine)
 was owner-authorized and shipped 2026-07-22. Phase R3 (the user-facing Restore
-Character UI — restore-only) was owner-authorized and shipped 2026-07-22** — see
-the implementation notes in §2.3, §3.2, §3.3, §4.2, §5, §7, and §8. Owner
+Character UI — restore-only) was owner-authorized and shipped 2026-07-22. Phase
+R4 (backup asset completeness) was owner-authorized and shipped 2026-07-24** —
+see the implementation notes in §2.3, §3.2, §3.3, §4.2, §5, §6, §7, and §8. Owner
 decisions D1–D4 are ruled (audit doc §3). **Snapshot deletion is deferred to a
 separately authorized future phase — it is NOT part of R3 and is NOT assigned to
-R4/R5/R6.** **R4–R6 remain gated on explicit owner authorization** per §9 and
+R4/R5/R6.** **R5–R6 remain gated on explicit owner authorization** per §9 and
 the binding [Working Order](../../AGENTS.md#current-working-order): R1 creates and
-preserves snapshot history, R2 provides the domain engine, and R3 exposes restore
-(never delete) through an accessible, mobile-safe, persistence-confirming dialog._
+preserves snapshot history, R2 provides the domain engine, R3 exposes restore
+(never delete) through an accessible, mobile-safe, persistence-confirming dialog,
+and R4 makes full backups carry the external assets a retained snapshot owns._
 
 Read with [`AGENTS.md`](../../AGENTS.md),
 [`level-up-flow-spec.md`](./level-up-flow-spec.md),
@@ -399,17 +401,28 @@ transaction order below is the contract it implements.
 ## 6. Export / import (Phase E, part 2)
 
 - **Full campaign backup:** snapshots ride inside `characters` automatically
-  (§2.1). Required additions, so snapshots are *fully* included rather than
-  structurally included:
+  (§2.1). The additions below make snapshots *fully* included rather than only
+  structurally included — **implemented as R4, 2026-07-24**:
   - `collectReferencedBlobIds` walks `characters.snapshots[].payload.imgBlobId` so
-    snapshot portraits export and survive the import cleanup pass
-    (`backup.js:460-494, 1263-1296`).
+    snapshot portraits export and survive the import cleanup pass.
   - `collectReferencedTextIds` walks snapshot payload spell rows so their note keys
-    export and survive cleanup (`backup.js:500-535`) — while the source character
-    lives these are the same keys; after source deletion the snapshot keeps them
-    alive.
+    export and survive cleanup — while the source character lives these are the
+    same keys; after source deletion the snapshot keeps them alive.
   - `remapIncomingSpellNoteTextIds` / `collectSpellIds` include snapshot payload rows
-    so campaign-remapped note keys keep working (`backup.js:541-615`).
+    so campaign-remapped note keys keep working.
+
+  **As-built (R4, 2026-07-24):** all three walks share two private helpers in
+  `js/storage/backup.js` — `getSnapshotPayloads()` (skips a non-array
+  `snapshots` collection, non-object records, and records without a plain-object
+  `payload`, so malformed optional data fails soft) and `getSpellRowIds()` (the
+  one structured spell-row walk, now used by the live-entry, legacy-singleton,
+  and snapshot-payload paths alike). Deduplication stays the collectors' `Set`.
+  One addition beyond the outline above: `remapBlobIds` also rewrites
+  `characters.snapshots[].payload.imgBlobId`, because import only preserves an
+  incoming blob id opportunistically — without it a snapshot portrait collected
+  by R4 could be staged under a new id and then referenced by a stale one
+  (`docs/operations/storage-and-backups.md` §12 rule 9: rewrite *every*
+  reference). No schema, state-shape, UI, or restore-behavior change.
 - **Collisions:** none by construction — backup import **replaces** campaign state
   wholesale (`replaceStateBuckets`), it never merges. Snapshot ids, source ids, and
   payload row ids arrive as a consistent set. v13 normalization de-duplicates ids
@@ -526,10 +539,11 @@ playwright.preview.config.js`) — both smoke gates are blocking per
   apply leaves nothing live for a later unrelated save to commit), a real-`importBackup`
   retention test in `tests/storage.backup.test.js`, and end-to-end snapshot
   assertions (cancel-none / apply-one / reload-persists) in
-  `tests/smoke/levelUp.smoke.js`. **R1 limitation:** snapshot *records* fully
-  round-trip; backup bundling of snapshot-only external assets (portrait blob,
-  spell-note texts once the source character is gone) is deferred to R4.
-  Single-character export remains unchanged and excludes snapshots.
+  `tests/smoke/levelUp.smoke.js`. **R1 limitation (closed by R4, 2026-07-24):**
+  snapshot *records* fully round-tripped, but backup bundling of snapshot-only
+  external assets (portrait blob, spell-note texts once the source character is
+  gone) was deferred to R4. Single-character export remains unchanged and
+  excludes snapshots.
 - **R2 — Restore engine. ✅ Shipped 2026-07-22 (owner-authorized).**
   `js/domain/characterSnapshots.js` gained the non-UI engine:
   `getCharacterSnapshotById` (resolution), `prepareRestoredCharacter` (pure
@@ -600,9 +614,27 @@ playwright.preview.config.js`) — both smoke gates are blocking per
   smoke gates 64/64 (dev + production-preview). **No snapshot deletion, backup-collector,
   or Edit-in-Builder-retirement work shipped — those remain R4/R5 (unauthorized) and,
   for deletion, a separately authorized future phase (§5).**
-- **R4 — Backup asset completeness.** `backup.js` collectors + remap walk snapshot
-  payloads. Tests: snapshot portrait/note export, import-cleanup keep-alive,
-  campaign-remap of snapshot note keys.
+- **R4 — Backup asset completeness. ✅ Shipped 2026-07-24 (owner-authorized).**
+  `js/storage/backup.js` only: `collectReferencedBlobIds`,
+  `collectReferencedTextIds`, `collectSpellIds` (and therefore
+  `remapIncomingSpellNoteTextIds`), and `remapBlobIds` walk retained snapshot
+  payloads through the shared `getSnapshotPayloads()` / `getSpellRowIds()`
+  helpers — as-built notes in §6. Tests landed in
+  `tests/storage.backup.test.js` (30 → 39): snapshot-payload portrait collection
+  with a deleted source plus natural dedup, malformed/non-array snapshot
+  fail-soft, snapshot-payload note-key derivation (campaign-scoped and legacy
+  unscoped, with the legacy singleton fallback still intact), a full export
+  bundling a portrait **and** a note owned only by a retained snapshot,
+  import cleanup keeping snapshot-only blobs/texts alive while still deleting a
+  genuinely unreferenced one, snapshot-only note keys remapping from the
+  exported campaign id to the destination campaign id, and snapshot payload
+  portrait remapping when the original blob id cannot be preserved. Verified
+  2026-07-24: typecheck clean, 1340/1340 unit (1331 before), `npm run build`
+  clean, `npm run test:smoke` 64/64. The production-preview gate was **not**
+  required and was not run — R4 touches no UI, `index.html`, `styles.css`, or
+  smoke-harness file. **No schema, state-shape, UI, or Restore Character
+  behavior change; `.ll-character.json` still excludes snapshots; no snapshot
+  deletion.**
 - **R5 — Edit in Builder retirement.** Gated on owner decisions D1–D3 (audit doc §3).
   Remove E1–E6/M1–M3 per the audit, rework T1–T6 (new ability-change lever per D2),
   update creation-Summary copy, revise the governing docs listed in audit §1.6.

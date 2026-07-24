@@ -424,6 +424,68 @@ function getCharacterEntries(stateLike) {
 }
 
 /**
+ * Retained pre-Level-Up snapshot payloads (Restore Character R4).
+ *
+ * Snapshots are campaign-owned and outlive their source character, so a payload
+ * can be the only remaining reference to a portrait blob or a spell note text.
+ * Malformed optional records are skipped so export/import never breaks on
+ * hand-edited or partially migrated data.
+ *
+ * @param {unknown} stateLike
+ * @returns {Record<string, unknown>[]}
+ */
+function getSnapshotPayloads(stateLike) {
+  if (!isPlainObject(stateLike)) return [];
+  const charactersCollection = isPlainObject(stateLike.characters) ? stateLike.characters : null;
+  const snapshots = Array.isArray(charactersCollection?.snapshots) ? charactersCollection.snapshots : [];
+
+  /** @type {Record<string, unknown>[]} */
+  const payloads = [];
+  for (const snapshot of snapshots) {
+    if (!isPlainObject(snapshot)) continue;
+    if (!isPlainObject(snapshot.payload)) continue;
+    payloads.push(snapshot.payload);
+  }
+  return payloads;
+}
+
+/**
+ * Structured spell row ids on one character-shaped record (live entry, legacy
+ * character, or snapshot payload). Row ids key external spell note texts.
+ *
+ * @param {unknown} record
+ * @returns {string[]}
+ */
+function getSpellRowIds(record) {
+  /** @type {string[]} */
+  const rowIds = [];
+  if (!isPlainObject(record)) return rowIds;
+
+  const spells = isPlainObject(record.spells) ? record.spells : null;
+  const levels = Array.isArray(spells?.levels) ? spells.levels : [];
+  for (const level of levels) {
+    if (!isPlainObject(level) || !Array.isArray(level.spells)) continue;
+    for (const spell of level.spells) {
+      if (!isPlainObject(spell)) continue;
+      const spellId = cleanString(spell.id);
+      if (spellId) rowIds.push(spellId);
+    }
+  }
+  return rowIds;
+}
+
+/**
+ * Every character-shaped record whose spell rows own note text keys: live
+ * entries (or the legacy singleton) plus retained snapshot payloads.
+ *
+ * @param {BackupStateLike | null | undefined} stateLike
+ * @returns {Record<string, unknown>[]}
+ */
+function getSpellNoteOwners(stateLike) {
+  return [...getCharacterEntries(stateLike), ...getSnapshotPayloads(stateLike)];
+}
+
+/**
  * @param {BackupStateLike | null | undefined} stateLike
  * @returns {Map<string, Record<string, unknown>>}
  */
@@ -474,6 +536,12 @@ export function collectReferencedBlobIds(stateLike) {
     addReferencedId(ids, ch.imgBlobId);
   }
 
+  // Retained pre-Level-Up snapshot payloads keep their own portrait reference
+  // alive after the source character is deleted (Restore Character R4).
+  for (const payload of getSnapshotPayloads(stateLike)) {
+    addReferencedId(ids, payload.imgBlobId);
+  }
+
   const map = isPlainObject(stateLike.map) ? stateLike.map : null;
   if (map) {
     // Keep legacy top-level map blob fields in the scan so cleanup remains safe
@@ -504,30 +572,17 @@ export function collectReferencedTextIds(stateLike) {
     ? stateLike.appShell.activeCampaignId.trim()
     : "";
 
-  // Support both new shape (characters.entries[]) and legacy shape (character).
-  const charsCollection = isPlainObject(stateLike.characters) ? stateLike.characters : null;
-  const chEntries = Array.isArray(charsCollection?.entries) ? charsCollection.entries : [];
-  const legacyChar = chEntries.length === 0 && isPlainObject(stateLike.character) ? stateLike.character : null;
-  const allChars = chEntries.length > 0 ? chEntries : (legacyChar ? [legacyChar] : []);
-
-  for (const ch of allChars) {
-    if (!isPlainObject(ch)) continue;
-    const spells = isPlainObject(ch.spells) ? ch.spells : null;
-    const levels = Array.isArray(spells?.levels) ? spells.levels : [];
-    for (const level of levels) {
-      if (!isPlainObject(level) || !Array.isArray(level.spells)) continue;
-      for (const spell of level.spells) {
-        if (!isPlainObject(spell)) continue;
-        if (typeof spell.id !== "string") continue;
-        const spellId = spell.id.trim();
-        if (!spellId) continue;
-        addReferencedId(
-          ids,
-          activeCampaignId
-            ? textKey_spellNotes(activeCampaignId, spellId)
-            : textKey_spellNotes(spellId)
-        );
-      }
+  // Support both new shape (characters.entries[]) and legacy shape (character),
+  // plus retained snapshot payloads (R4) — while the source character lives
+  // these resolve to the same keys, and after deletion the snapshot keeps them.
+  for (const owner of getSpellNoteOwners(stateLike)) {
+    for (const spellId of getSpellRowIds(owner)) {
+      addReferencedId(
+        ids,
+        activeCampaignId
+          ? textKey_spellNotes(activeCampaignId, spellId)
+          : textKey_spellNotes(spellId)
+      );
     }
   }
 
@@ -542,24 +597,11 @@ function collectSpellIds(stateLike) {
   const ids = new Set();
   if (!isPlainObject(stateLike)) return ids;
 
-  // Support both new shape (characters.entries[]) and legacy shape (character).
-  const cCollection = isPlainObject(stateLike.characters) ? stateLike.characters : null;
-  const cEntries = Array.isArray(cCollection?.entries) ? cCollection.entries : [];
-  const legacyCh = cEntries.length === 0 && isPlainObject(stateLike.character) ? stateLike.character : null;
-  const allCh = cEntries.length > 0 ? cEntries : (legacyCh ? [legacyCh] : []);
-
-  for (const ch of allCh) {
-    if (!isPlainObject(ch)) continue;
-    const spells = isPlainObject(ch.spells) ? ch.spells : null;
-    const levels = Array.isArray(spells?.levels) ? spells.levels : [];
-    for (const level of levels) {
-      if (!isPlainObject(level) || !Array.isArray(level.spells)) continue;
-      for (const spell of level.spells) {
-        if (!isPlainObject(spell)) continue;
-        const spellId = cleanString(spell.id);
-        if (spellId) ids.add(spellId);
-      }
-    }
+  // Support both new shape (characters.entries[]) and legacy shape (character),
+  // plus retained snapshot payloads (R4) so snapshot-only note keys are remapped
+  // to the destination campaign on import.
+  for (const owner of getSpellNoteOwners(/** @type {BackupStateLike} */ (stateLike))) {
+    for (const spellId of getSpellRowIds(owner)) ids.add(spellId);
   }
 
   return ids;
@@ -739,6 +781,12 @@ function remapBlobIds(target, idMap) {
     for (const entry of target.characters.entries) {
       if (entry && entry.imgBlobId) entry.imgBlobId = remap(entry.imgBlobId);
     }
+  }
+  // Snapshot payload portraits point at the same blob store, so a rewritten id
+  // has to reach them too or a restore would resolve a dangling portrait (R4).
+  for (const payload of getSnapshotPayloads(target)) {
+    const payloadBlobId = cleanString(payload.imgBlobId);
+    if (payloadBlobId) payload.imgBlobId = remap(payloadBlobId);
   }
 }
 

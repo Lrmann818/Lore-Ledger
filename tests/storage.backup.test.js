@@ -37,6 +37,46 @@ function charOf(state) {
   return state.characters?.entries?.[0];
 }
 
+/** A complete, valid pre-Level-Up snapshot record (Restore Character R1/R4). */
+function makeSnapshot(overrides = {}) {
+  return {
+    id: "csnap_1",
+    kind: "pre-level-up",
+    sourceCharacterId: "char_gone",
+    sourceName: "Gail",
+    classSummary: "Ranger 4",
+    fromLevel: 4,
+    toLevel: 5,
+    toClassId: "ranger",
+    createdAt: "2026-07-18T12:00:00.000Z",
+    schemaVersion: 13,
+    payload: { id: "char_gone", name: "Gail" },
+    ...overrides
+  };
+}
+
+/** Builds the structured spell-levels shape from bare row ids. */
+function makeSpellLevels(rowIds, levelId = "level-1") {
+  return [
+    {
+      id: levelId,
+      label: "Cantrips",
+      hasSlots: false,
+      used: null,
+      total: null,
+      collapsed: false,
+      spells: rowIds.map((id) => ({
+        id,
+        name: `Spell ${id}`,
+        notesCollapsed: true,
+        known: true,
+        prepared: false,
+        expended: false
+      }))
+    }
+  ];
+}
+
 function jsonClone(value) {
   return JSON.parse(JSON.stringify(value));
 }
@@ -187,6 +227,69 @@ describe("collectReferencedBlobIds", () => {
     ]);
   });
 
+  it("collects snapshot payload portraits, including for deleted source characters", () => {
+    const ids = collectReferencedBlobIds({
+      characters: {
+        activeId: "char_live",
+        entries: [{ id: "char_live", imgBlobId: "live-portrait" }],
+        snapshots: [
+          // Same portrait as the still-live source: dedup is the Set's job.
+          makeSnapshot({
+            id: "csnap_live",
+            sourceCharacterId: "char_live",
+            payload: { id: "char_live", imgBlobId: "live-portrait" }
+          }),
+          // Source character deleted — the snapshot is the only owner left.
+          makeSnapshot({
+            id: "csnap_gone",
+            payload: { id: "char_gone", imgBlobId: "snapshot-only-portrait" }
+          })
+        ]
+      }
+    });
+
+    expect([...ids].sort()).toEqual([
+      "live-portrait",
+      "snapshot-only-portrait"
+    ]);
+  });
+
+  it("fails soft on malformed snapshot data without dropping live references", () => {
+    const ids = collectReferencedBlobIds({
+      characters: {
+        activeId: "char_live",
+        entries: [{ id: "char_live", imgBlobId: "live-portrait" }],
+        snapshots: [
+          null,
+          "bad-record",
+          { id: "csnap_no_payload" },
+          { id: "csnap_string_payload", payload: "nope" },
+          { id: "csnap_array_payload", payload: [] },
+          { id: "csnap_blank_blob", payload: { imgBlobId: "   " } },
+          { id: "csnap_nonstring_blob", payload: { imgBlobId: 42 } },
+          makeSnapshot({ payload: { imgBlobId: "snapshot-only-portrait" } })
+        ]
+      }
+    });
+
+    expect([...ids].sort()).toEqual([
+      "live-portrait",
+      "snapshot-only-portrait"
+    ]);
+  });
+
+  it("ignores a non-array snapshots collection", () => {
+    const ids = collectReferencedBlobIds({
+      characters: {
+        activeId: "char_live",
+        entries: [{ id: "char_live", imgBlobId: "live-portrait" }],
+        snapshots: { nope: true }
+      }
+    });
+
+    expect([...ids]).toEqual(["live-portrait"]);
+  });
+
 });
 
 describe("collectReferencedTextIds", () => {
@@ -220,6 +323,60 @@ describe("collectReferencedTextIds", () => {
       textKey_spellNotes("campaign_alpha", "spell_alpha"),
       textKey_spellNotes("campaign_alpha", "spell_beta")
     ]);
+  });
+
+  it("derives note keys from snapshot payload spell rows, including after source deletion", () => {
+    const ids = collectReferencedTextIds({
+      appShell: { activeCampaignId: "campaign_alpha" },
+      characters: {
+        activeId: "char_live",
+        entries: [{ id: "char_live", spells: { levels: makeSpellLevels(["live-row"]) } }],
+        snapshots: [
+          // While the source lives these are the same keys — dedup by Set.
+          makeSnapshot({
+            id: "csnap_live",
+            sourceCharacterId: "char_live",
+            payload: { id: "char_live", spells: { levels: makeSpellLevels(["live-row"]) } }
+          }),
+          // Source deleted: the snapshot keeps its note key alive.
+          makeSnapshot({
+            id: "csnap_gone",
+            payload: {
+              id: "char_gone",
+              spells: {
+                levels: [
+                  { spells: [{ id: "snapshot-row" }, { id: "   " }, { name: "no id" }, "bad-row"] },
+                  { spells: "bad-shape" },
+                  "bad-level"
+                ]
+              }
+            }
+          }),
+          makeSnapshot({ id: "csnap_bad_spells", payload: { spells: "not-an-object" } })
+        ]
+      }
+    });
+
+    expect([...ids].sort()).toEqual([
+      textKey_spellNotes("campaign_alpha", "live-row"),
+      textKey_spellNotes("campaign_alpha", "snapshot-row")
+    ].sort());
+  });
+
+  it("keeps the legacy singleton character fallback and unscoped keys while adding snapshot rows", () => {
+    const ids = collectReferencedTextIds({
+      character: { spells: { levels: makeSpellLevels(["legacy-row"]) } },
+      characters: {
+        snapshots: [
+          makeSnapshot({ payload: { spells: { levels: makeSpellLevels(["snapshot-row"]) } } })
+        ]
+      }
+    });
+
+    expect([...ids].sort()).toEqual([
+      textKey_spellNotes("legacy-row"),
+      textKey_spellNotes("snapshot-row")
+    ].sort());
   });
 });
 
@@ -320,6 +477,79 @@ describe("exportBackup", () => {
     vi.runAllTimers();
     expect(anchor.remove).toHaveBeenCalledTimes(1);
     expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:backup-export");
+  });
+
+  it("bundles a portrait and spell note referenced only by a retained snapshot whose source character is gone", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-04-02T15:30:00.000Z"));
+
+    const state = makeState();
+    state.appShell.activeCampaignId = "campaign_alpha";
+    charOf(state).imgBlobId = "live-portrait";
+    charOf(state).spells.levels = makeSpellLevels(["live-spell"]);
+    // The source character was deleted; only the snapshot still references
+    // these external records (Restore Character R4).
+    state.characters.snapshots = [
+      makeSnapshot({
+        payload: {
+          id: "char_gone",
+          name: "Gail",
+          imgBlobId: "snapshot-only-portrait",
+          spells: { levels: makeSpellLevels(["snapshot-only-spell"], "level-snap") }
+        }
+      })
+    ];
+
+    /** @type {Blob|undefined} */
+    let exportedBlob;
+    const anchor = { click: vi.fn(), href: "", download: "", rel: "", remove: vi.fn() };
+
+    vi.stubGlobal("URL", {
+      createObjectURL: vi.fn((blob) => {
+        exportedBlob = blob;
+        return "blob:backup-export";
+      }),
+      revokeObjectURL: vi.fn()
+    });
+    vi.stubGlobal("document", {
+      body: { appendChild: vi.fn() },
+      createElement: vi.fn(() => anchor)
+    });
+
+    const blobRecords = {
+      "live-portrait": { id: "live-portrait" },
+      "snapshot-only-portrait": { id: "snapshot-only-portrait" }
+    };
+    const textRecords = {
+      [textKey_spellNotes("campaign_alpha", "live-spell")]: "Live spell notes",
+      [textKey_spellNotes("campaign_alpha", "snapshot-only-spell")]: "Snapshot-only spell notes"
+    };
+
+    await exportBackup({
+      state,
+      ensureMapManager: vi.fn(),
+      getBlob: vi.fn(async (id) => blobRecords[id] ?? null),
+      blobToDataUrl: vi.fn(async (blob) => `data:image/png;base64,${blob.id}`),
+      getTextRecord: vi.fn(async (id) => (
+        Object.prototype.hasOwnProperty.call(textRecords, id)
+          ? { id, text: textRecords[id], updatedAt: 0 }
+          : null
+      )),
+      sanitizeForSave
+    });
+
+    const parsed = JSON.parse(await exportedBlob.text());
+    expect(parsed.blobs).toEqual({
+      "live-portrait": "data:image/png;base64,live-portrait",
+      "snapshot-only-portrait": "data:image/png;base64,snapshot-only-portrait"
+    });
+    expect(parsed.texts).toEqual({
+      [textKey_spellNotes("campaign_alpha", "live-spell")]: "Live spell notes",
+      [textKey_spellNotes("campaign_alpha", "snapshot-only-spell")]: "Snapshot-only spell notes"
+    });
+    // The snapshot record itself still rides inside the sanitized state.
+    expect(parsed.state.characters.snapshots).toHaveLength(1);
+    expect(parsed.state.characters.snapshots[0].payload.imgBlobId).toBe("snapshot-only-portrait");
   });
 
   it("uses native document export in Capacitor iOS runtimes and does not touch share/download", async () => {
@@ -878,6 +1108,146 @@ describe("importBackup", () => {
       fromLevel: 1
     });
     expect(input.value).toBe("");
+  });
+
+  it("keeps assets referenced only by a retained snapshot alive through import cleanup", async () => {
+    const state = makeState();
+    state.appShell.activeCampaignId = "campaign_current";
+    state.tracker.npcs = [{ name: "Old NPC", imgBlobId: "old-npc-blob" }];
+    // Pre-import: both characters exist, so both portraits/notes are referenced.
+    charOf(state).imgBlobId = "shared-portrait";
+    charOf(state).spells.levels = makeSpellLevels(["shared-spell"]);
+    state.characters.entries.push({
+      id: "char_live",
+      imgBlobId: "live-portrait",
+      spells: { levels: makeSpellLevels(["live-spell"], "level-live") },
+      inventoryItems: [{ title: "Inventory", notes: "" }]
+    });
+
+    // The imported campaign deleted the source character but kept its
+    // pre-Level-Up snapshot, which is now the only owner of those assets.
+    const importedState = makeState();
+    importedState.appShell = { activeCampaignId: "campaign_current" };
+    importedState.characters = {
+      activeId: "char_live",
+      entries: [{
+        id: "char_live",
+        imgBlobId: "live-portrait",
+        spells: { levels: makeSpellLevels(["live-spell"], "level-live") },
+        inventoryItems: [{ title: "Inventory", notes: "" }]
+      }],
+      snapshots: [
+        makeSnapshot({
+          sourceCharacterId: "char_test",
+          payload: {
+            id: "char_test",
+            imgBlobId: "shared-portrait",
+            spells: { levels: makeSpellLevels(["shared-spell"]) }
+          }
+        })
+      ]
+    };
+
+    const input = makeInput({
+      version: 2,
+      state: sanitizeForSave(importedState),
+      blobs: {},
+      texts: {}
+    });
+
+    const deleteBlob = vi.fn(async () => {});
+
+    await importBackup(
+      { target: input },
+      makeImportDeps({ state, migrateState, deleteBlob })
+    );
+
+    // Only the genuinely unreferenced asset is cleaned up.
+    expect(deleteBlob).toHaveBeenCalledWith("old-npc-blob");
+    expect(deleteBlob).not.toHaveBeenCalledWith("shared-portrait");
+    expect(deleteBlob).not.toHaveBeenCalledWith("live-portrait");
+    expect(deleteText).not.toHaveBeenCalledWith(textKey_spellNotes("campaign_current", "shared-spell"));
+    expect(deleteText).not.toHaveBeenCalledWith(textKey_spellNotes("campaign_current", "live-spell"));
+    expect(state.characters.snapshots[0].payload.imgBlobId).toBe("shared-portrait");
+  });
+
+  it("remaps snapshot-only spell note keys to the destination campaign", async () => {
+    const state = makeState();
+    state.appShell.activeCampaignId = "campaign_current";
+
+    const importedState = makeState();
+    importedState.appShell = { activeCampaignId: "campaign_exported" };
+    importedState.characters = {
+      activeId: "char_live",
+      entries: [{ id: "char_live", name: "Live", inventoryItems: [{ title: "Inventory", notes: "" }] }],
+      snapshots: [
+        makeSnapshot({
+          payload: {
+            id: "char_gone",
+            spells: { levels: makeSpellLevels(["snapshot-only-spell"]) }
+          }
+        })
+      ]
+    };
+
+    const exportedNotesKey = textKey_spellNotes("campaign_exported", "snapshot-only-spell");
+    const destinationNotesKey = textKey_spellNotes("campaign_current", "snapshot-only-spell");
+    const { textStore, putText } = installTextStore();
+    const input = makeInput({
+      version: 2,
+      state: sanitizeForSave(importedState),
+      blobs: {},
+      texts: {
+        [exportedNotesKey]: "Snapshot-only notes"
+      }
+    });
+
+    await importBackup(
+      { target: input },
+      makeImportDeps({ state, migrateState, putText })
+    );
+
+    expect(textStore.get(destinationNotesKey)).toBe("Snapshot-only notes");
+    expect(textStore.has(exportedNotesKey)).toBe(false);
+  });
+
+  it("remaps snapshot payload portraits when preserving the original blob id fails", async () => {
+    const state = makeState();
+
+    const importedState = makeState();
+    importedState.characters = {
+      activeId: "char_live",
+      entries: [{ id: "char_live", name: "Live", inventoryItems: [{ title: "Inventory", notes: "" }] }],
+      snapshots: [
+        makeSnapshot({ payload: { id: "char_gone", imgBlobId: "incoming-snapshot-portrait" } })
+      ]
+    };
+
+    const input = makeInput({
+      version: 2,
+      state: sanitizeForSave(importedState),
+      blobs: {
+        "incoming-snapshot-portrait": "data:image/png;base64,QQ=="
+      },
+      texts: {}
+    });
+
+    const putBlob = vi.fn(async (_blob, id) => {
+      if (id === "incoming-snapshot-portrait") throw new Error("id collision");
+      return "remapped-snapshot-portrait";
+    });
+
+    await importBackup(
+      { target: input },
+      makeImportDeps({
+        state,
+        migrateState,
+        putBlob,
+        dataUrlToBlob: vi.fn(() => ({ type: "image/png" }))
+      })
+    );
+
+    expect(state.characters.snapshots[0].payload.imgBlobId).toBe("remapped-snapshot-portrait");
   });
 
   it("imports linked cards with character links preserved", async () => {
