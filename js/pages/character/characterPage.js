@@ -163,6 +163,16 @@ export function initCharacterPageUI(deps) {
     return guard.destroy;
   }
 
+  // The Character page's DOM root. Panels whose markup is also rendered by the
+  // Combat workspace's embedded copy under the SAME element ids must bind
+  // through this root instead of falling back to a document-wide lookup:
+  // #page-combat precedes #page-character in the DOM, so the character
+  // controller would otherwise resolve the combat copy. Resolved from the guard
+  // above (never re-queried) and left undefined if it is somehow missing, so an
+  // absent root degrades to the panel's own existing fallback rather than
+  // throwing during init.
+  const characterPageRoot = guard.els.root || undefined;
+
   const destroyFns = [];
   const addDestroy = (destroyFn) => {
     if (typeof destroyFn === "function") destroyFns.push(destroyFn);
@@ -313,7 +323,18 @@ export function initCharacterPageUI(deps) {
 
     runPanelInit("Personality panel", () => initPersonalityPanel({ ...deps, bindText }));
 
-    runPanelInit("Abilities panel", () => initAbilitiesPanel({ ...deps, bindNumber, bindText }));
+    // Abilities & Skills renders #saveOptionsBtn / #saveOptionsMenu / #miscSave_*,
+    // and the combat embedded host renders the same ids. Scope this instance to
+    // the character page so its ⋯ menu (and the base-score editor inside it)
+    // stays reachable from the sheet after a rerender, and so neither host
+    // injects its menu groups into the other. The combat instance keeps its own
+    // independent root (combatEmbeddedPanels.js).
+    runPanelInit("Abilities panel", () => initAbilitiesPanel({
+      ...deps,
+      bindNumber,
+      bindText,
+      root: characterPageRoot
+    }));
 
     runPanelInit("Abilities & Features panel", () => initAbilitiesFeaturesPanel(deps));
     runPanelInit("Character section reorder", () => setupCharacterSectionReorder({ state, SaveManager }));

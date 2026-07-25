@@ -23,8 +23,16 @@ vi.mock("../js/pages/character/panels/basicsPanel.js", () => ({
 vi.mock("../js/pages/character/panels/proficienciesPanel.js", () => ({
   initProficienciesPanel: () => ({ destroy: () => { } })
 }));
+// Records the deps the real controller hands the Abilities panel. The exported
+// module function stays a plain function returning a live destroy API so the
+// suite-wide restoreAllMocks() cannot strip its return value; only the call
+// recording goes through the spy.
+const abilitiesPanelInitSpy = vi.hoisted(() => vi.fn());
 vi.mock("../js/pages/character/panels/abilitiesPanel.js", () => ({
-  initAbilitiesPanel: () => ({ destroy: () => { } })
+  initAbilitiesPanel: (panelDeps) => {
+    abilitiesPanelInitSpy(panelDeps);
+    return { destroy: () => { } };
+  }
 }));
 vi.mock("../js/pages/character/panels/abilitiesFeaturesPanel.js", () => ({
   initAbilitiesFeaturesPanel: () => ({ destroy: () => { } })
@@ -1385,6 +1393,37 @@ describe("character page selector", () => {
     expect(secondMenu.getAttribute("aria-hidden")).toBe("true");
     expect(secondButton.getAttribute("aria-expanded")).toBe("false");
     expect(Popovers.handles[0].destroy).toHaveBeenCalledTimes(1);
+
+    firstController.destroy();
+    secondController.destroy();
+  });
+
+  // Ownership pin for the Abilities & Skills panel. That panel renders
+  // #saveOptionsBtn / #saveOptionsMenu / #miscSave_*, and the combat
+  // workspace's embedded copy renders the same ids. #page-combat precedes
+  // #page-character in the DOM, so an unscoped character controller resolves
+  // the combat copy on rerender: the character ⋯ button goes dead and the
+  // combat menu collects duplicate injected groups (including the base
+  // ability-score editor). The controller must hand the panel the real
+  // #page-character element as its root — never the document fallback.
+  it("binds the Abilities panel to the #page-character root, on init and on rerender", () => {
+    const { document } = installCharacterSelectorDom();
+    const Popovers = createFakePopovers();
+    const deps = createCharacterPageDeps(Popovers);
+    const pageRoot = document.getElementById("page-character");
+    expect(pageRoot).toBeTruthy();
+
+    abilitiesPanelInitSpy.mockClear();
+
+    const firstController = initCharacterPageUI(deps);
+    expect(abilitiesPanelInitSpy).toHaveBeenCalledTimes(1);
+    expect(abilitiesPanelInitSpy.mock.calls[0][0].root).toBe(pageRoot);
+
+    // The character-switch path destroys and rebuilds the controller; the
+    // rebuilt panel must not regress to the document-wide lookup.
+    const secondController = initCharacterPageUI(deps);
+    expect(abilitiesPanelInitSpy).toHaveBeenCalledTimes(2);
+    expect(abilitiesPanelInitSpy.mock.calls[1][0].root).toBe(pageRoot);
 
     firstController.destroy();
     secondController.destroy();

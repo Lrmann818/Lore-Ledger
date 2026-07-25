@@ -38,6 +38,76 @@ async function readActiveCharacter(page) {
   });
 }
 
+async function readActiveCharacterId(page) {
+  return page.evaluate(() => String(globalThis.__APP_STATE__?.characters?.activeId || ""));
+}
+
+/**
+ * Counts the ⋯-menu groups the Abilities panel injects at init
+ * (Ability Scores / Ability Adjustments) inside each live host. A host that
+ * hosts a foreign controller as well as its own reports 2; a host whose
+ * controller bound elsewhere reports 0.
+ */
+async function readAbilityMenuOwnership(page) {
+  return page.evaluate(() => {
+    const read = (hostSelector) => {
+      const host = document.querySelector(hostSelector);
+      if (!host) return null;
+      const menu = host.querySelector("#saveOptionsMenu");
+      return {
+        scoreGroups: host.querySelectorAll('[data-ability-menu-group="scores"]').length,
+        adjustmentGroups: host.querySelectorAll('[data-ability-menu-group="adjustments"]').length,
+        strScoreInputs: host.querySelectorAll('[data-ability-menu-input="scores:str"]').length,
+        menuOpen: menu instanceof HTMLElement ? !menu.hidden : null
+      };
+    };
+    return {
+      character: read("#charAbilitiesPanel"),
+      combat: read("#combatEmbeddedAbilitiesSource")
+    };
+  });
+}
+
+async function switchActiveCharacter(page, characterId) {
+  await page.evaluate((id) => {
+    const selector = document.getElementById("charSelector");
+    if (!(selector instanceof HTMLSelectElement)) return;
+    selector.value = id;
+    selector.dispatchEvent(new Event("change", { bubbles: true }));
+  }, characterId);
+  await expect.poll(() => readActiveCharacterId(page)).toBe(characterId);
+}
+
+// Real builder character through the wizard (same path as levelUp.smoke.js):
+// half-orc fighter, manual ability method, Str base 15 (+2 racial → 17 shown).
+async function createSmokeBuilderFighter(page, name) {
+  await page.locator("#charActionMenuBtn").click();
+  await page.locator("#charActionNewBuilderBtn").click();
+  await expect(page.locator("#builderWizardPanel")).toBeVisible();
+  await page.locator("#builderWizardName").fill(name);
+  await page.locator("#builderWizardRace").selectOption("half-orc");
+  await page.locator("#builderWizardClass").selectOption("fighter");
+  await page.locator("#builderWizardBackground").selectOption("acolyte");
+  await page.locator("#builderWizardNext").click();
+  await expect(page.locator("#builderWizardStepRaceChoices")).toBeVisible();
+  await page.locator("#builderWizardNext").click();
+  await expect(page.locator("#builderWizardStepClasses")).toBeVisible();
+  await page.locator("#builderWizardNext").click();
+  await expect(page.locator("#builderWizardStepClassChoices")).toBeVisible();
+  await page.locator("#builderWizardNext").click();
+  await expect(page.locator("#builderWizardStepAbilities")).toBeVisible();
+  const abilityValues = { Str: "15", Dex: "14", Con: "13", Int: "12", Wis: "10", Cha: "8" };
+  for (const [suffix, value] of Object.entries(abilityValues)) {
+    await page.locator(`#builderWizardAbility${suffix}`).fill(value);
+  }
+  await page.locator("#builderWizardNext").click();
+  await expect(page.locator("#builderWizardStepEquipment")).toBeVisible();
+  await page.locator("#builderWizardNext").click();
+  await expect(page.locator("#builderWizardStepSummary")).toBeVisible();
+  await page.locator("#builderWizardFinish").click();
+  await expect(page.locator("#builderWizardPanel")).toBeHidden();
+}
+
 async function writeStoredCombatPanelOrder(page, panelOrder) {
   // Campaign creation saves through the app's debounced SaveManager; let that
   // initial write settle before seeding the persisted Combat workspace layout.
@@ -852,6 +922,126 @@ test("adding a combat Equipment panel does not break the character Equipment pan
   await expect(page.locator("#uiDialogInput")).toBeVisible();
   await page.locator("#uiDialogCancel").click();
   await expect(page.locator("#uiDialogOverlay")).toBeHidden();
+
+  await expectNoFatalSignals(page, fatalSignals);
+});
+
+// Same duplicate-id failure mode as the Equipment guard above, for the
+// Abilities & Skills panel — but this panel keeps the canonical ids in BOTH
+// hosts (#saveOptionsBtn / #saveOptionsMenu / #miscSave_*), so the character
+// controller has to be scoped to #page-character instead. With both instances
+// live, a character-page rerender used to rebind the character controller to
+// the combat ⋯ menu: the character ⋯ button went dead, the combat menu grew a
+// second copy of the injected Ability Scores / Ability Adjustments groups, and
+// the R5-A base-score editor became unreachable from the character sheet.
+test("a combat Abilities panel and the character Abilities panel keep separate ⋯ menus across rerenders", async ({ page }) => {
+  const fatalSignals = await openSmokeApp(page, { campaignName: "Abilities Menu Ownership Smoke" });
+
+  await page.getByRole("tab", { name: "Character" }).click();
+  await expect(page.locator("#page-character")).toBeVisible();
+
+  // A builder character (owns the base-score editor) plus a second character so
+  // the selector can drive real active-character rerenders.
+  await createSmokeBuilderFighter(page, "Menu Owner");
+  const builderId = await readActiveCharacterId(page);
+  expect(builderId).not.toBe("");
+
+  await page.locator("#charActionMenuBtn").click();
+  await page.locator("#charActionNewBtn").click();
+  await expect(page.locator("#charName")).toBeVisible();
+  const understudyId = await readActiveCharacterId(page);
+  expect(understudyId).not.toBe(builderId);
+
+  await switchActiveCharacter(page, builderId);
+
+  // Add the second live copy of the panel to the Combat workspace.
+  await page.getByRole("tab", { name: "Combat" }).click();
+  await expect(page.locator("#page-combat")).toBeVisible();
+  await page.locator("[data-add-embedded-panel='abilities']").click();
+  await expect(page.locator("#combatEmbeddedAbilitiesSource")).toBeVisible();
+
+  await page.getByRole("tab", { name: "Character" }).click();
+  await expect(page.locator("#page-character")).toBeVisible();
+
+  const oneEach = {
+    character: { scoreGroups: 1, adjustmentGroups: 1, strScoreInputs: 1, menuOpen: false },
+    combat: { scoreGroups: 1, adjustmentGroups: 1, strScoreInputs: 1, menuOpen: false }
+  };
+
+  // Both hosts start with exactly their own injected groups.
+  await expect.poll(() => readAbilityMenuOwnership(page)).toEqual(oneEach);
+
+  // Real rerenders (active-character selector changes), repeated so listener or
+  // group multiplication would accumulate rather than cancel out.
+  for (let round = 0; round < 3; round += 1) {
+    await switchActiveCharacter(page, understudyId);
+    await switchActiveCharacter(page, builderId);
+    await expect.poll(() => readAbilityMenuOwnership(page)).toEqual(oneEach);
+  }
+
+  // The character ⋯ button opens the character page's OWN menu.
+  const characterMenuBtn = page.locator("#charAbilitiesPanel #saveOptionsBtn");
+  const characterMenu = page.locator("#charAbilitiesPanel #saveOptionsMenu");
+  await characterMenuBtn.click();
+  await expect(characterMenu).toBeVisible();
+  await expect(characterMenuBtn).toHaveAttribute("aria-expanded", "true");
+  await expect.poll(() => readAbilityMenuOwnership(page).then((state) => ({
+    character: state.character.menuOpen,
+    combat: state.combat.menuOpen
+  }))).toEqual({ character: true, combat: false });
+
+  // Editing a base score from the character menu writes canonical
+  // build.abilities.base and leaves build.abilities.method (creation-time
+  // provenance) alone.
+  const buildBefore = (await readActiveCharacter(page))?.build;
+  expect(buildBefore?.abilities?.base?.str).toBe(15);
+  const sheetStr = page.locator('#charAbilitiesPanel .abilityBlock[data-ability="str"] .abilityScore');
+  const sheetStrBefore = Number(await sheetStr.inputValue());
+
+  const characterStrInput = page.locator('#charAbilitiesPanel [data-ability-menu-input="scores:str"]');
+  await expect(characterStrInput).toHaveValue("15");
+  await characterStrInput.fill("17");
+
+  await expect.poll(() => readActiveCharacter(page).then((c) => c?.build?.abilities?.base?.str)).toBe(17);
+  const buildAfter = (await readActiveCharacter(page))?.build;
+  expect(buildAfter.abilities.method).toBe(buildBefore.abilities.method);
+  expect(buildAfter.abilities.base).toEqual({ ...buildBefore.abilities.base, str: 17 });
+  // The sheet re-derives from the new base through the shared engine.
+  await expect.poll(() => sheetStr.inputValue().then(Number)).toBe(sheetStrBefore + 2);
+
+  await characterMenuBtn.click();
+  await expect(characterMenu).toBeHidden();
+
+  // The combat ⋯ button opens the combat host's OWN menu, showing the same
+  // canonical value (a live view, not a copy), and leaves the character menu shut.
+  await page.getByRole("tab", { name: "Combat" }).click();
+  const combatMenuBtn = page.locator("#combatEmbeddedAbilitiesSource #saveOptionsBtn");
+  const combatMenu = page.locator("#combatEmbeddedAbilitiesSource #saveOptionsMenu");
+  await combatMenuBtn.click();
+  await expect(combatMenu).toBeVisible();
+  await expect.poll(() => readAbilityMenuOwnership(page).then((state) => ({
+    character: state.character.menuOpen,
+    combat: state.combat.menuOpen
+  }))).toEqual({ character: false, combat: true });
+
+  const combatStrInput = page.locator('#combatEmbeddedAbilitiesSource [data-ability-menu-input="scores:str"]');
+  await expect(combatStrInput).toHaveValue("17");
+
+  // The combat controller kept its own listeners: its edit reaches canonical state.
+  await combatStrInput.fill("16");
+  await expect.poll(() => readActiveCharacter(page).then((c) => c?.build?.abilities?.base?.str)).toBe(16);
+
+  await combatMenuBtn.click();
+  await expect(combatMenu).toBeHidden();
+
+  // Back on the character page: still one group each in each host, the
+  // character menu still opens, and it shows the value the combat host wrote.
+  await page.getByRole("tab", { name: "Character" }).click();
+  await expect(page.locator("#page-character")).toBeVisible();
+  await expect.poll(() => readAbilityMenuOwnership(page)).toEqual(oneEach);
+  await characterMenuBtn.click();
+  await expect(characterMenu).toBeVisible();
+  await expect(characterStrInput).toHaveValue("16");
 
   await expectNoFatalSignals(page, fatalSignals);
 });
