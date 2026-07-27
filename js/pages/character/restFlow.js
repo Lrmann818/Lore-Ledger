@@ -1,12 +1,19 @@
 // @ts-check
 // Focused Short/Long Rest collection UI. Rules and validation stay in
 // characterRest.js; this module only gathers a user selection.
+//
+// Prepared spells (Prepared Correctness C1): every number and every candidate
+// comes from `getBuilderPreparedSpellOptions()` -> `getPreparedSpellPlan()`.
+// This module contains no capacity, class-list, spellbook, grant-exclusion, or
+// multiclass spell-level rule. It only formats the plan and reports which
+// classes the player actively changed.
 
 import {
   getBuilderPreparedSpellOptions,
   getLongRestHitDiceRecovery,
   getRestHitDicePools
 } from "../../domain/characterRest.js";
+import { samePreparedSelection } from "../../domain/rules/preparedSpells.js";
 import { getActiveContentRegistry, getContentByKind } from "../../domain/rules/registry.js";
 
 function el(tag, className, text = "") {
@@ -18,6 +25,42 @@ function el(tag, className, text = "") {
 
 function spellName(spellId) {
   return getContentByKind(getActiveContentRegistry(), "spell", spellId)?.name || spellId;
+}
+
+/**
+ * "Cleric — 3 of 6 prepared", or "Cleric — 3 prepared" when capacity is
+ * unknown. Reads the plan; computes no limit of its own.
+ * @param {import("../../domain/rules/preparedSpells.js").PreparedSpellPlanEntry} option
+ * @param {number} selectedCount
+ * @returns {string}
+ */
+function formatPreparedCount(option, selectedCount) {
+  return option.effectiveCapacity == null
+    ? `${option.className} — ${selectedCount} prepared`
+    : `${option.className} — ${selectedCount} of ${option.effectiveCapacity} prepared`;
+}
+
+/**
+ * Plain-language explanation for a capacity the player cannot fully reach.
+ * Returns "" when the class formula is the honest limit and needs no excuse.
+ * @param {import("../../domain/rules/preparedSpells.js").PreparedSpellPlanEntry} option
+ * @returns {string}
+ */
+function formatPreparedLimitNote(option) {
+  if (option.limitedBy === "unknown") {
+    return "Prepared capacity is unavailable until this character's spellcasting ability score is set.";
+  }
+  if (option.limitedBy !== "candidates") return "";
+  if (!option.ordinaryCandidateIds.length) {
+    return option.preparationMode === "spellbook"
+      ? "No spells in this character's spellbook can be prepared yet."
+      : "No spells from this class's list can be prepared yet.";
+  }
+  const allowed = option.formulaCapacity;
+  const available = option.ordinaryCandidateIds.length;
+  return option.preparationMode === "spellbook"
+    ? `Limited by the spellbook: ${available} ${available === 1 ? "spell is" : "spells are"} available to prepare, though this class allows ${allowed}.`
+    : `Limited by the available spells: ${available} ${available === 1 ? "spell is" : "spells are"} available to prepare, though this class allows ${allowed}.`;
 }
 
 /**
@@ -111,6 +154,36 @@ export function openCharacterRestFlow(options) {
         }
       }
       if (preparedOptions.length) {
+        // Counts first, and outside the collapsible picker: "keep current" is
+        // only an informed choice if the current-versus-effective numbers are
+        // already on screen (rest-rules-spec §4).
+        const summary = el("section", "characterRestSection characterRestPreparedSummary");
+        summary.appendChild(el("h3", "characterRestSectionTitle", "Prepared Spells"));
+        /** @type {Map<string, () => void>} */
+        const refreshCount = new Map();
+
+        preparedOptions.forEach((option) => {
+          const selected = new Set(option.selectedIds);
+          preparedSelection.set(option.classId, selected);
+
+          const summaryCount = el("p", "characterRestPreparedCount");
+          summaryCount.dataset.classId = option.classId;
+          summary.appendChild(summaryCount);
+          const limitNote = formatPreparedLimitNote(option);
+          if (limitNote) summary.appendChild(el("p", "characterRestHint", limitNote));
+          if (option.grantedIds.length) {
+            summary.appendChild(el(
+              "p",
+              "characterRestHint characterRestGrantedList",
+              `Always prepared (no capacity used): ${option.grantedIds.map(spellName).join(", ")}`
+            ));
+          }
+          refreshCount.set(option.classId, () => {
+            summaryCount.textContent = formatPreparedCount(option, selected.size);
+          });
+        });
+        body.appendChild(summary);
+
         const question = el("fieldset", "characterRestPreparedQuestion");
         question.appendChild(el("legend", "characterRestSectionTitle", "Would you like to change your prepared spells?"));
         const noLabel = el("label", "characterRestChoice");
@@ -132,25 +205,42 @@ export function openCharacterRestFlow(options) {
         preparedWrap = el("div", "characterRestPreparedLists");
         preparedWrap.hidden = true;
         preparedOptions.forEach((option) => {
+          const selected = /** @type {Set<string>} */ (preparedSelection.get(option.classId));
           const section = el("section", "characterRestSection");
-          const heading = el("h3", "characterRestSectionTitle", `${option.className}: 0 / ${option.capacity} prepared`);
+          const heading = el("h3", "characterRestSectionTitle");
           section.appendChild(heading);
-          const selected = new Set(option.selectedIds);
-          preparedSelection.set(option.classId, selected);
+          const syncSummary = refreshCount.get(option.classId);
+          const refresh = () => {
+            heading.textContent = formatPreparedCount(option, selected.size);
+            syncSummary?.();
+          };
+          refresh();
+
+          // Granted spells are read-only: never a checkbox, never counted.
           if (option.grantedIds.length) {
-            section.appendChild(el("p", "characterRestHint", `Granted: ${option.grantedIds.map(spellName).join(", ")}`));
+            section.appendChild(el(
+              "p",
+              "characterRestHint characterRestGrantedList",
+              `Always prepared (no capacity used): ${option.grantedIds.map(spellName).join(", ")}`
+            ));
           }
-          option.candidateIds.forEach((spellId) => {
+          const limitNote = formatPreparedLimitNote(option);
+          if (limitNote) section.appendChild(el("p", "characterRestHint", limitNote));
+
+          option.ordinaryCandidateIds.forEach((spellId) => {
             const label = el("label", "characterRestSpellRow");
             const checkbox = /** @type {HTMLInputElement} */ (el("input"));
             checkbox.type = "checkbox";
             checkbox.checked = selected.has(spellId);
+            // An unknown capacity cannot be validated against, so the list is
+            // shown as read-only context rather than an unusable picker.
+            checkbox.disabled = option.effectiveCapacity == null;
             checkbox.dataset.classId = option.classId;
             checkbox.dataset.spellId = spellId;
             checkbox.addEventListener("change", () => {
               if (checkbox.checked) selected.add(spellId);
               else selected.delete(spellId);
-              heading.textContent = `${option.className}: ${selected.size} / ${option.capacity} prepared`;
+              refresh();
             });
             label.append(checkbox, document.createTextNode(` ${spellName(spellId)}`));
             section.appendChild(label);
@@ -229,13 +319,23 @@ export function openCharacterRestFlow(options) {
       /** @type {Record<string, string[]> | undefined} */
       let preparedByClass;
       if (type === "longRest" && changePrepared) {
-        preparedByClass = Object.fromEntries([...preparedSelection.entries()].map(([classId, ids]) => [classId, [...ids]]));
+        // Only classes the player actually changed are submitted. Everything
+        // else — including a class whose stored list holds legacy or redundant
+        // granted ids — is left for the domain merge to carry through verbatim.
+        /** @type {Record<string, string[]>} */
+        const changedByClass = {};
         for (const option of preparedOptions) {
-          if ((preparedByClass[option.classId] || []).length > option.capacity) {
-            showValidation(`${option.className} can prepare at most ${option.capacity} spells.`);
+          const selected = [...(preparedSelection.get(option.classId) || [])];
+          if (option.effectiveCapacity != null && selected.length > option.effectiveCapacity) {
+            const limit = option.effectiveCapacity;
+            showValidation(`${option.className} can prepare at most ${limit} ${limit === 1 ? "spell" : "spells"}.`);
             return;
           }
+          if (!samePreparedSelection(option.selectedIds, selected)) {
+            changedByClass[option.classId] = selected;
+          }
         }
+        if (Object.keys(changedByClass).length) preparedByClass = changedByClass;
       }
       close(type === "shortRest"
         ? { spendByPool: readInputs(spendInputs) }

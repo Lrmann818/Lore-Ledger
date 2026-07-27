@@ -4151,6 +4151,61 @@ div.mutedSmall {
   gap: 8px;
 }
 
+/* Checkbox/radio rows: the control keeps its intrinsic size (scoped around the
+   global `input { width: 100% }`, the same way .characterRestPoolRow does), so
+   the label text gets the rest of the row and wraps at word boundaries instead
+   of being squeezed into a one-word column.
+   (Do not add overflow-wrap to these flex containers: it shrinks the text
+   item's automatic minimum size to one character and stacks it vertically.) */
+.characterRestSpellRow,
+.characterRestChoice {
+  align-items: flex-start;
+}
+
+/* Same treatment the builder/Level Up panels already give their checkboxes and
+   radios: the global `input` rule sets appearance:none and width:100%, which
+   leaves an unsized control with no visible checked state. */
+.characterRestSpellRow input[type="checkbox"],
+.characterRestChoice input[type="radio"] {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  min-width: 0;
+  min-height: 0;
+  margin: 3px 0 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  box-shadow: none;
+  cursor: pointer;
+}
+
+.characterRestSpellRow input[type="checkbox"] {
+  border-radius: 4px;
+}
+
+.characterRestChoice input[type="radio"] {
+  border-radius: 50%;
+}
+
+.characterRestSpellRow input[type="checkbox"]:checked,
+.characterRestChoice input[type="radio"]:checked {
+  background: var(--skill-prof-dot);
+  border-color: var(--skill-prof-dot);
+}
+
+/* Block-level prepared summary lines: safe to break a pathologically long
+   custom spell name rather than overflow the narrow panel. */
+.characterRestPreparedCount {
+  margin: 0;
+  font-weight: 600;
+  overflow-wrap: break-word;
+}
+
+.characterRestGrantedList {
+  overflow-wrap: break-word;
+}
+
 .characterRestPoolLabel {
   flex: 1;
 }

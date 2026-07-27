@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { getBuilderFinishSheetSeedPatch } from "../js/domain/builderSheetSeeding.js";
 import { makeDefaultBuilderCharacterEntry } from "../js/domain/characterHelpers.js";
 import {
   applyLongRest,
@@ -10,6 +11,7 @@ import {
   recoverCharacterForRest,
   validateBuilderPreparedSpellSelections
 } from "../js/domain/characterRest.js";
+import { setActiveCustomContent } from "../js/domain/rules/registry.js";
 
 function makeCharacter(resources) {
   return {
@@ -438,7 +440,7 @@ describe("builder prepared spell capacity", () => {
     };
 
     const options = getBuilderPreparedSpellOptions(wizard).find((entry) => entry.classId === "wizard");
-    expect(options.candidateIds).toEqual(expect.arrayContaining(["magic-missile", "shield"]));
+    expect(options.ordinaryCandidateIds).toEqual(expect.arrayContaining(["magic-missile", "shield"]));
     expect(validateBuilderPreparedSpellSelections(wizard, { wizard: ["magic-missile", "shield"] }).ok).toBe(true);
     expect(validateBuilderPreparedSpellSelections(wizard, { wizard: ["fireball"] })).toMatchObject({ ok: false, error: "invalid-prepared-spell:wizard" });
     expect(applyLongRest(wizard, { preparedByClass: { wizard: ["shield"] } }).character.spells).toEqual(wizard.spells);
@@ -459,10 +461,147 @@ describe("builder prepared spell capacity", () => {
         ];
       }
       const option = getBuilderPreparedSpellOptions(character).find((entry) => entry.classId === classId);
-      const overCapacity = option.candidateIds.slice(0, option.capacity + 1);
-      expect(overCapacity).toHaveLength(option.capacity + 1);
+      const overCapacity = option.ordinaryCandidateIds.slice(0, option.effectiveCapacity + 1);
+      expect(overCapacity).toHaveLength(option.effectiveCapacity + 1);
       expect(validateBuilderPreparedSpellSelections(character, { [classId]: overCapacity }))
         .toMatchObject({ ok: false, error: `prepared-capacity:${classId}` });
+    }
+  });
+});
+
+describe("prepared selection merge contract (C1)", () => {
+  function multiclassPreparedCaster() {
+    // Cleric 3 / Wizard 3: two prepared casters, plus stored junk that must
+    // survive untouched (an unknown class key and a legacy/unresolvable id).
+    const character = makeDefaultBuilderCharacterEntry("Merge Tester");
+    character.build.levels = [
+      ...Array.from({ length: 3 }, () => ({ classId: "cleric", hp: 5 })),
+      ...Array.from({ length: 3 }, () => ({ classId: "wizard", hp: 4 }))
+    ];
+    character.build.abilities.base = { str: 10, dex: 10, con: 12, int: 16, wis: 16, cha: 10 };
+    character.build.spellcasting = {
+      cleric: { cantripIds: [], knownIds: [], preparedIds: [] },
+      wizard: { cantripIds: [], knownIds: ["magic-missile", "shield", "mage-armor"], preparedIds: [] }
+    };
+    character.hpCur = 10;
+    character.hpMax = 30;
+    character.rest = {
+      hitDiceSpent: {},
+      preparedByClass: {
+        cleric: ["bless", "cure-wounds"],
+        wizard: ["magic-missile"],
+        bard: ["heroism"],
+        sorcerer: ["not-a-real-spell-id"]
+      }
+    };
+    return character;
+  }
+
+  it("changing one class preserves every untouched stored class verbatim", () => {
+    const character = multiclassPreparedCaster();
+    const result = validateBuilderPreparedSpellSelections(character, { cleric: ["bless", "command"] });
+
+    expect(result).toMatchObject({ ok: true, changed: true });
+    expect(result.preparedByClass).toEqual({
+      cleric: ["bless", "command"],
+      wizard: ["magic-missile"],
+      bard: ["heroism"],
+      sorcerer: ["not-a-real-spell-id"]
+    });
+  });
+
+  it("a supplied selection identical to storage is not a change", () => {
+    const character = multiclassPreparedCaster();
+    const result = validateBuilderPreparedSpellSelections(character, { cleric: ["cure-wounds", "bless"] });
+
+    expect(result).toMatchObject({ ok: true, changed: false });
+    expect(result.preparedByClass).toEqual(character.rest.preparedByClass);
+  });
+
+  it("a Long Rest with no supplied selection preserves the whole map verbatim", () => {
+    const character = multiclassPreparedCaster();
+    const result = applyLongRest(character);
+
+    expect(result.changed).toBe(true);
+    expect(result.character.rest.preparedByClass).toEqual(character.rest.preparedByClass);
+    expect(result.summary.preparedChanged).toBe(false);
+  });
+
+  it("a no-op supplied selection leaves the stored map byte-identical", () => {
+    const character = multiclassPreparedCaster();
+    const result = applyLongRest(character, { preparedByClass: { wizard: ["magic-missile"] } });
+
+    expect(result.character.rest.preparedByClass).toEqual(character.rest.preparedByClass);
+    expect(result.summary.preparedChanged).toBe(false);
+  });
+
+  it("a class with no resolvable plan entry keeps its stored list rather than being rewritten", () => {
+    const character = multiclassPreparedCaster();
+    const result = validateBuilderPreparedSpellSelections(character, { bard: ["cure-wounds"] });
+
+    expect(result).toMatchObject({ ok: true, changed: false });
+    expect(result.preparedByClass.bard).toEqual(["heroism"]);
+  });
+
+  it("clearing a class's ordinary list drops the key instead of storing an empty array", () => {
+    const character = multiclassPreparedCaster();
+    const result = validateBuilderPreparedSpellSelections(character, { wizard: [] });
+
+    expect(result).toMatchObject({ ok: true, changed: true });
+    expect(result.preparedByClass).not.toHaveProperty("wizard");
+    expect(result.preparedByClass.cleric).toEqual(["bless", "cure-wounds"]);
+  });
+
+  it("redundant granted ids fall away only when that class is actively recommitted", () => {
+    const character = multiclassPreparedCaster();
+    // A custom cleric subclass grants Bless — the id already sits in storage.
+    setActiveCustomContent([{
+      id: "storm-custom",
+      kind: "subclass",
+      name: "Storm (custom)",
+      classId: "cleric",
+      grantedSpells: [{ spellId: "bless", classLevel: 1, grantType: "always_prepared" }]
+    }]);
+    try {
+      character.build.subclassByClass = { cleric: "storm-custom" };
+      const cleric = getBuilderPreparedSpellOptions(character).find((entry) => entry.classId === "cleric");
+      expect(cleric.grantedIds).toEqual(["bless"]);
+      expect(cleric.ordinaryCandidateIds).not.toContain("bless");
+      // Ignored for counting: only cure-wounds is an ordinary selection.
+      expect(cleric.selectedIds).toEqual(["cure-wounds"]);
+
+      // Untouched: the redundant id stays in storage.
+      const untouched = validateBuilderPreparedSpellSelections(character, { wizard: ["shield"] });
+      expect(untouched.preparedByClass.cleric).toEqual(["bless", "cure-wounds"]);
+
+      // Actively recommitted: it falls away naturally.
+      const recommitted = validateBuilderPreparedSpellSelections(character, { cleric: ["cure-wounds", "command"] });
+      expect(recommitted.preparedByClass.cleric).toEqual(["cure-wounds", "command"]);
+    } finally {
+      setActiveCustomContent([]);
+    }
+  });
+
+  it("granted spell access survives the redundant id disappearing", () => {
+    const character = multiclassPreparedCaster();
+    setActiveCustomContent([{
+      id: "storm-custom",
+      kind: "subclass",
+      name: "Storm (custom)",
+      classId: "cleric",
+      grantedSpells: [{ spellId: "bless", classLevel: 1, grantType: "always_prepared" }]
+    }]);
+    try {
+      character.build.subclassByClass = { cleric: "storm-custom" };
+      // Drop the redundant granted id exactly as an active recommit would.
+      character.rest.preparedByClass = { ...character.rest.preparedByClass, cleric: ["cure-wounds"] };
+      const patch = getBuilderFinishSheetSeedPatch(character);
+      const rows = (patch.spells?.levels || []).flatMap((level) => level.spells || []);
+      const bless = rows.find((spell) => spell.name === "Bless");
+
+      expect(bless).toMatchObject({ prepared: true, builderGranted: true });
+    } finally {
+      setActiveCustomContent([]);
     }
   });
 });

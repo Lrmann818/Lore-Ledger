@@ -364,6 +364,8 @@ The legacy singleton `state.character` key is accepted only by migration/backwar
   - Added in schema v12; normalized by `normalizeCharacterRestState(...)`.
   - `hitDiceSpent` stores spent counts per pool id (`class:<classId>` for builder pools, `manual` for freeform); a missing entry means a full pool.
   - `preparedByClass` is the authoritative play-state prepared-spell selection for builder prepared casters; the legacy `build.spellcasting[classId].preparedIds` remains only for compatibility.
+  - Existing arrays may hold **redundant granted ids** (an always-prepared domain/oath/custom-class spell that was also selectable as an ordinary pick before Prepared Correctness C1, 2026-07-27) as well as ids that no longer resolve. Both are **ignored for ordinary counting** by `getPreparedSpellPlan()` and are **retained verbatim** until that class's own list is actively recommitted through a Long Rest. There is no migration and no load-time cleanup: granted spell access comes from `derived.grantedSpells` during sheet seeding, not from this map, so a redundant id disappearing changes nothing the player can see.
+  - Long Rest commits **merge**: only classes the player actually changed are written, and every other key — including one for a class whose content is temporarily unresolvable — is preserved. Clearing a class drops its key rather than storing an empty array (`normalizeCharacterRestState(...)` discards empty arrays anyway).
 - `hitDieAmt: number | null`
   - Canonical persisted field.
   - Seeded by `js/state.js`, written by the Vitals panel, and enforced by migration-time normalization.

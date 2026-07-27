@@ -13,6 +13,13 @@ Read with [`AGENTS.md`](../../AGENTS.md) (wins on conflict) and
 > recovery, spell slots, HP, Hit Dice, and death saves. Builder prepared casters use the
 > Long Rest flow; freeform prepared flags remain manual/DM-managed. This document still
 > defines the behavior and boundaries for any future rest change.
+>
+> **Prepared Correctness C1 (2026-07-27).** §4's prepared-spell rules are implemented as
+> written. Before C1 three of them were not: the selection heading rendered `0 / capacity`
+> regardless of the real selection, every count was hidden until the player chose "Yes",
+> and granted/always-prepared spells were offered as ordinary picks that consumed
+> preparation capacity. `js/domain/rules/preparedSpells.js` now owns the whole prepared
+> model — see §4.1.
 
 ---
 
@@ -128,6 +135,64 @@ Known-spell casters (Bard, Ranger, Sorcerer, Warlock) do **not** get this flow.
 If direct prepared-spell editing exists in the Spells panel, it should either route
 through this same flow or clearly present itself as a manual/DM override.
 
+### 4.1 The prepared-spell plan (Prepared Correctness C1, 2026-07-27)
+
+`js/domain/rules/preparedSpells.js` is the **single owner** of every prepared-spell rule.
+`getPreparedSpellPlan(character, registry)` is pure and registry-injected;
+`getBuilderPreparedSpellOptions()` is its registry-bound accessor and
+`validateBuilderPreparedSpellSelections()` its commit guard. No UI module may reproduce a
+capacity, class-list, spellbook, grant-exclusion, or multiclass spell-level formula.
+
+Per prepared caster the plan reports `classId`, `className`, `preparationMode`,
+`formulaCapacity`, `ordinaryCandidateIds`, `grantedIds`, `selectedIds`,
+`effectiveCapacity`, `limitedBy`, and `maxSpellLevel`.
+
+**Two capacities, never collapsed:**
+
+- `formulaCapacity` — the rules entitlement (class level, or half class level for a half
+  caster, plus the spellcasting ability modifier, minimum 1). It stays `null` when the
+  ability modifier is unknown. **`null` means unknown and is never coerced to `0`.**
+- `effectiveCapacity` — `min(formulaCapacity, ordinaryCandidateIds.length)`, i.e. how many
+  ordinary spells the character can actually hold prepared today, or `null` when the
+  formula is unknown.
+- `limitedBy` — `"formula"` (the normal case), `"candidates"` (fewer eligible spells exist
+  than the formula allows — an under-filled wizard spellbook, or a class with no spell
+  list), or `"unknown"`. The Long Rest dialog uses it to explain an unreachable target in
+  plain language instead of silently displaying one.
+
+**Candidate rules:**
+
+- Granted / always-prepared spells are excluded from `ordinaryCandidateIds` and from
+  `selectedIds`, are reported separately as `grantedIds`, and never consume capacity.
+- Wizards (and any custom `spellbook` class) draw candidates from their spellbook;
+  Cleric, Druid, and Paladin draw from their class spell list. Custom spells participate
+  through the same `classIds` membership as builtin ones.
+- **Multiclass:** each caster's `maxSpellLevel` comes from *its own* class slot table at
+  *its own* class level, as if it were single-classed. Combined multiclass slots let a
+  character cast a lower-level spell with a higher slot; they never unlock higher-level
+  candidates for a class whose own table has not reached that level.
+- Unresolvable spell ids, a missing slot table, a malformed build, and a deleted custom
+  class all fail soft: they yield fewer candidates or no plan entry, never a false prompt
+  and never a destructive cleanup.
+
+### 4.2 Prepared commit semantics
+
+Prepared updates **merge** into the normalized `rest.preparedByClass` map. The Long Rest
+dialog submits only the classes whose ordinary selection actually changed (order is not
+meaningful, so unchecking and rechecking the same spell is not a change).
+
+- Choosing "No" submits nothing; the stored map is preserved verbatim.
+- Choosing "Yes" without editing submits nothing and does not rewrite prepared state.
+- Untouched classes — including a class whose content is temporarily unresolvable, and
+  classes holding legacy or redundant ids — are carried through verbatim.
+- A class actively recommitted stores only valid ordinary prepared ids; clearing a class
+  drops its key rather than storing an empty array.
+- There is **no load-time cleanup, no migration, and no silent mutation.**
+
+Granted spells reach the sheet through `derived.grantedSpells` in
+`getBuilderFinishSheetSeedPatch()`, not through `rest.preparedByClass`, so a granted spell
+stays always-prepared on the sheet regardless of what the prepared list contains.
+
 ---
 
 ## 5. P0 implementation coverage
@@ -138,6 +203,14 @@ through this same flow or clearly present itself as a manual/DM override.
   saves; it requires at least 1 tracked current HP.
 - Builder Cleric, Druid, Paladin, and Wizard prepared selections are made through the
   Long Rest flow. Known-spell casters and freeform characters do not use that selector.
+- **Prepared Correctness C1 (2026-07-27)** completed §4's prepared rules: accurate
+  current-versus-effective counts visible before the Yes/No choice, read-only granted
+  spells that consume no capacity, per-class multiclass candidate levels, and a merging
+  commit. See §4.1–§4.2. **Not in C1** and still open: creation-time prepared caps, any
+  underfill confirmation at creation or Long Rest, a Summary prepared row, the Level Up
+  capacity-formula divergence (`getLevelUpPlan()` computes capacity from build abilities
+  only, so it disagrees with the Long Rest value when `overrides.abilities` is set), and
+  `builderGranted` presentation in the Spells panel.
 
 ---
 
@@ -197,6 +270,21 @@ Apply semantics (`recoveryMatchesRest()`):
 - Rest actions are character-specific and stay correct across character switching.
 - Rest is safe for both builder-created and freeform/manual characters.
 - Long Rest does not persist or enforce a 24-hour timestamp; that rule stays with the table/DM.
+
+Prepared-plan coverage (C1) lives in `tests/preparedSpells.test.js` and
+`tests/restFlow.test.js`, with the merge contract in `tests/characterRest.test.js` and the
+granted-access guarantee in `tests/builderSheetSeeding.test.js`:
+
+- Cleric / Druid / Paladin / Wizard formula capacity, and the minimum-1 clamp.
+- Unknown capacity stays `null`; the picker is not offered as a usable control.
+- A wizard spellbook smaller than the formula bounds `effectiveCapacity`.
+- Granted spells are excluded from candidates, from counts, and from capacity.
+- Granted spell access survives a redundant stored id disappearing on recommit.
+- Each multiclass caster uses its own class table; combined slots never widen candidates.
+- Custom prepared classes with zero candidates, custom granted spells, deleted custom
+  classes, and malformed/unresolvable ids all fail soft.
+- "No" and a no-edit "Yes" both preserve the stored map verbatim; changing one class
+  preserves every untouched class.
 
 Acceptance: no rest action silently fails, none affects the wrong character, unsupported
 recovery modes are left unchanged rather than guessed, and `npm run verify` plus

@@ -1,7 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import { getBuilderFinishSheetSeedPatch } from "../js/domain/builderSheetSeeding.js";
 import { makeDefaultBuilderCharacterEntry, makeDefaultCharacterEntry } from "../js/domain/characterHelpers.js";
+import { setActiveCustomContent } from "../js/domain/rules/registry.js";
 
 function makeDragonbornBuilder({ ancestryId = "red", features = "", languages = "" } = {}) {
   const character = makeDefaultBuilderCharacterEntry("Dragon Mira");
@@ -506,5 +507,62 @@ describe("builder finish seeding — class resources", () => {
     expect(luck).toMatchObject({ id: "r1", cur: 2, max: 3 });
     expect(luck.builderSeed).toBeUndefined();
     expect(patch.resources.some((resource) => resource.builderSeed === "class-resource:rage")).toBe(true);
+  });
+});
+
+describe("granted spell access is independent of the prepared list (C1)", () => {
+  const grantingSubclass = {
+    id: "storm-custom",
+    kind: "subclass",
+    name: "Storm (custom)",
+    classId: "cleric",
+    grantedSpells: [{ spellId: "bless", classLevel: 1, grantType: "always_prepared" }]
+  };
+
+  function grantedCleric(preparedByClass) {
+    const character = makeDefaultBuilderCharacterEntry("Storm Cleric");
+    character.build.raceId = "human";
+    character.build.backgroundId = "acolyte";
+    character.build.levels = Array.from({ length: 3 }, () => ({ classId: "cleric", hp: 5 }));
+    character.build.abilities.base = { str: 10, dex: 10, con: 12, int: 10, wis: 16, cha: 10 };
+    character.build.spellcasting = { cleric: { cantripIds: [], knownIds: [], preparedIds: [] } };
+    character.build.subclassByClass = { cleric: "storm-custom" };
+    character.rest = { hitDiceSpent: {}, preparedByClass };
+    return character;
+  }
+
+  function seededSpell(character, name) {
+    const patch = getBuilderFinishSheetSeedPatch(character);
+    return (patch.spells?.levels || [])
+      .flatMap((level) => level.spells || [])
+      .find((spell) => spell.name === name);
+  }
+
+  afterEach(() => {
+    setActiveCustomContent([]);
+  });
+
+  it("seeds a granted spell as always-prepared whether or not it is in preparedByClass", () => {
+    setActiveCustomContent([grantingSubclass]);
+
+    // Legacy save: the redundant granted id is still stored.
+    expect(seededSpell(grantedCleric({ cleric: ["bless", "cure-wounds"] }), "Bless"))
+      .toMatchObject({ prepared: true, builderGranted: true, known: true });
+
+    // After an active recommit dropped the redundant id, access is unchanged.
+    expect(seededSpell(grantedCleric({ cleric: ["cure-wounds"] }), "Bless"))
+      .toMatchObject({ prepared: true, builderGranted: true, known: true });
+
+    // And with nothing prepared at all.
+    expect(seededSpell(grantedCleric({}), "Bless"))
+      .toMatchObject({ prepared: true, builderGranted: true, known: true });
+  });
+
+  it("keeps ordinary prepared selections marked prepared alongside the grant", () => {
+    setActiveCustomContent([grantingSubclass]);
+    const character = grantedCleric({ cleric: ["cure-wounds"] });
+
+    expect(seededSpell(character, "Cure Wounds")).toMatchObject({ prepared: true });
+    expect(seededSpell(character, "Cure Wounds").builderGranted).toBeUndefined();
   });
 });

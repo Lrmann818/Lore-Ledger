@@ -8,7 +8,8 @@ import {
 import { recoverDerivedFeatureUses } from "./featureUses.js";
 import { getDisplayedHpMax } from "./hpMaxCalculation.js";
 import { deriveCharacter } from "./rules/deriveCharacter.js";
-import { getActiveContentRegistry, getContentByKind, listContentByKind } from "./rules/registry.js";
+import { getPreparedSpellPlan, samePreparedSelection } from "./rules/preparedSpells.js";
+import { getActiveContentRegistry, getContentByKind } from "./rules/registry.js";
 import { getHitDicePools } from "./rules/progression.js";
 import { normalizeCharacterRestState, normalizeDeathSaves } from "./characterHelpers.js";
 
@@ -386,75 +387,71 @@ export function getPreparedSpellCapacity(character, classId) {
 }
 
 /**
- * Gets builder-managed prepared-caster options from the SRD registry. The UI
- * receives candidates and capacity; it never contains a class formula.
+ * Gets builder-managed prepared-caster options for the Long Rest dialog. Every
+ * rule — capacity, class list, spellbook filtering, grant exclusion, and the
+ * per-class multiclass spell-level ceiling — is owned by
+ * `getPreparedSpellPlan()`; this is the registry-bound accessor for it, so the
+ * UI never contains a formula.
  * @param {CharacterEntry} character
- * @returns {Array<{ classId: string, className: string, preparationMode: string, capacity: number, selectedIds: string[], grantedIds: string[], candidateIds: string[] }>}
+ * @returns {import("./rules/preparedSpells.js").PreparedSpellPlanEntry[]}
  */
 export function getBuilderPreparedSpellOptions(character) {
-  if (!character?.build || typeof character.build !== "object") return [];
-  const registry = getActiveContentRegistry();
-  const derived = deriveCharacter(character, registry);
-  const rest = normalizeCharacterRestState(character.rest);
-  const spellcastingSelections = isPlainObject(character.build.spellcasting) ? character.build.spellcasting : {};
-  const maxSpellLevel = derived.spellcasting?.slots.reduce((max, count, index) => (
-    count > 0 ? Math.max(max, index + 1) : max
-  ), 0) || 0;
-
-  return (derived.spellcasting?.classes || [])
-    .filter((caster) => caster.preparationMode === "prepared" || caster.preparationMode === "spellbook")
-    .map((caster) => {
-      const selection = isPlainObject(spellcastingSelections[caster.classId])
-        ? spellcastingSelections[caster.classId]
-        : {};
-      const legacyPrepared = Array.isArray(selection.preparedIds) ? selection.preparedIds : [];
-      const selectedIds = Array.isArray(rest.preparedByClass[caster.classId])
-        ? rest.preparedByClass[caster.classId]
-        : legacyPrepared;
-      const grantedIds = derived.grantedSpells
-        .filter((grant) => grant.classId === caster.classId)
-        .map((grant) => grant.spellId);
-      const spellbookIds = Array.isArray(selection.knownIds) ? selection.knownIds : [];
-      const candidateIds = listContentByKind(registry, "spell")
-        .filter((entry) => {
-          const level = finiteInteger(entry.data?.level) || 0;
-          if (level < 1 || level > maxSpellLevel) return false;
-          if (caster.preparationMode === "spellbook") return spellbookIds.includes(entry.id);
-          const classIds = Array.isArray(entry.data?.classIds) ? entry.data.classIds : [];
-          return classIds.includes(caster.classId);
-        })
-        .map((entry) => entry.id);
-      const capacity = getPreparedSpellCapacity(character, caster.classId);
-      return {
-        classId: caster.classId,
-        className: caster.className,
-        preparationMode: caster.preparationMode,
-        capacity: capacity == null ? 0 : capacity,
-        selectedIds: [...new Set(selectedIds.filter((id) => typeof id === "string"))],
-        grantedIds: [...new Set(grantedIds)],
-        candidateIds
-      };
-    });
+  return getPreparedSpellPlan(character, getActiveContentRegistry());
 }
 
 /**
+ * Merges an actively-edited prepared selection into the character's stored
+ * `rest.preparedByClass` map (Prepared Correctness C1).
+ *
+ * The caller supplies **only** the classes whose ordinary selection actually
+ * changed. Every other stored key — including a class that is temporarily
+ * unresolvable, a legacy id, or a redundant granted id — is carried through
+ * verbatim. Nothing is cleaned up on load, on read, or by migration; a
+ * redundant granted id falls away only when that class's own list is
+ * successfully recommitted through this function.
+ *
+ * An unknown capacity (no spellcasting ability modifier) accepts an empty list
+ * only: it fails closed rather than guessing a limit.
+ *
  * @param {CharacterEntry} character
- * @param {Record<string, unknown>} preparedByClass
- * @returns {{ ok: true, preparedByClass: Record<string, string[]> } | { ok: false, error: string }}
+ * @param {Record<string, unknown>} preparedByClass classes actively changed
+ * @returns {{ ok: true, preparedByClass: Record<string, string[]>, changed: boolean } | { ok: false, error: string }}
  */
 export function validateBuilderPreparedSpellSelections(character, preparedByClass) {
   const source = isPlainObject(preparedByClass) ? preparedByClass : {};
+  const stored = normalizeCharacterRestState(character?.rest).preparedByClass;
   /** @type {Record<string, string[]>} */
-  const next = {};
-  for (const option of getBuilderPreparedSpellOptions(character)) {
-    const rawSelection = /** @type {unknown[]} */ (Array.isArray(source[option.classId]) ? source[option.classId] : option.selectedIds);
+  const next = { ...stored };
+  const planByClassId = new Map(
+    getBuilderPreparedSpellOptions(character).map((entry) => [entry.classId, entry])
+  );
+
+  let changed = false;
+  for (const [rawClassId, rawSelection] of Object.entries(source)) {
+    const classId = cleanString(rawClassId);
+    if (!classId || !Array.isArray(rawSelection)) continue;
+    const option = planByClassId.get(classId);
+    // A class with no plan entry (deleted content, no longer a prepared caster)
+    // keeps whatever is stored; it is never rewritten from an unusable plan.
+    if (!option) continue;
+
     const selected = [...new Set(rawSelection.filter((id) => typeof id === "string").map(cleanString).filter(Boolean))];
-    if (selected.length > option.capacity) return { ok: false, error: `prepared-capacity:${option.classId}` };
-    const candidates = new Set(option.candidateIds);
-    if (selected.some((id) => !candidates.has(id))) return { ok: false, error: `invalid-prepared-spell:${option.classId}` };
-    next[option.classId] = selected;
+    const capacity = option.effectiveCapacity;
+    if (capacity == null ? selected.length > 0 : selected.length > capacity) {
+      return { ok: false, error: `prepared-capacity:${classId}` };
+    }
+    const candidates = new Set(option.ordinaryCandidateIds);
+    if (selected.some((id) => !candidates.has(id))) return { ok: false, error: `invalid-prepared-spell:${classId}` };
+
+    // A selection holding the same spells as storage is not a change: leave
+    // the stored array untouched rather than rewriting it in a new order.
+    const previous = Array.isArray(stored[classId]) ? stored[classId] : [];
+    if (samePreparedSelection(previous, selected)) continue;
+    changed = true;
+    if (selected.length) next[classId] = selected;
+    else delete next[classId];
   }
-  return { ok: true, preparedByClass: next };
+  return { ok: true, preparedByClass: next, changed };
 }
 
 /**
@@ -507,13 +504,16 @@ export function applyLongRest(character, selection = {}) {
     deathSaves: { successes: 0, failures: 0 },
     rest: nextRest
   };
+  // A supplied selection that matches what is already stored is not a change:
+  // "Yes" with no edit must leave the prepared map byte-identical.
+  const preparedChanged = !!(prepared?.ok && prepared.changed);
   const changed = base.changed || hpCur !== hpMax || shouldResetDeathSaves ||
-    Object.keys(allocation).length > 0 || !!prepared;
+    Object.keys(allocation).length > 0 || preparedChanged;
   if (!changed) return { character, changed: false, recovery };
   return {
     character: nextCharacter,
     changed: true,
     recovery,
-    summary: { recoveredHitDiceByPool: allocation, preparedChanged: !!prepared }
+    summary: { recoveredHitDiceByPool: allocation, preparedChanged }
   };
 }

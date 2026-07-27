@@ -1764,7 +1764,10 @@ describe("character page selector", () => {
     document.getElementById("charLongRestBtn").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
     await flushPromises();
     await flushPromises();
-    expect(builder.rest.preparedByClass).toEqual({ cleric: [] });
+    // C1 merge contract: clearing a class's ordinary list drops the key rather
+    // than storing an empty array (which normalizeCharacterRestState discards
+    // anyway). Nothing is prepared for the cleric either way.
+    expect(builder.rest.preparedByClass).toEqual({});
     expect(builder.hpCur).toBe(12);
     controller.destroy();
   });

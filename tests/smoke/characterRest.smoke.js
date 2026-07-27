@@ -70,6 +70,12 @@ test("Long Rest prepared flow preserves No, applies Yes, and stays character-iso
   await page.locator("#charLongRestBtn").click();
   await expect(page.locator("#characterRestOverlay")).toBeVisible();
   await expect(page.locator("#characterRestOverlay")).toContainText("Would you like to change your prepared spells?");
+  // C1: the current-versus-effective count is on screen and accurate before
+  // the Yes/No choice, while the picker itself stays disclosed under "Yes".
+  await expect(page.locator('input[name="characterRestPreparedChoice"][value="no"]')).toBeChecked();
+  await expect(page.locator(".characterRestPreparedCount")).toBeVisible();
+  await expect(page.locator(".characterRestPreparedCount")).toHaveText("Cleric — 1 of 4 prepared");
+  await expect(page.locator(".characterRestPreparedLists")).toBeHidden();
   await page.getByRole("button", { name: "Take Long Rest" }).click();
   await expect(page.locator("#characterRestOverlay")).toBeHidden();
   const afterNo = await page.evaluate(() => globalThis.__APP_STATE__.characters.entries.map((entry) => ({
@@ -92,7 +98,10 @@ test("Long Rest prepared flow preserves No, applies Yes, and stays character-iso
   await page.locator("#charLongRestBtn").click();
   await expect(page.locator("#characterRestOverlay")).toBeVisible();
   await page.locator('input[name="characterRestPreparedChoice"][value="yes"]').check();
+  await expect(page.locator(".characterRestPreparedLists")).toBeVisible();
   await page.locator('.characterRestSpellRow:has-text("Cure Wounds") input[type="checkbox"]').uncheck();
+  // Both the summary line and the picker heading track the toggle.
+  await expect(page.locator(".characterRestPreparedCount")).toHaveText("Cleric — 0 of 4 prepared");
   await page.getByRole("button", { name: "Take Long Rest" }).click();
   await expect(page.locator("#characterRestOverlay")).toBeHidden();
   await expect.poll(() => page.evaluate(() => {
