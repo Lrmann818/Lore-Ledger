@@ -292,17 +292,81 @@ describe("choice completion report — multiclass ownership", () => {
     expect(map.get("subclass:wizard").classId).toBe("wizard");
     expect(map.get("subclass:sorcerer").classId).toBe("sorcerer");
 
-    // Only the FIRST class contributes a full skill choice. No SRD 5.1 class
-    // defines multiclassing.skillChoices, so the later class contributes none.
+    // Only the FIRST class contributes a full skill choice. Whether a LATER
+    // class contributes a reduced one is data-driven: in SRD 5.1 exactly three
+    // classes ship multiclassing.skillChoices — Bard, Ranger, and Rogue, each
+    // "choose 1" — and the other nine (Sorcerer here) define it as null. So
+    // the absent sorcerer rows below are a fact about sorcerer's record, not a
+    // blanket rule; the shipped Fighter → Rogue test that follows covers the
+    // positive side.
     expect(map.get("choice:class-skill-wizard").kind).toBe("class-skill");
     expect(map.has("choice:class-skill-sorcerer")).toBe(false);
     expect(map.has("choice:multiclass-skill-sorcerer")).toBe(false);
   });
 
-  it("reports a later class's multiclass skill choice when the class grants one", () => {
-    // Reachable only through custom content today: no shipped SRD 5.1 class
-    // defines multiclassing.skillChoices. Pinned so the branch the Level Up
-    // wizard also relies on cannot rot.
+  it("reports a shipped SRD multiclass skill choice for Fighter 1 → Rogue 1", () => {
+    // Rogue ships multiclassing.skillChoices = choose 1 of its own 11-skill
+    // list (Bard and Ranger ship the equivalent; the other nine SRD classes
+    // define it as null). This is the shipped-data counterpart to the custom
+    // Sellsword case below, and covers the same branch the Level Up wizard
+    // relies on via getLevelUpPlan().multiclassSkillChoiceId.
+    const map = byKey(makeBuild({
+      raceId: null,
+      backgroundId: null,
+      levels: [...nLevels("fighter", 1), ...nLevels("rogue", 1)]
+    }));
+
+    const multiclass = map.get("choice:multiclass-skill-rogue");
+    expect(multiclass).toBeTruthy();
+    expect(multiclass.kind).toBe("multiclass-skill");
+    expect(multiclass.requirement).toBe(CHOICE_REQUIREMENT.REQUIRED);
+    expect(multiclass.allowed).toBe(1);
+    expect(multiclass.classId).toBe("rogue");
+    expect(multiclass.levelKey).toBe("1");
+    expect(multiclass.satisfied).toBe(false);
+
+    // The picker resolves to Rogue's own SRD skill list, in record order.
+    const options = resolveChoiceOptions(multiclass, registry);
+    expect(options.map((option) => option.id)).toEqual([
+      "acrobatics", "athletics", "deception", "insight", "intimidation",
+      "investigation", "perception", "performance", "persuasion",
+      "sleight-of-hand", "stealth"
+    ]);
+    // Names come from the skill registry, not the raw id.
+    expect(options.find((option) => option.id === "sleight-of-hand").name)
+      .toBe("Sleight of Hand");
+
+    // Fighter, as the first class, still owns its full 2-skill choice and
+    // never gains a multiclass row.
+    expect(map.get("choice:class-skill-fighter").allowed).toBe(2);
+    expect(map.has("choice:multiclass-skill-fighter")).toBe(false);
+    expect(map.has("choice:class-skill-rogue")).toBe(false);
+
+    // Negative control 1 — order-driven: Rogue taken FIRST yields the full
+    // 4-skill choice from the same shipped record instead.
+    const rogueFirst = byKey(makeBuild({
+      raceId: null,
+      backgroundId: null,
+      levels: [...nLevels("rogue", 1), ...nLevels("fighter", 1)]
+    }));
+    expect(rogueFirst.get("choice:class-skill-rogue").allowed).toBe(4);
+    expect(rogueFirst.has("choice:multiclass-skill-rogue")).toBe(false);
+
+    // Negative control 2 — data-driven: Wizard defines multiclassing
+    // .skillChoices as null, so the identical multiclass shape yields nothing.
+    const fighterWizard = byKey(makeBuild({
+      raceId: null,
+      backgroundId: null,
+      levels: [...nLevels("fighter", 1), ...nLevels("wizard", 1)]
+    }));
+    expect(fighterWizard.has("choice:multiclass-skill-wizard")).toBe(false);
+  });
+
+  it("reports a later class's multiclass skill choice for a custom class too", () => {
+    // Custom-content coverage for the same branch the shipped Fighter → Rogue
+    // test above pins: an authored class that declares multiclassing
+    // .skillChoices is read from its own record exactly like Bard, Ranger, and
+    // Rogue are, with no builtin-only shortcut.
     const customClass = {
       id: "sellsword",
       kind: "class",
