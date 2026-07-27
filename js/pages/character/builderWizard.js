@@ -22,8 +22,11 @@ import {
   listContentByKind
 } from "../../domain/rules/registry.js";
 import {
+  formatChoiceShortfall,
+  getChoiceCompletionReport
+} from "../../domain/rules/choiceCompletion.js";
+import {
   collectActiveChoiceIds,
-  getIncompleteChoiceSummaries,
   getRequiredAncestryChoice,
   getRequiredOriginChoices,
   hasClassChoices,
@@ -1609,18 +1612,33 @@ export function initBuilderWizard(deps = {}) {
       warningsEl.textContent = `Warnings: ${derived.warnings.join("; ")}`;
     }
 
-    // Incomplete count-bearing choices — guidance only, Finish stays allowed
-    // (everything listed is completable later via Edit in Builder / Level Up).
-    const incomplete = getIncompleteChoiceSummaries(draft.build, registry);
-    if (incomplete.length) {
-      const incompleteEl = appendDiv(
+    // Choice review — guidance only, Finish stays allowed. Required choices and
+    // permitted under-cap spell selections are deliberately NOT blended: a
+    // required choice is genuinely unfinished, while choosing fewer spells than
+    // the maximum is a legal decision (R5-B owner ruling).
+    const report = getChoiceCompletionReport(draft.build, registry);
+    const unresolvedRequired = report.unresolvedRequired.map(formatChoiceShortfall);
+    if (unresolvedRequired.length) {
+      const requiredEl = appendDiv(
         summaryEl,
         "builderWizardValidation builderMulticlassWarning builderIncompleteChoices",
         ""
       );
-      incompleteEl.hidden = false;
-      incompleteEl.textContent =
-        `Not finished yet (you can Finish now and complete these later): ${incomplete.join("; ")}.`;
+      requiredEl.hidden = false;
+      requiredEl.textContent =
+        "Required choices not finished (you can Finish now and complete them from the " +
+        `character sheet): ${unresolvedRequired.join("; ")}.`;
+    }
+    const underCap = report.underCapShortfalls.map(formatChoiceShortfall);
+    if (underCap.length) {
+      const underCapEl = appendDiv(
+        summaryEl,
+        "builderWizardValidation builderUnderCapChoices",
+        ""
+      );
+      underCapEl.hidden = false;
+      underCapEl.textContent =
+        `Fewer than the maximum chosen (allowed — you can choose more later): ${underCap.join("; ")}.`;
     }
 
     const abilities = appendDiv(summaryEl, "builderSummaryAbilities", "");

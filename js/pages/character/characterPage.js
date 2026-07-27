@@ -13,6 +13,7 @@ import { initBuilderSummaryPanel } from "../character/panels/builderSummaryPanel
 import { initBuilderWizard } from "../character/builderWizard.js";
 import { initLevelUpWizard } from "../character/levelUpWizard.js";
 import { initRestoreCharacterDialog } from "../character/restoreCharacterDialog.js";
+import { initCompleteChoicesFlow } from "../character/completeChoicesFlow.js";
 import { initProficienciesPanel } from "../character/panels/proficienciesPanel.js";
 import { initAbilitiesPanel } from "../character/panels/abilitiesPanel.js";
 import { initAbilitiesFeaturesPanel } from "../character/panels/abilitiesFeaturesPanel.js";
@@ -1169,6 +1170,25 @@ export function initCharacterPageUI(deps) {
   runPanelInit("Character empty state", () => initCharacterEmptyState());
   runPanelInit("Character selector bar", () => initCharacterSelectorBar());
   runPanelInit("Character panels", () => initCharacterUI());
+  // Complete Choices (R5-B1): the contextual banner above #charColumns plus the
+  // focused dialog that resolves the active builder character's unresolved
+  // required build choices. Scoped to the character-page root already resolved
+  // by the guard above, so a Combat-workspace rerender can never rebind it
+  // (the R5-A.1 ownership fix); the dialog overlay lives at document level with
+  // the other modal overlays.
+  runPanelInit("Complete Choices flow", () => {
+    const { mutateCharacter } = createStateActions({ state, SaveManager });
+    return initCompleteChoicesFlow({
+      root: characterPageRoot,
+      overlayRoot: document,
+      state,
+      mutateCharacter,
+      rerender,
+      setStatus,
+      uiAlert,
+      Popovers
+    });
+  });
 
   const api = {
     destroy() {

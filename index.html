@@ -558,6 +558,16 @@
           </div>
         </div>
       </div>
+      <!-- Contextual incomplete-required-choices banner (R5-B1). Sits directly
+           above the character columns, outside every panel, and is derived from
+           canonical build data on every render — never a persisted UI flag. -->
+      <div class="charIncompleteChoices" id="charIncompleteChoices" role="status" aria-live="polite" hidden>
+        <span class="charIncompleteChoicesMsg" id="charIncompleteChoicesText"></span>
+        <div class="charIncompleteChoicesActions">
+          <button type="button" class="panelBtnSm charIncompleteChoicesBtn"
+            id="charIncompleteChoicesBtn">Complete Choices</button>
+        </div>
+      </div>
       <div class="charColumns" id="charColumns">
         <div class="charCol" id="charCol0">
           <section class="panel" id="charBasicsPanel">
@@ -1565,6 +1575,39 @@
         <button type="button" class="npcSmallBtn restoreCharacterRetrySaveBtn" id="restoreCharacterRetrySave"
           hidden>Retry Save</button>
         <button type="button" class="npcSmallBtn" id="restoreCharacterCancel">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Complete Choices dialog (R5-B1): resolves ONLY the active builder
+       character's unresolved required build choices. Permitted under-cap spell
+       selections never appear here, and completed choices are never reopened. -->
+  <div id="completeChoicesOverlay" class="modalOverlay" hidden aria-hidden="true">
+    <div class="modalPanel completeChoicesPanel" id="completeChoicesPanel" role="dialog" aria-modal="true"
+      aria-labelledby="completeChoicesTitle" tabindex="-1">
+      <div class="completeChoicesHeader">
+        <div class="modalTitle" id="completeChoicesTitle">Complete Choices</div>
+        <button type="button" class="npcSmallBtn" id="completeChoicesClose" aria-label="Close">✕</button>
+      </div>
+
+      <div class="completeChoicesScroll">
+        <p class="completeChoicesIntro" id="completeChoicesIntro">
+          These required choices were never made. Choices you already made are not shown and are
+          not changed here.
+        </p>
+
+        <div class="completeChoicesEmpty" id="completeChoicesEmpty" hidden>
+          All required choices are complete. Choose Apply to save them.
+        </div>
+
+        <div class="completeChoicesBody" id="completeChoicesBody"></div>
+
+        <div class="completeChoicesStatus" id="completeChoicesStatus" role="status" aria-live="polite" hidden></div>
+      </div>
+
+      <div class="completeChoicesFooter">
+        <button type="button" class="npcSmallBtn" id="completeChoicesCancel">Cancel</button>
+        <button type="button" class="npcSmallBtn" id="completeChoicesApply">Apply</button>
       </div>
     </div>
   </div>

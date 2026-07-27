@@ -638,6 +638,44 @@ playwright.preview.config.js`) — both smoke gates are blocking per
 - **R5 — Edit in Builder retirement.** Gated on owner decisions D1–D3 (audit doc §3).
   Remove E1–E6/M1–M3 per the audit, rework T1–T6 (new ability-change lever per D2),
   update creation-Summary copy, revise the governing docs listed in audit §1.6.
+  Running in owner-authorized sub-batches:
+  - **R5-A — base ability scores on the sheet. ✅ Shipped 2026-07-24.** D2 delivered
+    through the existing Abilities & Skills `⋯` menu (no new flow); a same-day
+    follow-up scoped the Character-page panel to `#page-character` so the Combat
+    workspace's embedded copy cannot capture the menu on rerender.
+  - **R5-B1 — structured required choices + banner + Complete Choices. ✅ Shipped
+    2026-07-25 (owner-authorized).** D3's replacement for Edit in Builder's
+    skipped-choice repair role. New pure `js/domain/rules/choiceCompletion.js` is the
+    single traversal of `(build, registry)`, classifying each build-time choice as
+    **required** (fixed legal count) or permitted **under-cap** (class cantrips, known
+    spells, wizard spellbook); `getIncompleteChoiceSummaries()` became a thin formatter
+    over it, so no second traversal exists. **Owner ruling: fixed-count language choices
+    are required** — previously reported nowhere, they are the only intentional new
+    Summary rows (all pre-existing non-language rows and ordering byte-identical, pinned
+    by a frozen-baseline suite). The creation Summary splits required work from permitted
+    under-cap counts. `#charIncompleteChoices` sits directly above `#charColumns`, outside
+    every panel, derived from build data with no persisted UI flag, and opens
+    `js/pages/character/completeChoicesFlow.js` / `#completeChoicesOverlay` — a focused
+    dialog rendering **only** unresolved required choices through the shared wizard
+    primitives, recomputing live (a resolved choice leaves; one it unlocks appears).
+    Apply commits the draft build plus the additive `getBuilderFinishSheetSeedPatch` in
+    one `mutateCharacter` (one dirty mark; a no-op Apply mutates nothing), with
+    campaign/character isolation guards. Under-cap categories never raise the banner or
+    appear in the dialog; prepared spells stay Long-Rest owned; a reached-but-unchosen
+    subclass stays non-blocking at creation by ruling. Tests: `tests/choiceCompletion.test.js`
+    (22), `tests/completeChoicesFlow.test.js` (31), extended `tests/incompleteChoices.test.js`
+    (23) and `tests/characterPage.test.js`, `tests/smoke/completeChoices.smoke.js` (4).
+    Verified: typecheck clean, 1421/1421 unit, build clean, both smoke gates 70/70.
+    **No new persisted field and no schema change.** Applying Complete Choices does
+    persist the completed selections in the existing `build` fields plus additively
+    seeded sheet content — a code rollback is safe because no new schema exists, but
+    those already-completed choices are valid user data and are not removed.
+  - **R5-B2 — creation and Level Up under-cap opportunity + persisted acknowledgement.
+    Not authorized.** Also unbuilt and required before R5-C: a separately scoped,
+    **non-banner** correction path (associated with the existing Spells surface) for a
+    permanently stranded level-20 Wizard spellbook shortfall — owner ruling 2026-07-25
+    that such a shortfall is unacceptable; placement to be confirmed separately.
+  - **R5-C — the retirement itself (E1–E6/M1–M3, T1–T6). Not authorized.**
 - **R6 — Docs close-out.** Update `docs/state-schema.md` (v13 + snapshot record),
   `docs/operations/storage-and-backups.md`, `docs/features/multi-character-design.md`
   as shipped-behavior docs once each phase lands.

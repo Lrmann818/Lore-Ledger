@@ -4369,6 +4369,152 @@ div.mutedSmall {
   opacity: 0.85;
 }
 
+/* Incomplete-required-choices banner (R5-B1). An in-page notice directly above
+   #charColumns, outside every panel — same visual family as .charEmptyState so
+   it reads as part of the character page rather than an app-level alert. */
+.charIncompleteChoices {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent, currentColor);
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+
+.charIncompleteChoicesMsg {
+  flex: 1 1 220px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 0.92em;
+}
+
+.charIncompleteChoicesActions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Complete Choices dialog (R5-B1): the focused correction surface for
+   unresolved required build choices. Same modal skeleton as Restore Character;
+   all layout scoped to .completeChoices* so nothing global shifts. */
+.completeChoicesPanel {
+  width: min(520px, 100%);
+  max-height: calc(100dvh - 36px);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  overflow: hidden;
+}
+
+.completeChoicesHeader,
+.completeChoicesFooter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+}
+
+.completeChoicesHeader {
+  justify-content: space-between;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.completeChoicesFooter {
+  justify-content: flex-end;
+  border-top: 1px solid var(--hairline);
+  flex-wrap: wrap;
+}
+
+.completeChoicesScroll {
+  min-height: 0;
+  overflow: auto;
+  padding: 14px 8px;
+  display: grid;
+  gap: 12px;
+}
+
+.completeChoicesIntro {
+  margin: 0;
+  font-size: 0.9em;
+  opacity: 0.85;
+}
+
+.completeChoicesEmpty {
+  margin: 0;
+  padding: 12px;
+  border: 1px dashed var(--hairline);
+  border-radius: 10px;
+  font-size: 0.9em;
+  opacity: 0.9;
+}
+
+.completeChoicesBody {
+  display: grid;
+  gap: 14px;
+}
+
+.completeChoicesItem {
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  min-width: 0;
+}
+
+/* The shared wizard field primitives render inside each item; keep their
+   labels and selects on their own lines so long labels never force a
+   horizontal scroll inside the panel. */
+.completeChoicesItem .builderIdentityField,
+.completeChoicesItem .builderChoiceField {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.completeChoicesItem .builderIdentityField>span,
+.completeChoicesItem .builderChoiceField>span {
+  overflow-wrap: anywhere;
+}
+
+.completeChoicesItem select {
+  max-width: 100%;
+}
+
+.completeChoicesStatus {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent, currentColor);
+  border-radius: 10px;
+  font-size: 0.88em;
+}
+
+/* Phone width: stack the banner so the action stays full-width and tappable,
+   and let dialog controls use the full panel width. */
+@media (max-width: 420px) {
+  .charIncompleteChoices {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .charIncompleteChoicesMsg {
+    flex: 0 0 auto;
+  }
+
+  .charIncompleteChoicesBtn {
+    width: 100%;
+  }
+
+  .completeChoicesFooter>.npcSmallBtn {
+    flex: 1 1 auto;
+  }
+}
+
 /* Restore Character dialog (R3): grouped, newest-first pre-Level-Up snapshot
    list restored through the R2 engine. Same modal skeleton as the wizards,
    narrower; all layout scoped to .restoreCharacter* so nothing global shifts. */
@@ -9293,6 +9439,15 @@ section.combatPanel[data-collapsed="true"]> :not([data-panel-header]) {
 
 :is(#builderWizardPanel, #levelUpPanel) .builderMulticlassWarning {
   display: block;
+}
+
+/* R5-B1: choosing fewer spells than the permitted maximum is a legal decision,
+   not a validation failure — same block layout as the required-choice notice
+   but neutral rather than danger-colored. */
+:is(#builderWizardPanel, #levelUpPanel) .builderUnderCapChoices {
+  display: block;
+  color: var(--text-muted, var(--text));
+  font-weight: 500;
 }
 
 :is(#builderWizardPanel, #levelUpPanel) .builderChoiceField select {

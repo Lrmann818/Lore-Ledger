@@ -335,8 +335,11 @@ test("builder wizard spells step renders compact checkbox rows", async ({ page }
   await page.locator("#builderWizardBackground").selectOption("acolyte");
   await page.locator("#builderWizardNext").click();
 
-  // Origin (acolyte languages — optional), classes, and class choices all
-  // advance without required input for this build.
+  // Origin (acolyte languages), classes, and class choices all advance without
+  // blocking input for this build. The languages are required choices (R5-B1)
+  // but creation stays non-blocking, so skipping them here is deliberate: this
+  // harness is about the Spells step, and the resulting character legitimately
+  // shows the Complete Choices banner afterwards.
   await expect(page.locator("#builderWizardStepRaceChoices")).toBeVisible();
   await page.locator("#builderWizardNext").click();
   await expect(page.locator("#builderWizardStepClasses")).toBeVisible();

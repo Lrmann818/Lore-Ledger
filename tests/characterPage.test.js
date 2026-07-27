@@ -5342,13 +5342,60 @@ describe("wizard Summary incomplete-choice guidance", () => {
     expect(guidance.hidden).toBe(false);
     expect(guidance.textContent).toContain("Fighter skills: 0 of 2 chosen");
     expect(guidance.textContent).toContain("Fighting Style: 0 of 1 chosen");
-    expect(guidance.textContent).toContain("complete these later");
+    // R5-B1: required choices point at the sheet-side correction path.
+    expect(guidance.textContent).toContain("Required choices not finished");
+    expect(guidance.textContent).toContain("complete them from the character sheet");
+    // Languages are required (R5-B1 owner ruling), so the skipped Acolyte pair
+    // is listed with the rest of the required work.
+    expect(guidance.textContent).toContain("Acolyte languages: 0 of 2 chosen");
+    // A non-caster has no under-cap block at all.
+    expect(document.querySelector(".builderUnderCapChoices")).toBeNull();
 
     // Guidance never blocks Finish.
     document.getElementById("builderWizardFinish").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
     await flushPromises();
     expect(deps.state.characters.entries).toHaveLength(3);
     expect(document.getElementById("builderWizardOverlay").hidden).toBe(true);
+
+    controller.destroy();
+  });
+
+  it("separates required choices from permitted under-cap spell selections", () => {
+    const { document, actionMenuButton } = installCharacterSelectorDom();
+    installBuilderWizardDom(document);
+    const Popovers = createFakePopovers();
+    const deps = createCharacterPageDeps(Popovers);
+
+    const controller = initCharacterPageUI(deps);
+    actionMenuButton.dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    document.getElementById("charActionNewBuilderBtn").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    document.getElementById("builderWizardName").value = "Underfilled";
+    document.getElementById("builderWizardRace").value = "half-orc";
+    document.getElementById("builderWizardClass").value = "wizard";
+    document.getElementById("builderWizardBackground").value = "acolyte";
+    advanceBuilderWizardToStep("builderWizardStepSummary");
+
+    const required = document.querySelector(".builderIncompleteChoices");
+    const underCap = document.querySelector(".builderUnderCapChoices");
+    expect(required).toBeTruthy();
+    expect(underCap).toBeTruthy();
+    expect(underCap.hidden).toBe(false);
+
+    // Required block: only genuinely required work, never a spell count.
+    expect(required.textContent).toContain("Wizard skills: 0 of 2 chosen");
+    expect(required.textContent).toContain("Acolyte languages: 0 of 2 chosen");
+    expect(required.textContent).not.toContain("cantrips");
+    expect(required.textContent).not.toContain("spellbook");
+
+    // Under-cap block: only the permitted spell maxima, worded as allowed.
+    expect(underCap.textContent).toContain("Wizard cantrips: 0 of 3 chosen");
+    expect(underCap.textContent).toContain("Wizard spellbook: 0 of 6 spells chosen");
+    expect(underCap.textContent).toContain("allowed");
+    expect(underCap.textContent).not.toContain("Required");
+    expect(underCap.textContent).not.toContain("Wizard skills");
+    // Prepared capacity is Long-Rest owned and never appears in either block.
+    expect(required.textContent).not.toContain("prepared");
+    expect(underCap.textContent).not.toContain("prepared");
 
     controller.destroy();
   });
