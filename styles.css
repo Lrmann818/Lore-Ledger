@@ -9606,6 +9606,42 @@ section.combatPanel[data-collapsed="true"]> :not([data-panel-header]) {
   overflow-wrap: anywhere;
 }
 
+/* Prepared candidates blocked by the effective cap (or an unknown capacity).
+   Scoped to spell rows inside the two builder panels so no other checkbox,
+   radio, or wizard group is affected. Checked rows stay enabled and therefore
+   never pick up this class. */
+:is(#builderWizardPanel, #levelUpPanel) .builderSpellCheckItem.isDisabled {
+  color: var(--muted);
+  cursor: not-allowed;
+}
+
+:is(#builderWizardPanel, #levelUpPanel) .builderSpellCheckItem.isDisabled input[type="checkbox"] {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+/* Stored prepared selections the current picker cannot offer. Presented as a
+   distinct remediation block so they are never mistaken for legal choices. */
+:is(#builderWizardPanel, #levelUpPanel) .builderPreparedFixList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 2px 0 4px;
+  padding: 8px 10px;
+  border: 1px solid var(--warn-border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--warn) 10%, transparent);
+}
+
+:is(#builderWizardPanel, #levelUpPanel) .builderPreparedFixList .builderAbilityMethodNote {
+  margin: 0;
+  color: var(--text);
+}
+
+:is(#builderWizardPanel, #levelUpPanel) .builderPreparedFixItem {
+  cursor: pointer;
+}
+
 :is(#builderWizardPanel, #levelUpPanel) .builderEquipmentShieldField {
   display: inline-flex;
   align-items: center;

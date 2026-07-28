@@ -291,6 +291,23 @@ explains the problem; the character page repeats the check as a second line befo
 mutation. A failure produces no mutation, no sheet seeding, no `rest.preparedByClass`
 adoption, no dirty mark, no save attempt, and no partially created character.
 
+**Rejected ids stay recoverable.** Rejecting an id the picker does not render would strand
+the character: a granted, above-ceiling, off-list, or unresolvable id is deliberately absent
+from `ordinaryCandidateIds`, so no ordinary checkbox can clear it. Saved builds legitimately
+hold such ids — the shipped pre-C2-A picker offered grants as ordinary picks, took its
+ceiling from the combined slot array, and enforced no cap. The prepared group therefore
+renders every stored id that is not an ordinary candidate as a **remediation row**: named
+(falling back to the raw id), labelled with why it needs attention, checked, enabled, and
+removal-only — re-checking one is refused, so an unavailable id can never be reselected.
+Unchecking removes it from the draft and the row disappears, freeing the capacity it held.
+
+This is explicit user action, never automatic correction. **Nothing repairs a stored list on
+load, on open, on render, or by migration** — opening and closing the wizard changes nothing,
+and cancelling discards the draft so the stored build keeps every id it had. A stored list is
+rewritten only by an explicit removal followed by a successful Finish. An unknown capacity
+locks *unchosen* candidates only: already-selected candidates and remediation rows stay
+enabled, so the list can always be cleared to the empty list Finish accepts.
+
 **Adoption.** On success `adoptInitialBuilderPreparedSelections()` stores the plan's
 `selectedIds` — the validated ordinary selection — so redundant granted ids never enter
 `rest.preparedByClass` at creation. Granted access keeps flowing from
@@ -445,6 +462,13 @@ so it cannot pass because the prepared group failed to render:
 - Invalid ordinary ids, redundant granted ids, above-ceiling ids, over-cap lists, and a
   non-empty list under unknown capacity each fail Finish before any mutation, leaving the
   stored draft exactly as found.
+- Every rejected id is reachable: granted, above-ceiling, off-list, out-of-spellbook, and
+  unresolvable ids each render a removal-only remediation row (an over-cap list needs none —
+  its ids are ordinary candidates), unchecking one removes only that id, re-checking is
+  refused, and cancelling afterwards leaves the stored build byte-identical.
+- A cap-disabled candidate carries a visible state class; checked rows never do.
+- Synthetic change events cannot add past capacity or while capacity is unknown, and the
+  input's rendered state is restored when one is refused.
 - A valid underfilled list still Finishes, with no confirmation.
 - Finish adopts the exact validated ordinary list; granted rows stay always-prepared on the
   sheet without entering `rest.preparedByClass`.

@@ -1062,6 +1062,37 @@ function formatPreparedLimitNote(entry) {
 }
 
 /**
+ * Why a stored prepared id cannot be offered as an ordinary candidate, in the
+ * limit-note voice the prepared groups already use.
+ *
+ * The categories mirror `getDraftPreparedValidationMessage()`'s rejection
+ * classes, so the remediation row and the Finish message can never disagree
+ * about the same id. The name falls back to the raw id, so an unresolvable
+ * spell is still identifiable and removable.
+ *
+ * @param {string} id
+ * @param {PreparedSpellPlanEntry} entry
+ * @param {ContentRegistry} registry
+ * @returns {{ name: string, reason: string }}
+ */
+function describeUnavailablePreparedId(id, entry, registry) {
+  const spellEntry = getContentByKind(registry, "spell", id);
+  const name = spellEntry?.name || id;
+  if (entry.grantedIds.includes(id)) return { name, reason: "already always prepared" };
+  if (!spellEntry) return { name, reason: "unavailable or unresolved content" };
+  const level = Number(spellEntry.data?.level);
+  if (Number.isFinite(level) && level > entry.maxSpellLevel) {
+    return { name, reason: `above this class's available spell level (${entry.maxSpellLevel})` };
+  }
+  return {
+    name,
+    reason: entry.preparationMode === "spellbook"
+      ? "not in this character's spellbook"
+      : "no longer an eligible candidate"
+  };
+}
+
+/**
  * @param {readonly string[]} spellIds
  * @param {ContentRegistry} registry
  * @returns {string}
@@ -1330,19 +1361,83 @@ export function renderSpellsStep(ctx, container) {
       const capacity = planEntry ? planEntry.effectiveCapacity : null;
       const locked = group.prepared && capacity == null;
 
-      /** @type {Array<{ id: string, input: HTMLInputElement }>} */
+      /** @type {Array<{ id: string, input: HTMLInputElement, row: HTMLElement }>} */
       const preparedInputs = [];
       const refreshPreparedInputs = () => {
         if (!group.prepared) return;
         countEl.textContent = group.maxLabel();
         const atCap = capacity != null && selection.preparedIds.length >= capacity;
-        for (const { id, input } of preparedInputs) {
-          // At the cap, unchecked candidates are blocked but checked ones stay
-          // deselectable — the player is never trapped at a full list.
-          input.disabled = locked || (atCap && !selection.preparedIds.includes(id));
+        for (const { id, input, row } of preparedInputs) {
+          // A selected candidate is always removable — at the cap and while
+          // capacity is unknown alike, so the player can never be trapped with
+          // a list they are not allowed to clear. Only *adding* is restricted.
+          const selected = selection.preparedIds.includes(id);
+          input.disabled = selected ? false : (locked || atCap);
+          // The disabled state must be visible, not just inert: an unchanged
+          // row that silently stops responding reads as a broken control.
+          row.classList.toggle("isDisabled", input.disabled);
         }
         refreshPreparedValidation();
       };
+
+      // Stored prepared ids the current picker cannot offer (C2-A correction).
+      // A saved build can legitimately hold these: the pre-C2-A picker offered
+      // granted spells as ordinary picks, took its ceiling from the combined
+      // multiclass slot array, and enforced no cap. Such an id is invisible to
+      // the candidate list above, so without this block Finish could be blocked
+      // by something the player had no control capable of removing.
+      //
+      // Nothing here truncates, repairs, or migrates: the id is surfaced, and
+      // only an explicit uncheck removes it from the draft. Cancelling the
+      // wizard discards the draft, so the stored build is untouched.
+      if (group.prepared && planEntry && candidateIds) {
+        const unavailableIds = readDraftPreparedIds(build, casterInfo.classId)
+          .filter((id) => !candidateIds.has(id));
+        if (unavailableIds.length) {
+          const fixWrap = el(groupEl, "div", "builderPreparedFixList");
+          el(fixWrap, "p", "builderAbilityMethodNote", unavailableIds.length === 1
+            ? "This prepared spell is no longer available to this character. Uncheck it to remove it — nothing is changed until you do."
+            : "These prepared spells are no longer available to this character. Uncheck them to remove them — nothing is changed until you do.");
+          for (const id of unavailableIds) {
+            const { name, reason } = describeUnavailablePreparedId(id, planEntry, registry);
+            const label = document.createElement("label");
+            label.className = "builderSpellCheckItem builderPreparedFixItem";
+            const checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true;
+            checkbox.setAttribute("aria-label", `Remove ${name} — ${reason}`);
+            checkbox.addEventListener("change", () => {
+              if (checkbox.checked) {
+                // Removal is the only action this row permits; an unavailable
+                // id must never become selectable again.
+                checkbox.checked = true;
+                return;
+              }
+              const list = selection.preparedIds;
+              for (let i = list.length - 1; i >= 0; i -= 1) {
+                if (cleanString(list[i]) === id) list.splice(i, 1);
+              }
+              // Rebuilding drops this row and frees the capacity it occupied.
+              renderGroup(group);
+              const nextFix = /** @type {HTMLElement | null} */ (
+                groupEl.querySelector(".builderPreparedFixItem input")
+              );
+              const focusTarget = nextFix || filterInput;
+              try {
+                focusTarget.focus({ preventScroll: true });
+              } catch {
+                focusTarget.focus();
+              }
+              ctx.onDraftChanged();
+            }, { signal: ctx.signal });
+            label.appendChild(checkbox);
+            const nameSpan = document.createElement("span");
+            nameSpan.textContent = `${name} — ${reason}`;
+            label.appendChild(nameSpan);
+            fixWrap.appendChild(label);
+          }
+        }
+      }
 
       for (const spellLevel of spellLevels) {
         const levelSpells = sourcePool
@@ -1366,6 +1461,18 @@ export function renderSpellsStep(ctx, container) {
           checkbox.addEventListener("change", () => {
             const list = selection[group.key];
             const index = list.indexOf(spellEntry.id);
+            // Defensive cap guard (C2-A correction). The rendered `disabled`
+            // state already blocks this for a real pointer or keyboard, but a
+            // synthetic or replayed change event must not push a prepared list
+            // past its effective capacity, or add to it at all while capacity
+            // is unknown. The input's rendered state is restored so the DOM
+            // never disagrees with the draft. Removal is never blocked.
+            if (group.prepared && checkbox.checked && index < 0
+              && (locked || (capacity != null && list.length >= capacity))) {
+              checkbox.checked = false;
+              refreshPreparedInputs();
+              return;
+            }
             if (checkbox.checked && index < 0) list.push(spellEntry.id);
             if (!checkbox.checked && index >= 0) list.splice(index, 1);
             if (group.key === "knownIds" && mode === "spellbook" && !checkbox.checked) {
@@ -1385,7 +1492,7 @@ export function renderSpellsStep(ctx, container) {
             }
             ctx.onDraftChanged();
           }, { signal: ctx.signal });
-          if (group.prepared) preparedInputs.push({ id: spellEntry.id, input: checkbox });
+          if (group.prepared) preparedInputs.push({ id: spellEntry.id, input: checkbox, row: label });
           label.appendChild(checkbox);
           const nameSpan = document.createElement("span");
           const ritual = spellEntry.data?.ritual === true ? " (ritual)" : "";

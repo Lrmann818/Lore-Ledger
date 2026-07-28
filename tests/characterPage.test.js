@@ -2697,16 +2697,27 @@ describe("character page selector", () => {
    * picker could not produce — the Edit-in-Builder / stale-content shape the
    * C2-A guard exists for.
    */
-  function makeStoredCleric({ preparedIds, restPrepared = {} }) {
+  function makeStoredCleric({ preparedIds, restPrepared = {}, subclassByClass = {} }) {
     const builder = makeDefaultBuilderCharacterEntry("Stored Cleric");
     builder.id = "char_stored_cleric";
     builder.build.raceId = "human";
     builder.build.backgroundId = "acolyte";
     builder.build.levels = [{ classId: "cleric", hp: null }];
+    builder.build.subclassByClass = subclassByClass;
     builder.build.abilities.base = { str: 10, dex: 10, con: 10, int: 10, wis: 16, cha: 10 };
     builder.build.spellcasting = { cleric: { cantripIds: [], knownIds: [], preparedIds } };
     builder.rest = { hitDiceSpent: {}, preparedByClass: restPrepared };
     return builder;
+  }
+
+  /** Remediation rows inside the live wizard's prepared group. */
+  function preparedFixRows(document) {
+    return document.getElementById("builderWizardSpellsBody")
+      .querySelectorAll(".builderPreparedFixItem")
+      .map((label) => ({
+        text: label.children.find((child) => child.tagName === "SPAN")?.textContent || "",
+        input: label.children.find((child) => child.tagName === "INPUT")
+      }));
   }
 
   function openStoredClericInBuilder(builder) {
@@ -2755,6 +2766,87 @@ describe("character page selector", () => {
     expect(deps.SaveManager.markDirty).not.toHaveBeenCalled();
     // The stored draft is left exactly as found — never truncated or repaired.
     expect(builder.build.spellcasting.cleric.preparedIds).toEqual(["magic-missile"]);
+
+    controller.destroy();
+  });
+
+  // C2-A correction: a build the shipped pre-C2-A picker produced (a granted
+  // domain spell stored as an ordinary prepared pick) must stay fixable through
+  // the real wizard, not just detectable.
+  it("lets the player remove a legacy granted prepared id and then Finish (C2-A correction)", async () => {
+    const builder = makeStoredCleric({
+      preparedIds: ["bless", "bane"],
+      subclassByClass: { cleric: "life" }
+    });
+    const { deps, controller } = openStoredClericInBuilder(builder);
+    deps.SaveManager.markDirty.mockClear();
+
+    // Finish is blocked first, and nothing is touched.
+    advanceBuilderWizardToStep("builderWizardStepSummary");
+    document.getElementById("builderWizardFinish").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    await flushPromises();
+    expect(document.getElementById("builderWizardOverlay").hidden).toBe(false);
+    expect(document.getElementById("builderWizardStepSpells").hidden).toBe(false);
+    expect(deps.SaveManager.markDirty).not.toHaveBeenCalled();
+    expect(builder.rest.preparedByClass).toEqual({});
+    expect(builder.spells.levels).toEqual([]);
+
+    // The offending id is visible and removable on the step it sent us to.
+    const fixes = preparedFixRows(document);
+    expect(fixes).toHaveLength(1); // positive control
+    expect(fixes[0].text).toContain("Bless");
+    expect(fixes[0].text).toContain("already always prepared");
+    expect(fixes[0].input.checked).toBe(true);
+    expect(fixes[0].input.disabled).toBe(false);
+
+    fixes[0].input.checked = false;
+    fixes[0].input.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(preparedFixRows(document)).toHaveLength(0);
+
+    // Finish now succeeds, adopting only the legal ordinary pick.
+    advanceBuilderWizardToStep("builderWizardStepSummary");
+    document.getElementById("builderWizardFinish").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    await flushPromises();
+
+    expect(document.getElementById("builderWizardOverlay").hidden).toBe(true);
+    const saved = deps.state.characters.entries[0];
+    expect(saved.build.spellcasting.cleric.preparedIds).toEqual(["bane"]);
+    expect(saved.rest.preparedByClass.cleric).toEqual(["bane"]);
+    // The grant still reaches the sheet as an always-prepared row.
+    const grantedRow = saved.spells.levels
+      .flatMap((level) => level.spells)
+      .find((spell) => spell.builderSpellId === "bless");
+    expect(grantedRow.builderGranted).toBe(true);
+    expect(grantedRow.prepared).toBe(true);
+    expect(deps.SaveManager.markDirty).toHaveBeenCalled();
+
+    controller.destroy();
+  });
+
+  it("preserves the stored build when the player cancels after unchecking (C2-A correction)", async () => {
+    const builder = makeStoredCleric({
+      preparedIds: ["bless", "bane"],
+      restPrepared: { cleric: ["bless", "bane"] },
+      subclassByClass: { cleric: "life" }
+    });
+    const before = JSON.stringify(builder);
+    const { deps, controller } = openStoredClericInBuilder(builder);
+    deps.SaveManager.markDirty.mockClear();
+
+    advanceBuilderWizardToStep("builderWizardStepSpells");
+    const fixes = preparedFixRows(document);
+    expect(fixes).toHaveLength(1); // positive control
+    fixes[0].input.checked = false;
+    fixes[0].input.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(preparedFixRows(document)).toHaveLength(0);
+
+    // Cancel: the draft is discarded, so the removal never reaches storage.
+    document.getElementById("builderWizardCancel").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    await flushPromises();
+
+    expect(document.getElementById("builderWizardOverlay").hidden).toBe(true);
+    expect(JSON.stringify(deps.state.characters.entries[0])).toBe(before);
+    expect(deps.SaveManager.markDirty).not.toHaveBeenCalled();
 
     controller.destroy();
   });

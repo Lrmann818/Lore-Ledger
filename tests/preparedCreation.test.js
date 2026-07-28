@@ -575,3 +575,352 @@ describe("draft prepared plan", () => {
     expect(build.rest).toBeUndefined();
   });
 });
+
+/* ------------------------------------------------------------------ */
+/* C2-A correction: legacy prepared choices stay recoverable           */
+/* ------------------------------------------------------------------ */
+//
+// The shipped pre-C2-A picker offered granted spells as ordinary checkboxes,
+// took its ceiling from the combined multiclass slot array, and enforced no
+// cap. Saved builds can therefore hold prepared ids the current picker does not
+// offer. Those ids must stay visible and removable, or Edit in Builder can be
+// blocked by something the player has no control capable of removing.
+
+/** Remediation rows only. */
+function fixRows(groupEl) {
+  return [...groupEl.querySelectorAll(".builderPreparedFixItem")].map((label) => ({
+    text: label.querySelector("span")?.textContent || "",
+    input: label.querySelector("input")
+  }));
+}
+
+/** Ordinary candidate rows only — remediation rows share the base class. */
+function ordinaryRows(groupEl) {
+  return [...groupEl.querySelectorAll(".builderSpellCheckItem")]
+    .filter((label) => !label.classList.contains("builderPreparedFixItem"))
+    .map((label) => ({
+      name: (label.querySelector("span")?.textContent || "").replace(/ \((ritual|conc\.)\)/g, ""),
+      input: label.querySelector("input"),
+      row: label
+    }));
+}
+
+function ordinaryRowNamed(groupEl, name) {
+  return ordinaryRows(groupEl).find((row) => row.name === name) || null;
+}
+
+describe("legacy prepared selections — remediation rows", () => {
+  it("shows a parent-shaped Life Cleric its grant, its redundant raw id, and its legal pick", () => {
+    // Exactly what the shipped pre-C2-A picker produced: the player checked the
+    // domain grant "Bless" as an ordinary pick alongside a legal choice.
+    const build = lifeClericBuild(3, {
+      spellcasting: { cleric: { cantripIds: [], knownIds: [], preparedIds: ["bless", "bane"] } }
+    });
+    const { container } = renderStep(build);
+    const prepared = groupTitled(container, "Prepared Spells");
+
+    // 1. Bless is presented as an always-prepared grant.
+    expect(container.querySelector(".builderGrantedSpells").textContent).toContain("Bless");
+
+    // 2. ...and separately as a removable remediation entry for the raw id.
+    const fixes = fixRows(prepared);
+    expect(fixes).toHaveLength(1);
+    expect(fixes[0].text).toContain("Bless");
+    expect(fixes[0].text).toContain("already always prepared");
+    expect(fixes[0].input.checked).toBe(true);
+    expect(fixes[0].input.disabled).toBe(false);
+
+    // 3. Bane is an ordinary, selected, still-deselectable candidate.
+    const bane = ordinaryRowNamed(prepared, "Bane");
+    expect(bane).not.toBeNull();
+    expect(bane.input.checked).toBe(true);
+    expect(bane.input.disabled).toBe(false);
+
+    // Bless is never offered as an ordinary legal option.
+    expect(ordinaryRowNamed(prepared, "Bless")).toBeNull();
+    // Finish is blocked until the player acts.
+    expect(getDraftPreparedValidationMessage(build, registry)).not.toBe("");
+  });
+
+  it("removes only the offending id when the remediation row is unchecked", () => {
+    const build = lifeClericBuild(3, {
+      spellcasting: { cleric: { cantripIds: [], knownIds: [], preparedIds: ["bless", "bane"] } }
+    });
+    const { container } = renderStep(build);
+    const prepared = groupTitled(container, "Prepared Spells");
+
+    toggle(fixRows(prepared)[0], false);
+
+    // Only the redundant granted id went away; the legal pick is untouched.
+    expect(build.spellcasting.cleric.preparedIds).toEqual(["bane"]);
+    // The row is gone and Finish is now clean.
+    expect(fixRows(prepared)).toHaveLength(0);
+    expect(getDraftPreparedValidationMessage(build, registry)).toBe("");
+    // The still-legal pick is still checked.
+    expect(ordinaryRowNamed(prepared, "Bane").input.checked).toBe(true);
+  });
+
+  it("never lets an unavailable id be re-selected through its own row", () => {
+    const build = lifeClericBuild(3, {
+      spellcasting: { cleric: { cantripIds: [], knownIds: [], preparedIds: ["bless"] } }
+    });
+    const { container } = renderStep(build);
+    const prepared = groupTitled(container, "Prepared Spells");
+    const fix = fixRows(prepared)[0];
+
+    // A synthetic "check" on a remediation row is refused outright.
+    fix.input.checked = true;
+    fix.input.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(fix.input.checked).toBe(true);
+    expect(build.spellcasting.cleric.preparedIds).toEqual(["bless"]); // unchanged, not doubled
+
+    // Removal still works.
+    toggle(fix, false);
+    expect(build.spellcasting.cleric.preparedIds).toEqual([]);
+  });
+
+  it("surfaces an above-ceiling legacy id and lets the player remove it", () => {
+    // Cleric 3 / Wizard 3: combined slots reach 3rd level, cleric's table does
+    // not — the exact shape the pre-C2-A ceiling bug produced.
+    const build = makeBuild({
+      levels: [...nLevels("cleric", 3), ...nLevels("wizard", 3)],
+      subclassByClass: { cleric: "life" },
+      abilities: { str: 10, dex: 10, con: 10, int: 16, wis: 16, cha: 10 },
+      spellcasting: {
+        cleric: { cantripIds: [], knownIds: [], preparedIds: ["revivify"] },
+        wizard: { cantripIds: [], knownIds: [], preparedIds: [] }
+      }
+    });
+    expect(getDraftPreparedValidationMessage(build, registry)).not.toBe(""); // positive control
+    const { container } = renderStep(build);
+    const prepared = groupTitled(container, "Prepared Spells");
+
+    const fixes = fixRows(prepared);
+    expect(fixes).toHaveLength(1);
+    expect(fixes[0].text).toContain("Revivify");
+    expect(fixes[0].text).toContain("above this class's available spell level (2)");
+
+    toggle(fixes[0], false);
+    expect(build.spellcasting.cleric.preparedIds).toEqual([]);
+    expect(getDraftPreparedValidationMessage(build, registry)).toBe("");
+  });
+
+  it("surfaces an off-candidate legacy id and lets the player remove it", () => {
+    const build = lifeClericBuild(3, {
+      spellcasting: { cleric: { cantripIds: [], knownIds: [], preparedIds: ["magic-missile"] } }
+    });
+    const { container } = renderStep(build);
+    const prepared = groupTitled(container, "Prepared Spells");
+
+    const fixes = fixRows(prepared);
+    expect(fixes).toHaveLength(1);
+    expect(fixes[0].text).toContain("Magic Missile");
+    expect(fixes[0].text).toContain("no longer an eligible candidate");
+
+    toggle(fixes[0], false);
+    expect(build.spellcasting.cleric.preparedIds).toEqual([]);
+    expect(getDraftPreparedValidationMessage(build, registry)).toBe("");
+  });
+
+  it("surfaces an unresolved spell id under a safe fallback label and removes it", () => {
+    const build = lifeClericBuild(3, {
+      spellcasting: {
+        cleric: { cantripIds: [], knownIds: [], preparedIds: ["deleted-homebrew-spell"] }
+      }
+    });
+    const { container } = renderStep(build);
+    const prepared = groupTitled(container, "Prepared Spells");
+
+    const fixes = fixRows(prepared);
+    expect(fixes).toHaveLength(1);
+    // No registry record: the raw id is the label, so it stays identifiable.
+    expect(fixes[0].text).toContain("deleted-homebrew-spell");
+    expect(fixes[0].text).toContain("unavailable or unresolved content");
+
+    toggle(fixes[0], false);
+    expect(build.spellcasting.cleric.preparedIds).toEqual([]);
+    expect(getDraftPreparedValidationMessage(build, registry)).toBe("");
+  });
+
+  it("keeps a wizard's out-of-spellbook legacy id removable", () => {
+    const bookIds = spellIdsOnClassList("wizard", 1).slice(0, 2);
+    const outsideBook = spellIdsOnClassList("wizard", 1)
+      .find((id) => !bookIds.includes(id));
+    const build = makeBuild({
+      levels: nLevels("wizard", 3),
+      abilities: { str: 10, dex: 10, con: 10, int: 16, wis: 10, cha: 10 },
+      spellcasting: {
+        wizard: { cantripIds: [], knownIds: [...bookIds], preparedIds: [outsideBook] }
+      }
+    });
+    const { container } = renderStep(build);
+    const prepared = groupTitled(container, "Prepared Spells (from spellbook)");
+
+    const fixes = fixRows(prepared);
+    expect(fixes).toHaveLength(1);
+    expect(fixes[0].text).toContain(spellName(outsideBook));
+    expect(fixes[0].text).toContain("not in this character's spellbook");
+
+    toggle(fixes[0], false);
+    expect(build.spellcasting.wizard.preparedIds).toEqual([]);
+    expect(getDraftPreparedValidationMessage(build, registry)).toBe("");
+  });
+
+  it("renders no remediation block for a character whose list is already valid", () => {
+    // Positive control for every negative above: a clean draft is untouched by
+    // this feature and still renders exactly as C2-A intended.
+    const build = lifeClericBuild(3);
+    const candidates = getDraftPreparedSpellPlan(build, registry)
+      .find((entry) => entry.classId === "cleric").ordinaryCandidateIds;
+    selectionFor(build, "cleric").preparedIds = candidates.slice(0, 2);
+
+    const { container } = renderStep(build);
+    const prepared = groupTitled(container, "Prepared Spells");
+    expect(fixRows(prepared)).toHaveLength(0);
+    expect(container.querySelector(".builderPreparedFixList")).toBeNull();
+    expect(countText(prepared)).toBe("2 / 6 prepared");
+    expect(getDraftPreparedValidationMessage(build, registry)).toBe("");
+  });
+});
+
+describe("legacy prepared selections — capacity recovery", () => {
+  it("lets an over-cap legacy list be reduced to capacity", () => {
+    // Cleric 1 / WIS 12 => capacity 2, but the old picker allowed any length.
+    const build = makeBuild({
+      levels: nLevels("cleric", 1),
+      abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 12, cha: 10 }
+    });
+    const candidates = getDraftPreparedSpellPlan(build, registry)
+      .find((entry) => entry.classId === "cleric").ordinaryCandidateIds;
+    selectionFor(build, "cleric").preparedIds = candidates.slice(0, 5);
+    expect(getDraftPreparedValidationMessage(build, registry)).not.toBe(""); // positive control
+
+    const { container } = renderStep(build);
+    const prepared = groupTitled(container, "Prepared Spells");
+    expect(countText(prepared)).toBe("5 / 2 prepared");
+    // These are real candidates, so they render as ordinary checked rows, not
+    // remediation rows — and every one of them stays deselectable.
+    expect(fixRows(prepared)).toHaveLength(0);
+    const checked = ordinaryRows(prepared).filter((row) => row.input.checked);
+    expect(checked).toHaveLength(5);
+    expect(checked.every((row) => row.input.disabled === false)).toBe(true);
+
+    for (const row of checked.slice(0, 3)) toggle(row, false);
+    expect(build.spellcasting.cleric.preparedIds).toHaveLength(2);
+    expect(getDraftPreparedValidationMessage(build, registry)).toBe("");
+  });
+
+  it("keeps selected entries removable while capacity is unknown, but blocks new ones", () => {
+    const build = makeBuild({
+      levels: nLevels("cleric", 3),
+      abilities: { str: 10, dex: 10, con: 10, int: 10, cha: 10 } // no WIS score
+    });
+    const candidates = getDraftPreparedSpellPlan(build, registry)
+      .find((entry) => entry.classId === "cleric").ordinaryCandidateIds;
+    // One legal candidate plus an off-list id, so both recovery paths matter.
+    selectionFor(build, "cleric").preparedIds = [candidates[0], "magic-missile"];
+
+    const { container } = renderStep(build);
+    const prepared = groupTitled(container, "Prepared Spells");
+    expect(countText(prepared)).toBe("2 prepared"); // never "/ 0"
+
+    // A selected valid candidate stays operable so the list can be cleared.
+    const selected = ordinaryRows(prepared).find((row) => row.input.checked);
+    expect(selected).toBeTruthy(); // positive control
+    expect(selected.input.disabled).toBe(false);
+    // Unselected candidates remain locked.
+    const unselected = ordinaryRows(prepared).filter((row) => !row.input.checked);
+    expect(unselected.length).toBeGreaterThan(3);
+    expect(unselected.every((row) => row.input.disabled === true)).toBe(true);
+    // The invalid id is removable too.
+    expect(fixRows(prepared)).toHaveLength(1);
+    expect(fixRows(prepared)[0].input.disabled).toBe(false);
+
+    // The player can clear the list completely.
+    toggle(selected, false);
+    toggle(fixRows(prepared)[0], false);
+    expect(build.spellcasting.cleric.preparedIds).toEqual([]);
+    expect(getDraftPreparedValidationMessage(build, registry)).toBe("");
+  });
+
+  it("marks cap-disabled rows with a visible state class, and never checked ones", () => {
+    const build = makeBuild({
+      levels: nLevels("cleric", 1),
+      abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 12, cha: 10 }
+    });
+    const { container } = renderStep(build);
+    const prepared = groupTitled(container, "Prepared Spells");
+
+    const all = ordinaryRows(prepared);
+    expect(all.every((row) => row.row.classList.contains("isDisabled"))).toBe(false); // control
+    toggle(all[0], true);
+    toggle(all[1], true);
+
+    const after = ordinaryRows(prepared);
+    const chosen = after.filter((row) => row.input.checked);
+    const blocked = after.filter((row) => !row.input.checked);
+    expect(chosen).toHaveLength(2);
+    expect(chosen.every((row) => row.row.classList.contains("isDisabled"))).toBe(false);
+    expect(blocked.every((row) => row.row.classList.contains("isDisabled"))).toBe(true);
+  });
+});
+
+describe("prepared cap — defensive event guard", () => {
+  it("refuses a synthetic change that would push the draft past capacity", () => {
+    const build = makeBuild({
+      levels: nLevels("cleric", 1),
+      abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 12, cha: 10 }
+    });
+    const { container } = renderStep(build);
+    const prepared = groupTitled(container, "Prepared Spells");
+    const all = ordinaryRows(prepared);
+
+    toggle(all[0], true);
+    toggle(all[1], true);
+    expect(build.spellcasting.cleric.preparedIds).toHaveLength(2); // positive control
+
+    // Bypass the rendered `disabled` state the way a replayed or synthetic
+    // event would: force the property and fire change directly.
+    const blocked = ordinaryRows(prepared).find((row) => !row.input.checked);
+    blocked.input.checked = true;
+    blocked.input.dispatchEvent(new Event("change", { bubbles: true }));
+
+    expect(build.spellcasting.cleric.preparedIds).toHaveLength(2);
+    // The rendered state was restored, so the DOM still matches the draft.
+    expect(blocked.input.checked).toBe(false);
+    expect(countText(prepared)).toBe("2 / 2 prepared");
+  });
+
+  it("refuses a synthetic change while capacity is unknown", () => {
+    const build = makeBuild({
+      levels: nLevels("cleric", 3),
+      abilities: { str: 10, dex: 10, con: 10, int: 10, cha: 10 }
+    });
+    const { container } = renderStep(build);
+    const prepared = groupTitled(container, "Prepared Spells");
+    const row = ordinaryRows(prepared)[0];
+
+    row.input.checked = true;
+    row.input.dispatchEvent(new Event("change", { bubbles: true }));
+
+    expect(build.spellcasting.cleric.preparedIds).toEqual([]);
+    expect(row.input.checked).toBe(false);
+  });
+
+  it("still allows removal through a synthetic change at capacity", () => {
+    const build = makeBuild({
+      levels: nLevels("cleric", 1),
+      abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 12, cha: 10 }
+    });
+    const { container } = renderStep(build);
+    const prepared = groupTitled(container, "Prepared Spells");
+    const all = ordinaryRows(prepared);
+    toggle(all[0], true);
+    toggle(all[1], true);
+
+    const chosen = ordinaryRows(prepared).find((row) => row.input.checked);
+    chosen.input.checked = false;
+    chosen.input.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(build.spellcasting.cleric.preparedIds).toHaveLength(1);
+  });
+});
