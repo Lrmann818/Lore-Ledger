@@ -27,7 +27,11 @@ import {
   makeDefaultBuilderCharacterEntry,
   makeDefaultCharacterEntry
 } from "../../domain/characterHelpers.js";
-import { getBuilderFinishSheetSeedPatch, getLevelUpSheetSeedPatch } from "../../domain/builderSheetSeeding.js";
+import {
+  getBuilderFinishSheetSeedPatch,
+  getLevelUpSheetSeedPatch,
+  getLongRestPreparedSheetPatch
+} from "../../domain/builderSheetSeeding.js";
 import { appendPreLevelUpSnapshot, buildPreLevelUpSnapshot, restoreCharacterFromSnapshot } from "../../domain/characterSnapshots.js";
 import { MAX_CHARACTER_LEVEL, normalizeBuildLevels } from "../../domain/rules/progression.js";
 import { getActiveContentRegistry } from "../../domain/rules/registry.js";
@@ -657,9 +661,20 @@ export function initCharacterPageUI(deps) {
         }
         if (!result.changed) return false;
         let nextCharacter = result.character;
-        if (restType === "longRest" && selection.preparedByClass) {
-          const seededPatch = getBuilderFinishSheetSeedPatch(nextCharacter);
-          if (seededPatch) nextCharacter = { ...nextCharacter, ...seededPatch };
+        // Prepared Sheet Synchronization (C1.1). A Long Rest that recommitted
+        // prepared classes projects that selection onto the sheet's spell rows
+        // inside this same mutation — one action, one dirty mark. The patch is
+        // spells-only: a rest must never re-seed features, proficiencies,
+        // attacks, inventory, resources, or vitals the player has since edited.
+        const submittedPrepared = restType === "longRest" ? selection.preparedByClass : null;
+        const preparedClassIds = submittedPrepared &&
+          typeof submittedPrepared === "object" &&
+          !Array.isArray(submittedPrepared)
+          ? Object.keys(submittedPrepared)
+          : [];
+        if (preparedClassIds.length) {
+          const preparedPatch = getLongRestPreparedSheetPatch(nextCharacter, preparedClassIds);
+          if (preparedPatch) nextCharacter = { ...nextCharacter, ...preparedPatch };
         }
         Object.assign(character, nextCharacter);
         return true;

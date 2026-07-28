@@ -21,6 +21,7 @@ import { deriveCharacter } from "./rules/deriveCharacter.js";
 import { getActiveContentRegistry, getContentByKind, listContentByKind } from "./rules/registry.js";
 import { normalizeBuildLevels } from "./rules/progression.js";
 import { classResourceSeedMarker } from "./rules/classResources.js";
+import { getPreparedSpellPlan } from "./rules/preparedSpells.js";
 
 /** @typedef {import("./rules/registry.js").ContentRegistry} ContentRegistry */
 
@@ -427,14 +428,89 @@ function sortSpellLevelsCanonically(levels) {
 }
 
 /**
+ * Projects the authoritative `rest.preparedByClass` selection onto the
+ * builder-managed **ordinary** spell rows of the classes a Long Rest actively
+ * recommitted (Prepared Sheet Synchronization, C1.1).
+ *
+ * Seeding is otherwise additive-only: a deselected id simply stops appearing
+ * in the seed set, so the additive reconcile below can never clear its row.
+ * This pass closes that gap without introducing a second source of truth —
+ * every id it reads comes from `getPreparedSpellPlan()`, the single owner of
+ * the prepared rules.
+ *
+ * Scope rules, in order:
+ *
+ * - Only rows whose `builderSpellId` is an ordinary candidate of an
+ *   **actively recommitted** class are eligible. A manual Prepared override on
+ *   a class the player did not touch therefore survives.
+ * - A row is prepared when **any** prepared caster currently prepares that
+ *   spell, so a spell shared by two classes stays prepared while either one
+ *   still holds it.
+ * - Granted rows (`builderGranted`) and manual rows (no `builderSpellId`) are
+ *   never eligible: grants are excluded from `ordinaryCandidateIds` by the plan
+ *   itself, and the marker check is the second guard.
+ * - Only the `prepared` boolean is written. No row is created or deleted, and
+ *   no other field is touched.
+ *
+ * @param {Array<Record<string, unknown>>} levels
+ * @param {Record<string, unknown>} source
+ * @param {ContentRegistry} registry
+ * @param {readonly string[]} classIds classes actively recommitted this rest
+ * @returns {boolean} whether any row changed
+ */
+function syncPreparedSpellRows(levels, source, registry, classIds) {
+  const plan = getPreparedSpellPlan(/** @type {any} */ (source), registry);
+  if (!plan.length) return false;
+
+  // Rows this sync may touch: the ordinary candidates of the recommitted
+  // classes. A class with no plan entry (deleted custom content, no longer a
+  // prepared caster) contributes nothing and fails soft.
+  const recommitted = new Set(classIds);
+  /** @type {Set<string>} */
+  const scoped = new Set();
+  /** @type {Set<string>} */
+  const preparedNow = new Set();
+  for (const entry of plan) {
+    for (const id of entry.selectedIds) preparedNow.add(id);
+    if (!recommitted.has(entry.classId)) continue;
+    for (const id of entry.ordinaryCandidateIds) scoped.add(id);
+  }
+  if (!scoped.size) return false;
+
+  let changed = false;
+  for (const level of levels) {
+    if (!isPlainObject(level)) continue;
+    const spells = Array.isArray(level.spells) ? level.spells : [];
+    for (const spell of spells) {
+      if (!isPlainObject(spell)) continue;
+      if (spell.builderGranted === true) continue;
+      const spellId = cleanString(spell.builderSpellId);
+      if (!spellId || !scoped.has(spellId)) continue;
+      const prepared = preparedNow.has(spellId);
+      if (spell.prepared !== prepared) {
+        spell.prepared = prepared;
+        changed = true;
+      }
+    }
+  }
+  return changed;
+}
+
+/**
  * Seeds the sheet spells model: slot totals per level plus chosen and
  * granted spells. Existing levels/spells and slot usage are preserved.
+ *
+ * `syncPreparedClassIds` is opt-in and used only by the Long Rest prepared
+ * commit. Every other caller passes nothing and gets byte-identical
+ * additive-only behavior.
+ *
  * @param {Record<string, unknown>} source
  * @param {ReturnType<typeof deriveCharacter>} derived
  * @param {ContentRegistry} registry
+ * @param {readonly string[] | null} [syncPreparedClassIds]
  * @returns {Record<string, unknown> | null} full replacement spells object or null when unchanged
  */
-function getSeededSpells(source, derived, registry) {
+function getSeededSpells(source, derived, registry, syncPreparedClassIds = null) {
   const spellcasting = derived.spellcasting;
   const grantedSpells = Array.isArray(derived.grantedSpells) ? derived.grantedSpells : [];
   // Non-casters can still receive a granted spell (e.g. a High Elf Fighter's
@@ -576,6 +652,14 @@ function getSeededSpells(source, derived, registry) {
       changed = true;
     }
     level.spells = spells;
+  }
+
+  // Long Rest only: project the recommitted classes' prepared selection onto
+  // their existing ordinary rows. Runs after the additive pass so rows created
+  // above are already correct and are simply confirmed here.
+  if (syncPreparedClassIds?.length &&
+    syncPreparedSpellRows(nextLevels, source, registry, syncPreparedClassIds)) {
+    changed = true;
   }
 
   // Enforce cantrips-first, then ascending level order (pact after its number)
@@ -1208,6 +1292,49 @@ export function getLevelUpSheetSeedPatch(before, after, registry = getActiveCont
   }
 
   return result;
+}
+
+/**
+ * Returns the **spells-only** patch for a Long Rest that actively recommitted
+ * one or more prepared classes (Prepared Sheet Synchronization, C1.1).
+ *
+ * This deliberately does *not* run the full Finish seed patch. A Long Rest is
+ * play-state, not creation: it must never restore or alter features,
+ * languages, proficiencies, attacks, inventory pockets, resources, HP, AC, or
+ * calculation metadata that the player has since edited or deleted. Only the
+ * spells bucket — the thing the player just changed — is returned.
+ *
+ * Within that bucket the behavior is the established seeding contract: newly
+ * prepared spells gain a row, slot rows/totals fill when empty, and the
+ * recommitted classes' ordinary rows are synchronized in both directions.
+ *
+ * Call with the character **after** the prepared commit, so the plan reads the
+ * new `rest.preparedByClass`.
+ *
+ * @param {unknown} character post-commit character
+ * @param {readonly string[]} preparedClassIds classes actively recommitted
+ * @param {ContentRegistry} [registry]
+ * @returns {{ spells: import("../state.js").CharacterEntry["spells"] } | null} null when nothing changed
+ */
+export function getLongRestPreparedSheetPatch(character, preparedClassIds, registry = getActiveContentRegistry()) {
+  if (!isBuilderCharacter(character)) return null;
+  const classIds = [...new Set(
+    (Array.isArray(preparedClassIds) ? preparedClassIds : []).map(cleanString).filter(Boolean)
+  )];
+  if (!classIds.length) return null;
+
+  let derived;
+  try {
+    derived = deriveCharacter(character, registry);
+  } catch (err) {
+    console.warn("Long Rest prepared sheet sync derivation failed:", err);
+    return null;
+  }
+
+  const source = /** @type {Record<string, unknown>} */ (character);
+  const seededSpells = getSeededSpells(source, derived, registry, classIds);
+  if (!seededSpells) return null;
+  return { spells: /** @type {import("../state.js").CharacterEntry["spells"]} */ (seededSpells) };
 }
 
 /**

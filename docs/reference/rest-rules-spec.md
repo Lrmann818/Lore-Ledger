@@ -20,6 +20,10 @@ Read with [`AGENTS.md`](../../AGENTS.md) (wins on conflict) and
 > and granted/always-prepared spells were offered as ordinary picks that consumed
 > preparation capacity. `js/domain/rules/preparedSpells.js` now owns the whole prepared
 > model — see §4.1.
+>
+> **Prepared Sheet Synchronization C1.1 (2026-07-28).** The sheet's spell-row `prepared`
+> flag now follows `rest.preparedByClass` in both directions for actively recommitted
+> classes, and the Long Rest commit seeds **spells only** — see §4.3.
 
 ---
 
@@ -193,6 +197,42 @@ Granted spells reach the sheet through `derived.grantedSpells` in
 `getBuilderFinishSheetSeedPatch()`, not through `rest.preparedByClass`, so a granted spell
 stays always-prepared on the sheet regardless of what the prepared list contains.
 
+### 4.3 Prepared Sheet Synchronization (C1.1, 2026-07-28)
+
+`rest.preparedByClass` is authoritative; the sheet spell row's `prepared` boolean is a
+**projection** of it. Before C1.1 that projection was write-only: seeding was additive, so a
+deselected ordinary spell simply stopped appearing in the seed set and its row kept
+`prepared: true` on both the Character and Combat Spells surfaces, and on disk. (The defect
+predates C1 — C1 only made deselection a routine, correctly-guided action. Wizards were
+accidentally exempt, because every spellbook entry is re-seeded at `prepared: false`.)
+
+`getLongRestPreparedSheetPatch(character, preparedClassIds, registry?)` in
+`js/domain/builderSheetSeeding.js` closes it, called from the Long Rest mutation in
+`characterPage.js` with the classes the dialog actually submitted. It reads only
+`getPreparedSpellPlan()`, so no second source of prepared rules exists.
+
+Projection contract:
+
+- Eligible rows are the **ordinary candidates of the actively recommitted classes** only. A
+  manual `Prepared` override on a class the player did not touch survives untouched.
+- A row is prepared when **any** prepared caster currently prepares that spell, so a spell
+  shared by two classes stays prepared while either still holds it.
+- Granted rows (`builderGranted`) and manual rows (no `builderSpellId`) are never eligible.
+- Only the `prepared` boolean is written. Row ids, names, notes, known/spellbook status,
+  expended state, and markers are byte-identical. **No row is created or deleted by the
+  sync** (the additive pass still adds a row for a newly prepared spell).
+- A class with no resolvable plan entry — deleted custom content, no longer a prepared
+  caster — contributes nothing and fails soft.
+- **No load-time repair, no migration, no new persisted field.** Rows left stale by a
+  pre-C1.1 build self-correct the next time that class is actively recommitted; they never
+  self-correct on render, and nothing rewrites saved spell arrays in bulk.
+
+**Long Rest seeding is spells-only.** The rest commit previously ran the entire
+`getBuilderFinishSheetSeedPatch()`, so a prepared change could silently restore features,
+languages, proficiencies, attacks, inventory pockets, resources, or vitals the player had
+edited or deleted. It now returns `{ spells }` and nothing else. Creation Finish, Edit in
+Builder, Complete Choices, and Level Up keep full seeding unchanged.
+
 ---
 
 ## 5. P0 implementation coverage
@@ -206,11 +246,15 @@ stays always-prepared on the sheet regardless of what the prepared list contains
 - **Prepared Correctness C1 (2026-07-27)** completed §4's prepared rules: accurate
   current-versus-effective counts visible before the Yes/No choice, read-only granted
   spells that consume no capacity, per-class multiclass candidate levels, and a merging
-  commit. See §4.1–§4.2. **Not in C1** and still open: creation-time prepared caps, any
-  underfill confirmation at creation or Long Rest, a Summary prepared row, the Level Up
+  commit. See §4.1–§4.2.
+- **Prepared Sheet Synchronization C1.1 (2026-07-28)** made the sheet agree with that
+  commit — a deselected ordinary row now clears — and narrowed the Long Rest seed to
+  spells only. See §4.3. **Not in C1 or C1.1** and still open: creation-time prepared caps,
+  any underfill confirmation at creation or Long Rest, a Summary prepared row, the Level Up
   capacity-formula divergence (`getLevelUpPlan()` computes capacity from build abilities
-  only, so it disagrees with the Long Rest value when `overrides.abilities` is set), and
-  `builderGranted` presentation in the Spells panel.
+  only, so it disagrees with the Long Rest value when `overrides.abilities` is set),
+  `builderGranted` presentation in the Spells panel, an `aria-live` announcement for the
+  live prepared count, and the dead `getPreparedSpellCapacity()` accessor.
 
 ---
 
@@ -285,6 +329,21 @@ granted-access guarantee in `tests/builderSheetSeeding.test.js`:
   classes, and malformed/unresolvable ids all fail soft.
 - "No" and a no-edit "Yes" both preserve the stored map verbatim; changing one class
   preserves every untouched class.
+
+Sheet-projection coverage (C1.1) lives in `tests/preparedSheetSync.test.js`, with the page
+wiring in `tests/characterPage.test.js` and the real-surface pass in
+`tests/smoke/characterRest.smoke.js`:
+
+- Deselect, deselect-all, and reselect move the row's flag in both directions.
+- Granted rows, manual rows, and freeform characters are never written.
+- A shared multiclass spell stays prepared until every prepared caster drops it.
+- Recommitting one class never rewrites rows owned only by an untouched class.
+- Row ids and every non-`prepared` field survive; no row is created or deleted by the sync.
+- Default seeding callers are byte-identical (no sync ids means no projection).
+- A Long Rest does not restore deleted features, proficiencies, attacks, inventory, or
+  resources, and does not rewrite AC or calculation metadata.
+- The Character and Combat Spells surfaces agree after apply and after reload.
+- The Long Rest dialog is keyboard-operable and free of horizontal overflow at 380px.
 
 Acceptance: no rest action silently fails, none affects the wrong character, unsupported
 recovery modes are left unchanged rather than guessed, and `npm run verify` plus

@@ -1772,6 +1772,85 @@ describe("character page selector", () => {
     controller.destroy();
   });
 
+  it("synchronizes builder spell rows and re-seeds nothing else on a prepared Long Rest", async () => {
+    installCharacterSelectorDom();
+    const Popovers = createFakePopovers();
+    const deps = createCharacterPageDeps(Popovers);
+    const builder = makeBuilderCharacter({
+      id: "char_cleric_sync",
+      classId: "cleric",
+      level: 3,
+      abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 16, cha: 10 },
+      flatFields: {
+        hpCur: 3,
+        hpMax: 12,
+        // The player has cleared these since creation; a Long Rest must not
+        // bring any of them back (C1.1 spells-only patch).
+        features: "",
+        languages: "",
+        armorProf: "",
+        weaponProf: "",
+        attacks: [],
+        inventoryItems: [],
+        rest: { hitDiceSpent: {}, preparedByClass: { cleric: ["cure-wounds", "healing-word"] } },
+        spells: {
+          levels: [{
+            id: "lvl1",
+            label: "1st Level",
+            hasSlots: true,
+            used: 0,
+            total: 4,
+            collapsed: false,
+            spells: [
+              { id: "sp_cure", name: "Cure Wounds", notesCollapsed: true, known: true, prepared: true, expended: false, builderSpellId: "cure-wounds" },
+              { id: "sp_heal", name: "Healing Word", notesCollapsed: false, known: true, prepared: true, expended: false, builderSpellId: "healing-word" },
+              { id: "sp_manual", name: "My Homebrew Ward", notesCollapsed: true, known: true, prepared: true, expended: false }
+            ]
+          }]
+        }
+      }
+    });
+    builder.build.levels = Array.from({ length: 3 }, () => ({ classId: "cleric", hp: 4 }));
+    builder.build.spellcasting = { cleric: { cantripIds: [], knownIds: [], preparedIds: [] } };
+    builder.build.equipment = { armorId: "chain-mail", shield: true, weaponIds: ["mace"], startingChoices: {}, notes: "" };
+    deps.state.characters = { activeId: builder.id, entries: [builder] };
+    openCharacterRestFlow.mockResolvedValueOnce({ preparedByClass: { cleric: ["cure-wounds"] } });
+
+    const controller = initCharacterPageUI(deps);
+    document.getElementById("charLongRestBtn").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    await flushPromises();
+    await flushPromises();
+
+    const spells = builder.spells.levels.find((level) => level.id === "lvl1").spells;
+    const byId = (id) => spells.find((spell) => spell.id === id);
+    expect(builder.rest.preparedByClass).toEqual({ cleric: ["cure-wounds"] });
+    expect(byId("sp_cure")).toMatchObject({ prepared: true, builderSpellId: "cure-wounds" });
+    // The deselected ordinary row is cleared; every other field survives.
+    expect(byId("sp_heal")).toEqual({
+      id: "sp_heal",
+      name: "Healing Word",
+      notesCollapsed: false,
+      known: true,
+      prepared: false,
+      expended: false,
+      builderSpellId: "healing-word"
+    });
+    // A manual row is never adopted or cleared.
+    expect(byId("sp_manual")).toMatchObject({ prepared: true });
+
+    // Spells-only: no unrelated builder content is restored.
+    expect(builder.features).toBe("");
+    expect(builder.languages).toBe("");
+    expect(builder.armorProf).toBe("");
+    expect(builder.weaponProf).toBe("");
+    expect(builder.attacks).toEqual([]);
+    expect(builder.inventoryItems).toEqual([]);
+
+    // One user action, one save.
+    expect(deps.SaveManager.markDirty).toHaveBeenCalledTimes(1);
+    controller.destroy();
+  });
+
   it("does not open a prepared-spell Long Rest flow for known-spell casters", async () => {
     installCharacterSelectorDom();
     const Popovers = createFakePopovers();
