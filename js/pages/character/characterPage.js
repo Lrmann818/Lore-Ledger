@@ -11,6 +11,7 @@ import { initBuilderIdentityPanel } from "../character/panels/builderIdentityPan
 import { initBuilderAbilitiesPanel } from "../character/panels/builderAbilitiesPanel.js";
 import { initBuilderSummaryPanel } from "../character/panels/builderSummaryPanel.js";
 import { initBuilderWizard } from "../character/builderWizard.js";
+import { getDraftPreparedValidationMessage } from "../character/builderWizardSteps.js";
 import { initLevelUpWizard } from "../character/levelUpWizard.js";
 import { initRestoreCharacterDialog } from "../character/restoreCharacterDialog.js";
 import { initCompleteChoicesFlow } from "../character/completeChoicesFlow.js";
@@ -79,6 +80,17 @@ export function destroyActiveCharacterPageUI() {
  * Initial wizard selections become rest play-state at character creation.
  * Existing per-class rest selections win during Edit in Builder, because a
  * prepared list is no longer a guarded build choice after creation.
+ *
+ * Adoption stores the **validated ordinary** selection (C2-A): the plan's own
+ * `selectedIds`, which already excludes granted/always-prepared ids and any id
+ * outside that class's ordinary candidate set. Redundant granted ids therefore
+ * never enter `rest.preparedByClass` at creation; granted access keeps flowing
+ * from `derived.grantedSpells` through sheet seeding.
+ *
+ * A class with no plan entry — a known-spell caster, deleted custom content, or
+ * otherwise unresolvable — keeps the previous verbatim behavior so nothing is
+ * silently dropped and unresolvable content fails soft.
+ *
  * @param {import("../../state.js").CharacterEntry} character
  * @returns {void}
  */
@@ -93,9 +105,20 @@ function adoptInitialBuilderPreparedSelections(character) {
   if (!character.rest.preparedByClass || typeof character.rest.preparedByClass !== "object" || Array.isArray(character.rest.preparedByClass)) {
     character.rest.preparedByClass = {};
   }
+  // One plan read, before any write: the plan falls back to each class's
+  // `build.spellcasting[classId].preparedIds` for classes that have no
+  // rest-owned entry yet, which is exactly the creation case.
+  const planByClassId = new Map(
+    getBuilderPreparedSpellOptions(character).map((entry) => [entry.classId, entry])
+  );
   for (const [classId, rawSelection] of Object.entries(spellcasting)) {
     if (!rawSelection || typeof rawSelection !== "object" || Array.isArray(rawSelection)) continue;
     if (Object.prototype.hasOwnProperty.call(character.rest.preparedByClass, classId)) continue;
+    const planEntry = planByClassId.get(classId);
+    if (planEntry) {
+      character.rest.preparedByClass[classId] = [...planEntry.selectedIds];
+      continue;
+    }
     const rawIds = rawSelection.preparedIds;
     character.rest.preparedByClass[classId] = Array.isArray(rawIds)
       ? [...new Set(rawIds.filter((id) => typeof id === "string").map((id) => id.trim()).filter(Boolean))]
@@ -385,6 +408,16 @@ export function initCharacterPageUI(deps) {
       Popovers,
       setStatus,
       onFinish: ({ name, build, characterId }) => {
+        // Defensive second line for the prepared-spell contract (C2-A). The
+        // wizard gates Finish on the same check, so reaching this is either a
+        // programming error or a non-wizard caller. Either way it must not
+        // half-create a character: bail before any mutation, sheet seeding,
+        // prepared adoption, dirty mark, or save.
+        const preparedError = getDraftPreparedValidationMessage(build, getActiveContentRegistry());
+        if (preparedError) {
+          if (typeof setStatus === "function") setStatus(preparedError, { stickyMs: 5000 });
+          return;
+        }
         if (characterId) {
           // Edit mode: update the build in place and re-seed additively.
           // Every other character field (notes, inventory, spells usage,

@@ -27,6 +27,7 @@ import {
 } from "../../domain/rules/choiceCompletion.js";
 import {
   collectActiveChoiceIds,
+  getDraftPreparedValidationMessage,
   getRequiredAncestryChoice,
   getRequiredOriginChoices,
   hasClassChoices,
@@ -499,6 +500,9 @@ export function initBuilderWizard(deps = {}) {
   let identityValidationAttempted = false;
   let raceChoicesValidationAttempted = false;
   let abilityValidationAttempted = false;
+  // Prepared validation is only surfaced once Finish has been attempted, then
+  // recomputed live from the draft so fixing the selection clears it.
+  let preparedValidationAttempted = false;
   /** @type {string | null} */
   let editingCharacterId = null;
   /** @type {Record<string, number>} */
@@ -557,7 +561,10 @@ export function initBuilderWizard(deps = {}) {
     onDraftChanged: () => {
       updateLevelDisplay();
       syncStartingClassControl();
-    }
+    },
+    getPreparedValidationMessage: () => (preparedValidationAttempted
+      ? getDraftPreparedValidationMessage(draft.build, getActiveContentRegistry())
+      : "")
   };
 
   /**
@@ -1275,6 +1282,7 @@ export function initBuilderWizard(deps = {}) {
     identityValidationAttempted = false;
     raceChoicesValidationAttempted = false;
     abilityValidationAttempted = false;
+    preparedValidationAttempted = false;
     showIdentityValidation("");
     showRaceChoicesValidation("");
     showClassesValidation("");
@@ -1848,6 +1856,16 @@ export function initBuilderWizard(deps = {}) {
       currentStep = STEP_ABILITIES;
       syncStep();
       showAbilityValidation(validationMessage);
+      return;
+    }
+    // Prepared spells are validated against the shared domain plan before the
+    // draft can become a character (C2-A). An invalid draft is never truncated
+    // or reinterpreted: the wizard stays open on the step that owns the
+    // problem, and nothing is mutated, seeded, adopted, or saved.
+    preparedValidationAttempted = true;
+    if (getDraftPreparedValidationMessage(draft.build, getActiveContentRegistry())) {
+      currentStep = STEP_SPELLS;
+      syncStep();
       return;
     }
     finish();

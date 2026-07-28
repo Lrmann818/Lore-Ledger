@@ -79,6 +79,7 @@ import {
   listContentByKind
 } from "../js/domain/rules/registry.js";
 import { deriveCharacter } from "../js/domain/rules/deriveCharacter.js";
+import { getPreparedSpellPlan } from "../js/domain/rules/preparedSpells.js";
 import { CURRENT_SCHEMA_VERSION, migrateState, sanitizeForSave } from "../js/state.js";
 import { createSaveManager } from "../js/storage/saveManager.js";
 import { saveAllLocal } from "../js/storage/persistence.js";
@@ -2593,6 +2594,205 @@ describe("character page selector", () => {
     });
     expect(derived.proficiencyBonus).toBe(2);
     expect(derived.abilities.str).toMatchObject({ base: 15, total: 16, modifier: 3 });
+
+    controller.destroy();
+  });
+
+  // Prepared Correctness C2-A: creation adopts the validated ordinary prepared
+  // selection into `rest.preparedByClass`, through the real wizard Finish path.
+  //
+  // The fake DOM's selector engine handles single-class selectors only, so
+  // rows are read by walking each label's children rather than with a
+  // descendant selector.
+  function preparedSpellRows(groupEl) {
+    return groupEl.querySelectorAll(".builderSpellCheckItem").map((item) => ({
+      input: item.children.find((child) => child.tagName === "INPUT"),
+      name: item.children.find((child) => child.tagName === "SPAN")?.textContent || ""
+    }));
+  }
+
+  async function createClericWithPrepared({ name = "Prepared Mira", pick = 2, wis = 16 } = {}) {
+    document.getElementById("builderWizardName").value = name;
+    document.getElementById("builderWizardRace").value = "human";
+    document.getElementById("builderWizardClass").value = "cleric";
+    document.getElementById("builderWizardBackground").value = "acolyte";
+    advanceBuilderWizardToStep("builderWizardStepAbilities");
+    Object.entries({ Str: 10, Dex: 10, Con: 10, Int: 10, Wis: wis, Cha: 10 })
+      .forEach(([suffix, value]) => {
+        document.getElementById(`builderWizardAbility${suffix}`).value = String(value);
+      });
+    advanceBuilderWizardToStep("builderWizardStepSpells");
+
+    const preparedGroup = Array.from(
+      document.getElementById("builderWizardSpellsBody").querySelectorAll(".builderSpellGroup")
+    ).find((node) => node.querySelector(".builderSpellGroupTitle")?.textContent === "Prepared Spells");
+    const boxes = preparedSpellRows(preparedGroup);
+    const chosen = [];
+    for (let i = 0; i < pick; i += 1) {
+      boxes[i].input.checked = true;
+      boxes[i].input.dispatchEvent(new Event("change", { bubbles: true }));
+      chosen.push(boxes[i].name);
+    }
+    advanceBuilderWizardToStep("builderWizardStepSummary");
+    document.getElementById("builderWizardFinish").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    await flushPromises();
+    return { preparedGroup, chosenNames: chosen };
+  }
+
+  it("adopts exactly the validated ordinary prepared selection on Finish (C2-A)", async () => {
+    const { document, actionMenuButton } = installCharacterSelectorDom();
+    installBuilderWizardDom(document);
+    const deps = createCharacterPageDeps(createFakePopovers());
+
+    const controller = initCharacterPageUI(deps);
+    actionMenuButton.dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    document.getElementById("charActionNewBuilderBtn").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    await createClericWithPrepared({ pick: 2 });
+
+    const entry = deps.state.characters.entries.at(-1);
+    expect(entry.name).toBe("Prepared Mira");
+    const adopted = entry.rest.preparedByClass.cleric;
+    // Positive control: something really was adopted.
+    expect(adopted).toHaveLength(2);
+    // Exactly the draft's ordinary selection, unchanged.
+    expect(adopted).toEqual(entry.build.spellcasting.cleric.preparedIds);
+    // Every adopted id is a real, resolvable ordinary candidate.
+    const plan = getPreparedSpellPlan(entry, BUILTIN_CONTENT_REGISTRY)
+      .find((item) => item.classId === "cleric");
+    expect(plan.selectedIds).toEqual(adopted);
+    for (const id of adopted) expect(plan.ordinaryCandidateIds).toContain(id);
+
+    // The sheet agrees: those spells are seeded as prepared rows.
+    const seededPrepared = entry.spells.levels
+      .flatMap((level) => level.spells)
+      .filter((spell) => spell.prepared === true)
+      .map((spell) => spell.builderSpellId);
+    expect(seededPrepared.sort()).toEqual([...adopted].sort());
+
+    controller.destroy();
+  });
+
+  it("keeps creation underfill allowed and silent (confirmation is C2-B)", async () => {
+    const { document, actionMenuButton } = installCharacterSelectorDom();
+    installBuilderWizardDom(document);
+    const deps = createCharacterPageDeps(createFakePopovers());
+
+    const controller = initCharacterPageUI(deps);
+    actionMenuButton.dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    document.getElementById("charActionNewBuilderBtn").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    // Capacity is 4 (level 1 + WIS 16); prepare one. No prompt, no block.
+    await createClericWithPrepared({ name: "Underfilled", pick: 1 });
+
+    const entry = deps.state.characters.entries.at(-1);
+    expect(entry.name).toBe("Underfilled");
+    expect(entry.rest.preparedByClass.cleric).toHaveLength(1);
+    expect(document.getElementById("builderWizardOverlay").hidden).toBe(true);
+    expect(deps.SaveManager.markDirty).toHaveBeenCalledTimes(1);
+
+    controller.destroy();
+  });
+
+  /**
+   * A stored builder cleric whose build carries a prepared list the current
+   * picker could not produce — the Edit-in-Builder / stale-content shape the
+   * C2-A guard exists for.
+   */
+  function makeStoredCleric({ preparedIds, restPrepared = {} }) {
+    const builder = makeDefaultBuilderCharacterEntry("Stored Cleric");
+    builder.id = "char_stored_cleric";
+    builder.build.raceId = "human";
+    builder.build.backgroundId = "acolyte";
+    builder.build.levels = [{ classId: "cleric", hp: null }];
+    builder.build.abilities.base = { str: 10, dex: 10, con: 10, int: 10, wis: 16, cha: 10 };
+    builder.build.spellcasting = { cleric: { cantripIds: [], knownIds: [], preparedIds } };
+    builder.rest = { hitDiceSpent: {}, preparedByClass: restPrepared };
+    return builder;
+  }
+
+  function openStoredClericInBuilder(builder) {
+    const { document, actionMenuButton } = installCharacterSelectorDom();
+    installBuilderWizardDom(document);
+    const deps = createCharacterPageDeps(createFakePopovers());
+    deps.state.characters.entries[0] = builder;
+    deps.state.characters.activeId = builder.id;
+    const controller = initCharacterPageUI(deps);
+    actionMenuButton.dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    document.getElementById("charActionEditBuilderBtn").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    return { document, deps, controller };
+  }
+
+  it("blocks Finish and mutates nothing when the draft prepared list is invalid (C2-A)", async () => {
+    // Positive control: the same flow with a legal list Finishes cleanly.
+    const legal = makeStoredCleric({ preparedIds: ["bless"] });
+    const ok = openStoredClericInBuilder(legal);
+    advanceBuilderWizardToStep("builderWizardStepSummary");
+    document.getElementById("builderWizardFinish").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    await flushPromises();
+    expect(document.getElementById("builderWizardOverlay").hidden).toBe(true);
+    expect(legal.rest.preparedByClass.cleric).toEqual(["bless"]);
+    ok.controller.destroy();
+
+    // Now the invalid one: a 1st-level wizard spell that is not on the cleric list.
+    const builder = makeStoredCleric({ preparedIds: ["magic-missile"] });
+    const { deps, controller } = openStoredClericInBuilder(builder);
+    deps.SaveManager.markDirty.mockClear();
+
+    advanceBuilderWizardToStep("builderWizardStepSummary");
+    document.getElementById("builderWizardFinish").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    await flushPromises();
+
+    // Wizard stays open, on the step that owns the problem, explaining why.
+    expect(document.getElementById("builderWizardOverlay").hidden).toBe(false);
+    expect(document.getElementById("builderWizardStepSpells").hidden).toBe(false);
+    const validation = document.getElementById("builderWizardSpellsBody")
+      .querySelector(".builderSpellsValidation");
+    expect(validation.hidden).toBe(false);
+    expect(validation.textContent).toContain("Magic Missile");
+
+    // Nothing was adopted, seeded, dirtied, or saved.
+    expect(builder.rest.preparedByClass).toEqual({});
+    expect(builder.spells.levels).toEqual([]);
+    expect(deps.SaveManager.markDirty).not.toHaveBeenCalled();
+    // The stored draft is left exactly as found — never truncated or repaired.
+    expect(builder.build.spellcasting.cleric.preparedIds).toEqual(["magic-missile"]);
+
+    controller.destroy();
+  });
+
+  it("does not overwrite an established runtime prepared list on Edit in Builder (C2-A)", async () => {
+    // The wizard draft still says two spells; play-state says one.
+    const builder = makeStoredCleric({
+      preparedIds: ["bless", "cure-wounds"],
+      restPrepared: { cleric: ["bless"] }
+    });
+    const { deps, controller } = openStoredClericInBuilder(builder);
+
+    advanceBuilderWizardToStep("builderWizardStepSummary");
+    document.getElementById("builderWizardFinish").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    await flushPromises();
+
+    // Runtime state wins: a prepared list is no longer a guarded build choice.
+    expect(deps.state.characters.entries[0].rest.preparedByClass.cleric).toEqual(["bless"]);
+
+    controller.destroy();
+  });
+
+  it("leaves freeform characters without any prepared adoption (C2-A)", async () => {
+    const { document, actionMenuButton } = installCharacterSelectorDom();
+    installBuilderWizardDom(document);
+    const deps = createCharacterPageDeps(createFakePopovers());
+
+    const controller = initCharacterPageUI(deps);
+    const freeform = deps.state.characters.entries.find((item) => !isBuilderCharacter(item));
+    expect(freeform).toBeTruthy(); // positive control
+    const restBefore = JSON.stringify(freeform.rest ?? null);
+
+    actionMenuButton.dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    document.getElementById("charActionNewBuilderBtn").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    await createClericWithPrepared({ name: "Builder Only", pick: 1 });
+
+    expect(JSON.stringify(freeform.rest ?? null)).toBe(restBefore);
+    expect(getPreparedSpellPlan(freeform, BUILTIN_CONTENT_REGISTRY)).toEqual([]);
 
     controller.destroy();
   });

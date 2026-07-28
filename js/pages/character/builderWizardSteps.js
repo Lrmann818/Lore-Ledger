@@ -16,6 +16,7 @@ import {
   formatChoiceShortfall,
   getChoiceCompletionReport
 } from "../../domain/rules/choiceCompletion.js";
+import { getPreparedSpellPlan, PREPARED_LIMITED_BY } from "../../domain/rules/preparedSpells.js";
 import {
   appendLevel,
   asiChoiceId,
@@ -47,9 +48,12 @@ import {
  *   getRegistry: () => ContentRegistry,
  *   signal: AbortSignal,
  *   enhanceSelect: (select: HTMLSelectElement) => void,
- *   onDraftChanged: () => void
+ *   onDraftChanged: () => void,
+ *   getPreparedValidationMessage?: () => string
  * }} WizardStepContext
  */
+
+/** @typedef {import("../../domain/rules/preparedSpells.js").PreparedSpellPlanEntry} PreparedSpellPlanEntry */
 
 const ABILITY_LABELS = Object.freeze({
   str: "Strength", dex: "Dexterity", con: "Constitution",
@@ -969,6 +973,164 @@ function ensureSpellSelection(build, classId) {
 
 const ORDINALS = ["Cantrips", "1st Level", "2nd Level", "3rd Level", "4th Level", "5th Level", "6th Level", "7th Level", "8th Level", "9th Level"];
 
+/* ------------------------------------------------------------------ */
+/* Prepared spells — creation consumes the shared domain plan (C2-A)   */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The prepared-spell plan for an in-progress wizard draft.
+ *
+ * `getPreparedSpellPlan()` is the single owner of prepared candidates,
+ * capacities, class-specific spell-level ceilings, spellbook limits, and
+ * granted-spell exclusion. Creation reaches it through a **non-persisted**
+ * character-shaped view of the draft: no canonical state, no saved field, and
+ * no second prepared store.
+ *
+ * `rest` is deliberately absent from that view. The plan falls back to
+ * `build.spellcasting[classId].preparedIds` when a class has no rest-owned
+ * entry, so the draft's own in-progress selection is exactly what the plan
+ * reports as `selectedIds` — which is what makes this a view rather than a
+ * copy.
+ *
+ * @param {CharacterBuildState} build
+ * @param {ContentRegistry} registry
+ * @returns {PreparedSpellPlanEntry[]}
+ */
+export function getDraftPreparedSpellPlan(build, registry) {
+  if (!isPlainObject(build)) return [];
+  return getPreparedSpellPlan(
+    /** @type {any} */ ({ build, overrides: null }),
+    registry
+  );
+}
+
+/**
+ * The draft's ordinary prepared ids for one class, trimmed and deduplicated.
+ * Raw storage — not filtered against the plan, because the validator's whole
+ * job is to notice ids the plan would reject.
+ * @param {unknown} build
+ * @param {string} classId
+ * @returns {string[]}
+ */
+function readDraftPreparedIds(build, classId) {
+  const selections = isPlainObject(build) && isPlainObject(build.spellcasting)
+    ? /** @type {Record<string, unknown>} */ (build.spellcasting)
+    : {};
+  const selection = isPlainObject(selections[classId])
+    ? /** @type {Record<string, unknown>} */ (selections[classId])
+    : {};
+  const raw = Array.isArray(selection.preparedIds) ? selection.preparedIds : [];
+  return [...new Set(raw.filter((id) => typeof id === "string").map(cleanString).filter(Boolean))];
+}
+
+/**
+ * "x / y prepared" against the class's **effective** capacity, or "x prepared"
+ * when capacity is unknown. Reads the plan; computes no limit of its own.
+ * @param {PreparedSpellPlanEntry | null} entry
+ * @param {number} selectedCount
+ * @returns {string}
+ */
+function formatPreparedCount(entry, selectedCount) {
+  return !entry || entry.effectiveCapacity == null
+    ? `${selectedCount} prepared`
+    : `${selectedCount} / ${entry.effectiveCapacity} prepared`;
+}
+
+/**
+ * Plain-language explanation for a capacity the player cannot fully reach —
+ * the same meaning the Long Rest dialog established in C1. Returns "" when the
+ * class formula is the honest limit and needs no excuse.
+ * @param {PreparedSpellPlanEntry | null} entry
+ * @returns {string}
+ */
+function formatPreparedLimitNote(entry) {
+  if (!entry) return "";
+  if (entry.limitedBy === PREPARED_LIMITED_BY.UNKNOWN) {
+    return "Prepared capacity is unavailable until this character's spellcasting ability score is set.";
+  }
+  if (entry.limitedBy !== PREPARED_LIMITED_BY.CANDIDATES) return "";
+  if (!entry.ordinaryCandidateIds.length) {
+    return entry.preparationMode === "spellbook"
+      ? "No spells in this character's spellbook can be prepared yet."
+      : "No spells from this class's list can be prepared yet.";
+  }
+  const available = entry.ordinaryCandidateIds.length;
+  const verb = available === 1 ? "spell is" : "spells are";
+  return entry.preparationMode === "spellbook"
+    ? `Limited by the spellbook: ${available} ${verb} available to prepare, though this class allows ${entry.formulaCapacity}.`
+    : `Limited by the available spells: ${available} ${verb} available to prepare, though this class allows ${entry.formulaCapacity}.`;
+}
+
+/**
+ * @param {readonly string[]} spellIds
+ * @param {ContentRegistry} registry
+ * @returns {string}
+ */
+function spellNameList(spellIds, registry) {
+  return spellIds.map((id) => getContentByKind(registry, "spell", id)?.name || id).join(", ");
+}
+
+/**
+ * Defensive pre-Finish validation of every prepared caster's draft selection
+ * against the shared plan (C2-A).
+ *
+ * The picker hard-blocks over-cap selection, so a draft built through the UI
+ * cannot fail this. It exists for the drafts the UI did not build: an older
+ * character reopened through Edit in Builder, custom content deleted mid-flow,
+ * or an ability score cleared after spells were chosen.
+ *
+ * Nothing is truncated, reinterpreted, or repaired — an invalid draft is
+ * reported so the player fixes it, because silently rewriting a prepared list
+ * is exactly the data loss `rest.preparedByClass` ownership exists to prevent.
+ *
+ * A class with no plan entry (deleted content, not a prepared caster) is
+ * skipped rather than blocking Finish: unresolvable content must fail soft,
+ * matching `validateBuilderPreparedSpellSelections()`.
+ *
+ * @param {CharacterBuildState} build
+ * @param {ContentRegistry} registry
+ * @returns {string} "" when valid, else a player-facing message
+ */
+export function getDraftPreparedValidationMessage(build, registry) {
+  const plan = getDraftPreparedSpellPlan(build, registry);
+  for (const entry of plan) {
+    const ids = readDraftPreparedIds(build, entry.classId);
+    if (!ids.length) continue;
+
+    // Unknown capacity cannot be validated against, so it accepts an empty
+    // list only — it fails closed rather than guessing a limit.
+    if (entry.effectiveCapacity == null) {
+      return `${entry.className}: set this character's spellcasting ability score before preparing spells, or clear its prepared list.`;
+    }
+
+    const granted = new Set(entry.grantedIds);
+    const redundantGranted = ids.filter((id) => granted.has(id));
+    if (redundantGranted.length) {
+      return `${entry.className}: ${spellNameList(redundantGranted, registry)} ${redundantGranted.length === 1 ? "is" : "are"} always prepared and cannot also be chosen as an ordinary prepared spell.`;
+    }
+
+    const candidates = new Set(entry.ordinaryCandidateIds);
+    const invalid = ids.filter((id) => !candidates.has(id));
+    if (invalid.length) {
+      const aboveCeiling = invalid.filter((id) => {
+        const level = Number(getContentByKind(registry, "spell", id)?.data?.level);
+        return Number.isFinite(level) && level > entry.maxSpellLevel;
+      });
+      if (aboveCeiling.length) {
+        return `${entry.className}: ${spellNameList(aboveCeiling, registry)} ${aboveCeiling.length === 1 ? "is" : "are"} above the highest spell level this class can prepare at its own level (${entry.maxSpellLevel}).`;
+      }
+      return entry.preparationMode === "spellbook"
+        ? `${entry.className}: ${spellNameList(invalid, registry)} ${invalid.length === 1 ? "is" : "are"} not in this character's spellbook.`
+        : `${entry.className}: ${spellNameList(invalid, registry)} ${invalid.length === 1 ? "is" : "are"} not on this class's spell list.`;
+    }
+
+    if (ids.length > entry.effectiveCapacity) {
+      return `${entry.className} can prepare at most ${entry.effectiveCapacity} ${entry.effectiveCapacity === 1 ? "spell" : "spells"}; ${ids.length} are selected.`;
+    }
+  }
+  return "";
+}
+
 /**
  * Renders the spells step for every spellcasting class in the build.
  * Returns whether the build has any spellcasting.
@@ -985,6 +1147,25 @@ export function renderSpellsStep(ctx, container) {
   const derived = deriveCharacter({ build, overrides: null }, registry);
   const spellcasting = derived.spellcasting;
   if (!spellcasting || !spellcasting.classes.length) return false;
+
+  // Pre-Finish prepared validation, surfaced on the step that owns the problem.
+  // Recomputed from the live draft on every render and by the prepared pickers
+  // below, so fixing the selection clears the message immediately.
+  const validationEl = el(container, "p", "builderWizardValidation builderSpellsValidation");
+  const refreshPreparedValidation = () => {
+    const message = ctx.getPreparedValidationMessage?.() || "";
+    validationEl.textContent = message;
+    validationEl.hidden = !message;
+  };
+  refreshPreparedValidation();
+
+  // Prepared rules come from the domain plan, once per render. Each entry
+  // already encodes that class's own spell-level ceiling, its spellbook or
+  // class-list candidates, its granted exclusions, and both capacities — so
+  // nothing below re-derives any of them.
+  let preparedPlan = getDraftPreparedSpellPlan(build, registry);
+  const findPreparedEntry = (classId) =>
+    preparedPlan.find((entry) => entry.classId === classId) || null;
 
   // Slots overview.
   const slotsRow = el(container, "div", "builderSpellSlotsRow");
@@ -1023,16 +1204,20 @@ export function renderSpellsStep(ctx, container) {
       return classIds.includes(casterInfo.classId);
     });
 
-    // Granted spells (e.g. domain spells) — display only.
-    const granted = derived.grantedSpells.filter((grant) => grant.classId === casterInfo.classId);
-    if (granted.length) {
+    // Granted spells (e.g. domain spells) — display only, never a checkbox and
+    // never counted against capacity. For a prepared caster these are the
+    // plan's own `grantedIds`, so the spells shown here are exactly the ones
+    // excluded from the ordinary candidate list below.
+    const planGrantedIds = findPreparedEntry(casterInfo.classId)?.grantedIds;
+    const grantedIds = planGrantedIds ?? [...new Set(
+      derived.grantedSpells
+        .filter((grant) => grant.classId === casterInfo.classId)
+        .map((grant) => grant.spellId)
+    )];
+    if (grantedIds.length) {
       const grantedRow = el(section, "div", "builderGrantedSpells");
-      const names = granted.map((grant) => {
-        const spellEntry = getContentByKind(registry, "spell", grant.spellId);
-        return spellEntry?.name || grant.spellId;
-      });
       el(grantedRow, "span", "builderSummaryLabel", "Always Prepared");
-      el(grantedRow, "span", "builderSummaryValue", names.join(", "));
+      el(grantedRow, "span", "builderSummaryValue", spellNameList(grantedIds, registry));
     }
 
     const filterField = el(section, "div", "builderSpellFilterField");
@@ -1046,12 +1231,13 @@ export function renderSpellsStep(ctx, container) {
     const listsWrap = el(section, "div", "builderSpellLists");
 
     const mode = casterInfo.preparationMode;
-    /** @type {Array<{ key: "cantripIds" | "knownIds" | "preparedIds", title: string, spellLevels: number[], maxLabel: () => string }>} */
+    /** @type {Array<{ key: "cantripIds" | "knownIds" | "preparedIds", title: string, spellLevels: number[], prepared: boolean, maxLabel: () => string, rootEl?: HTMLElement }>} */
     const groups = [];
     groups.push({
       key: "cantripIds",
       title: "Cantrips",
       spellLevels: [0],
+      prepared: false,
       maxLabel: () => casterInfo.cantripsKnownMax != null
         ? `${selection.cantripIds.length} / ${casterInfo.cantripsKnownMax} known`
         : `${selection.cantripIds.length} chosen`
@@ -1063,95 +1249,162 @@ export function renderSpellsStep(ctx, container) {
       return Math.max(max, 1);
     })();
     const leveled = Array.from({ length: maxSlotLevel }, (_, i) => i + 1);
+    // Prepared groups take their spell levels from the plan's own class-table
+    // ceiling, never from the combined multiclass slot array above: combined
+    // slots let a character *cast* a lower-level spell with a higher slot, and
+    // must never widen what a class may prepare (rest-rules-spec §4.1).
+    const preparedLevels = () => {
+      const entry = findPreparedEntry(casterInfo.classId);
+      const ceiling = entry ? entry.maxSpellLevel : 0;
+      return Array.from({ length: Math.max(0, ceiling) }, (_, i) => i + 1);
+    };
+    const preparedCountLabel = () =>
+      formatPreparedCount(findPreparedEntry(casterInfo.classId), selection.preparedIds.length);
     if (mode === "prepared") {
       groups.push({
         key: "preparedIds",
         title: "Prepared Spells",
-        spellLevels: leveled,
-        maxLabel: () => casterInfo.preparedMax != null
-          ? `${selection.preparedIds.length} / ${casterInfo.preparedMax} prepared`
-          : `${selection.preparedIds.length} prepared`
+        spellLevels: [],
+        prepared: true,
+        maxLabel: preparedCountLabel
       });
     } else if (mode === "spellbook") {
       groups.push({
         key: "knownIds",
         title: "Spellbook",
         spellLevels: leveled,
+        prepared: false,
         maxLabel: () => `${selection.knownIds.length} in spellbook (start with 6, +2 per wizard level)`
       });
       groups.push({
         key: "preparedIds",
         title: "Prepared Spells (from spellbook)",
-        spellLevels: leveled,
-        maxLabel: () => casterInfo.preparedMax != null
-          ? `${selection.preparedIds.length} / ${casterInfo.preparedMax} prepared`
-          : `${selection.preparedIds.length} prepared`
+        spellLevels: [],
+        prepared: true,
+        maxLabel: preparedCountLabel
       });
     } else {
       groups.push({
         key: "knownIds",
         title: "Known Spells",
         spellLevels: leveled,
+        prepared: false,
         maxLabel: () => casterInfo.spellsKnownMax != null
           ? `${selection.knownIds.length} / ${casterInfo.spellsKnownMax} known`
           : `${selection.knownIds.length} known`
       });
     }
+    const preparedGroup = groups.find((group) => group.prepared) || null;
+
+    /**
+     * Rebuilds one group's list in place. Prepared groups draw their candidate
+     * set, ceiling, and cap from the plan entry; every other group keeps its
+     * existing class-list behavior byte-for-byte.
+     * @param {typeof groups[number]} group
+     */
+    const renderGroup = (group) => {
+      const groupEl = group.rootEl;
+      if (!groupEl) return;
+      clearChildren(groupEl);
+      const filter = filterInput.value.trim().toLowerCase();
+      const planEntry = group.prepared ? findPreparedEntry(casterInfo.classId) : null;
+      const groupHead = el(groupEl, "div", "builderSpellGroupHead");
+      el(groupHead, "span", "builderSpellGroupTitle", group.title);
+      const countEl = el(groupHead, "span", "builderSpellGroupCount", group.maxLabel());
+
+      if (group.prepared) {
+        const limitNote = formatPreparedLimitNote(planEntry);
+        if (limitNote) el(groupEl, "p", "builderAbilityMethodNote", limitNote);
+      }
+
+      // Prepared candidates come from the plan (class list or spellbook, grants
+      // already excluded, own-class ceiling already applied). Everything else
+      // keeps the original class-list pool.
+      const candidateIds = planEntry ? new Set(planEntry.ordinaryCandidateIds) : null;
+      const sourcePool = candidateIds
+        ? allSpells.filter((entry) => candidateIds.has(entry.id))
+        : classSpells;
+      const spellLevels = group.prepared ? preparedLevels() : group.spellLevels;
+      // An unknown capacity cannot be validated against, so the list is shown
+      // as read-only context rather than an unusable picker (matching C1).
+      const capacity = planEntry ? planEntry.effectiveCapacity : null;
+      const locked = group.prepared && capacity == null;
+
+      /** @type {Array<{ id: string, input: HTMLInputElement }>} */
+      const preparedInputs = [];
+      const refreshPreparedInputs = () => {
+        if (!group.prepared) return;
+        countEl.textContent = group.maxLabel();
+        const atCap = capacity != null && selection.preparedIds.length >= capacity;
+        for (const { id, input } of preparedInputs) {
+          // At the cap, unchecked candidates are blocked but checked ones stay
+          // deselectable — the player is never trapped at a full list.
+          input.disabled = locked || (atCap && !selection.preparedIds.includes(id));
+        }
+        refreshPreparedValidation();
+      };
+
+      for (const spellLevel of spellLevels) {
+        const levelSpells = sourcePool
+          .filter((entry) => Number(entry.data?.level) === spellLevel)
+          .filter((entry) => !filter || entry.name.toLowerCase().includes(filter));
+        if (!levelSpells.length) continue;
+        const details = /** @type {HTMLDetailsElement} */ (document.createElement("details"));
+        details.className = "builderSpellLevelDetails";
+        details.open = !!filter || spellLevel === 0;
+        const summaryEl = document.createElement("summary");
+        summaryEl.textContent = `${ORDINALS[spellLevel]} (${levelSpells.length})`;
+        details.appendChild(summaryEl);
+        const list = document.createElement("div");
+        list.className = "builderSpellCheckList";
+        for (const spellEntry of levelSpells) {
+          const label = document.createElement("label");
+          label.className = "builderSpellCheckItem";
+          const checkbox = document.createElement("input");
+          checkbox.type = "checkbox";
+          checkbox.checked = selection[group.key].includes(spellEntry.id);
+          checkbox.addEventListener("change", () => {
+            const list = selection[group.key];
+            const index = list.indexOf(spellEntry.id);
+            if (checkbox.checked && index < 0) list.push(spellEntry.id);
+            if (!checkbox.checked && index >= 0) list.splice(index, 1);
+            if (group.key === "knownIds" && mode === "spellbook" && !checkbox.checked) {
+              // Removing a spellbook spell unprepares it.
+              const preparedIndex = selection.preparedIds.indexOf(spellEntry.id);
+              if (preparedIndex >= 0) selection.preparedIds.splice(preparedIndex, 1);
+            }
+            countEl.textContent = group.maxLabel();
+            if (group.prepared) refreshPreparedInputs();
+            if (group.key === "knownIds" && mode === "spellbook" && preparedGroup) {
+              // The spellbook is the wizard's prepared candidate set, so its
+              // candidates and effective capacity just changed. Recompute the
+              // plan and rebuild only the prepared group, leaving focus on the
+              // spellbook checkbox the player is using.
+              preparedPlan = getDraftPreparedSpellPlan(build, registry);
+              renderGroup(preparedGroup);
+            }
+            ctx.onDraftChanged();
+          }, { signal: ctx.signal });
+          if (group.prepared) preparedInputs.push({ id: spellEntry.id, input: checkbox });
+          label.appendChild(checkbox);
+          const nameSpan = document.createElement("span");
+          const ritual = spellEntry.data?.ritual === true ? " (ritual)" : "";
+          const concentration = spellEntry.data?.concentration === true ? " (conc.)" : "";
+          nameSpan.textContent = `${spellEntry.name}${ritual}${concentration}`;
+          label.appendChild(nameSpan);
+          list.appendChild(label);
+        }
+        details.appendChild(list);
+        groupEl.appendChild(details);
+      }
+      refreshPreparedInputs();
+    };
 
     const renderLists = () => {
       clearChildren(listsWrap);
-      const filter = filterInput.value.trim().toLowerCase();
       for (const group of groups) {
-        const groupEl = el(listsWrap, "div", "builderSpellGroup");
-        const groupHead = el(groupEl, "div", "builderSpellGroupHead");
-        el(groupHead, "span", "builderSpellGroupTitle", group.title);
-        const countEl = el(groupHead, "span", "builderSpellGroupCount", group.maxLabel());
-        const sourcePool = group.key === "preparedIds" && mode === "spellbook"
-          ? classSpells.filter((entry) => selection.knownIds.includes(entry.id))
-          : classSpells;
-        for (const spellLevel of group.spellLevels) {
-          const levelSpells = sourcePool
-            .filter((entry) => Number(entry.data?.level) === spellLevel)
-            .filter((entry) => !filter || entry.name.toLowerCase().includes(filter));
-          if (!levelSpells.length) continue;
-          const details = /** @type {HTMLDetailsElement} */ (document.createElement("details"));
-          details.className = "builderSpellLevelDetails";
-          details.open = !!filter || spellLevel === 0;
-          const summaryEl = document.createElement("summary");
-          summaryEl.textContent = `${ORDINALS[spellLevel]} (${levelSpells.length})`;
-          details.appendChild(summaryEl);
-          const list = document.createElement("div");
-          list.className = "builderSpellCheckList";
-          for (const spellEntry of levelSpells) {
-            const label = document.createElement("label");
-            label.className = "builderSpellCheckItem";
-            const checkbox = document.createElement("input");
-            checkbox.type = "checkbox";
-            checkbox.checked = selection[group.key].includes(spellEntry.id);
-            checkbox.addEventListener("change", () => {
-              const list = selection[group.key];
-              const index = list.indexOf(spellEntry.id);
-              if (checkbox.checked && index < 0) list.push(spellEntry.id);
-              if (!checkbox.checked && index >= 0) list.splice(index, 1);
-              if (group.key === "knownIds" && mode === "spellbook" && !checkbox.checked) {
-                // Removing a spellbook spell unprepares it.
-                const preparedIndex = selection.preparedIds.indexOf(spellEntry.id);
-                if (preparedIndex >= 0) selection.preparedIds.splice(preparedIndex, 1);
-              }
-              countEl.textContent = group.maxLabel();
-              ctx.onDraftChanged();
-            }, { signal: ctx.signal });
-            label.appendChild(checkbox);
-            const nameSpan = document.createElement("span");
-            const ritual = spellEntry.data?.ritual === true ? " (ritual)" : "";
-            const concentration = spellEntry.data?.concentration === true ? " (conc.)" : "";
-            nameSpan.textContent = `${spellEntry.name}${ritual}${concentration}`;
-            label.appendChild(nameSpan);
-            list.appendChild(label);
-          }
-          details.appendChild(list);
-          groupEl.appendChild(details);
-        }
+        group.rootEl = el(listsWrap, "div", "builderSpellGroup");
+        renderGroup(group);
       }
     };
     filterInput.addEventListener("input", renderLists, { signal: ctx.signal });
