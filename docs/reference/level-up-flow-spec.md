@@ -1,13 +1,15 @@
 # Level Up Flow — Implementation Spec
 
-_Status: **Phase 1 implemented and shipped 2026-07-12.** Revised 2026-07-09._
+_Status: **Phase 1 implemented and shipped 2026-07-12.** Revised 2026-07-09.
+**Prepared-capacity reporting corrected 2026-07-29 (C2-C)** — §4.1, §5 step 5, and §9._
 
 > **Sequencing guard.** Phase 1 (this document's in-scope contract) is implemented:
 > `js/pages/character/levelUpWizard.js` + `getLevelUpPlan()` in
 > `js/domain/rules/progression.js` + `getLevelUpSheetSeedPatch()` in
 > `js/domain/builderSheetSeeding.js`, covered by `tests/progression.levelUp.test.js`,
 > `tests/levelUpSheetSeeding.test.js`, the `level up flow` suite in
-> `tests/characterPage.test.js`, and `tests/smoke/levelUp.smoke.js`. Phases 2/3,
+> `tests/characterPage.test.js`, `tests/levelUpPreparedCapacity.test.js`
+> (prepared capacity, C2-C), and `tests/smoke/levelUp.smoke.js`. Phases 2/3,
 > down-leveling, and audit-feature batches remain blocked — see §11 and the binding
 > [Working Order](../../AGENTS.md#current-working-order).
 
@@ -294,9 +296,8 @@ Phase 1 invariants:
  *   multiclassSkillChoiceId: string | null,
  *   hitDie: number | null,
  *   spellcastingDelta: Array<{
- *     classId, preparationMode,
+ *     classId, preparationMode, progression,
  *     cantripsGained, knownGained, spellbookGained,
- *     preparedCapacityBefore, preparedCapacityAfter,
  *     newSpellLevels: number[], grantedSpellIds: string[]
  *   }>,
  *   slotsBefore: number[], slotsAfter: number[],
@@ -309,8 +310,19 @@ export function getLevelUpPlan(build, classId, registry) { /* before/after diff 
 ```
 
 Pure, testable, no DOM, no state. This is where every "does the new level grant
-X?" question is answered exactly once. For prepared casters it reports capacity and new
-spell levels but never asks for or returns a prepared selection.
+X?" question is answered exactly once. For prepared casters it reports newly reached spell
+levels and newly granted spells but never asks for or returns a prepared selection.
+
+> **Prepared capacity moved out (C2-C, 2026-07-29).** The delta's original
+> `preparedCapacityBefore` / `preparedCapacityAfter` fields, and the local
+> formula behind them, are **removed**. A build alone cannot answer prepared
+> capacity correctly: it depends on `overrides.abilities` (not build data) and
+> on the candidate set (a wizard's spellbook), and the value shown must be the
+> one Long Rest enforces. `getPreparedSpellCapacityChanges()` in
+> `js/domain/rules/preparedSpells.js` owns it, over character-shaped views —
+> see §5 step 5 and [`rest-rules-spec.md`](./rest-rules-spec.md) §4.6. A
+> prepared caster whose only change would be capacity therefore produces **no**
+> `spellcastingDelta` entry.
 
 ### 4.2 One additive marker field (only if §7 Phase 2 lands)
 
@@ -354,7 +366,7 @@ HP → Summary.
 | 2 | **Subclass** | new class level == `subclassLevel` and none stored | `subclassByClass` |
 | 3 | **Features** | new level grants features with `subfeatureOptions` or expertise; plus read-only list of unchosen new features | `choicesByLevel` |
 | 4 | **ASI / Feat** | `getAsiSlots()` gains a slot at the new level | `choicesByLevel["asi-<lvl>"]` |
-| 5 | **Spells** | any spellcasting delta (cantrips, known, spellbook, prepared capacity, new slot level) | append cantrip/known/spellbook choices only; prepared capacity is read-only |
+| 5 | **Spells** | any spellcasting delta (cantrips, known, spellbook, new slot level, new grant) **or** any prepared caster whose capacity moves | append cantrip/known/spellbook choices only; prepared capacity is read-only |
 | 6 | **Hit Points** | always | `setLevelHpAt` |
 | 7 | **Summary** | always | nothing — Apply commits |
 
@@ -392,6 +404,21 @@ New slot levels are announced, not chosen. This step must not read or write
 `rest.preparedByClass` as a Level Up choice, must not open the Long Rest prepared-spell
 selector, and must not alter legacy `preparedIds`. If current prepared selections are shown
 for context, they are read-only and sourced from `rest.preparedByClass`.
+
+> **Prepared capacity as shipped (C2-C, 2026-07-29).** The **Prepared capacity** row reads
+> `getPreparedSpellCapacityChanges(beforeCharacter, { ...beforeCharacter, build: draftBuild })`
+> — the shared prepared-spell plan on both sides — so it reports the candidate-bounded
+> `effectiveCapacity`, includes `overrides.abilities`, includes the ASI or ability-granting
+> feat chosen on step 4, uses each prepared class's own level and progression, and respects a
+> wizard's real spellbook. It shows `before → after` only when the value moves, renders an
+> unknown capacity as `unknown` (never `0`), and omits a meaningless "before" for a class only
+> becoming a prepared caster now. The value is recomputed rather than cached, so a pending
+> spellbook pick updates it in place, bounded by that class's formula.
+>
+> The step is also **available whenever any prepared caster's capacity moves**, even with an
+> empty `spellcastingDelta` — the multiclass case where an ASI on a non-spellcasting appended
+> level raises another class's spellcasting ability. Such a class renders an
+> informational-only section (heading, capacity row, Long Rest note) with no pickers.
 
 **Step 6 — Hit Points.** Per the reference flow: current max, the new level's
 hit die, and three affordances — **Max**, **Average** (`die/2 + 1`, the model
@@ -577,8 +604,8 @@ circuit breaker firing.
 
 - Single-class 4 → 5: `getLevelUpPlan` reports Extra Attack, no ASI, no subclass.
 - Fighter 3 → 4: reports an ASI slot; 4 → 5 does not.
-- Wizard 1 → 2: reports cantrips gained 0, two spellbook additions, prepared-capacity
-  information, and increased slot totals without returning prepared choices.
+- Wizard 1 → 2: reports cantrips gained 0, two spellbook additions, and increased slot totals
+  without returning prepared choices or any prepared capacity (C2-C).
 - Cleric 1 → 2: `subclassRequired` is null (cleric picks at 1); Fighter 2 → 3
   reports `subclassRequired`.
 - Multiclass Fighter 5 → Wizard 1: `isNewClass`, multiclass skill choice id,
@@ -591,8 +618,10 @@ circuit breaker firing.
   earlier known IDs.
 - A class/level with no cantrip-cap increase offers no cantrip choice; a level with an
   increase asks for exactly that delta.
-- Prepared casters report capacity/new spell levels only; no plan field contains a prepared
-  list mutation.
+- Prepared casters report new spell levels and grants only; no plan field contains a prepared
+  list mutation **or a prepared capacity** (C2-C). Prepared capacity coverage lives in
+  `tests/levelUpPreparedCapacity.test.js` — see
+  [`rest-rules-spec.md`](./rest-rules-spec.md) §4.6 and its test list.
 
 ### New — `tests/levelUpSheetSeeding.test.js`
 

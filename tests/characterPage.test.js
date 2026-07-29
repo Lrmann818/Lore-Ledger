@@ -5205,6 +5205,61 @@ describe("level up flow", () => {
     controller.destroy();
   });
 
+  // C2-C: Level Up reports prepared capacity and never owns the selection.
+  it("leaves rest.preparedByClass byte-identical through cancel and a successful Apply", async () => {
+    const preparedByClass = { cleric: ["bless", "command", "cure-wounds"] };
+    const character = makeLeveledBuilderCharacter({
+      levels: [
+        { classId: "cleric", hp: null },
+        { classId: "cleric", hp: null },
+        { classId: "cleric", hp: null }
+      ],
+      subclassByClass: { cleric: "life" },
+      base: { str: 8, dex: 14, con: 13, int: 10, wis: 15, cha: 10 },
+      flatFields: {
+        hpMax: 20,
+        hpCur: 20,
+        rest: { hitDiceSpent: { 8: 1 }, preparedByClass }
+      }
+    });
+    const restSnapshot = JSON.stringify(character.rest);
+    const { deps, controller, actionMenuButton } = setupLevelUp(character);
+
+    // Cancel path: walking into the informational Spells step changes nothing.
+    openLevelUp(actionMenuButton);
+    clickLevelUp(document, "levelUpNext"); // class → features
+    clickLevelUp(document, "levelUpNext"); // features → asi
+    clickLevelUp(document, "levelUpNext"); // asi → spells
+    expect(document.getElementById("levelUpStepSpells").hidden).toBe(false);
+    // The prepared capacity row is informational and points at the Long Rest.
+    const spellsText = document.getElementById("levelUpSpellsBody").textContent;
+    expect(spellsText).toContain("Prepared capacity");
+    expect(spellsText).toContain("Prepared spells are chosen when finishing a Long Rest, not here.");
+    clickLevelUp(document, "levelUpCancel");
+    expect(JSON.stringify(deps.state.characters.entries[0].rest)).toBe(restSnapshot);
+    expect(deps.SaveManager.markDirty).not.toHaveBeenCalled();
+
+    // Apply path: one mutation, one dirty mark, prepared play-state untouched.
+    openLevelUp(actionMenuButton);
+    clickLevelUp(document, "levelUpNext");
+    clickLevelUp(document, "levelUpNext");
+    clickLevelUp(document, "levelUpNext");
+    clickLevelUp(document, "levelUpNext"); // spells → hp
+    clickLevelUp(document, "levelUpNext"); // hp → summary
+    expect(document.getElementById("levelUpStepSummary").hidden).toBe(false);
+    clickLevelUp(document, "levelUpApply");
+    await flushPromises();
+
+    const updated = deps.state.characters.entries.find((e) => e.id === "char_levelup");
+    expect(updated.build.levels).toHaveLength(4);
+    expect(JSON.stringify(updated.rest)).toBe(restSnapshot);
+    expect(deps.SaveManager.markDirty).toHaveBeenCalledTimes(1);
+    // No prepared-selection field is written anywhere by Level Up.
+    expect(updated.build.spellcasting?.cleric?.preparedIds ?? []).toEqual([]);
+
+    controller.destroy();
+  });
+
   it("cancels safely when the active character changes while the flow is open", () => {
     const character = makeLeveledBuilderCharacter();
     const other = { id: "char_other", name: "Other", build: null };

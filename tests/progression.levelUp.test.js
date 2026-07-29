@@ -300,7 +300,7 @@ describe("known spells, cantrips, and the wizard spellbook", () => {
     expect(plan.spellcastingDelta).toEqual([]);
   });
 
-  it("Wizard 1 → 2 reports spellbook additions and capacity info, never a prepared list", () => {
+  it("Wizard 1 → 2 reports spellbook additions, never a prepared list or capacity", () => {
     const plan = getLevelUpPlan(
       makeBuild({ levels: levelsOf("wizard"), base: { str: 8, dex: 14, con: 13, int: 15, wis: 10, cha: 10 } }),
       "wizard",
@@ -310,12 +310,15 @@ describe("known spells, cantrips, and the wizard spellbook", () => {
     expect(wizardDelta.spellbookGained).toBe(SPELLBOOK_SPELLS_PER_LEVEL);
     expect(wizardDelta.cantripsGained).toBe(0); // 3 → 3
     expect(wizardDelta.knownGained).toBe(0); // spellbook mode never uses knownGained
-    // Prepared capacity: Int 16 (+3): 1+3=4 → 2+3=5.
-    expect(wizardDelta.preparedCapacityBefore).toBe(4);
-    expect(wizardDelta.preparedCapacityAfter).toBe(5);
+    // C2-C: prepared capacity is not this plan's to report. A build alone
+    // cannot answer it (overrides.abilities, spellbook candidates), so
+    // getPreparedSpellCapacityChanges() owns it over character-shaped views.
+    expect(wizardDelta).not.toHaveProperty("preparedCapacityBefore");
+    expect(wizardDelta).not.toHaveProperty("preparedCapacityAfter");
     // No field in the plan carries a prepared-spell selection.
     expect(JSON.stringify(plan)).not.toContain("preparedIds");
     expect(JSON.stringify(plan)).not.toContain("preparedByClass");
+    expect(JSON.stringify(plan)).not.toContain("preparedCapacity");
   });
 
   it("multiclassing into Wizard grants the initial spellbook", () => {
@@ -332,7 +335,7 @@ describe("known spells, cantrips, and the wizard spellbook", () => {
     expect(wizardDelta.cantripsGained).toBe(3);
   });
 
-  it("prepared casters report capacity and new slot levels only", () => {
+  it("prepared casters report new slot levels only, never a prepared capacity", () => {
     const plan = getLevelUpPlan(
       makeBuild({
         levels: levelsOf("cleric", "cleric"),
@@ -343,12 +346,28 @@ describe("known spells, cantrips, and the wizard spellbook", () => {
       registry
     );
     const clericDelta = plan.spellcastingDelta.find((delta) => delta.classId === "cleric");
-    // Wis 16 (+3): capacity 2+3=5 → 3+3=6; cleric 3 unlocks 2nd-level slots.
-    expect(clericDelta.preparedCapacityBefore).toBe(5);
-    expect(clericDelta.preparedCapacityAfter).toBe(6);
-    expect(clericDelta.newSpellLevels).toEqual([2]);
+    expect(clericDelta.newSpellLevels).toEqual([2]); // cleric 3 unlocks 2nd level
     expect(clericDelta.knownGained).toBe(0);
     expect(clericDelta.spellbookGained).toBe(0);
+    expect(clericDelta).not.toHaveProperty("preparedCapacityBefore");
+    expect(clericDelta).not.toHaveProperty("preparedCapacityAfter");
+  });
+
+  it("a prepared caster whose only change would be capacity gets no delta entry", () => {
+    // Cleric 5 → 6 grants no cantrip, no new spell level, and no Life Domain
+    // grant. Before C2-C the build-only capacity formula manufactured a delta
+    // entry here; capacity now lives in the shared prepared-spell plan.
+    const plan = getLevelUpPlan(
+      makeBuild({
+        levels: levelsOf("cleric", "cleric", "cleric", "cleric", "cleric"),
+        subclassByClass: { cleric: "life" },
+        base: { str: 8, dex: 14, con: 13, int: 10, wis: 15, cha: 10 }
+      }),
+      "cleric",
+      registry
+    );
+    expect(plan.toLevel).toBe(6);
+    expect(plan.spellcastingDelta).toEqual([]);
   });
 
   it("newly reached granted subclass spells appear as granted, not choices", () => {

@@ -7,6 +7,15 @@
 // an isolated draft; nothing mutates character state until the caller's apply
 // callback commits it in one mutation. Prepared-spell selection never happens
 // here — prepared casters get capacity information only (see rest-rules-spec).
+//
+// That capacity is never computed in this module. It comes from
+// `getPreparedSpellCapacityChanges()`, which reads the shared prepared-spell
+// plan on both sides of the level (C2-C): BEFORE is the real character, so its
+// `overrides.abilities`, stored spellbook, and grants count; AFTER is that same
+// character shell carrying this flow's draft build, so a pending ASI,
+// ability-granting feat, subclass, or spellbook addition counts too. The number
+// shown is therefore the candidate-bounded `effectiveCapacity` the Long Rest
+// picker will enforce, per prepared class.
 
 import {
   clonePlainBuild,
@@ -30,6 +39,10 @@ import {
   setLevelHpAt
 } from "../../domain/rules/progression.js";
 import {
+  getPreparedSpellCapacityChanges,
+  isPreparedCasterMode
+} from "../../domain/rules/preparedSpells.js";
+import {
   makeSelect,
   renderAsiSlot,
   renderMultiPickChoice
@@ -40,6 +53,7 @@ import { getNoopDestroyApi, requireMany } from "../../utils/domGuards.js";
 
 /** @typedef {import("../../state.js").CharacterBuildState} CharacterBuildState */
 /** @typedef {import("../../domain/rules/progression.js").LevelUpPlan} LevelUpPlan */
+/** @typedef {import("../../domain/rules/preparedSpells.js").PreparedSpellCapacityChange} PreparedSpellCapacityChange */
 
 const STEP_CLASS = "class";
 const STEP_SUBCLASS = "subclass";
@@ -53,6 +67,8 @@ const STEP_ORDER = Object.freeze([
 ]);
 
 const EXPERTISE_CHOICE_COUNT = 2;
+// An unknown prepared capacity stays unknown. It is never rendered as 0.
+const CAPACITY_UNKNOWN_LABEL = "unknown";
 const ORDINALS = Object.freeze([
   "Cantrips", "1st Level", "2nd Level", "3rd Level", "4th Level",
   "5th Level", "6th Level", "7th Level", "8th Level", "9th Level"
@@ -84,6 +100,25 @@ function cleanString(value) {
  */
 function signedNumber(value) {
   return value >= 0 ? `+${value}` : String(value);
+}
+
+/**
+ * The user-visible prepared-capacity value: `before → after` when the level
+ * actually moves it, the resulting value alone otherwise. A capacity that is
+ * unknown on either side reads as "unknown" — never as 0 — and a class that is
+ * only becoming a prepared caster now has no meaningful "before" to show.
+ * @param {PreparedSpellCapacityChange} change
+ * @returns {string}
+ */
+function describeCapacityChange(change) {
+  const after = change.capacityAfter == null
+    ? CAPACITY_UNKNOWN_LABEL
+    : String(change.capacityAfter);
+  if (change.isNewCaster || change.capacityBefore === change.capacityAfter) return after;
+  const before = change.capacityBefore == null
+    ? CAPACITY_UNKNOWN_LABEL
+    : String(change.capacityBefore);
+  return `${before} → ${after}`;
 }
 
 /**
@@ -345,7 +380,14 @@ export function initLevelUpWizard(deps = {}) {
     if (step === STEP_SUBCLASS) return !!basePlan?.subclassRequired;
     if (step === STEP_FEATURES) return plan.newFeatureIds.length > 0;
     if (step === STEP_ASI) return !!plan.asiSlot;
-    if (step === STEP_SPELLS) return plan.spellcastingDelta.length > 0;
+    if (step === STEP_SPELLS) {
+      // A prepared caster's capacity can move without the appended level
+      // granting it anything — a multiclass ASI raising the spellcasting
+      // ability of a class the new level does not even belong to. The
+      // informational step must still appear so that change is visible.
+      return plan.spellcastingDelta.length > 0 ||
+        getPreparedCapacityChanges().some((change) => change.changed);
+    }
     return true;
   }
 
@@ -391,6 +433,28 @@ export function initLevelUpWizard(deps = {}) {
       return deriveCharacter({ ...beforeCharacter, build: draft.build }, getActiveContentRegistry());
     } catch {
       return null;
+    }
+  }
+
+  /**
+   * Prepared capacity before → after for every prepared caster the leveled
+   * character will have, owned by `getPreparedSpellCapacityChanges()`.
+   *
+   * Recomputed on demand rather than cached, because it has to reflect the
+   * draft as it stands right now: an ASI or feat chosen on the ASI step and a
+   * spellbook addition ticked on the Spells step both move it.
+   * @returns {PreparedSpellCapacityChange[]}
+   */
+  function getPreparedCapacityChanges() {
+    if (!beforeCharacter || !draft) return [];
+    try {
+      return getPreparedSpellCapacityChanges(
+        beforeCharacter,
+        { ...beforeCharacter, build: draft.build },
+        getActiveContentRegistry()
+      );
+    } catch {
+      return [];
     }
   }
 
@@ -639,6 +703,49 @@ export function initLevelUpWizard(deps = {}) {
     /** @param {string} spellId @returns {string} */
     const spellName = (spellId) => getContentByKind(registry, "spell", spellId)?.name || spellId;
 
+    // Prepared capacity comes from the shared plan on both sides of the level,
+    // never from this module and never from the progression delta.
+    const capacityByClass = new Map(
+      getPreparedCapacityChanges().map((change) => [change.classId, change])
+    );
+    /** @type {Map<string, HTMLElement>} */
+    const capacityValueEls = new Map();
+
+    /**
+     * The informational "Prepared capacity" row plus the standing explanation
+     * that the selection itself happens at a Long Rest.
+     * @param {HTMLElement} section
+     * @param {string} classId
+     */
+    const renderPreparedCapacity = (section, classId) => {
+      const change = capacityByClass.get(classId);
+      if (change) {
+        const row = el(section, "div", "levelUpInfoRow");
+        el(row, "span", "builderSummaryLabel", "Prepared capacity");
+        const value = el(row, "span", "builderSummaryValue levelUpPreparedCapacityValue",
+          describeCapacityChange(change));
+        value.dataset.classId = classId;
+        capacityValueEls.set(classId, value);
+      }
+      el(section, "p", "builderAbilityMethodNote",
+        "Prepared spells are chosen when finishing a Long Rest, not here.");
+    };
+
+    /**
+     * Re-reads the shared plan and updates the rendered capacity values in
+     * place. A wizard's spellbook *is* its prepared candidate set, so ticking a
+     * pending spellbook addition can raise the resulting capacity — up to the
+     * class formula, never past it.
+     */
+    const refreshPreparedCapacity = () => {
+      if (!capacityValueEls.size) return;
+      const next = new Map(getPreparedCapacityChanges().map((change) => [change.classId, change]));
+      for (const [classId, node] of capacityValueEls) {
+        const change = next.get(classId);
+        if (change) node.textContent = describeCapacityChange(change);
+      }
+    };
+
     for (const delta of plan.spellcastingDelta) {
       const section = el(spellsBody, "section", "builderSpellClassSection levelUpSpellSection");
       el(section, "h4", "builderWizardSubTitle", `${delta.className} Spellcasting`);
@@ -656,17 +763,8 @@ export function initLevelUpWizard(deps = {}) {
         : [];
 
       // Informational lines: prepared capacity and newly available levels.
-      if (delta.preparationMode === "prepared" || delta.preparationMode === "spellbook") {
-        if (delta.preparedCapacityAfter != null) {
-          const row = el(section, "div", "levelUpInfoRow");
-          el(row, "span", "builderSummaryLabel", "Prepared capacity");
-          el(row, "span", "builderSummaryValue",
-            delta.preparedCapacityBefore != null && delta.preparedCapacityBefore !== delta.preparedCapacityAfter
-              ? `${delta.preparedCapacityBefore} → ${delta.preparedCapacityAfter}`
-              : String(delta.preparedCapacityAfter));
-        }
-        el(section, "p", "builderAbilityMethodNote",
-          "Prepared spells are chosen when finishing a Long Rest, not here.");
+      if (isPreparedCasterMode(delta.preparationMode)) {
+        renderPreparedCapacity(section, delta.classId);
       }
       if (delta.newSpellLevels.length) {
         const row = el(section, "div", "levelUpInfoRow");
@@ -693,15 +791,19 @@ export function initLevelUpWizard(deps = {}) {
       const selection = ensureSpellSelection(draft.build, delta.classId);
 
       /**
+       * `affectsPreparedCapacity` is set only for the wizard spellbook group:
+       * the spellbook is the prepared candidate set, so a pick there can move
+       * the displayed resulting capacity. Cantrip and known-spell picks cannot.
        * @param {{
        *   title: string,
        *   gained: number,
        *   listKey: "cantripIds" | "knownIds",
        *   spellLevels: number[],
-       *   locked: string[]
+       *   locked: string[],
+       *   affectsPreparedCapacity?: boolean
        * }} config
        */
-      const renderDeltaPicker = ({ title, gained, listKey, spellLevels, locked }) => {
+      const renderDeltaPicker = ({ title, gained, listKey, spellLevels, locked, affectsPreparedCapacity = false }) => {
         if (gained <= 0) return;
         const group = el(section, "div", "builderSpellGroup levelUpSpellGroup");
         const head = el(group, "div", "builderSpellGroupHead");
@@ -747,6 +849,7 @@ export function initLevelUpWizard(deps = {}) {
               ids.splice(index, 1);
             }
             refresh();
+            if (affectsPreparedCapacity) refreshPreparedCapacity();
           }, { signal });
           checkboxes.push(checkbox);
           label.appendChild(checkbox);
@@ -783,9 +886,22 @@ export function initLevelUpWizard(deps = {}) {
           gained: delta.spellbookGained,
           listKey: "knownIds",
           spellLevels: Array.from({ length: maxSpellLevel }, (_, i) => i + 1),
-          locked: lockedKnown
+          locked: lockedKnown,
+          affectsPreparedCapacity: true
         });
       }
+    }
+
+    // A prepared caster the appended level grants nothing to can still have its
+    // capacity moved — a multiclass ASI or ability-granting feat raising that
+    // class's spellcasting ability. Those classes get no progression delta, so
+    // they are reported here, informationally, in plan order.
+    const deltaClassIds = new Set(plan.spellcastingDelta.map((delta) => delta.classId));
+    for (const change of capacityByClass.values()) {
+      if (deltaClassIds.has(change.classId) || !change.changed) continue;
+      const section = el(spellsBody, "section", "builderSpellClassSection levelUpSpellSection");
+      el(section, "h4", "builderWizardSubTitle", `${change.className} Spellcasting`);
+      renderPreparedCapacity(section, change.classId);
     }
   }
 

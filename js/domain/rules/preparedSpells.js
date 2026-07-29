@@ -5,8 +5,11 @@
 // data answering "what may this character prepare right now, and how many of
 // those may it hold?". It is the single source of truth for:
 //
-//   1. `getBuilderPreparedSpellOptions()` (the Long Rest dialog's data), and
-//   2. `validateBuilderPreparedSpellSelections()` (the commit guard).
+//   1. `getBuilderPreparedSpellOptions()` (the Long Rest dialog's data),
+//   2. `validateBuilderPreparedSpellSelections()` (the commit guard),
+//   3. `getDraftPreparedSpellPlan()` (the creation picker, C2-A), and
+//   4. `getPreparedSpellCapacityChanges()` (the Level Up before → after
+//      capacity display, C2-C — see the bottom of this file).
 //
 // The formulas live here so no UI module reproduces prepared capacity, class
 // spell lists, spellbook filtering, grant exclusion, or multiclass spell-level
@@ -80,6 +83,20 @@ export const PREPARED_LIMITED_BY = Object.freeze({
  *   selectedCount: number,
  *   effectiveCapacity: number
  * }} PreparedSpellUnderfillShortfall
+ */
+
+/**
+ * @typedef {{
+ *   classId: string,
+ *   className: string,
+ *   preparationMode: string,
+ *   capacityBefore: number | null,
+ *   capacityAfter: number | null,
+ *   limitedByBefore: "formula" | "candidates" | "unknown" | null,
+ *   limitedByAfter: "formula" | "candidates" | "unknown",
+ *   isNewCaster: boolean,
+ *   changed: boolean
+ * }} PreparedSpellCapacityChange
  */
 
 /**
@@ -325,4 +342,55 @@ export function getPreparedSpellPlan(character, registry) {
     });
   }
   return plan;
+}
+
+/**
+ * Prepared capacity a character has now versus the capacity a projected
+ * version of that character would have — both sides read through
+ * `getPreparedSpellPlan()`, so neither is a second capacity formula.
+ *
+ * Level Up is the caller (C2-C). `beforeCharacter` is the real active
+ * character, so `overrides.abilities`, the stored spellbook, and granted
+ * spells are all included. `afterCharacter` is that same character shell
+ * carrying the isolated Level Up draft build, so the pending level, a pending
+ * subclass, a pending ASI or ability-granting feat, and pending spellbook
+ * additions are all included. The reported numbers are the candidate-bounded
+ * `effectiveCapacity` the Long Rest picker will actually enforce, per class,
+ * from that class's own level and casting progression.
+ *
+ * One entry per prepared caster of the **projected** character, in plan order.
+ * Build levels only ever append, so a class that is a prepared caster now is
+ * still one afterwards; an entry present only on the before side could come
+ * from registry content disappearing mid-flow, which is a resolution artifact
+ * rather than a capacity change, and is deliberately not reported.
+ *
+ * A `null` capacity means unknown on that side and is never coerced to `0`.
+ *
+ * Pure: reads both characters and the registry only, mutates nothing, and
+ * never throws.
+ *
+ * @param {unknown} beforeCharacter
+ * @param {unknown} afterCharacter
+ * @param {ContentRegistry} registry
+ * @returns {PreparedSpellCapacityChange[]}
+ */
+export function getPreparedSpellCapacityChanges(beforeCharacter, afterCharacter, registry) {
+  const beforePlan = getPreparedSpellPlan(/** @type {any} */ (beforeCharacter), registry);
+  const afterPlan = getPreparedSpellPlan(/** @type {any} */ (afterCharacter), registry);
+  const beforeByClass = new Map(beforePlan.map((entry) => [entry.classId, entry]));
+
+  return afterPlan.map((after) => {
+    const before = beforeByClass.get(after.classId) ?? null;
+    return {
+      classId: after.classId,
+      className: after.className,
+      preparationMode: after.preparationMode,
+      capacityBefore: before ? before.effectiveCapacity : null,
+      capacityAfter: after.effectiveCapacity,
+      limitedByBefore: before ? before.limitedBy : null,
+      limitedByAfter: after.limitedBy,
+      isNewCaster: !before,
+      changed: !before || before.effectiveCapacity !== after.effectiveCapacity
+    };
+  });
 }

@@ -34,6 +34,10 @@ Read with [`AGENTS.md`](../../AGENTS.md) (wins on conflict) and
 > prepared path now confirm an underfilled resulting list inline; creation Summary includes a
 > neutral prepared-count review block and direct return path; live prepared counts announce
 > politely — see §4.5.
+>
+> **Level Up Prepared Capacity C2-C (2026-07-29).** Level Up no longer computes prepared
+> capacity from build abilities. It reads the shared plan on both sides of the pending level,
+> so the number it displays is the one a Long Rest will enforce — see §4.6.
 
 ---
 
@@ -379,6 +383,57 @@ isolation, and the one-mutation/one-dirty-mark contract are unchanged.
 an alert and receives focus when it appears; the existing dialog focus trap and keyboard
 paths remain authoritative.
 
+### 4.6 Level Up reports the same capacity (C2-C, 2026-07-29)
+
+Level Up is informational about prepared spells — it reports capacity and routes the
+selection to a Long Rest ([`level-up-flow-spec.md`](./level-up-flow-spec.md) §10.3). Until
+C2-C the number it reported was its own: `getLevelUpPlan()` derived it from
+`getBuildAbilityTotals()`, which meant it ignored `overrides.abilities`, excluded the ASI or
+ability-granting feat being chosen in that very flow, showed the raw `formulaCapacity` rather
+than the candidate-bounded `effectiveCapacity`, ignored a wizard's actual spellbook, and could
+not notice a capacity change to a prepared class the appended level does not belong to. A
+Level Up could therefore promise a capacity the following Long Rest refused to honour.
+
+`getPreparedSpellCapacityChanges(beforeCharacter, afterCharacter, registry)` in
+`js/domain/rules/preparedSpells.js` is the shipped answer. It calls `getPreparedSpellPlan()`
+on two **character-shaped views** and diffs their `effectiveCapacity` per prepared caster:
+
+- **before** — the real active character, so its `overrides.abilities`, stored spellbook, and
+  granted spells all count;
+- **after** — that same character shell carrying Level Up's isolated draft build, so the
+  pending level, a pending subclass, a pending ASI or ability-granting feat, and pending
+  spellbook additions all count.
+
+Both sides therefore inherit §4.1 in full: per-class levels and casting progression (a half
+caster still uses `floor(level / 2)`), each class's own spell-level ceiling rather than the
+combined multiclass slot array, granted-spell exclusion, spellbook-bounded candidates, and
+`null` for unknown. Each entry reports `capacityBefore`, `capacityAfter`, `limitedByBefore`,
+`limitedByAfter`, `isNewCaster`, and `changed`. The function is pure, never throws, and
+reports one entry per prepared caster of the projected character — build levels only append,
+so a before-only entry would be a content-resolution artifact, not a capacity change.
+
+**`getLevelUpPlan()` no longer carries prepared capacity at all.** Its
+`preparedCapacityBefore` / `preparedCapacityAfter` delta fields and their local formula are
+gone rather than left as a second, disagreeing owner, and a prepared caster whose only change
+would be capacity no longer produces a `spellcastingDelta` entry. The plan still reports
+newly reached spell levels, newly granted spells, and cantrip / known / spellbook deltas.
+
+**Presentation stays informational.** The existing **Prepared capacity** row and the existing
+"Prepared spells are chosen when finishing a Long Rest, not here." explanation are unchanged
+in kind. The row shows `before → after` when the level moves the value and the resulting value
+alone when it does not; an unknown capacity reads `unknown` and is never rendered as `0`; a
+class only becoming a prepared caster now shows its resulting value with no misleading
+"before". The informational Spells step becomes available whenever any prepared caster's
+capacity moves — including a multiclass ASI that raises the spellcasting ability of a class
+the newly gained (possibly non-spellcasting) level does not touch — and the displayed value is
+recomputed rather than cached, so a pending wizard spellbook pick updates it in place, bounded
+by that class's formula.
+
+**Ownership is unchanged.** Level Up still never opens the Long Rest prepared selector, adds
+no prepared picker, writes no legacy `build.spellcasting[classId].preparedIds`, and preserves
+`rest.preparedByClass` byte-for-byte on open, navigation, cancel, and a successful Apply. C2-C
+adds **no persisted field, no acknowledgement, no schema change, and no migration**.
+
 ---
 
 ## 5. P0 implementation coverage
@@ -402,12 +457,14 @@ paths remain authoritative.
 - **Prepared Underfill and Summary C2-B (2026-07-28)** made a legal short list deliberate at
   creation Finish and on every Long Rest path, added the creation Summary review/return
   surface, and announced live prepared counts without persisting acknowledgement. See §4.5.
+- **Level Up Prepared Capacity C2-C (2026-07-29)** removed the last competing capacity
+  formula: Level Up now reports the shared plan's `effectiveCapacity` before and after the
+  pending level, including ability adjustments, the pending ASI or feat, a wizard's real
+  spellbook, and a multiclass class the appended level does not touch. See §4.6.
 
-**Still open after C2-B:** the Level Up capacity divergence (`getLevelUpPlan()` computes
-capacity from build abilities only, so it disagrees with the Long Rest value when
-`overrides.abilities` is set, and it excludes the pending level's ASI without saying so);
-`builderGranted` presentation in the Spells panel; the dead `getPreparedSpellCapacity()`
-accessor; and the duplicate `deriveCharacter()` call in the Long Rest patch path.
+**Still open after C2-C:** `builderGranted` presentation in the Spells panel; the dead
+`getPreparedSpellCapacity()` accessor; and the duplicate `deriveCharacter()` call in the Long
+Rest patch path.
 
 **Known limitation (pre-existing, documented not fixed):** the sheet stores one `prepared`
 boolean per spell row with no per-class attribution, while `rest.preparedByClass` is
@@ -546,6 +603,26 @@ Underfill/summary coverage (C2-B) extends `tests/preparedSpells.test.js`,
 - live counts carry the polite atomic status semantics in both flows;
 - the real keyboard paths, 380px layout, active-character isolation, sheet synchronization,
   and reload persistence remain covered in both dev and production-preview smoke gates.
+
+Level Up capacity coverage (C2-C) lives in `tests/levelUpPreparedCapacity.test.js`, with the
+plan contract pinned in `tests/progression.levelUp.test.js`, the byte-identity of prepared
+play-state through a real Apply in `tests/characterPage.test.js`, and two real-browser cases in
+`tests/smoke/levelUp.smoke.js`. Every negative case carries a positive control:
+
+- a stored ability adjustment moves both the current and the resulting capacity;
+- a pending ASI, and a pending ability-granting feat, each move the resulting capacity;
+- a multiclass ASI moves another class's capacity and makes the informational Spells step
+  available even though the appended level is non-spellcasting;
+- each prepared class uses its own class level and progression (a half caster still halves);
+- an under-filled wizard spellbook bounds the capacity below the formula, and a stocked one
+  does not;
+- selecting and deselecting pending spellbook additions moves the resulting capacity live and
+  stops at the class formula;
+- unknown capacity renders as `unknown`, never `0`;
+- `getLevelUpPlan()` exposes no prepared capacity, no prepared ids, and no prepared map, and a
+  capacity-only change produces no `spellcastingDelta` entry;
+- `rest.preparedByClass` is byte-identical after cancel and after a successful Apply, which
+  still marks dirty exactly once.
 
 Acceptance: no rest action silently fails, none affects the wrong character, unsupported
 recovery modes are left unchanged rather than guessed, and `npm run verify` plus

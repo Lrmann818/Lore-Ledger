@@ -996,8 +996,6 @@ function proficiencyBonusAtLevel(level) {
  *   cantripsGained: number,
  *   knownGained: number,
  *   spellbookGained: number,
- *   preparedCapacityBefore: number | null,
- *   preparedCapacityAfter: number | null,
  *   newSpellLevels: number[],
  *   grantedSpellIds: string[]
  * }} LevelUpSpellcastingDelta
@@ -1030,8 +1028,14 @@ function proficiencyBonusAtLevel(level) {
  * Computes everything one appended `classId` level newly unlocks, as a pure
  * before/after diff over (build, registry). This is the single place the
  * Level Up flow asks "does the new level grant X?". It never mutates the
- * build and never returns prepared-spell selections — prepared casters get
- * capacity/new-spell-level information only (selection stays in Long Rest).
+ * build and never returns prepared-spell selections.
+ *
+ * Prepared **capacity** is deliberately not part of this plan (C2-C). A build
+ * alone cannot answer it: capacity depends on `overrides.abilities` and on the
+ * candidate set (a wizard's spellbook), and it must equal the number Long Rest
+ * will enforce. `getPreparedSpellCapacityChanges()` in
+ * `js/domain/rules/preparedSpells.js` owns it, over character-shaped views.
+ * This plan reports newly reached spell levels and granted spells only.
  *
  * Returns null when the level cannot be appended: the build is already at
  * MAX_CHARACTER_LEVEL, the classId is blank, or the class is not in the
@@ -1120,21 +1124,6 @@ export function getLevelUpPlan(build, classId, registry) {
   const abilityTotals = getBuildAbilityTotals(build, registry);
   const profAfter = proficiencyBonusAtLevel(toLevel);
 
-  /**
-   * @param {ReturnType<typeof getSpellcastingClasses>[number]} caster
-   * @returns {number | null}
-   */
-  const preparedCapacity = (caster) => {
-    if (caster.preparationMode !== "prepared" && caster.preparationMode !== "spellbook") return null;
-    const total = abilityTotals[caster.ability];
-    if (total == null) return null;
-    const mod = Math.floor((total - 10) / 2);
-    const casterLevelPart = caster.progression === "half"
-      ? Math.floor(caster.classLevel / 2)
-      : caster.classLevel;
-    return Math.max(1, casterLevelPart + mod);
-  };
-
   /** @type {LevelUpSpellcastingDelta[]} */
   const spellcastingDelta = [];
   for (const after of castersAfter) {
@@ -1146,8 +1135,6 @@ export function getLevelUpPlan(build, classId, registry) {
     const spellbookGained = after.preparationMode === "spellbook" && after.classId === id
       ? (isNewClass ? SPELLBOOK_INITIAL_SPELLS : SPELLBOOK_SPELLS_PER_LEVEL)
       : 0;
-    const preparedCapacityAfter = preparedCapacity(after);
-    const preparedCapacityBefore = before ? preparedCapacity(before) : null;
 
     /** @type {number[]} */
     const newSpellLevels = [];
@@ -1168,8 +1155,10 @@ export function getLevelUpPlan(build, classId, registry) {
       .filter((grant) => grant.classId === after.classId && !grantedBeforeIds.has(grant.spellId))
       .map((grant) => grant.spellId))];
 
-    const capacityChanged = (preparedCapacityBefore ?? null) !== (preparedCapacityAfter ?? null);
-    if (cantripsGained || knownGained || spellbookGained || capacityChanged ||
+    // A prepared caster whose only change is capacity gets no delta entry:
+    // capacity is reported by getPreparedSpellCapacityChanges(), which the
+    // Level Up Spells step consults independently of this list.
+    if (cantripsGained || knownGained || spellbookGained ||
       newSpellLevels.length || grantedSpellIds.length || !before) {
       const casterClassEntry = getClassEntry(registry, after.classId);
       spellcastingDelta.push({
@@ -1180,8 +1169,6 @@ export function getLevelUpPlan(build, classId, registry) {
         cantripsGained,
         knownGained,
         spellbookGained,
-        preparedCapacityBefore,
-        preparedCapacityAfter,
         newSpellLevels,
         grantedSpellIds
       });
