@@ -348,11 +348,15 @@ export function openCharacterRestFlow(options) {
       }
       /** @type {Record<string, string[]> | undefined} */
       let preparedByClass;
+      // The underfill decision must follow the list that will actually survive
+      // this rest, never the picker's in-progress state. Choosing "No" submits
+      // nothing, so the stored selection stands and the shared decision falls
+      // back to each plan entry's own `selectedIds`; the picker overrides it
+      // only while "Yes" is the live answer. Selecting "Yes", editing, and
+      // returning to "No" therefore abandons those edits for the decision
+      // exactly as it abandons them for the commit.
       /** @type {Record<string, string[]>} */
       const resultingPreparedByClass = {};
-      for (const option of preparedOptions) {
-        resultingPreparedByClass[option.classId] = [...(preparedSelection.get(option.classId) || [])];
-      }
       if (type === "longRest" && changePrepared) {
         // Only classes the player actually changed are submitted. Everything
         // else — including a class whose stored list holds legacy or redundant
@@ -366,6 +370,7 @@ export function openCharacterRestFlow(options) {
             showValidation(`${option.className} can prepare at most ${limit} ${limit === 1 ? "spell" : "spells"}.`);
             return;
           }
+          resultingPreparedByClass[option.classId] = selected;
           if (!samePreparedSelection(option.selectedIds, selected)) {
             changedByClass[option.classId] = selected;
           }

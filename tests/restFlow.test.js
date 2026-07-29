@@ -240,6 +240,56 @@ describe("Long Rest prepared spells — C2-B underfill confirmation", () => {
     expect(await done).toEqual({ preparedByClass: { cleric: ["bless", "command"] } });
   });
 
+  // Independent-review finding F1. Choosing "Yes", editing, and returning to
+  // "No" abandons the edits: nothing is submitted, so the stored list is what
+  // survives the rest. The confirmation must follow that surviving list, never
+  // the picker state left behind in the hidden section.
+  it("ignores an abandoned full picker edit when 'No' keeps an underfilled stored list", async () => {
+    const character = cleric(["bless"]);
+    const done = openCharacterRestFlow({ type: "longRest", character });
+
+    choose("yes");
+    for (const spellId of ["bane", "command", "cure-wounds", "guiding-bolt", "healing-word"]) {
+      toggle(spellId, true);
+    }
+    expect(texts(".characterRestPreparedCount")).toEqual(["Cleric — 6 of 6 prepared"]);
+    choose("no");
+    // The abandoned edits are still sitting in the now-hidden picker…
+    expect(checkboxes().filter((box) => box.checked)).toHaveLength(6);
+
+    submitLongRest({ confirmUnderfill: false });
+
+    // …but the rest keeps the stored 1-of-6 list, so it still needs confirming,
+    // and the count reported is the surviving one.
+    expect(overlay()).not.toBeNull();
+    expect(overlay().querySelector(".characterRestValidation").textContent).toBe(
+      "Prepared spells are below capacity: Cleric has 1 of 6 prepared. Choose Take Long Rest Anyway to continue."
+    );
+
+    button("Take Long Rest Anyway").click();
+    expect(await done).toEqual({});
+  });
+
+  it("ignores an abandoned underfilled picker edit when 'No' keeps a full stored list", async () => {
+    const character = cleric(["bless", "bane", "command", "cure-wounds", "guiding-bolt", "healing-word"]);
+    const done = openCharacterRestFlow({ type: "longRest", character });
+
+    choose("yes");
+    for (const spellId of ["cure-wounds", "guiding-bolt", "healing-word"]) {
+      toggle(spellId, false);
+    }
+    expect(texts(".characterRestPreparedCount")).toEqual(["Cleric — 3 of 6 prepared"]);
+    choose("no");
+    expect(checkboxes().filter((box) => box.checked)).toHaveLength(3);
+
+    submitLongRest({ confirmUnderfill: false });
+
+    // The surviving list is the untouched full one: nothing to confirm, and
+    // nothing submitted.
+    expect(await done).toEqual({});
+    expect(document.getElementById("characterRestOverlay")).toBeNull();
+  });
+
   it("does not confirm a full list or an unknown capacity", async () => {
     const full = cleric(["bless"], { level: 1, wis: 6 });
     const fullDone = openCharacterRestFlow({ type: "longRest", character: full });
