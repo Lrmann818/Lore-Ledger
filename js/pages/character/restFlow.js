@@ -205,10 +205,23 @@ export function openCharacterRestFlow(options) {
             ));
           }
           refreshCount.set(option.classId, () => {
-            summaryCount.textContent = formatPreparedCount(option, selected.size);
+            // The always-visible count describes the path currently selected,
+            // matching what the underfill decision will evaluate: "No" keeps
+            // the stored list, so it reports that; "Yes" reports the
+            // in-progress draft. The draft itself is never discarded — it is
+            // simply not what survives while "No" is the answer.
+            const count = changePrepared ? selected.size : option.selectedIds.length;
+            const next = formatPreparedCount(option, count);
+            // This is a polite live region: rewriting identical text would
+            // re-announce a count that did not change.
+            if (summaryCount.textContent !== next) summaryCount.textContent = next;
           });
         });
         body.appendChild(summary);
+
+        const refreshSummaryCounts = () => {
+          for (const refresh of refreshCount.values()) refresh();
+        };
 
         const question = el("fieldset", "characterRestPreparedQuestion");
         question.appendChild(el("legend", "characterRestSectionTitle", "Would you like to change your prepared spells?"));
@@ -278,11 +291,14 @@ export function openCharacterRestFlow(options) {
           clearPreparedUnderfillConfirmation();
           changePrepared = true;
           if (preparedWrap) preparedWrap.hidden = false;
+          // The preserved draft is what survives again, so show its count.
+          refreshSummaryCounts();
         });
         no.addEventListener("change", () => {
           clearPreparedUnderfillConfirmation();
           changePrepared = false;
           if (preparedWrap) preparedWrap.hidden = true;
+          refreshSummaryCounts();
         });
         body.appendChild(preparedWrap);
       }

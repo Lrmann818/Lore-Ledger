@@ -256,6 +256,8 @@ describe("Long Rest prepared spells — C2-B underfill confirmation", () => {
     choose("no");
     // The abandoned edits are still sitting in the now-hidden picker…
     expect(checkboxes().filter((box) => box.checked)).toHaveLength(6);
+    // …but the visible count describes what "No" actually keeps.
+    expect(texts(".characterRestPreparedCount")).toEqual(["Cleric — 1 of 6 prepared"]);
 
     submitLongRest({ confirmUnderfill: false });
 
@@ -281,6 +283,7 @@ describe("Long Rest prepared spells — C2-B underfill confirmation", () => {
     expect(texts(".characterRestPreparedCount")).toEqual(["Cleric — 3 of 6 prepared"]);
     choose("no");
     expect(checkboxes().filter((box) => box.checked)).toHaveLength(3);
+    expect(texts(".characterRestPreparedCount")).toEqual(["Cleric — 6 of 6 prepared"]);
 
     submitLongRest({ confirmUnderfill: false });
 
@@ -288,6 +291,34 @@ describe("Long Rest prepared spells — C2-B underfill confirmation", () => {
     // nothing submitted.
     expect(await done).toEqual({});
     expect(document.getElementById("characterRestOverlay")).toBeNull();
+  });
+
+  it("restores the preserved picker draft, and its count, on returning to 'Yes'", async () => {
+    const character = cleric(["bless"]);
+    const done = openCharacterRestFlow({ type: "longRest", character });
+
+    choose("yes");
+    for (const spellId of ["bane", "command", "cure-wounds", "guiding-bolt", "healing-word"]) {
+      toggle(spellId, true);
+    }
+    expect(texts(".characterRestPreparedCount")).toEqual(["Cleric — 6 of 6 prepared"]);
+
+    choose("no");
+    expect(texts(".characterRestPreparedCount")).toEqual(["Cleric — 1 of 6 prepared"]);
+
+    choose("yes");
+    // Switching away and back neither discards nor resets the draft.
+    expect(texts(".characterRestPreparedCount")).toEqual(["Cleric — 6 of 6 prepared"]);
+    expect(checkboxes().filter((box) => box.checked)).toHaveLength(6);
+
+    // And the draft is genuinely intact, not merely displayed: submitting now
+    // commits the full list without any underfill confirmation.
+    submitLongRest({ confirmUnderfill: false });
+    const result = /** @type {{ preparedByClass: Record<string, string[]> }} */ (await done);
+    expect(Object.keys(result)).toEqual(["preparedByClass"]);
+    expect([...result.preparedByClass.cleric].sort()).toEqual(
+      ["bane", "bless", "command", "cure-wounds", "guiding-bolt", "healing-word"]
+    );
   });
 
   it("does not confirm a full list or an unknown capacity", async () => {
