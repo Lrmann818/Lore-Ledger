@@ -1342,6 +1342,11 @@ export function renderSpellsStep(ctx, container) {
       const groupHead = el(groupEl, "div", "builderSpellGroupHead");
       el(groupHead, "span", "builderSpellGroupTitle", group.title);
       const countEl = el(groupHead, "span", "builderSpellGroupCount", group.maxLabel());
+      if (group.prepared) {
+        countEl.setAttribute("role", "status");
+        countEl.setAttribute("aria-live", "polite");
+        countEl.setAttribute("aria-atomic", "true");
+      }
 
       if (group.prepared) {
         const limitNote = formatPreparedLimitNote(planEntry);

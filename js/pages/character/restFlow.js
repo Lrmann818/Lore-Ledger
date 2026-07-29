@@ -13,7 +13,10 @@ import {
   getLongRestHitDiceRecovery,
   getRestHitDicePools
 } from "../../domain/characterRest.js";
-import { samePreparedSelection } from "../../domain/rules/preparedSpells.js";
+import {
+  getPreparedSpellUnderfillShortfalls,
+  samePreparedSelection
+} from "../../domain/rules/preparedSpells.js";
 import { getActiveContentRegistry, getContentByKind } from "../../domain/rules/registry.js";
 
 function el(tag, className, text = "") {
@@ -93,6 +96,7 @@ export function openCharacterRestFlow(options) {
     const validation = el("p", "characterRestValidation");
     validation.hidden = true;
     validation.setAttribute("role", "alert");
+    validation.tabIndex = -1;
     body.appendChild(validation);
 
     /** @type {Map<string, HTMLInputElement>} */
@@ -103,10 +107,29 @@ export function openCharacterRestFlow(options) {
     const preparedSelection = new Map();
     let changePrepared = false;
     let preparedWrap = null;
+    /** @type {string | null} */
+    let preparedUnderfillConfirmationKey = null;
+    /** @type {HTMLButtonElement | null} */
+    let applyButton = null;
 
-    const showValidation = (message) => {
+    const showValidation = (message, kind = "error") => {
+      if (kind !== "prepared-underfill") {
+        preparedUnderfillConfirmationKey = null;
+        if (applyButton) applyButton.textContent = type === "shortRest" ? "Take Short Rest" : "Take Long Rest";
+      }
       validation.textContent = message;
+      validation.dataset.kind = kind;
       validation.hidden = false;
+    };
+
+    const clearPreparedUnderfillConfirmation = () => {
+      preparedUnderfillConfirmationKey = null;
+      if (applyButton) applyButton.textContent = type === "shortRest" ? "Take Short Rest" : "Take Long Rest";
+      if (validation.dataset.kind === "prepared-underfill") {
+        validation.textContent = "";
+        validation.hidden = true;
+        delete validation.dataset.kind;
+      }
     };
 
     const addPoolRows = ({ titleText, sourcePools, inputs, maximumKey }) => {
@@ -168,6 +191,9 @@ export function openCharacterRestFlow(options) {
 
           const summaryCount = el("p", "characterRestPreparedCount");
           summaryCount.dataset.classId = option.classId;
+          summaryCount.setAttribute("role", "status");
+          summaryCount.setAttribute("aria-live", "polite");
+          summaryCount.setAttribute("aria-atomic", "true");
           summary.appendChild(summaryCount);
           const limitNote = formatPreparedLimitNote(option);
           if (limitNote) summary.appendChild(el("p", "characterRestHint", limitNote));
@@ -238,6 +264,7 @@ export function openCharacterRestFlow(options) {
             checkbox.dataset.classId = option.classId;
             checkbox.dataset.spellId = spellId;
             checkbox.addEventListener("change", () => {
+              clearPreparedUnderfillConfirmation();
               if (checkbox.checked) selected.add(spellId);
               else selected.delete(spellId);
               refresh();
@@ -248,10 +275,12 @@ export function openCharacterRestFlow(options) {
           preparedWrap.appendChild(section);
         });
         yes.addEventListener("change", () => {
+          clearPreparedUnderfillConfirmation();
           changePrepared = true;
           if (preparedWrap) preparedWrap.hidden = false;
         });
         no.addEventListener("change", () => {
+          clearPreparedUnderfillConfirmation();
           changePrepared = false;
           if (preparedWrap) preparedWrap.hidden = true;
         });
@@ -264,6 +293,7 @@ export function openCharacterRestFlow(options) {
     cancel.type = "button";
     const apply = /** @type {HTMLButtonElement} */ (el("button", "npcSmallBtn", type === "shortRest" ? "Take Short Rest" : "Take Long Rest"));
     apply.type = "button";
+    applyButton = apply;
     footer.append(cancel, apply);
     panel.appendChild(footer);
     overlay.appendChild(panel);
@@ -318,6 +348,11 @@ export function openCharacterRestFlow(options) {
       }
       /** @type {Record<string, string[]> | undefined} */
       let preparedByClass;
+      /** @type {Record<string, string[]>} */
+      const resultingPreparedByClass = {};
+      for (const option of preparedOptions) {
+        resultingPreparedByClass[option.classId] = [...(preparedSelection.get(option.classId) || [])];
+      }
       if (type === "longRest" && changePrepared) {
         // Only classes the player actually changed are submitted. Everything
         // else — including a class whose stored list holds legacy or redundant
@@ -336,6 +371,36 @@ export function openCharacterRestFlow(options) {
           }
         }
         if (Object.keys(changedByClass).length) preparedByClass = changedByClass;
+      }
+      if (type === "longRest") {
+        const shortfalls = getPreparedSpellUnderfillShortfalls(
+          preparedOptions,
+          resultingPreparedByClass
+        );
+        if (shortfalls.length) {
+          const confirmationKey = JSON.stringify(shortfalls.map((item) => ({
+            classId: item.classId,
+            selectedIds: [...item.selectedIds].sort(),
+            effectiveCapacity: item.effectiveCapacity
+          })));
+          if (preparedUnderfillConfirmationKey !== confirmationKey) {
+            preparedUnderfillConfirmationKey = confirmationKey;
+            const counts = shortfalls.map((item) =>
+              `${item.className} has ${item.selectedCount} of ${item.effectiveCapacity} prepared`
+            );
+            showValidation(
+              `Prepared spells are below capacity: ${counts.join("; ")}. Choose Take Long Rest Anyway to continue.`,
+              "prepared-underfill"
+            );
+            apply.textContent = "Take Long Rest Anyway";
+            try {
+              validation.focus({ preventScroll: true });
+            } catch {
+              validation.focus();
+            }
+            return;
+          }
+        }
       }
       close(type === "shortRest"
         ? { spendByPool: readInputs(spendInputs) }

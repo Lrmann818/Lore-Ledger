@@ -73,6 +73,16 @@ export const PREPARED_LIMITED_BY = Object.freeze({
  */
 
 /**
+ * @typedef {{
+ *   classId: string,
+ *   className: string,
+ *   selectedIds: string[],
+ *   selectedCount: number,
+ *   effectiveCapacity: number
+ * }} PreparedSpellUnderfillShortfall
+ */
+
+/**
  * @param {unknown} value
  * @returns {boolean}
  */
@@ -162,6 +172,49 @@ export function samePreparedSelection(a, b) {
   if (left.length !== right.length) return false;
   const seen = new Set(left);
   return right.every((id) => seen.has(id));
+}
+
+/**
+ * Reports prepared casters whose resulting ordinary selection is below the
+ * effective capacity already calculated by the shared plan.
+ *
+ * Consumers may supply in-progress selections (the Long Rest picker); omitted
+ * classes use the plan's current `selectedIds` (creation Summary / Finish and
+ * Long Rest "No"). Unknown capacity and zero-capacity candidate sets never
+ * produce a shortfall. Supplied ids are restricted to current ordinary
+ * candidates so stale, granted, or otherwise invalid ids cannot masquerade as
+ * filling a legal prepared slot.
+ *
+ * Pure and transient: this is a confirmation decision, not persisted
+ * acknowledgement state.
+ *
+ * @param {PreparedSpellPlanEntry[]} plan
+ * @param {Record<string, unknown>} [selectedByClass]
+ * @returns {PreparedSpellUnderfillShortfall[]}
+ */
+export function getPreparedSpellUnderfillShortfalls(plan, selectedByClass = {}) {
+  if (!Array.isArray(plan)) return [];
+  const overrides = isPlainObject(selectedByClass) ? selectedByClass : {};
+  /** @type {PreparedSpellUnderfillShortfall[]} */
+  const shortfalls = [];
+
+  for (const entry of plan) {
+    if (!entry || entry.effectiveCapacity == null || entry.effectiveCapacity <= 0) continue;
+    const hasOverride = Object.prototype.hasOwnProperty.call(overrides, entry.classId);
+    const rawSelected = hasOverride ? overrides[entry.classId] : entry.selectedIds;
+    const candidates = new Set(entry.ordinaryCandidateIds);
+    const selectedIds = toIdList(rawSelected).filter((id) => candidates.has(id));
+    if (selectedIds.length >= entry.effectiveCapacity) continue;
+    shortfalls.push({
+      classId: entry.classId,
+      className: entry.className,
+      selectedIds,
+      selectedCount: selectedIds.length,
+      effectiveCapacity: entry.effectiveCapacity
+    });
+  }
+
+  return shortfalls;
 }
 
 /**

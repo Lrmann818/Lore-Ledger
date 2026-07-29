@@ -30,6 +30,12 @@ function button(label) {
   );
 }
 
+function submitLongRest({ confirmUnderfill = true } = {}) {
+  button("Take Long Rest").click();
+  const anyway = overlay() ? button("Take Long Rest Anyway") : null;
+  if (confirmUnderfill && anyway) anyway.click();
+}
+
 function choose(value) {
   const input = radio(value);
   input.checked = true;
@@ -77,6 +83,10 @@ describe("Long Rest prepared spells — counts", () => {
     const done = openCharacterRestFlow({ type: "longRest", character });
 
     expect(texts(".characterRestPreparedCount")).toEqual(["Cleric — 3 of 6 prepared"]);
+    const liveCount = /** @type {HTMLElement} */ (overlay().querySelector(".characterRestPreparedCount"));
+    expect(liveCount.getAttribute("role")).toBe("status");
+    expect(liveCount.getAttribute("aria-live")).toBe("polite");
+    expect(liveCount.getAttribute("aria-atomic")).toBe("true");
     expect(checkboxes().filter((box) => box.checked)).toHaveLength(3);
 
     button("Cancel").click();
@@ -176,6 +186,76 @@ describe("Long Rest prepared spells — honest limits", () => {
   });
 });
 
+describe("Long Rest prepared spells — C2-B underfill confirmation", () => {
+  it("requires explicit inline confirmation when the preselected 'No' keeps an underfilled list", async () => {
+    const character = cleric(["bless"]);
+    const done = openCharacterRestFlow({ type: "longRest", character });
+
+    submitLongRest({ confirmUnderfill: false });
+
+    expect(overlay()).not.toBeNull();
+    expect(radio("no").checked).toBe(true);
+    const validation = /** @type {HTMLElement} */ (overlay().querySelector(".characterRestValidation"));
+    expect(validation.hidden).toBe(false);
+    expect(validation.getAttribute("role")).toBe("alert");
+    expect(validation.textContent).toBe(
+      "Prepared spells are below capacity: Cleric has 1 of 6 prepared. Choose Take Long Rest Anyway to continue."
+    );
+    expect(button("Take Long Rest Anyway")).toBeTruthy();
+
+    button("Take Long Rest Anyway").click();
+    expect(await done).toEqual({});
+  });
+
+  it("requires the same confirmation for a no-edit 'Yes'", async () => {
+    const character = cleric(["bless", "command"]);
+    const done = openCharacterRestFlow({ type: "longRest", character });
+    choose("yes");
+
+    submitLongRest({ confirmUnderfill: false });
+    expect(overlay()).not.toBeNull();
+    expect(button("Take Long Rest Anyway")).toBeTruthy();
+
+    button("Take Long Rest Anyway").click();
+    expect(await done).toEqual({});
+  });
+
+  it("re-evaluates the edited 'Yes' result and invalidates a stale confirmation", async () => {
+    const character = cleric(["bless"]);
+    const done = openCharacterRestFlow({ type: "longRest", character });
+
+    submitLongRest({ confirmUnderfill: false });
+    expect(button("Take Long Rest Anyway")).toBeTruthy();
+
+    choose("yes");
+    expect(button("Take Long Rest")).toBeTruthy();
+    expect(/** @type {HTMLElement} */ (overlay().querySelector(".characterRestValidation")).hidden).toBe(true);
+    toggle("command", true);
+
+    submitLongRest({ confirmUnderfill: false });
+    expect(overlay()).not.toBeNull();
+    expect(overlay().querySelector(".characterRestValidation").textContent).toContain("2 of 6 prepared");
+
+    button("Take Long Rest Anyway").click();
+    expect(await done).toEqual({ preparedByClass: { cleric: ["bless", "command"] } });
+  });
+
+  it("does not confirm a full list or an unknown capacity", async () => {
+    const full = cleric(["bless"], { level: 1, wis: 6 });
+    const fullDone = openCharacterRestFlow({ type: "longRest", character: full });
+    submitLongRest({ confirmUnderfill: false });
+    expect(await fullDone).toEqual({});
+    expect(document.getElementById("characterRestOverlay")).toBeNull();
+
+    const unknown = cleric(["bless"]);
+    unknown.build.abilities.base.wis = null;
+    const unknownDone = openCharacterRestFlow({ type: "longRest", character: unknown });
+    submitLongRest({ confirmUnderfill: false });
+    expect(await unknownDone).toEqual({});
+    expect(document.getElementById("characterRestOverlay")).toBeNull();
+  });
+});
+
 describe("Long Rest prepared spells — granted spells", () => {
   const grantingSubclass = {
     id: "storm-custom",
@@ -220,7 +300,7 @@ describe("Long Rest prepared spells — submitted selection", () => {
     const done = openCharacterRestFlow({ type: "longRest", character });
     choose("yes");
     toggle("command", true);
-    button("Take Long Rest").click();
+    submitLongRest();
 
     expect(await done).toEqual({ preparedByClass: { cleric: ["bless", "command"] } });
   });
@@ -232,7 +312,7 @@ describe("Long Rest prepared spells — submitted selection", () => {
     // Uncheck and recheck: same spells, so this is not a change.
     toggle("bless", false);
     toggle("bless", true);
-    button("Take Long Rest").click();
+    submitLongRest();
 
     expect(await done).toEqual({});
   });
@@ -240,7 +320,7 @@ describe("Long Rest prepared spells — submitted selection", () => {
   it("omits prepared spells when 'No' is kept", async () => {
     const character = cleric(["bless"]);
     const done = openCharacterRestFlow({ type: "longRest", character });
-    button("Take Long Rest").click();
+    submitLongRest();
 
     expect(await done).toEqual({});
   });

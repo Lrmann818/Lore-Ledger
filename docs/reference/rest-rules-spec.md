@@ -29,6 +29,11 @@ Read with [`AGENTS.md`](../../AGENTS.md) (wins on conflict) and
 > `getPreparedSpellPlan()` as Long Rest instead of deriving its own candidates and capacity,
 > enforces `effectiveCapacity`, and validates the draft before a character can exist — see
 > §4.4.
+>
+> **Prepared Underfill and Summary C2-B (2026-07-28).** Creation Finish and every Long Rest
+> prepared path now confirm an underfilled resulting list inline; creation Summary includes a
+> neutral prepared-count review block and direct return path; live prepared counts announce
+> politely — see §4.5.
 
 ---
 
@@ -316,11 +321,63 @@ that an already-established runtime key wins over the wizard draft is preserved,
 Builder still cannot overwrite play-state. A class with no plan entry keeps the previous
 verbatim behavior, so unresolvable content fails soft and nothing is silently dropped.
 
-**Creation underfill remains permitted and silent in C2-A.** Underfill confirmation, a
-Summary prepared row, and the `aria-live` count announcement are C2-B. Under-cap
-*opportunity* UI and persisted acknowledgement for cantrips, known spells, and the wizard
-spellbook — including that shared handler's permissive over-cap behavior — remain R5-B2.
-**No schema change, no migration, no new persisted field, and no persisted acknowledgement.**
+**Creation underfill remains legal.** C2-B adds the deliberate inline confirmation, Summary
+review row, and `aria-live` count announcement described below. Under-cap *opportunity* UI
+and persisted acknowledgement for cantrips, known spells, and the wizard spellbook —
+including that shared handler's permissive over-cap behavior — remain R5-B2. **No schema
+change, no migration, no new persisted field, and no persisted prepared acknowledgement.**
+
+### 4.5 Underfill confirmation, Summary, and live counts (C2-B, 2026-07-28)
+
+An ordinary prepared list may legally hold fewer spells than `effectiveCapacity`, but ending
+creation or a Long Rest with that shortfall must be deliberate.
+`getPreparedSpellUnderfillShortfalls(plan, selectedByClass?)` in
+`js/domain/rules/preparedSpells.js` is the pure shared decision:
+
+- it compares the **resulting** legal ordinary ids with each plan entry's
+  `effectiveCapacity`;
+- an omitted class uses the plan's current `selectedIds`, while the Long Rest picker may
+  supply its in-progress list;
+- supplied ids are restricted to `ordinaryCandidateIds`, so a stale, invalid, or granted id
+  cannot count as filling a legal slot;
+- a full list, a zero-capacity candidate set, and unknown capacity produce no shortfall.
+
+The result is transient. There is no stored acknowledgement, schema field, migration,
+load-time repair, or new modal.
+
+**Creation Finish.** This applies only while creating a new character. Edit in Builder is
+excluded: after creation, its draft `preparedIds` are not authoritative play-state and must
+not be presented as though they were. On the first underfilled Finish:
+
+- the wizard remains open on Summary;
+- an inline alert names each class's `current / effective` count;
+- no character, prepared state, sheet seed, dirty mark, or save is produced;
+- the action becomes **Finish Anyway**.
+
+A second activation proceeds only while the exact selected ids and effective capacities are
+unchanged. Editing the draft invalidates that transient confirmation.
+
+Creation Summary includes its own neutral **Prepared for play** block, separate from both
+required-choice and R5-B2 under-cap guidance. Its row reads **Prepared spells** and shows
+each prepared class's `current / effective capacity` (or `capacity unknown`); **Review
+prepared spells** returns directly to the Spells step.
+
+**Long Rest.** The same inline two-step confirmation applies to all resulting paths:
+
+- the preselected **No** (it is not acknowledgement merely because it is the default);
+- an edited **Yes**;
+- a no-edit **Yes**.
+
+The first Apply leaves the dialog open, reports the class counts in its existing alert, and
+changes the action to **Take Long Rest Anyway**. A radio or prepared-list change clears that
+prompt and requires a fresh evaluation. The second activation returns the same selection
+shape the rest flow already used, so rest application, prepared merging, active-character
+isolation, and the one-mutation/one-dirty-mark contract are unchanged.
+
+**Accessibility.** The live prepared count on both creation and Long Rest uses
+`role="status"`, `aria-live="polite"`, and `aria-atomic="true"`. The inline confirmation is
+an alert and receives focus when it appears; the existing dialog focus trap and keyboard
+paths remain authoritative.
 
 ---
 
@@ -342,11 +399,12 @@ spellbook — including that shared handler's permissive over-cap behavior — r
 - **Creation Prepared Correctness C2-A (2026-07-28)** made creation consume the same plan,
   enforced `effectiveCapacity`, and added defensive pre-Finish validation so creation can no
   longer persist a list Long Rest would reject. See §4.4.
+- **Prepared Underfill and Summary C2-B (2026-07-28)** made a legal short list deliberate at
+  creation Finish and on every Long Rest path, added the creation Summary review/return
+  surface, and announced live prepared counts without persisting acknowledgement. See §4.5.
 
-**Still open after C2-A:** underfill confirmation at creation Finish and at Long Rest, a
-Summary prepared row and its return path, an `aria-live` announcement for the live prepared
-count (all **C2-B**); the Level Up capacity divergence (`getLevelUpPlan()` computes capacity
-from build abilities only, so it disagrees with the Long Rest value when
+**Still open after C2-B:** the Level Up capacity divergence (`getLevelUpPlan()` computes
+capacity from build abilities only, so it disagrees with the Long Rest value when
 `overrides.abilities` is set, and it excludes the pending level's ASI without saying so);
 `builderGranted` presentation in the Spells panel; the dead `getPreparedSpellCapacity()`
 accessor; and the duplicate `deriveCharacter()` call in the Long Rest patch path.
@@ -474,6 +532,20 @@ so it cannot pass because the prepared group failed to render:
   sheet without entering `rest.preparedByClass`.
 - Edit in Builder does not overwrite an established runtime prepared list.
 - Freeform characters are never written; cantrip/known-spell groups are pinned unchanged.
+
+Underfill/summary coverage (C2-B) extends `tests/preparedSpells.test.js`,
+`tests/restFlow.test.js`, `tests/characterPage.test.js`,
+`tests/smoke/preparedCreation.smoke.js`, and `tests/smoke/characterRest.smoke.js`:
+
+- the shared pure decision reports only legal ordinary shortfalls and skips full, zero, and
+  unknown capacities without mutating its plan;
+- creation's first underfilled Finish produces no character or dirty mark, Summary shows the
+  neutral count and direct return path, and the second exact-list confirmation succeeds;
+- Long Rest confirms preselected No, edited Yes, and no-edit Yes, while full/unknown lists
+  pass directly and a changed result invalidates a stale confirmation;
+- live counts carry the polite atomic status semantics in both flows;
+- the real keyboard paths, 380px layout, active-character isolation, sheet synchronization,
+  and reload persistence remain covered in both dev and production-preview smoke gates.
 
 Acceptance: no rest action silently fails, none affects the wrong character, unsupported
 recovery modes are left unchanged rather than guessed, and `npm run verify` plus

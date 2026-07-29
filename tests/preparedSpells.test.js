@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { makeDefaultBuilderCharacterEntry } from "../js/domain/characterHelpers.js";
 import {
   getPreparedSpellPlan,
+  getPreparedSpellUnderfillShortfalls,
   isPreparedCasterMode,
   PREPARED_LIMITED_BY,
   samePreparedSelection
@@ -119,6 +120,81 @@ describe("prepared spell plan — effective capacity", () => {
       expect(entry.limitedBy).toBe(PREPARED_LIMITED_BY.FORMULA);
       expect(entry.effectiveCapacity).toBe(entry.formulaCapacity);
     }
+  });
+});
+
+describe("prepared spell underfill — transient confirmation decision", () => {
+  it("reports the current legal list against effective capacity", () => {
+    const cleric = caster("cleric", "wis", 16, 3);
+    cleric.rest.preparedByClass = { cleric: ["bless", "command"] };
+    const plan = getPreparedSpellPlan(cleric, registry());
+
+    expect(getPreparedSpellUnderfillShortfalls(plan)).toEqual([{
+      classId: "cleric",
+      className: "Cleric",
+      selectedIds: ["bless", "command"],
+      selectedCount: 2,
+      effectiveCapacity: 6
+    }]);
+  });
+
+  it("evaluates an in-progress resulting list without mutating the plan", () => {
+    const cleric = caster("cleric", "wis", 6, 1);
+    const plan = getPreparedSpellPlan(cleric, registry());
+    const before = structuredClone(plan);
+
+    expect(getPreparedSpellUnderfillShortfalls(plan, { cleric: [] })).toEqual([{
+      classId: "cleric",
+      className: "Cleric",
+      selectedIds: [],
+      selectedCount: 0,
+      effectiveCapacity: 1
+    }]);
+    expect(getPreparedSpellUnderfillShortfalls(plan, { cleric: ["bless"] })).toEqual([]);
+    expect(plan).toEqual(before);
+  });
+
+  it("does not confirm full, zero-capacity, or unknown-capacity lists", () => {
+    const full = caster("cleric", "wis", 6, 1);
+    full.rest.preparedByClass = { cleric: ["bless"] };
+    expect(getPreparedSpellUnderfillShortfalls(getPreparedSpellPlan(full, registry()))).toEqual([]);
+
+    const unknown = caster("cleric", "wis", 16, 1);
+    unknown.build.abilities.base.wis = null;
+    expect(getPreparedSpellUnderfillShortfalls(getPreparedSpellPlan(unknown, registry()))).toEqual([]);
+
+    setActiveCustomContent([{
+      id: "oracle",
+      kind: "class",
+      name: "Oracle",
+      hitDie: 8,
+      spellcasting: {
+        ability: "wis",
+        preparationMode: "prepared",
+        progression: "full",
+        startLevel: 1,
+        slotsByLevel: [[2, 0, 0, 0, 0, 0, 0, 0, 0]]
+      }
+    }]);
+    const zero = caster("oracle", "wis", 16, 1);
+    expect(planFor(zero, "oracle").effectiveCapacity).toBe(0);
+    expect(getPreparedSpellUnderfillShortfalls(getPreparedSpellPlan(zero, registry()))).toEqual([]);
+  });
+
+  it("counts only eligible ordinary candidates from supplied selections", () => {
+    const cleric = caster("cleric", "wis", 6, 1);
+    const plan = getPreparedSpellPlan(cleric, registry());
+
+    expect(getPreparedSpellUnderfillShortfalls(plan, {
+      cleric: ["magic-missile", "bless", "bless", " "]
+    })).toEqual([]);
+    expect(getPreparedSpellUnderfillShortfalls(plan, {
+      cleric: ["magic-missile"]
+    })[0]).toMatchObject({
+      selectedIds: [],
+      selectedCount: 0,
+      effectiveCapacity: 1
+    });
   });
 });
 

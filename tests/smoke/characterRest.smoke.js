@@ -35,7 +35,16 @@ async function createRestCleric(page, name) {
   await page.locator("#builderWizardNext").click();
   await expect(page.locator("#builderWizardStepSummary")).toBeVisible();
   await page.locator("#builderWizardFinish").click();
+  if (await page.locator("#builderWizardFinish").textContent() === "Finish Anyway") {
+    await page.locator("#builderWizardFinish").click();
+  }
   await expect(page.locator("#builderWizardPanel")).toBeHidden();
+}
+
+async function takeLongRestThroughUnderfill(page) {
+  await page.getByRole("button", { name: "Take Long Rest", exact: true }).click();
+  const anyway = page.getByRole("button", { name: "Take Long Rest Anyway", exact: true });
+  if (await anyway.isVisible().catch(() => false)) await anyway.click();
 }
 
 /** The "Prepared" toggle state of a builder-managed row, by registry id. */
@@ -103,8 +112,15 @@ test("Long Rest prepared flow preserves No, applies Yes, and stays character-iso
   await expect(page.locator('input[name="characterRestPreparedChoice"][value="no"]')).toBeChecked();
   await expect(page.locator(".characterRestPreparedCount")).toBeVisible();
   await expect(page.locator(".characterRestPreparedCount")).toHaveText("Cleric — 1 of 4 prepared");
+  await expect(page.locator(".characterRestPreparedCount")).toHaveAttribute("role", "status");
+  await expect(page.locator(".characterRestPreparedCount")).toHaveAttribute("aria-live", "polite");
   await expect(page.locator(".characterRestPreparedLists")).toBeHidden();
-  await page.getByRole("button", { name: "Take Long Rest" }).click();
+  await page.getByRole("button", { name: "Take Long Rest", exact: true }).click();
+  // C2-B: preselected "No" is not automatic acknowledgement of an underfill.
+  await expect(page.locator("#characterRestOverlay")).toBeVisible();
+  await expect(page.locator(".characterRestValidation")).toHaveAttribute("role", "alert");
+  await expect(page.locator(".characterRestValidation")).toContainText("Cleric has 1 of 4 prepared");
+  await page.getByRole("button", { name: "Take Long Rest Anyway", exact: true }).click();
   await expect(page.locator("#characterRestOverlay")).toBeHidden();
   const afterNo = await page.evaluate(() => globalThis.__APP_STATE__.characters.entries.map((entry) => ({
     id: entry.id,
@@ -130,7 +146,9 @@ test("Long Rest prepared flow preserves No, applies Yes, and stays character-iso
   await page.locator('.characterRestSpellRow:has-text("Cure Wounds") input[type="checkbox"]').uncheck();
   // Both the summary line and the picker heading track the toggle.
   await expect(page.locator(".characterRestPreparedCount")).toHaveText("Cleric — 0 of 4 prepared");
-  await page.getByRole("button", { name: "Take Long Rest" }).click();
+  await page.getByRole("button", { name: "Take Long Rest", exact: true }).click();
+  await expect(page.locator(".characterRestValidation")).toContainText("Cleric has 0 of 4 prepared");
+  await page.getByRole("button", { name: "Take Long Rest Anyway", exact: true }).click();
   await expect(page.locator("#characterRestOverlay")).toBeHidden();
   await expect.poll(() => page.evaluate(() => {
     const cleric = globalThis.__APP_STATE__.characters.entries.find((entry) => entry?.build);
@@ -160,7 +178,7 @@ test("Long Rest prepared flow preserves No, applies Yes, and stays character-iso
   await page.evaluate(() => {
     globalThis.__APP_STATE__.characters.activeId = "char_rest_freeform";
   });
-  await page.getByRole("button", { name: "Take Long Rest" }).click();
+  await takeLongRestThroughUnderfill(page);
   await expect(page.locator("#characterRestOverlay")).toBeHidden();
   await expect(page.locator("#statusText")).toContainText("Rest was canceled because the active character changed.");
   const afterRace = await page.evaluate(() => globalThis.__APP_STATE__.characters.entries.map((entry) => ({
@@ -220,7 +238,7 @@ test("prepared deselection clears the sheet row on both Spells surfaces and surv
   await expect(page.locator("#characterRestOverlay")).toBeVisible();
   await page.locator('input[name="characterRestPreparedChoice"][value="yes"]').check();
   await page.locator('.characterRestSpellRow:has-text("Cure Wounds") input[type="checkbox"]').check();
-  await page.getByRole("button", { name: "Take Long Rest" }).click();
+  await takeLongRestThroughUnderfill(page);
   await expect(page.locator("#characterRestOverlay")).toBeHidden();
   await expect.poll(() => readPreparedToggles(page, "#page-character #spellLevels"))
     .toMatchObject({ "Cure Wounds": "true", "My Homebrew Ward": "true" });
@@ -242,7 +260,7 @@ test("prepared deselection clears the sheet row on both Spells surfaces and surv
   await expect(page.locator("#characterRestOverlay")).toBeVisible();
   await page.locator('input[name="characterRestPreparedChoice"][value="yes"]').check();
   await page.locator('.characterRestSpellRow:has-text("Cure Wounds") input[type="checkbox"]').uncheck();
-  await page.getByRole("button", { name: "Take Long Rest" }).click();
+  await takeLongRestThroughUnderfill(page);
   await expect(page.locator("#characterRestOverlay")).toBeHidden();
 
   await expect.poll(() => readPreparedToggles(page, "#page-character #spellLevels"))

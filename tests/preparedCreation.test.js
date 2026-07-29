@@ -381,7 +381,7 @@ describe("creation picker — non-prepared groups are unchanged", () => {
 /* ------------------------------------------------------------------ */
 
 describe("pre-Finish prepared validation", () => {
-  it("passes a valid full list and a valid underfilled list (no confirmation in C2-A)", () => {
+  it("passes valid full and underfilled lists to the separate C2-B confirmation stage", () => {
     const build = lifeClericBuild(3);
     const candidates = getDraftPreparedSpellPlan(build, registry)
       .find((entry) => entry.classId === "cleric").ordinaryCandidateIds;
@@ -389,7 +389,7 @@ describe("pre-Finish prepared validation", () => {
     selectionFor(build, "cleric").preparedIds = candidates.slice(0, 6);
     expect(getDraftPreparedValidationMessage(build, registry)).toBe("");
 
-    // Underfilled — allowed, and silent.
+    // Underfilled — valid; the wizard's C2-B Finish stage confirms it.
     selectionFor(build, "cleric").preparedIds = candidates.slice(0, 2);
     expect(getDraftPreparedValidationMessage(build, registry)).toBe("");
 

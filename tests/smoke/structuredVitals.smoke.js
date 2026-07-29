@@ -44,6 +44,8 @@ async function createBuilderCleric(page, { name = "Vitals Cleric" } = {}) {
   await page.locator("#builderWizardNext").click(); // → summary
   await expect(page.locator("#builderWizardStepSummary")).toBeVisible();
   await page.locator("#builderWizardFinish").click();
+  await expect(page.locator(".builderPreparedUnderfillConfirmation")).toBeVisible();
+  await page.locator("#builderWizardFinish").click();
   await expect(page.locator("#builderWizardPanel")).toBeHidden();
 }
 

@@ -5197,6 +5197,15 @@ div.mutedSmall {
   padding-top: 10px;
 }
 
+#builderWizardSummary .builderSummaryPrepared {
+  display: grid;
+  gap: 8px;
+}
+
+#builderWizardSummary .builderSummaryReviewPrepared {
+  justify-self: start;
+}
+
 #builderWizardSummary .builderAbilityGrid {
   gap: 8px;
 }

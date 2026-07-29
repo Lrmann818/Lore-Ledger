@@ -25,8 +25,10 @@ import {
   formatChoiceShortfall,
   getChoiceCompletionReport
 } from "../../domain/rules/choiceCompletion.js";
+import { getPreparedSpellUnderfillShortfalls } from "../../domain/rules/preparedSpells.js";
 import {
   collectActiveChoiceIds,
+  getDraftPreparedSpellPlan,
   getDraftPreparedValidationMessage,
   getRequiredAncestryChoice,
   getRequiredOriginChoices,
@@ -503,6 +505,10 @@ export function initBuilderWizard(deps = {}) {
   // Prepared validation is only surfaced once Finish has been attempted, then
   // recomputed live from the draft so fixing the selection clears it.
   let preparedValidationAttempted = false;
+  // C2-B confirmation is transient and tied to the exact resulting underfilled
+  // lists. It is never copied into the build or persisted character state.
+  /** @type {string | null} */
+  let preparedUnderfillConfirmationKey = null;
   /** @type {string | null} */
   let editingCharacterId = null;
   /** @type {Record<string, number>} */
@@ -559,6 +565,8 @@ export function initBuilderWizard(deps = {}) {
     signal,
     enhanceSelect: enhanceDynamicSelect,
     onDraftChanged: () => {
+      preparedUnderfillConfirmationKey = null;
+      finishBtn.textContent = "Finish";
       updateLevelDisplay();
       syncStartingClassControl();
     },
@@ -1479,6 +1487,39 @@ export function initBuilderWizard(deps = {}) {
     renderAbilityPreview();
   }
 
+  function getCreationPreparedUnderfill() {
+    if (editingCharacterId) return [];
+    const registry = getActiveContentRegistry();
+    return getPreparedSpellUnderfillShortfalls(
+      getDraftPreparedSpellPlan(draft.build, registry)
+    );
+  }
+
+  /**
+   * The acknowledgement is valid only for the exact resulting class lists and
+   * capacities the player saw. A changed spell, count, or capacity requires a
+   * fresh inline confirmation.
+   * @param {ReturnType<typeof getCreationPreparedUnderfill>} shortfalls
+   */
+  function preparedUnderfillKey(shortfalls) {
+    if (!shortfalls.length) return null;
+    return JSON.stringify(shortfalls.map((item) => ({
+      classId: item.classId,
+      selectedIds: [...item.selectedIds].sort(),
+      effectiveCapacity: item.effectiveCapacity
+    })));
+  }
+
+  /**
+   * @param {ReturnType<typeof getCreationPreparedUnderfill>} shortfalls
+   */
+  function formatPreparedUnderfillConfirmation(shortfalls) {
+    const counts = shortfalls.map((item) =>
+      `${item.className} has ${item.selectedCount} of ${item.effectiveCapacity} prepared`
+    );
+    return `Prepared spells are below capacity: ${counts.join("; ")}. Review prepared spells, or choose Finish Anyway to continue.`;
+  }
+
   /**
    * @param {HTMLElement} rowsEl
    * @param {Array<[string, string]>} rows
@@ -1611,6 +1652,63 @@ export function initBuilderWizard(deps = {}) {
         slotParts.push(`Pact: ${derived.spellcasting.pact.slots} × L${derived.spellcasting.pact.slotLevel}`);
       }
       if (slotParts.length) appendSummaryRows(spellRows, [["Spell Slots", slotParts.join(", ")]]);
+    }
+
+    // Creation-only prepared review (C2-B). Edit in Builder's draft is not the
+    // play-state authority after creation, so showing or confirming its legacy
+    // `preparedIds` there would be misleading.
+    const creationPreparedPlan = editingCharacterId
+      ? []
+      : getDraftPreparedSpellPlan(draft.build, registry);
+    if (creationPreparedPlan.length) {
+      const preparedWrap = appendDiv(summaryEl, "builderSummarySpells builderSummaryPrepared", "");
+      appendDiv(preparedWrap, "builderSummarySubhead", "Prepared for play");
+      const preparedRows = appendDiv(preparedWrap, "builderWizardSummaryRows", "");
+      appendSummaryRows(preparedRows, [[
+        "Prepared spells",
+        creationPreparedPlan.map((entry) => (
+          entry.effectiveCapacity == null
+            ? `${entry.className}: ${entry.selectedIds.length} / capacity unknown`
+            : `${entry.className}: ${entry.selectedIds.length} / ${entry.effectiveCapacity}`
+        )).join("; ")
+      ]]);
+      const review = document.createElement("button");
+      review.type = "button";
+      review.className = "npcSmallBtn builderSummaryReviewPrepared";
+      review.textContent = "Review prepared spells";
+      review.addEventListener("click", () => {
+        currentStep = STEP_SPELLS;
+        syncStep();
+        queueMicrotask(() => {
+          const target = /** @type {HTMLElement | null} */ (
+            spellsBody.querySelector("input, summary, button")
+          );
+          try {
+            target?.focus?.({ preventScroll: true });
+          } catch {
+            target?.focus?.();
+          }
+        });
+      }, { signal });
+      preparedWrap.appendChild(review);
+    }
+
+    const preparedUnderfill = getCreationPreparedUnderfill();
+    const currentUnderfillKey = preparedUnderfillKey(preparedUnderfill);
+    if (preparedUnderfillConfirmationKey !== currentUnderfillKey) {
+      preparedUnderfillConfirmationKey = null;
+    }
+    finishBtn.textContent = currentUnderfillKey && preparedUnderfillConfirmationKey === currentUnderfillKey
+      ? "Finish Anyway"
+      : "Finish";
+    if (currentUnderfillKey && preparedUnderfillConfirmationKey === currentUnderfillKey) {
+      const confirmation = appendDiv(
+        summaryEl,
+        "builderWizardValidation builderPreparedUnderfillConfirmation",
+        formatPreparedUnderfillConfirmation(preparedUnderfill)
+      );
+      confirmation.setAttribute("role", "alert");
+      confirmation.tabIndex = -1;
     }
 
     // Warnings.
@@ -1760,6 +1858,8 @@ export function initBuilderWizard(deps = {}) {
       titleEl.textContent = "Create with Builder";
     }
     currentStep = STEP_IDENTITY;
+    preparedUnderfillConfirmationKey = null;
+    finishBtn.textContent = "Finish";
     previousFocus = document.activeElement;
     summaryEl.innerHTML = "";
     syncControlsFromDraft();
@@ -1866,6 +1966,25 @@ export function initBuilderWizard(deps = {}) {
     if (getDraftPreparedValidationMessage(draft.build, getActiveContentRegistry())) {
       currentStep = STEP_SPELLS;
       syncStep();
+      return;
+    }
+    // C2-B: underfilling is legal, but creation Finish must make it deliberate.
+    // The first click renders an inline warning; the second click confirms the
+    // exact same resulting lists. Edit in Builder is excluded because its draft
+    // prepared ids are not authoritative play-state.
+    const preparedUnderfill = getCreationPreparedUnderfill();
+    const underfillKey = preparedUnderfillKey(preparedUnderfill);
+    if (underfillKey && preparedUnderfillConfirmationKey !== underfillKey) {
+      preparedUnderfillConfirmationKey = underfillKey;
+      renderSummary();
+      const confirmation = /** @type {HTMLElement | null} */ (
+        summaryEl.querySelector(".builderPreparedUnderfillConfirmation")
+      );
+      try {
+        confirmation?.focus?.({ preventScroll: true });
+      } catch {
+        confirmation?.focus?.();
+      }
       return;
     }
     finish();

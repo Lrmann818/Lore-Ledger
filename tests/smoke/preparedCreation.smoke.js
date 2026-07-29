@@ -64,12 +64,15 @@ async function buildClericToSpellsStep(page, name) {
   await expect(page.locator("#builderWizardStepSpells")).toBeVisible();
 }
 
-async function finishWizard(page) {
+async function finishWizard(page, { confirmUnderfill = true } = {}) {
   await page.locator("#builderWizardNext").click();
   await expect(page.locator("#builderWizardStepEquipment")).toBeVisible();
   await page.locator("#builderWizardNext").click();
   await expect(page.locator("#builderWizardStepSummary")).toBeVisible();
   await page.locator("#builderWizardFinish").click();
+  if (confirmUnderfill && await page.locator("#builderWizardFinish").textContent() === "Finish Anyway") {
+    await page.locator("#builderWizardFinish").click();
+  }
 }
 
 test("creation prepared picker enforces its cap visibly and is fully keyboard-operable", async ({ page }) => {
@@ -113,7 +116,33 @@ test("creation prepared picker enforces its cap visibly and is fully keyboard-op
   await expect(blocked.locator("input[type=checkbox]")).toBeEnabled();
   await expect(blocked).not.toHaveClass(/isDisabled/);
 
-  await finishWizard(page);
+  await finishWizard(page, { confirmUnderfill: false });
+  // C2-B: the creation Summary gives prepared spells their own neutral review
+  // block and the first underfilled Finish is an inline confirmation only.
+  await expect(page.locator("#builderWizardPanel")).toBeVisible();
+  await expect(page.locator("#builderWizardStepSummary")).toBeVisible();
+  await expect(page.locator(".builderSummaryPrepared")).toContainText("Prepared for play");
+  await expect(page.locator(".builderSummaryPrepared")).toContainText("Prepared spells");
+  await expect(page.locator(".builderSummaryPrepared")).toContainText("Cleric: 1 / 2");
+  await expect(page.locator(".builderPreparedUnderfillConfirmation")).toHaveAttribute("role", "alert");
+  await expect(page.locator(".builderPreparedUnderfillConfirmation")).toContainText("Cleric has 1 of 2 prepared");
+  await expect(page.locator("#builderWizardFinish")).toHaveText("Finish Anyway");
+
+  // The return path is keyboard-operable and the live count announces updates.
+  const reviewPrepared = page.getByRole("button", { name: "Review prepared spells" });
+  await reviewPrepared.focus();
+  await page.keyboard.press("Enter");
+  await expect(page.locator("#builderWizardStepSpells")).toBeVisible();
+  await expect(count).toHaveAttribute("role", "status");
+  await expect(count).toHaveAttribute("aria-live", "polite");
+  await expect(count).toHaveAttribute("aria-atomic", "true");
+
+  await page.locator("#builderWizardNext").click();
+  await expect(page.locator("#builderWizardStepEquipment")).toBeVisible();
+  await page.locator("#builderWizardNext").click();
+  await expect(page.locator("#builderWizardStepSummary")).toBeVisible();
+  await expect(page.locator("#builderWizardFinish")).toHaveText("Finish Anyway");
+  await page.locator("#builderWizardFinish").click();
   await expect(page.locator("#builderWizardPanel")).toBeHidden();
 
   const adopted = await page.evaluate(() => {

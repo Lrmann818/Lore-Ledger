@@ -2611,7 +2611,12 @@ describe("character page selector", () => {
     }));
   }
 
-  async function createClericWithPrepared({ name = "Prepared Mira", pick = 2, wis = 16 } = {}) {
+  async function createClericWithPrepared({
+    name = "Prepared Mira",
+    pick = 2,
+    wis = 16,
+    confirmUnderfill = true
+  } = {}) {
     document.getElementById("builderWizardName").value = name;
     document.getElementById("builderWizardRace").value = "human";
     document.getElementById("builderWizardClass").value = "cleric";
@@ -2634,7 +2639,11 @@ describe("character page selector", () => {
       chosen.push(boxes[i].name);
     }
     advanceBuilderWizardToStep("builderWizardStepSummary");
-    document.getElementById("builderWizardFinish").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    const finish = document.getElementById("builderWizardFinish");
+    finish.dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    if (confirmUnderfill && finish.textContent === "Finish Anyway") {
+      finish.dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    }
     await flushPromises();
     return { preparedGroup, chosenNames: chosen };
   }
@@ -2672,7 +2681,7 @@ describe("character page selector", () => {
     controller.destroy();
   });
 
-  it("keeps creation underfill allowed and silent (confirmation is C2-B)", async () => {
+  it("confirms creation underfill inline, summarizes it, and links back to prepared spells (C2-B)", async () => {
     const { document, actionMenuButton } = installCharacterSelectorDom();
     installBuilderWizardDom(document);
     const deps = createCharacterPageDeps(createFakePopovers());
@@ -2680,13 +2689,113 @@ describe("character page selector", () => {
     const controller = initCharacterPageUI(deps);
     actionMenuButton.dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
     document.getElementById("charActionNewBuilderBtn").dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
-    // Capacity is 4 (level 1 + WIS 16); prepare one. No prompt, no block.
-    await createClericWithPrepared({ name: "Underfilled", pick: 1 });
+    // Capacity is 4 (level 1 + WIS 16); prepare one. The first Finish is a
+    // transient confirmation only — no character or dirty mark yet.
+    await createClericWithPrepared({
+      name: "Underfilled",
+      pick: 1,
+      confirmUnderfill: false
+    });
+
+    expect(deps.state.characters.entries).toHaveLength(2);
+    expect(deps.SaveManager.markDirty).not.toHaveBeenCalled();
+    expect(document.getElementById("builderWizardOverlay").hidden).toBe(false);
+    expect(document.getElementById("builderWizardStepSummary").hidden).toBe(false);
+    expect(document.getElementById("builderWizardSummary").textContent).toContain("Prepared for play");
+    expect(document.getElementById("builderWizardSummary").textContent).toContain("Prepared spells");
+    expect(document.getElementById("builderWizardSummary").textContent).toContain("Cleric: 1 / 4");
+    const confirmation = document.getElementById("builderWizardSummary")
+      .querySelector(".builderPreparedUnderfillConfirmation");
+    expect(confirmation.getAttribute("role")).toBe("alert");
+    expect(confirmation.textContent).toContain("Cleric has 1 of 4 prepared");
+    expect(document.getElementById("builderWizardFinish").textContent).toBe("Finish Anyway");
+
+    // The neutral Summary block returns directly to the owning step.
+    const review = document.getElementById("builderWizardSummary")
+      .querySelector(".builderSummaryReviewPrepared");
+    expect(review.textContent).toBe("Review prepared spells");
+    review.dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    expect(document.getElementById("builderWizardStepSpells").hidden).toBe(false);
+    const preparedGroup = document.getElementById("builderWizardSpellsBody")
+      .querySelectorAll(".builderSpellGroup")
+      .find((group) => group.querySelector(".builderSpellGroupTitle")?.textContent === "Prepared Spells");
+    const count = preparedGroup.querySelector(".builderSpellGroupCount");
+    expect(count.getAttribute("role")).toBe("status");
+    expect(count.getAttribute("aria-live")).toBe("polite");
+    expect(count.getAttribute("aria-atomic")).toBe("true");
+
+    // Returning without changing the exact list keeps the pending explicit
+    // acknowledgement; the second Finish applies the legal underfilled list.
+    advanceBuilderWizardToStep("builderWizardStepSummary");
+    expect(document.getElementById("builderWizardFinish").textContent).toBe("Finish Anyway");
+    document.getElementById("builderWizardFinish")
+      .dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    await flushPromises();
 
     const entry = deps.state.characters.entries.at(-1);
     expect(entry.name).toBe("Underfilled");
     expect(entry.rest.preparedByClass.cleric).toHaveLength(1);
     expect(document.getElementById("builderWizardOverlay").hidden).toBe(true);
+    expect(deps.SaveManager.markDirty).toHaveBeenCalledTimes(1);
+
+    controller.destroy();
+  });
+
+  it("invalidates creation confirmation when the resulting prepared list changes (C2-B)", async () => {
+    const { document, actionMenuButton } = installCharacterSelectorDom();
+    installBuilderWizardDom(document);
+    const deps = createCharacterPageDeps(createFakePopovers());
+
+    const controller = initCharacterPageUI(deps);
+    actionMenuButton.dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    document.getElementById("charActionNewBuilderBtn")
+      .dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    await createClericWithPrepared({ pick: 1, confirmUnderfill: false });
+    expect(document.getElementById("builderWizardFinish").textContent).toBe("Finish Anyway");
+
+    document.getElementById("builderWizardSummary")
+      .querySelector(".builderSummaryReviewPrepared")
+      .dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    const prepared = document.getElementById("builderWizardSpellsBody")
+      .querySelectorAll(".builderSpellGroup")
+      .find((group) => group.querySelector(".builderSpellGroupTitle")?.textContent === "Prepared Spells");
+    const unchecked = preparedSpellRows(prepared).find((row) => !row.input.checked);
+    unchecked.input.checked = true;
+    unchecked.input.dispatchEvent(new Event("change", { bubbles: true }));
+
+    advanceBuilderWizardToStep("builderWizardStepSummary");
+    expect(document.getElementById("builderWizardFinish").textContent).toBe("Finish");
+    expect(document.querySelector(".builderPreparedUnderfillConfirmation")).toBeNull();
+
+    document.getElementById("builderWizardFinish")
+      .dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    await flushPromises();
+    expect(deps.state.characters.entries).toHaveLength(2);
+    expect(document.querySelector(".builderPreparedUnderfillConfirmation").textContent)
+      .toContain("Cleric has 2 of 4 prepared");
+
+    document.getElementById("builderWizardFinish")
+      .dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    await flushPromises();
+    expect(deps.state.characters.entries.at(-1).rest.preparedByClass.cleric).toHaveLength(2);
+
+    controller.destroy();
+  });
+
+  it("finishes a full creation prepared list without confirmation (C2-B)", async () => {
+    const { document, actionMenuButton } = installCharacterSelectorDom();
+    installBuilderWizardDom(document);
+    const deps = createCharacterPageDeps(createFakePopovers());
+
+    const controller = initCharacterPageUI(deps);
+    actionMenuButton.dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    document.getElementById("charActionNewBuilderBtn")
+      .dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    await createClericWithPrepared({ name: "Full Cleric", pick: 4, confirmUnderfill: false });
+
+    expect(document.getElementById("builderWizardOverlay").hidden).toBe(true);
+    expect(deps.state.characters.entries.at(-1).name).toBe("Full Cleric");
+    expect(deps.state.characters.entries.at(-1).rest.preparedByClass.cleric).toHaveLength(4);
     expect(deps.SaveManager.markDirty).toHaveBeenCalledTimes(1);
 
     controller.destroy();
