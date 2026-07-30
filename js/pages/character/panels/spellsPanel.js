@@ -209,20 +209,19 @@ function renderSpellSrdDetails(builderSpellId) {
 }
 
 /**
- * A spell level that is genuinely present and finite. Deliberately stricter
- * than `Number(value)`: an absent, blank, boolean, or otherwise malformed
- * level must not coerce to `0` and masquerade as a cantrip.
+ * A spell level that is genuinely a finite number. Deliberately stricter than
+ * `Number(value)` and than the repo's `finiteNumberOrNull` convention: nothing
+ * is parsed or coerced, so an absent, blank, string, boolean, array, object,
+ * or non-finite level cannot become `0` and masquerade as a cantrip. Anything
+ * this rejects takes the neutral `Granted Spell` wording instead — a badge
+ * that guesses wrong about a malformed custom record is worse than one that
+ * declines to guess.
  *
  * @param {unknown} value
  * @returns {number | null}
  */
 function finiteSpellLevel(value) {
-  if (typeof value === "number") return Number.isFinite(value) ? value : null;
-  if (typeof value === "string" && value.trim() !== "") {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : null;
-  }
-  return null;
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
 /**

@@ -19,6 +19,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { initSpellsPanel } from "../js/pages/character/panels/spellsPanel.js";
 import { enhanceNumberSteppers } from "../js/features/numberSteppers.js";
 import { getActiveCharacter } from "../js/domain/characterHelpers.js";
+import { setActiveCustomContent } from "../js/domain/rules/registry.js";
 
 /** Matches whichever capacity sentence a granted row is entitled to. */
 const CAPACITY_EXPLANATION = /do(es)? not use (your )?ordinary prepared spell capacity/i;
@@ -173,6 +174,9 @@ afterEach(() => {
   panels.forEach((api) => api?.destroy?.());
   panels = [];
   document.body.innerHTML = "";
+  // The active registry is module-level state: reset it so a case that loads
+  // custom content cannot leak into the builtin-only cases.
+  setActiveCustomContent([]);
 });
 
 describe("C2-D granted spell presentation", () => {
@@ -288,22 +292,38 @@ describe("C2-D granted spell presentation", () => {
       .toBe("Granted Cantrip");
   });
 
-  it("falls back to neutral Granted Spell wording when the registry record is gone", () => {
+  it("falls back to neutral Granted Spell wording for missing and malformed registry levels", () => {
     setupDom();
+    // A custom-content registry whose four spells differ *only* in the runtime
+    // type of `level`. A string level must not be parsed: `"0"` may not become
+    // a cantrip and `"1"` may not become a leveled grant, because a badge that
+    // guesses wrong about a malformed record is worse than one that declines.
+    setActiveCustomContent([
+      { id: "custom-num-cantrip", kind: "spell", name: "Numeric Zero", level: 0, classIds: ["cleric"] },
+      { id: "custom-num-leveled", kind: "spell", name: "Numeric One", level: 1, classIds: ["cleric"] },
+      { id: "custom-str-cantrip", kind: "spell", name: "String Zero", level: "0", classIds: ["cleric"] },
+      { id: "custom-str-leveled", kind: "spell", name: "String One", level: "1", classIds: ["cleric"] }
+    ]);
+
     const state = makeState(firstLevel([
       unresolvedGrantedRow(),
       // A granted row with no marker id at all — equally unresolvable, and it
       // must not coerce a missing level into "cantrip".
       unresolvedGrantedRow({ id: "sp_granted_nomarker", name: "Markerless Grant", builderSpellId: undefined }),
+      unresolvedGrantedRow({ id: "sp_str_cantrip", name: "String Zero", builderSpellId: "custom-str-cantrip" }),
+      unresolvedGrantedRow({ id: "sp_str_leveled", name: "String One", builderSpellId: "custom-str-leveled", prepared: false }),
+      unresolvedGrantedRow({ id: "sp_num_cantrip", name: "Numeric Zero", builderSpellId: "custom-num-cantrip" }),
+      unresolvedGrantedRow({ id: "sp_num_leveled", name: "Numeric One", builderSpellId: "custom-num-leveled" }),
       grantedRow()
     ]));
     const before = JSON.stringify(getActiveCharacter(state).spells);
     const { api, SaveManager } = initPanel(state);
     panels.push(api);
 
-    for (const name of ["Ghost Grant", "Markerless Grant"]) {
+    for (const name of ["Ghost Grant", "Markerless Grant", "String Zero", "String One"]) {
       const row = rowByName(name);
-      expect(row.querySelector(".spellGrantBadge").textContent).toBe("Granted Spell");
+      expect(row, `${name} row missing`).toBeTruthy();
+      expect(row.querySelector(".spellGrantBadge").textContent, name).toBe("Granted Spell");
       expect(row.querySelector(".spellGrantExplain").textContent).toMatch(FALLBACK_EXPLANATION);
       expect(row.textContent).not.toMatch(STAYS_PREPARED);
       expect(row.textContent).not.toContain("Always Prepared");
@@ -314,8 +334,14 @@ describe("C2-D granted spell presentation", () => {
       expect(toggleByLabel(row, "Cast")).toBeTruthy();
     }
 
-    // Positive control: a resolvable grant in the same panel still reads leveled.
+    // Positive controls: numerically-levelled records from the *same* custom
+    // registry still resolve, so the rows above cannot read "Granted Spell"
+    // merely because custom content failed to load.
+    expect(rowByName("Numeric Zero").querySelector(".spellGrantBadge").textContent).toBe("Granted Cantrip");
+    expect(rowByName("Numeric One").querySelector(".spellGrantBadge").textContent).toBe("Always Prepared");
+    // …and a builtin grant in the same panel still reads leveled.
     expect(rowByName("Bless").querySelector(".spellGrantBadge").textContent).toBe("Always Prepared");
+
     // Nothing was repaired or persisted on the way through.
     expect(JSON.stringify(getActiveCharacter(state).spells)).toBe(before);
     expect(SaveManager.markDirty).not.toHaveBeenCalled();
