@@ -1,11 +1,18 @@
 // @vitest-environment jsdom
 // C2-D granted-spell presentation: a spell row carrying the `builderGranted`
 // marker drops the manual/DM `Prepared` toggle and shows a non-interactive
-// "Always Prepared" marker plus a visible explanation that the grant consumes
-// no ordinary preparation capacity. Everything else about the row — Known,
-// Cast, name, notes, SRD details — is untouched, the presentation is decided by
-// `builderGranted` alone (never by the stored `prepared` boolean), and render
-// neither repairs the row nor marks the campaign dirty.
+// marker plus a visible explanation that the grant consumes no ordinary
+// preparation capacity. Everything else about the row — Known, Cast, name,
+// notes, SRD details — is untouched, and render neither repairs the row nor
+// marks the campaign dirty.
+//
+// Marker *presence* and Prepared suppression are decided by `builderGranted`
+// alone. Only the marker's wording is level-sensitive, live-derived from
+// `builderSpellId` through the active registry (C2-D review correction):
+// leveled grants read "Always Prepared", granted cantrips read "Granted
+// Cantrip" (a cantrip is never prepared), and an unresolvable record falls back
+// to the neutral "Granted Spell". The stored `prepared` boolean never selects
+// the wording.
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -13,7 +20,12 @@ import { initSpellsPanel } from "../js/pages/character/panels/spellsPanel.js";
 import { enhanceNumberSteppers } from "../js/features/numberSteppers.js";
 import { getActiveCharacter } from "../js/domain/characterHelpers.js";
 
-const CAPACITY_EXPLANATION = /does not use your ordinary prepared spell capacity/i;
+/** Matches whichever capacity sentence a granted row is entitled to. */
+const CAPACITY_EXPLANATION = /do(es)? not use (your )?ordinary prepared spell capacity/i;
+const LEVELED_EXPLANATION = /It stays prepared and does not use your ordinary prepared spell capacity\./;
+const CANTRIP_EXPLANATION = /Cantrips are not prepared and do not use ordinary prepared spell capacity\./;
+const FALLBACK_EXPLANATION = /^Granted by your build\. It does not use ordinary prepared spell capacity\.$/;
+const STAYS_PREPARED = /stays prepared/i;
 
 function makeState(levels) {
   return {
@@ -52,7 +64,19 @@ function firstLevel(spells) {
   }];
 }
 
-/** A Life-Domain-style granted row exactly as Finish seeding writes it. */
+function cantripLevel(spells) {
+  return {
+    id: "lvl0",
+    label: "Cantrips",
+    hasSlots: false,
+    used: null,
+    total: null,
+    collapsed: false,
+    spells
+  };
+}
+
+/** A Life-Domain-style granted leveled row exactly as Finish seeding writes it. */
 function grantedRow(overrides = {}) {
   return {
     id: "sp_granted",
@@ -62,6 +86,39 @@ function grantedRow(overrides = {}) {
     prepared: true,
     expended: false,
     builderSpellId: "bless",
+    builderGranted: true,
+    ...overrides
+  };
+}
+
+/**
+ * A High-Elf-style granted cantrip row exactly as Finish seeding writes it:
+ * `grantType: "known_cantrip"` seeds `prepared: false, builderGranted: true`.
+ */
+function grantedCantripRow(overrides = {}) {
+  return {
+    id: "sp_granted_cantrip",
+    name: "Fire Bolt",
+    notesCollapsed: true,
+    known: true,
+    prepared: false,
+    expended: false,
+    builderSpellId: "fire-bolt",
+    builderGranted: true,
+    ...overrides
+  };
+}
+
+/** A granted row whose registry record cannot be resolved. */
+function unresolvedGrantedRow(overrides = {}) {
+  return {
+    id: "sp_granted_unresolved",
+    name: "Ghost Grant",
+    notesCollapsed: true,
+    known: true,
+    prepared: true,
+    expended: false,
+    builderSpellId: "not-a-real-spell",
     builderGranted: true,
     ...overrides
   };
@@ -139,13 +196,129 @@ describe("C2-D granted spell presentation", () => {
       node.removeAttribute("aria-label");
     });
     expect(row.textContent).toMatch(CAPACITY_EXPLANATION);
-    expect(row.querySelector(".spellGrantExplain").textContent).toMatch(CAPACITY_EXPLANATION);
+    expect(row.querySelector(".spellGrantExplain").textContent).toMatch(LEVELED_EXPLANATION);
 
     // Positive control: the ordinary builder-managed row alongside it gets no
     // marker, so the assertion above cannot pass by rendering it everywhere.
     const ordinary = rowByName("Guiding Bolt");
     expect(ordinary.querySelector(".spellGrantNote")).toBeNull();
     expect(ordinary.textContent).not.toMatch(CAPACITY_EXPLANATION);
+  });
+
+  it("marks a granted cantrip Granted Cantrip and never claims it stays prepared", () => {
+    setupDom();
+    // Seeding writes a granted cantrip at `prepared: false`; the leveled grant
+    // beside it is the positive control that the wording really is per-row.
+    const state = makeState([
+      cantripLevel([grantedCantripRow()]),
+      ...firstLevel([grantedRow(), builderRow()])
+    ]);
+    const { api } = initPanel(state);
+    panels.push(api);
+
+    const cantrip = rowByName("Fire Bolt");
+    expect(cantrip).toBeTruthy();
+    const badge = cantrip.querySelector(".spellGrantBadge");
+    expect(badge.textContent).toBe("Granted Cantrip");
+    expect(badge.textContent).not.toBe("Always Prepared");
+
+    // The explanation is visible text, not a tooltip, and never says the
+    // cantrip "stays prepared" — cantrips are not prepared at all.
+    cantrip.querySelectorAll("*").forEach((node) => {
+      node.removeAttribute("title");
+      node.removeAttribute("aria-label");
+    });
+    expect(cantrip.querySelector(".spellGrantExplain").textContent).toMatch(CANTRIP_EXPLANATION);
+    expect(cantrip.textContent).toMatch(CAPACITY_EXPLANATION);
+    expect(cantrip.textContent).not.toMatch(STAYS_PREPARED);
+    expect(cantrip.textContent).not.toContain("Always Prepared");
+
+    // Positive control: the leveled grant in the same panel is unchanged.
+    const leveled = rowByName("Bless");
+    expect(leveled.querySelector(".spellGrantBadge").textContent).toBe("Always Prepared");
+    expect(leveled.querySelector(".spellGrantExplain").textContent).toMatch(LEVELED_EXPLANATION);
+  });
+
+  it("renders no interactive Prepared control on a granted cantrip row", () => {
+    setupDom();
+    const state = makeState([cantripLevel([grantedCantripRow()]), ...firstLevel([manualRow()])]);
+    const { api } = initPanel(state);
+    panels.push(api);
+
+    const cantrip = rowByName("Fire Bolt");
+    expect(toggleByLabel(cantrip, "Prepared")).toBeNull();
+    expect([...cantrip.querySelectorAll("button")]
+      .some((button) => button.getAttribute("aria-label") === "Prepared — manual or DM override"))
+      .toBe(false);
+    expect(cantrip.querySelector(".spellGrantNote").querySelector("button, input, a, [tabindex]"))
+      .toBeNull();
+
+    // Positive control: the manual row in the same panel still has one.
+    expect(toggleByLabel(rowByName("My Homebrew Ward"), "Prepared")).toBeTruthy();
+  });
+
+  it("keeps Known and Cast usable on a granted cantrip, writing only their own field", () => {
+    setupDom();
+    const state = makeState([cantripLevel([grantedCantripRow()])]);
+    const { api, SaveManager } = initPanel(state);
+    panels.push(api);
+
+    const row = rowByName("Fire Bolt");
+    const known = toggleByLabel(row, "Known");
+    const cast = toggleByLabel(row, "Cast");
+    expect(known.disabled).toBe(false);
+    expect(cast.disabled).toBe(false);
+
+    known.click();
+    expect(known.getAttribute("aria-pressed")).toBe("false");
+    expect(storedSpell(state, "sp_granted_cantrip")).toMatchObject({
+      known: false, prepared: false, expended: false, builderGranted: true, builderSpellId: "fire-bolt"
+    });
+    expect(SaveManager.markDirty).toHaveBeenCalledTimes(1);
+
+    cast.click();
+    expect(cast.getAttribute("aria-pressed")).toBe("true");
+    expect(storedSpell(state, "sp_granted_cantrip")).toMatchObject({
+      known: false, prepared: false, expended: true, builderGranted: true
+    });
+    expect(SaveManager.markDirty).toHaveBeenCalledTimes(2);
+
+    // The cantrip wording survives the in-place toggle refresh.
+    expect(rowByName("Fire Bolt").querySelector(".spellGrantBadge").textContent)
+      .toBe("Granted Cantrip");
+  });
+
+  it("falls back to neutral Granted Spell wording when the registry record is gone", () => {
+    setupDom();
+    const state = makeState(firstLevel([
+      unresolvedGrantedRow(),
+      // A granted row with no marker id at all — equally unresolvable, and it
+      // must not coerce a missing level into "cantrip".
+      unresolvedGrantedRow({ id: "sp_granted_nomarker", name: "Markerless Grant", builderSpellId: undefined }),
+      grantedRow()
+    ]));
+    const before = JSON.stringify(getActiveCharacter(state).spells);
+    const { api, SaveManager } = initPanel(state);
+    panels.push(api);
+
+    for (const name of ["Ghost Grant", "Markerless Grant"]) {
+      const row = rowByName(name);
+      expect(row.querySelector(".spellGrantBadge").textContent).toBe("Granted Spell");
+      expect(row.querySelector(".spellGrantExplain").textContent).toMatch(FALLBACK_EXPLANATION);
+      expect(row.textContent).not.toMatch(STAYS_PREPARED);
+      expect(row.textContent).not.toContain("Always Prepared");
+      expect(row.textContent).not.toContain("Granted Cantrip");
+      // Suppression is still driven by `builderGranted`, not by resolvability.
+      expect(toggleByLabel(row, "Prepared")).toBeNull();
+      expect(toggleByLabel(row, "Known")).toBeTruthy();
+      expect(toggleByLabel(row, "Cast")).toBeTruthy();
+    }
+
+    // Positive control: a resolvable grant in the same panel still reads leveled.
+    expect(rowByName("Bless").querySelector(".spellGrantBadge").textContent).toBe("Always Prepared");
+    // Nothing was repaired or persisted on the way through.
+    expect(JSON.stringify(getActiveCharacter(state).spells)).toBe(before);
+    expect(SaveManager.markDirty).not.toHaveBeenCalled();
   });
 
   it("renders the marker and explanation while the row's notes stay collapsed", () => {
@@ -224,17 +397,22 @@ describe("C2-D granted spell presentation", () => {
 
   it("renders the marker without mutating the row or marking the campaign dirty", () => {
     setupDom();
-    const state = makeState(firstLevel([
-      grantedRow(),
-      grantedRow({ id: "sp_granted_stale", name: "Cure Wounds", builderSpellId: "cure-wounds", prepared: false }),
-      manualRow()
-    ]));
+    const state = makeState([
+      cantripLevel([grantedCantripRow()]),
+      ...firstLevel([
+        grantedRow(),
+        grantedRow({ id: "sp_granted_stale", name: "Cure Wounds", builderSpellId: "cure-wounds", prepared: false }),
+        unresolvedGrantedRow(),
+        manualRow()
+      ])
+    ]);
     const before = JSON.stringify(getActiveCharacter(state).spells);
     const { api, SaveManager } = initPanel(state);
     panels.push(api);
 
-    // Positive control: the markers really did render during this init.
-    expect(document.querySelectorAll(".spellGrantBadge")).toHaveLength(2);
+    // Positive control: every marker variant really did render during this init.
+    expect([...document.querySelectorAll(".spellGrantBadge")].map((node) => node.textContent))
+      .toEqual(["Granted Cantrip", "Always Prepared", "Always Prepared", "Granted Spell"]);
     expect(JSON.stringify(getActiveCharacter(state).spells)).toBe(before);
     expect(SaveManager.markDirty).not.toHaveBeenCalled();
   });
@@ -307,6 +485,34 @@ describe("C2-D granted spell presentation", () => {
 
     // The false boolean on the granted row is displayed around, never repaired.
     expect(storedSpell(state, "sp_granted_false").prepared).toBe(false);
+    expect(JSON.stringify(getActiveCharacter(state).spells)).toBe(before);
+    expect(SaveManager.markDirty).not.toHaveBeenCalled();
+  });
+
+  it("takes the wording from the registry level, never from the stored prepared boolean", () => {
+    setupDom();
+    // Both rows carry the "wrong" prepared boolean for their kind, so a label
+    // derived from `prepared` would swap them.
+    const state = makeState([
+      cantripLevel([grantedCantripRow({ prepared: true })]),
+      ...firstLevel([grantedRow({ prepared: false })])
+    ]);
+    const before = JSON.stringify(getActiveCharacter(state).spells);
+    const { api, SaveManager } = initPanel(state);
+    panels.push(api);
+
+    const cantrip = rowByName("Fire Bolt");
+    expect(cantrip.querySelector(".spellGrantBadge").textContent).toBe("Granted Cantrip");
+    expect(cantrip.querySelector(".spellGrantExplain").textContent).toMatch(CANTRIP_EXPLANATION);
+    expect(cantrip.textContent).not.toMatch(STAYS_PREPARED);
+
+    const leveled = rowByName("Bless");
+    expect(leveled.querySelector(".spellGrantBadge").textContent).toBe("Always Prepared");
+    expect(leveled.querySelector(".spellGrantExplain").textContent).toMatch(LEVELED_EXPLANATION);
+
+    // Neither stored boolean was read for the label, nor rewritten to suit it.
+    expect(storedSpell(state, "sp_granted_cantrip").prepared).toBe(true);
+    expect(storedSpell(state, "sp_granted").prepared).toBe(false);
     expect(JSON.stringify(getActiveCharacter(state).spells)).toBe(before);
     expect(SaveManager.markDirty).not.toHaveBeenCalled();
   });

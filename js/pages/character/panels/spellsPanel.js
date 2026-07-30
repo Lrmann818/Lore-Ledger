@@ -8,13 +8,32 @@ import { getActiveContentRegistry, getContentByKind } from "../../../domain/rule
 const SPELL_NOTES_SAVE_DEBOUNCE_MS = 250;
 
 // C2-D granted-spell presentation. A builder-granted row (`builderGranted`) is
-// always prepared by the build itself and consumes none of the ordinary
-// preparation capacity `rest.preparedByClass` tracks, so offering it the
-// manual/DM `Prepared` override would misrepresent both facts. The label
-// matches the builder wizard's own "Always Prepared" heading.
-const GRANTED_SPELL_MARKER_LABEL = "Always Prepared";
-const GRANTED_SPELL_CAPACITY_NOTE =
-  "Granted by your build. It stays prepared and does not use your ordinary prepared spell capacity.";
+// granted by the build itself and consumes none of the ordinary preparation
+// capacity `rest.preparedByClass` tracks, so offering it the manual/DM
+// `Prepared` override would misrepresent both facts.
+//
+// The wording is level-sensitive (C2-D review correction). Granted *leveled*
+// spells — Life Domain's Bless — really are always prepared, and reuse the
+// builder wizard's own "Always Prepared" heading. Granted *cantrips* — the
+// High Elf wizard cantrip, which `collectChoiceGrantedSpells()` classifies as
+// `known_cantrip` and seeding deliberately writes at `prepared: false` — are
+// not prepared at all, so claiming they "stay prepared" is simply wrong. An
+// unresolvable registry record falls back to neutral wording rather than
+// guessing a level.
+const GRANTED_SPELL_PRESENTATIONS = Object.freeze({
+  cantrip: Object.freeze({
+    label: "Granted Cantrip",
+    note: "Granted by your build. Cantrips are not prepared and do not use ordinary prepared spell capacity."
+  }),
+  leveled: Object.freeze({
+    label: "Always Prepared",
+    note: "Granted by your build. It stays prepared and does not use your ordinary prepared spell capacity."
+  }),
+  unresolved: Object.freeze({
+    label: "Granted Spell",
+    note: "Granted by your build. It does not use ordinary prepared spell capacity."
+  })
+});
 
 const spellNotesRuntime = {
   cache: new Map(),
@@ -190,6 +209,45 @@ function renderSpellSrdDetails(builderSpellId) {
 }
 
 /**
+ * A spell level that is genuinely present and finite. Deliberately stricter
+ * than `Number(value)`: an absent, blank, boolean, or otherwise malformed
+ * level must not coerce to `0` and masquerade as a cantrip.
+ *
+ * @param {unknown} value
+ * @returns {number | null}
+ */
+function finiteSpellLevel(value) {
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (typeof value === "string" && value.trim() !== "") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+/**
+ * Chooses the granted-row wording from the row's stable `builderSpellId`,
+ * resolved through the active registry at render time. Nothing is read from or
+ * written to character state — in particular the row's stored `prepared`
+ * boolean never selects the wording, so a granted cantrip (seeded at
+ * `prepared: false`) and a legacy leveled grant left at `prepared: false` are
+ * each labelled from the registry, not from the sheet.
+ *
+ * @param {unknown} builderSpellId
+ * @returns {{ label: string, note: string }}
+ */
+function getGrantedSpellPresentation(builderSpellId) {
+  const spellId = String(builderSpellId || "").trim();
+  if (!spellId) return GRANTED_SPELL_PRESENTATIONS.unresolved;
+  const entry = getContentByKind(getActiveContentRegistry(), "spell", spellId);
+  if (!entry) return GRANTED_SPELL_PRESENTATIONS.unresolved;
+  const level = finiteSpellLevel(entry.data?.level);
+  if (level === 0) return GRANTED_SPELL_PRESENTATIONS.cantrip;
+  if (level != null && level > 0) return GRANTED_SPELL_PRESENTATIONS.leveled;
+  return GRANTED_SPELL_PRESENTATIONS.unresolved;
+}
+
+/**
  * Renders the C2-D non-interactive marker plus its visible capacity
  * explanation for a builder-granted spell row. It lives on its own line under
  * the row's control strip so the `Known` and `Cast` buttons keep their space
@@ -197,20 +255,23 @@ function renderSpellSrdDetails(builderSpellId) {
  * expanded — the explanation must not be hidden behind a disclosure or a
  * tooltip. Presentation only: nothing here reads or writes character state.
  *
+ * @param {unknown} builderSpellId
  * @returns {HTMLElement}
  */
-function renderGrantedSpellMarker() {
+function renderGrantedSpellMarker(builderSpellId) {
+  const presentation = getGrantedSpellPresentation(builderSpellId);
+
   const wrap = document.createElement("div");
   wrap.className = "spellGrantNote";
 
   const badge = document.createElement("span");
   badge.className = "spellGrantBadge";
-  badge.textContent = GRANTED_SPELL_MARKER_LABEL;
+  badge.textContent = presentation.label;
   wrap.appendChild(badge);
 
   const explanation = document.createElement("span");
   explanation.className = "spellGrantExplain";
-  explanation.textContent = GRANTED_SPELL_CAPACITY_NOTE;
+  explanation.textContent = presentation.note;
   wrap.appendChild(explanation);
 
   return wrap;
@@ -697,10 +758,11 @@ export function initSpellsPanel(deps = {}) {
       return button;
     };
 
-    // C2-D: the presentation is decided by the row's `builderGranted` marker
-    // alone, never by its stored `prepared` boolean — a legacy or malformed
-    // granted row sitting at `prepared: false` still reads as always prepared,
-    // and render never repairs it.
+    // C2-D: whether the marker appears at all — and whether the manual
+    // `Prepared` override is suppressed — is decided by the row's
+    // `builderGranted` marker alone, never by its stored `prepared` boolean.
+    // Only the marker's *wording* is level-sensitive, and that comes from the
+    // registry (see `getGrantedSpellPresentation`). Render never repairs a row.
     const isBuilderGranted = spell.builderGranted === true;
 
     toggles.appendChild(mkToggle("Known", "known"));
@@ -802,7 +864,7 @@ export function initSpellsPanel(deps = {}) {
     top.appendChild(mini);
     row.appendChild(top);
 
-    if (isBuilderGranted) row.appendChild(renderGrantedSpellMarker());
+    if (isBuilderGranted) row.appendChild(renderGrantedSpellMarker(spell.builderSpellId));
 
     if (!spell.notesCollapsed) {
       // B2: builder-managed rows show live-derived SRD details above the
