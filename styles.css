@@ -7625,6 +7625,38 @@ button.spellToggle.warn[aria-pressed="true"] {
   box-shadow: 0 0 0 2px var(--warn-border) inset;
 }
 
+/* C2-D granted-spell presentation: builder-granted rows drop the manual
+   Prepared toggle and carry a non-interactive marker plus a visible
+   capacity explanation on their own wrapping line, so the Known/Cast
+   controls above keep their width at narrow viewports. */
+.spellGrantNote {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  margin-top: 5px;
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+.spellGrantBadge {
+  flex: none;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--spell-toggle-bg);
+  color: var(--text);
+  font-weight: 700;
+}
+
+.spellGrantExplain {
+  flex: 1 1 12ch;
+  min-width: 0;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
 @media (max-width: 750px) {
   .spellLevelHeader {
     flex-wrap: wrap;

@@ -7,6 +7,15 @@ import { getActiveContentRegistry, getContentByKind } from "../../../domain/rule
 
 const SPELL_NOTES_SAVE_DEBOUNCE_MS = 250;
 
+// C2-D granted-spell presentation. A builder-granted row (`builderGranted`) is
+// always prepared by the build itself and consumes none of the ordinary
+// preparation capacity `rest.preparedByClass` tracks, so offering it the
+// manual/DM `Prepared` override would misrepresent both facts. The label
+// matches the builder wizard's own "Always Prepared" heading.
+const GRANTED_SPELL_MARKER_LABEL = "Always Prepared";
+const GRANTED_SPELL_CAPACITY_NOTE =
+  "Granted by your build. It stays prepared and does not use your ordinary prepared spell capacity.";
+
 const spellNotesRuntime = {
   cache: new Map(),
   dirtyKeys: new Set(),
@@ -176,6 +185,33 @@ function renderSpellSrdDetails(builderSpellId) {
     higherEl.textContent = `At Higher Levels. ${higherLevel}`;
     wrap.appendChild(higherEl);
   }
+
+  return wrap;
+}
+
+/**
+ * Renders the C2-D non-interactive marker plus its visible capacity
+ * explanation for a builder-granted spell row. It lives on its own line under
+ * the row's control strip so the `Known` and `Cast` buttons keep their space
+ * at narrow widths, and it renders whether or not the row's notes are
+ * expanded — the explanation must not be hidden behind a disclosure or a
+ * tooltip. Presentation only: nothing here reads or writes character state.
+ *
+ * @returns {HTMLElement}
+ */
+function renderGrantedSpellMarker() {
+  const wrap = document.createElement("div");
+  wrap.className = "spellGrantNote";
+
+  const badge = document.createElement("span");
+  badge.className = "spellGrantBadge";
+  badge.textContent = GRANTED_SPELL_MARKER_LABEL;
+  wrap.appendChild(badge);
+
+  const explanation = document.createElement("span");
+  explanation.className = "spellGrantExplain";
+  explanation.textContent = GRANTED_SPELL_CAPACITY_NOTE;
+  wrap.appendChild(explanation);
 
   return wrap;
 }
@@ -661,11 +697,19 @@ export function initSpellsPanel(deps = {}) {
       return button;
     };
 
+    // C2-D: the presentation is decided by the row's `builderGranted` marker
+    // alone, never by its stored `prepared` boolean — a legacy or malformed
+    // granted row sitting at `prepared: false` still reads as always prepared,
+    // and render never repairs it.
+    const isBuilderGranted = spell.builderGranted === true;
+
     toggles.appendChild(mkToggle("Known", "known"));
-    const preparedToggle = mkToggle("Prepared", "prepared");
-    preparedToggle.title = "Manual/DM prepared override";
-    preparedToggle.setAttribute("aria-label", "Prepared — manual or DM override");
-    toggles.appendChild(preparedToggle);
+    if (!isBuilderGranted) {
+      const preparedToggle = mkToggle("Prepared", "prepared");
+      preparedToggle.title = "Manual/DM prepared override";
+      preparedToggle.setAttribute("aria-label", "Prepared — manual or DM override");
+      toggles.appendChild(preparedToggle);
+    }
     toggles.appendChild(mkToggle("Cast", "expended", "warn"));
 
     const mini = document.createElement("div");
@@ -757,6 +801,8 @@ export function initSpellsPanel(deps = {}) {
     top.appendChild(toggles);
     top.appendChild(mini);
     row.appendChild(top);
+
+    if (isBuilderGranted) row.appendChild(renderGrantedSpellMarker());
 
     if (!spell.notesCollapsed) {
       // B2: builder-managed rows show live-derived SRD details above the

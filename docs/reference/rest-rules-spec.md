@@ -38,6 +38,10 @@ Read with [`AGENTS.md`](../../AGENTS.md) (wins on conflict) and
 > **Level Up Prepared Capacity C2-C (2026-07-29).** Level Up no longer computes prepared
 > capacity from build abilities. It reads the shared plan on both sides of the pending level,
 > so the number it displays is the one a Long Rest will enforce — see §4.6.
+>
+> **Granted-Spell Presentation C2-D (2026-07-30).** The Spells panel stops offering the
+> manual/DM `Prepared` override on a `builderGranted` row and labels it `Always Prepared`
+> with a visible capacity explanation, on both the Character and Combat surfaces — see §4.7.
 
 ---
 
@@ -434,6 +438,51 @@ no prepared picker, writes no legacy `build.spellcasting[classId].preparedIds`, 
 `rest.preparedByClass` byte-for-byte on open, navigation, cancel, and a successful Apply. C2-C
 adds **no persisted field, no acknowledgement, no schema change, and no migration**.
 
+### 4.7 The Spells panel shows granted rows as always prepared (C2-D, 2026-07-30)
+
+The Spells panel is the last surface a player reads a granted spell on, and until C2-D it
+contradicted every rule above. A `builderGranted` row carried the same interactive
+`Prepared` toggle as any other row, titled "Manual/DM prepared override" — so the sheet
+implied a grant is an ordinary preparation the player chose and may unchoose, and that it
+occupies one of the `effectiveCapacity` slots §4.1 reserves for ordinary candidates. Neither
+is true: grants reach the sheet through `derived.grantedSpells` in
+`getBuilderFinishSheetSeedPatch()` (§4.2), are excluded from `ordinaryCandidateIds`, consume
+no capacity, and are never eligible for §4.3's projection — so the toggle also had no
+authoritative meaning to write back to.
+
+**The presentation contract**, implemented once in
+`js/pages/character/panels/spellsPanel.js` and therefore identical on the Character sheet and
+the Combat workspace's embedded Spells panel (which calls the same `initSpellsPanel()` against
+the same canonical character data — there is no Combat-specific renderer):
+
+- A row with `builderGranted === true` renders **no** interactive `Prepared` control.
+- It renders a non-interactive marker labelled exactly **`Always Prepared`** — the same
+  wording the builder wizard's granted-spell row uses — followed by a **visible** sentence
+  stating that the grant does not use the character's ordinary prepared spell capacity. The
+  explanation is rendered text on its own line, not a `title` tooltip, and it is not behind
+  the row's notes disclosure: a collapsed granted row still shows it.
+- `Known` and `Cast` are untouched: still present, still keyboard-operable, still writing
+  only their own field through the existing `mutateSpellEntry()` path with one
+  `SaveManager.markDirty()` per user action.
+- **The presentation is decided by `builderGranted` alone, never by the row's stored
+  `prepared` boolean.** A legacy or malformed granted row sitting at `prepared: false` — for
+  example a granted cantrip, which §4.2's seeding deliberately writes as
+  `prepared: false, builderGranted: true` — still reads as always prepared.
+- Rendering the marker **repairs nothing**. No row is normalized or rewritten, `builderGranted`
+  and `prepared` are never touched to support the display, and rendering marks nothing dirty.
+
+Every other row keeps the shipped behavior byte-for-byte. Manual rows (no `builderSpellId`)
+and ordinary builder-managed rows keep the `Prepared` toggle, its "Manual/DM prepared
+override" title, its `Prepared — manual or DM override` accessible label, its state mutation,
+and its dirty-state behavior — including a manual override's documented meaning under §4.3.
+
+C2-D is presentation only: **no prepared picker, no Long Rest mutation, no new prepared
+state, no schema change, no migration, no persisted field, no acknowledgement, and no
+load-time cleanup.** `rest.preparedByClass` remains authoritative for ordinary prepared
+selections, and the shared-spell provenance limitation in §5 is unchanged.
+
+Coverage is listed in §8.
+
 ---
 
 ## 5. P0 implementation coverage
@@ -461,10 +510,13 @@ adds **no persisted field, no acknowledgement, no schema change, and no migratio
   formula: Level Up now reports the shared plan's `effectiveCapacity` before and after the
   pending level, including ability adjustments, the pending ASI or feat, a wizard's real
   spellbook, and a multiclass class the appended level does not touch. See §4.6.
+- **Granted-Spell Presentation C2-D (2026-07-30)** made the sheet stop contradicting the
+  rules above: a `builderGranted` row no longer offers the manual/DM `Prepared` override and
+  instead reads `Always Prepared` with a visible explanation that it uses no ordinary
+  preparation capacity, on both the Character and Combat Spells surfaces. See §4.7.
 
-**Still open after C2-C:** `builderGranted` presentation in the Spells panel; the dead
-`getPreparedSpellCapacity()` accessor; and the duplicate `deriveCharacter()` call in the Long
-Rest patch path.
+**Still open after C2-D:** the dead `getPreparedSpellCapacity()` accessor; and the duplicate
+`deriveCharacter()` call in the Long Rest patch path.
 
 **Known limitation (pre-existing, documented not fixed):** the sheet stores one `prepared`
 boolean per spell row with no per-class attribution, while `rest.preparedByClass` is
@@ -623,6 +675,30 @@ play-state through a real Apply in `tests/characterPage.test.js`, and two real-b
   capacity-only change produces no `spellcastingDelta` entry;
 - `rest.preparedByClass` is byte-identical after cancel and after a successful Apply, which
   still marks dirty exactly once.
+
+Granted-row presentation coverage (C2-D) lives in
+`tests/spellsPanel.grantedPresentation.test.js` (9) and
+`tests/smoke/grantedSpellPresentation.smoke.js` (2). Every negative assertion carries a
+positive control, and the browser cases drive a real Life Domain cleric built through the
+wizard — so the granted rows are genuine Finish-seeded rows, and both surfaces are proved
+through the shared production panel rather than duplicated markup:
+
+- a granted row shows `Always Prepared`, explains the capacity rule in text that survives
+  stripping every `title` / `aria-label` in the row, and shows it while the notes stay
+  collapsed;
+- the granted row exposes no interactive `Prepared` control and nothing focusable inside the
+  marker, while a manual row and an ordinary builder-managed row beside it keep the toggle,
+  its title, its accessible label, its mutation, and its dirty mark;
+- `Known` and `Cast` stay present, enabled, and keyboard-operable on a granted row, and each
+  writes only its own field — `prepared` and `builderGranted` are unchanged;
+- rendering the marker mutates no state and calls no `markDirty()`;
+- a granted row stored at `prepared: false` still gets the marker and is not repaired, with
+  the mirror-image non-granted `prepared: true` row as the control;
+- the row's name, SRD detail block, notes textarea, and move/delete controls are unchanged;
+- the Combat embedded panel agrees with the Character sheet, `Known`/`Cast` driven from
+  Combat land on canonical data and show through on the Character sheet, the presentation
+  survives reload, and 380px shows no horizontal overflow and no clipped controls with zero
+  console or page errors.
 
 Acceptance: no rest action silently fails, none affects the wrong character, unsupported
 recovery modes are left unchanged rather than guessed, and `npm run verify` plus
