@@ -35,6 +35,7 @@ import {
 } from "../../domain/builderSheetSeeding.js";
 import { appendPreLevelUpSnapshot, buildPreLevelUpSnapshot, restoreCharacterFromSnapshot } from "../../domain/characterSnapshots.js";
 import { MAX_CHARACTER_LEVEL, normalizeBuildLevels } from "../../domain/rules/progression.js";
+import { appendUnderCapAckLevel } from "../../domain/rules/choiceCompletion.js";
 import { getActiveContentRegistry } from "../../domain/rules/registry.js";
 import { CURRENT_SCHEMA_VERSION } from "../../state.js";
 import {
@@ -407,7 +408,7 @@ export function initCharacterPageUI(deps) {
       root: document,
       Popovers,
       setStatus,
-      onFinish: ({ name, build, characterId }) => {
+      onFinish: ({ name, build, characterId, underCapAckLevel = null }) => {
         // Defensive second line for the prepared-spell contract (C2-A). The
         // wizard gates Finish on the same check, so reaching this is either a
         // programming error or a non-wizard caller. Either way it must not
@@ -448,6 +449,16 @@ export function initCharacterPageUI(deps) {
         entry.build = build;
         adoptInitialBuilderPreparedSelections(entry);
         Object.assign(entry, getBuilderFinishSheetSeedPatch(entry));
+        // R5-B2: the acknowledgement is recorded on the entry that is about to
+        // be committed, so it lands in the same mutation as the character
+        // itself. Every path that returns before this point — the prepared
+        // validation bail above, an Edit-in-Builder Finish, a cancelled wizard
+        // — records nothing.
+        if (Number.isInteger(underCapAckLevel)) {
+          entry.underCapAckLevels = appendUnderCapAckLevel(
+            entry.underCapAckLevels, underCapAckLevel
+          );
+        }
         mutateCharactersAndNotify((s) => {
           s.characters.entries.push(entry);
           s.characters.activeId = entry.id;
@@ -462,7 +473,7 @@ export function initCharacterPageUI(deps) {
       root: document,
       Popovers,
       setStatus,
-      onApply: ({ characterId, build, classId, toLevel }) => {
+      onApply: ({ characterId, build, classId, toLevel, underCapAckLevel = null }) => {
         // Same-character apply guard, mirroring the shipped rest guard: check
         // the active id before mutating and again inside the mutation.
         if (!characterId || getActiveCharacter(state)?.id !== characterId) {
@@ -513,6 +524,16 @@ export function initCharacterPageUI(deps) {
           appendPreLevelUpSnapshot(s.characters.snapshots, snapshotRecord);
           character.build = build;
           Object.assign(character, patch);
+          // R5-B2: the under-cap acknowledgement rides inside the same single
+          // mutation as the snapshot append and the level commit, so the one
+          // vault write persists all three together or none of them. A Level Up
+          // with nothing short writes nothing here, and no path outside this
+          // successful branch touches the field.
+          if (Number.isInteger(underCapAckLevel)) {
+            character.underCapAckLevels = appendUnderCapAckLevel(
+              character.underCapAckLevels, underCapAckLevel
+            );
+          }
           return true;
         });
         if (!updated) {

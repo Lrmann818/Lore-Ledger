@@ -366,6 +366,33 @@ The legacy singleton `state.character` key is accepted only by migration/backwar
   - `preparedByClass` is the authoritative play-state prepared-spell selection for builder prepared casters; the legacy `build.spellcasting[classId].preparedIds` remains only for compatibility.
   - Existing arrays may hold **redundant granted ids** (an always-prepared domain/oath/custom-class spell that was also selectable as an ordinary pick before Prepared Correctness C1, 2026-07-27) as well as ids that no longer resolve. Both are **ignored for ordinary counting** by `getPreparedSpellPlan()` and are **retained verbatim** until that class's own list is actively recommitted through a Long Rest. There is no migration and no load-time cleanup: granted spell access comes from `derived.grantedSpells` during sheet seeding, not from this map, so a redundant id disappearing changes nothing the player can see.
   - Long Rest commits **merge**: only classes the player actually changed are written, and every other key — including one for a class whose content is temporarily unresolvable — is preserved. Clearing a class drops its key rather than storing an empty array (`normalizeCharacterRestState(...)` discards empty arrays anyway).
+- `underCapAckLevels?: number[]` — **optional**, added by R5-B2 (2026-08-02) with **no schema
+  version bump and no migration**.
+  - **Owner: the character entry**, sibling to `build` and `rest` — not part of `build`. It
+    records a *decision about* a build, not a build choice, and Edit in Builder replaces
+    `build` wholesale.
+  - Each element is the **resulting total character level** at which the player explicitly
+    acknowledged finishing below a permitted under-cap spell allowance (class cantrips,
+    known spells, or the wizard spellbook). Aggregated by level, never by category.
+  - Written **only** by a successful acknowledged creation (`characterPage.js` → builder
+    `onFinish`) or a successful acknowledged Level Up apply, and only inside the same single
+    mutation that commits the character. Cancel, an invalid Finish, a validation failure, an
+    apply failure, and an active-character switch all write nothing.
+  - Append-only, deduplicated, ascending. Normalized by
+    `js/domain/rules/choiceCompletion.js` → `normalizeUnderCapAckLevels(...)`: only genuine
+    integers in `1..20` survive; strings (including numeric ones), fractions, negatives,
+    zero, out-of-range values, and non-array containers all fail soft to "nothing
+    acknowledged". Re-asking is always safe, so dropping a malformed entry is the correct
+    failure mode.
+  - **Absent by default.** A missing field simply reads as "nothing acknowledged", which is
+    why no migration step exists. Nothing infers an acknowledgement from the mere existence
+    of a shortfall, and no flow suppresses a prompt because a *different* level was
+    acknowledged.
+  - Prepared-spell underfill is **never** recorded here — that confirmation is transient and
+    Long-Rest owned (rest-rules-spec §4.5).
+  - Rides unchanged through `sanitizeForSave`, the campaign vault, full backups,
+    `.ll-character.json` portability, and pre-Level-Up snapshot payloads (and therefore
+    Restore Character), because all of those carry character entries whole.
 - `hitDieAmt: number | null`
   - Canonical persisted field.
   - Seeded by `js/state.js`, written by the Vitals panel, and enforced by migration-time normalization.

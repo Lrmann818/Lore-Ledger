@@ -531,6 +531,19 @@ function normalizeTrackerSessions(input) {
  */
 
 /**
+ * `underCapAckLevels` (optional, R5-B2) is the character entry's record of the
+ * resulting **total character levels** at which the player explicitly
+ * acknowledged finishing below a permitted under-cap spell allowance (class
+ * cantrips, known spells, or the wizard spellbook). It is written only by a
+ * successful acknowledged creation or Level Up, is append-only, deduplicated,
+ * and ascending, and is normalized by
+ * `js/domain/rules/choiceCompletion.js` → `normalizeUnderCapAckLevels()`.
+ * It is deliberately *not* part of `build`: it records a decision about a
+ * build, not a build choice, and Edit in Builder replaces `build` wholesale.
+ * Prepared-spell underfill is never recorded here — that confirmation is
+ * transient and Long-Rest owned (rest-rules-spec §4.5). Absent by default; no
+ * schema version bump and no migration, because a missing field reads as
+ * "nothing acknowledged".
  * @typedef {{
  *   imgBlobId: string | null,
  *   build: CharacterBuildState | null,
@@ -579,6 +592,7 @@ function normalizeTrackerSessions(input) {
  *   money: MoneyState,
  *   personality: PersonalityState,
  *   ui?: CharacterUiState,
+ *   underCapAckLevels?: number[],
  *   resourceName?: string,
  *   resourceCur?: NullableNumber,
  *   resourceMax?: NullableNumber,

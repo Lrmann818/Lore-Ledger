@@ -14,7 +14,9 @@ import {
 import { isSpellListChoice, resolveSpellChoiceOptions } from "../../domain/rules/spellChoices.js";
 import {
   formatChoiceShortfall,
-  getChoiceCompletionReport
+  getChoiceCompletionReport,
+  getUnderCapChoiceDescriptors,
+  UNDER_CAP_KIND
 } from "../../domain/rules/choiceCompletion.js";
 import { getPreparedSpellPlan, PREPARED_LIMITED_BY } from "../../domain/rules/preparedSpells.js";
 import {
@@ -1198,6 +1200,20 @@ export function renderSpellsStep(ctx, container) {
   const findPreparedEntry = (classId) =>
     preparedPlan.find((entry) => entry.classId === classId) || null;
 
+  // Permitted under-cap allowances (R5-B2) come from the shared choice-
+  // completion traversal, so the cap this picker enforces is literally the
+  // `allowed` the Summary counts against. Computed once per render: a category
+  // allowance depends only on class levels, which this step cannot change.
+  const underCapDescriptors = getUnderCapChoiceDescriptors(build, registry);
+  /**
+   * @param {string} classId
+   * @param {string} kind
+   * @returns {import("../../domain/rules/choiceCompletion.js").ChoiceCompletionDescriptor | null}
+   */
+  const findUnderCapDescriptor = (classId, kind) =>
+    underCapDescriptors.find((descriptor) =>
+      descriptor.classId === classId && descriptor.kind === kind) || null;
+
   // Slots overview.
   const slotsRow = el(container, "div", "builderSpellSlotsRow");
   const slotParts = spellcasting.slots
@@ -1262,13 +1278,17 @@ export function renderSpellsStep(ctx, container) {
     const listsWrap = el(section, "div", "builderSpellLists");
 
     const mode = casterInfo.preparationMode;
-    /** @type {Array<{ key: "cantripIds" | "knownIds" | "preparedIds", title: string, spellLevels: number[], prepared: boolean, maxLabel: () => string, rootEl?: HTMLElement }>} */
+    const cantripDescriptor = findUnderCapDescriptor(casterInfo.classId, UNDER_CAP_KIND.CANTRIPS);
+    const knownDescriptor = findUnderCapDescriptor(casterInfo.classId, UNDER_CAP_KIND.KNOWN_SPELLS);
+    const spellbookDescriptor = findUnderCapDescriptor(casterInfo.classId, UNDER_CAP_KIND.SPELLBOOK);
+    /** @type {Array<{ key: "cantripIds" | "knownIds" | "preparedIds", title: string, spellLevels: number[], prepared: boolean, underCapAllowed: number | null, maxLabel: () => string, rootEl?: HTMLElement }>} */
     const groups = [];
     groups.push({
       key: "cantripIds",
       title: "Cantrips",
       spellLevels: [0],
       prepared: false,
+      underCapAllowed: cantripDescriptor ? cantripDescriptor.allowed : null,
       maxLabel: () => casterInfo.cantripsKnownMax != null
         ? `${selection.cantripIds.length} / ${casterInfo.cantripsKnownMax} known`
         : `${selection.cantripIds.length} chosen`
@@ -1297,6 +1317,7 @@ export function renderSpellsStep(ctx, container) {
         title: "Prepared Spells",
         spellLevels: [],
         prepared: true,
+        underCapAllowed: null,
         maxLabel: preparedCountLabel
       });
     } else if (mode === "spellbook") {
@@ -1305,13 +1326,20 @@ export function renderSpellsStep(ctx, container) {
         title: "Spellbook",
         spellLevels: leveled,
         prepared: false,
-        maxLabel: () => `${selection.knownIds.length} in spellbook (start with 6, +2 per wizard level)`
+        underCapAllowed: spellbookDescriptor ? spellbookDescriptor.allowed : null,
+        maxLabel: () => (spellbookDescriptor
+          // The spellbook allowance was the one category with no visible
+          // maximum before R5-B2 — a player could not tell how many more they
+          // were entitled to, or that they had already used the allowance up.
+          ? `${selection.knownIds.length} / ${spellbookDescriptor.allowed} in spellbook (start with 6, +2 per wizard level)`
+          : `${selection.knownIds.length} in spellbook (start with 6, +2 per wizard level)`)
       });
       groups.push({
         key: "preparedIds",
         title: "Prepared Spells (from spellbook)",
         spellLevels: [],
         prepared: true,
+        underCapAllowed: null,
         maxLabel: preparedCountLabel
       });
     } else {
@@ -1320,6 +1348,7 @@ export function renderSpellsStep(ctx, container) {
         title: "Known Spells",
         spellLevels: leveled,
         prepared: false,
+        underCapAllowed: knownDescriptor ? knownDescriptor.allowed : null,
         maxLabel: () => casterInfo.spellsKnownMax != null
           ? `${selection.knownIds.length} / ${casterInfo.spellsKnownMax} known`
           : `${selection.knownIds.length} known`
@@ -1383,6 +1412,28 @@ export function renderSpellsStep(ctx, container) {
           row.classList.toggle("isDisabled", input.disabled);
         }
         refreshPreparedValidation();
+      };
+
+      // Under-cap groups (cantrips, known spells, spellbook) get the same
+      // treatment the prepared group already had (R5-B2). Before this, the
+      // generic handler enforced no upper limit at all: a level-1 wizard could
+      // check every cantrip on the list and the Summary would still report
+      // "0 fewer than the maximum", because the count it compared against was
+      // the same list it had just overflowed.
+      const underCapAllowed = group.prepared ? null : group.underCapAllowed;
+      /** @type {Array<{ id: string, input: HTMLInputElement, row: HTMLElement }>} */
+      const underCapInputs = [];
+      const refreshUnderCapInputs = () => {
+        if (underCapAllowed == null) return;
+        countEl.textContent = group.maxLabel();
+        const atCap = selection[group.key].length >= underCapAllowed;
+        for (const { id, input, row } of underCapInputs) {
+          // Chosen entries always stay removable, exactly as in the prepared
+          // group — reaching the cap must never strand a selection.
+          const selected = selection[group.key].includes(id);
+          input.disabled = selected ? false : atCap;
+          row.classList.toggle("isDisabled", input.disabled);
+        }
       };
 
       // Stored prepared ids the current picker cannot offer (C2-A correction).
@@ -1478,6 +1529,16 @@ export function renderSpellsStep(ctx, container) {
               refreshPreparedInputs();
               return;
             }
+            // The same defence for the under-cap categories (R5-B2): the
+            // rendered `disabled` state blocks a real pointer or keyboard, but
+            // a synthetic or replayed change event must not push a list past
+            // its allowance. Removal is never blocked.
+            if (underCapAllowed != null && checkbox.checked && index < 0
+              && list.length >= underCapAllowed) {
+              checkbox.checked = false;
+              refreshUnderCapInputs();
+              return;
+            }
             if (checkbox.checked && index < 0) list.push(spellEntry.id);
             if (!checkbox.checked && index >= 0) list.splice(index, 1);
             if (group.key === "knownIds" && mode === "spellbook" && !checkbox.checked) {
@@ -1487,6 +1548,7 @@ export function renderSpellsStep(ctx, container) {
             }
             countEl.textContent = group.maxLabel();
             if (group.prepared) refreshPreparedInputs();
+            refreshUnderCapInputs();
             if (group.key === "knownIds" && mode === "spellbook" && preparedGroup) {
               // The spellbook is the wizard's prepared candidate set, so its
               // candidates and effective capacity just changed. Recompute the
@@ -1498,6 +1560,7 @@ export function renderSpellsStep(ctx, container) {
             ctx.onDraftChanged();
           }, { signal: ctx.signal });
           if (group.prepared) preparedInputs.push({ id: spellEntry.id, input: checkbox, row: label });
+          if (underCapAllowed != null) underCapInputs.push({ id: spellEntry.id, input: checkbox, row: label });
           label.appendChild(checkbox);
           const nameSpan = document.createElement("span");
           const ritual = spellEntry.data?.ritual === true ? " (ritual)" : "";
@@ -1510,6 +1573,7 @@ export function renderSpellsStep(ctx, container) {
         groupEl.appendChild(details);
       }
       refreshPreparedInputs();
+      refreshUnderCapInputs();
     };
 
     const renderLists = () => {

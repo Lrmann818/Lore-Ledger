@@ -69,6 +69,12 @@ async function createIncompleteWizard(page, name) {
   await expect(page.locator(".builderUnderCapChoices")).toContainText("allowed");
   await expect(page.locator(".builderIncompleteChoices")).not.toContainText("cantrips");
 
+  // R5-B2: the permitted cantrip/spellbook shortfalls now take one inline
+  // acknowledgement before Finish. It is a separate system from the required
+  // choices this file is about — the banner below must still be raised only by
+  // the required work.
+  await page.locator("#builderWizardFinish").click();
+  await expect(page.locator(".builderUnderCapConfirmation")).toBeVisible();
   await page.locator("#builderWizardFinish").click();
   await expect(page.locator("#builderWizardPanel")).toBeHidden();
 }

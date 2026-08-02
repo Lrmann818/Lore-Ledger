@@ -144,4 +144,28 @@ describe("sanitizeForSave", () => {
     expect(migratedAgain.tracker.party[0].characterId).toBe("char_test");
     expect(migratedAgain.characters.entries[0].status).toBe("Charmed");
   });
+
+  // R5-B2: the optional under-cap acknowledgement record is character-entry
+  // data, so it must ride through sanitize and back through migrate untouched.
+  // No schema bump and no migration step exist for it — a missing field simply
+  // reads as "nothing acknowledged".
+  it("preserves underCapAckLevels through sanitize and migrate", () => {
+    const state = makeState();
+    state.characters = {
+      activeId: "char_ack",
+      entries: [{ id: "char_ack", name: "Wren", underCapAckLevels: [1, 4] }]
+    };
+
+    const sanitized = sanitizeForSave(state);
+    expect(sanitized.characters.entries[0].underCapAckLevels).toEqual([1, 4]);
+
+    const migratedAgain = migrateState(JSON.parse(JSON.stringify(sanitized)));
+    expect(migratedAgain.characters.entries[0].underCapAckLevels).toEqual([1, 4]);
+    // Migration invents nothing for a character that never acknowledged one.
+    const untouched = migrateState(JSON.parse(JSON.stringify({
+      ...sanitized,
+      characters: { activeId: "char_x", entries: [{ id: "char_x", name: "Nix" }] }
+    })));
+    expect(untouched.characters.entries[0].underCapAckLevels).toBeUndefined();
+  });
 });

@@ -980,6 +980,39 @@ describe("importBackup", () => {
     expect(input.value).toBe("");
   });
 
+  // R5-B2: the optional under-cap acknowledgement record is character-entry
+  // data with no schema bump behind it, so a full backup round-trip must carry
+  // it through unchanged.
+  it("round-trips the under-cap acknowledgement record", async () => {
+    const source = makeState();
+    charOf(source).underCapAckLevels = [2, 5];
+    const input = makeInput({
+      version: 2,
+      state: sanitizeForSave(source),
+      blobs: {},
+      texts: {}
+    });
+    const deps = makeImportDeps();
+
+    await importBackup({ target: input }, deps);
+
+    // Positive control: the import really replaced state.
+    expect(charOf(deps.state).id).toBe("char_test");
+    expect(charOf(deps.state).underCapAckLevels).toEqual([2, 5]);
+
+    // Negative control: a backup written before the field existed imports
+    // without one, rather than gaining an invented record.
+    const plainInput = makeInput({
+      version: 2,
+      state: sanitizeForSave(makeState()),
+      blobs: {},
+      texts: {}
+    });
+    const plainDeps = makeImportDeps();
+    await importBackup({ target: plainInput }, plainDeps);
+    expect(charOf(plainDeps.state).underCapAckLevels).toBeUndefined();
+  });
+
   it("rejects unsupported backup formats before migration or writes", async () => {
     const input = makeInput({
       version: 99,

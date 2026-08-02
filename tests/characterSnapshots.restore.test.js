@@ -283,6 +283,22 @@ describe("prepareRestoredCharacter — preparation", () => {
     expect(restoredRows.map((row) => row.id).sort()).toEqual(Object.values(byOld).sort());
   });
 
+  // R5-B2: the acknowledgement record is ordinary character data, so a restored
+  // copy carries exactly what the snapshot held — nothing is invented for a
+  // snapshot taken before the field existed.
+  it("carries the under-cap acknowledgement record verbatim into the restored copy", () => {
+    const withAck = makeRestoreState();
+    withAck.snapshot.payload.underCapAckLevels = [1, 2];
+    expect(prepare(withAck.state, withAck.snapshot).character.underCapAckLevels)
+      .toEqual([1, 2]);
+
+    // Negative control: a pre-R5-B2 snapshot restores without the field.
+    const plain = makeRestoreState();
+    expect(plain.snapshot.payload.underCapAckLevels).toBeUndefined();
+    expect(prepare(plain.state, plain.snapshot).character.underCapAckLevels)
+      .toBeUndefined();
+  });
+
   it("preserves spell data and every character-local id except spell-row ids", () => {
     const { state, source, snapshot } = makeRestoreState();
     const staged = prepare(state, snapshot);

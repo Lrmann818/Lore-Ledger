@@ -72,6 +72,12 @@ test("High Elf requires and grants a wizard cantrip cast with Intelligence", asy
   await expect(page.locator("#builderWizardSummary")).toContainText("Fire Bolt (Intelligence)");
 
   await page.locator("#builderWizardFinish").click();
+  // R5-B2: the wizard's own cantrip and spellbook allowances are left unfilled
+  // (the High Elf race grant this file is about is a required choice, already
+  // made), so the first Finish is the inline under-cap acknowledgement.
+  if (await page.locator("#builderWizardFinish").textContent() === "Finish Anyway") {
+    await page.locator("#builderWizardFinish").click();
+  }
   await expect(page.locator("#builderWizardPanel")).toBeHidden();
 
   // The granted cantrip is on the sheet, and INT drives the spell save DC

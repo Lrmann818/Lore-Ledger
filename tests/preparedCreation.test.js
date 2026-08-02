@@ -357,7 +357,7 @@ describe("creation picker — non-prepared groups are unchanged", () => {
       .toEqual(spellIdsOnClassList("cleric", 0).map(spellName).sort());
   });
 
-  it("keeps a known-spell caster's group on combined slot levels with no cap enforcement", () => {
+  it("keeps a known-spell caster's group on combined slot levels and now enforces its cap (R5-B2)", () => {
     const build = makeBuild({
       levels: nLevels("bard", 3),
       abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 16 }
@@ -367,12 +367,16 @@ describe("creation picker — non-prepared groups are unchanged", () => {
     const known = groupTitled(container, "Known Spells");
     expect(countText(known)).toBe("0 / 6 known");
 
-    // Over-cap on a known-spell caster is still permitted: out of C2-A scope,
-    // recorded for R5-B2. Pinned so the behavior cannot change unnoticed.
+    // C2-A left this group permissive and recorded it for R5-B2. The seventh
+    // pick is now refused: the list stops at the allowance the Summary counts
+    // against, and the unchosen rows are visibly disabled rather than inert.
     const all = rows(known);
     for (let i = 0; i < 7; i += 1) toggle(all[i], true);
-    expect(build.spellcasting.bard.knownIds.length).toBe(7);
-    expect(rows(known).every((row) => row.input.disabled === false)).toBe(true);
+    expect(build.spellcasting.bard.knownIds.length).toBe(6);
+    expect(countText(known)).toBe("6 / 6 known");
+    const after = rows(known);
+    expect(after.filter((row) => row.input.checked).every((row) => row.input.disabled === false)).toBe(true);
+    expect(after.filter((row) => !row.input.checked).every((row) => row.input.disabled === true)).toBe(true);
   });
 });
 

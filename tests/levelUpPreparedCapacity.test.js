@@ -530,7 +530,13 @@ describe("level up wizard — prepared capacity display", () => {
     const character = builderCharacter({
       levels: [...nLevels("cleric", 3), ...nLevels("fighter", 3)],
       base: { wis: 15 },
-      subclassByClass: { cleric: "life", fighter: "champion" }
+      subclassByClass: { cleric: "life", fighter: "champion" },
+      // A full cantrip list (cleric 3 allows 3), so the *only* thing that can
+      // make the Spells step appear is the capacity change — R5-B2 would
+      // otherwise open it for the cantrip shortfall and mask what this pins.
+      spellcasting: {
+        cleric: { cantripIds: ["sacred-flame", "guidance", "light"], knownIds: [], preparedIds: [] }
+      }
     });
     openFor(character);
 
@@ -651,6 +657,10 @@ describe("level up wizard — prepared capacity display", () => {
       .some((title) => /^Prepared/.test(title))).toBe(false);
 
     expect(advanceTo("levelUpStepSummary")).toBe(true);
+    // R5-B2: one cantrip of the four this level allows, so the first Apply is
+    // the under-cap acknowledgement and applies nothing.
+    click("levelUpApply");
+    expect(applied).toHaveLength(0);
     click("levelUpApply");
 
     expect(applied).toHaveLength(1);

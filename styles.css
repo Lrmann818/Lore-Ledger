@@ -9546,6 +9546,13 @@ section.combatPanel[data-collapsed="true"]> :not([data-panel-header]) {
   font-weight: 500;
 }
 
+/* R5-B2: the keyboard-operable return to the Spells step that owns an
+   under-cap shortfall, matching the prepared-review affordance. */
+:is(#builderWizardSummary, #levelUpSummaryBody) .builderSummaryReviewUnderCap {
+  justify-self: start;
+  margin-top: 8px;
+}
+
 :is(#builderWizardPanel, #levelUpPanel) .builderChoiceField select {
   margin-top: 4px;
 }

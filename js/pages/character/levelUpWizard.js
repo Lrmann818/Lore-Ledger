@@ -34,6 +34,7 @@ import {
   EXPERTISE_FEATURE_IDS,
   featureChoiceId,
   getLevelUpPlan,
+  getSpellcastingClasses,
   MAX_CHARACTER_LEVEL,
   normalizeBuildLevels,
   setLevelHpAt
@@ -42,6 +43,12 @@ import {
   getPreparedSpellCapacityChanges,
   isPreparedCasterMode
 } from "../../domain/rules/preparedSpells.js";
+import {
+  formatChoiceShortfall,
+  getResultingCharacterLevel,
+  getUnderCapChoiceDescriptors,
+  UNDER_CAP_KIND
+} from "../../domain/rules/choiceCompletion.js";
 import {
   makeSelect,
   renderAsiSlot,
@@ -191,7 +198,7 @@ function ensureSpellSelection(build, classId) {
  *   root?: ParentNode,
  *   Popovers?: import("../../ui/popovers.js").PopoversApi | null,
  *   rollDie?: (sides: number) => number,
- *   onApply?: (result: { characterId: string | null, build: CharacterBuildState, classId: string, toLevel: number }) => void,
+ *   onApply?: (result: { characterId: string | null, build: CharacterBuildState, classId: string, toLevel: number, underCapAckLevel?: number | null }) => void,
  *   setStatus?: (message: string, options?: Record<string, unknown>) => void
  * }} [deps]
  * @returns {{ open: (options?: { character?: import("../../state.js").CharacterEntry | null }) => void, close: () => void, destroy: () => void }}
@@ -302,6 +309,12 @@ export function initLevelUpWizard(deps = {}) {
   /** @type {number | null} */
   let hpManual = null;
   let currentStep = STEP_CLASS;
+  // R5-B2: transient under-cap acknowledgement, keyed by the exact resulting
+  // shortfalls and the resulting total character level. Never persisted from
+  // here — the page writes `underCapAckLevels` only inside the successful
+  // Level Up mutation.
+  /** @type {string | null} */
+  let underCapConfirmationKey = null;
   let applying = false;
   /** @type {Array<{ select: HTMLSelectElement, api: { rebuild?: () => void, close?: () => void, destroy?: () => void } }>} */
   const dynamicEnhancedSelects = [];
@@ -385,8 +398,13 @@ export function initLevelUpWizard(deps = {}) {
       // granting it anything — a multiclass ASI raising the spellcasting
       // ability of a class the new level does not even belong to. The
       // informational step must still appear so that change is visible.
+      //
+      // R5-B2 adds the third reason: an earlier cantrip, known-spell, or
+      // spellbook shortfall the player must be given a genuine chance to fill,
+      // even on a level that grants no new spell choices at all.
       return plan.spellcastingDelta.length > 0 ||
-        getPreparedCapacityChanges().some((change) => change.changed);
+        getPreparedCapacityChanges().some((change) => change.changed) ||
+        getDraftUnderCapShortfalls().length > 0;
     }
     return true;
   }
@@ -456,6 +474,61 @@ export function initLevelUpWizard(deps = {}) {
     } catch {
       return [];
     }
+  }
+
+  /**
+   * The permitted under-cap spell categories of the **resulting** build (R5-B2)
+   * — cantrips, known spells, and the wizard spellbook, evaluated against the
+   * resulting total character level, not against this level's delta.
+   *
+   * That is the whole point: before R5-B2 the Spells step only offered the
+   * count the appended level *added*, so a caster who came in under at an
+   * earlier level had no opportunity here — or anywhere outside Edit in
+   * Builder, which R5-C retires — to fill it. Allowances and counts come from
+   * the shared choice-completion traversal, so this module owns no formula.
+   *
+   * @returns {import("../../domain/rules/choiceCompletion.js").ChoiceCompletionDescriptor[]}
+   */
+  function getDraftUnderCapDescriptors() {
+    if (!draft) return [];
+    try {
+      return getUnderCapChoiceDescriptors(draft.build, getActiveContentRegistry());
+    } catch {
+      return [];
+    }
+  }
+
+  /** @returns {import("../../domain/rules/choiceCompletion.js").ChoiceCompletionDescriptor[]} */
+  function getDraftUnderCapShortfalls() {
+    return getDraftUnderCapDescriptors().filter((descriptor) => !descriptor.satisfied);
+  }
+
+  /**
+   * The resulting total character level an acknowledgement is recorded against.
+   * @returns {number}
+   */
+  function getResultingLevel() {
+    return draft ? getResultingCharacterLevel(draft.build) : 0;
+  }
+
+  /**
+   * Transient acknowledgement identity: the exact resulting shortfalls **and**
+   * the resulting total character level. A prior level's acknowledgement can
+   * therefore never satisfy the next one, and topping a category up mid-flow
+   * invalidates it.
+   * @param {import("../../domain/rules/choiceCompletion.js").ChoiceCompletionDescriptor[]} shortfalls
+   * @returns {string | null}
+   */
+  function underCapKey(shortfalls) {
+    if (!shortfalls.length) return null;
+    return JSON.stringify({
+      level: getResultingLevel(),
+      rows: shortfalls.map((descriptor) => ({
+        key: descriptor.key,
+        chosen: descriptor.chosen,
+        allowed: descriptor.allowed
+      }))
+    });
   }
 
   /* ------------------------------- steps ------------------------------- */
@@ -746,162 +819,273 @@ export function initLevelUpWizard(deps = {}) {
       }
     };
 
-    for (const delta of plan.spellcastingDelta) {
-      const section = el(spellsBody, "section", "builderSpellClassSection levelUpSpellSection");
-      el(section, "h4", "builderWizardSubTitle", `${delta.className} Spellcasting`);
+    // R5-B2: allowances are the **resulting** totals for the leveled build, not
+    // this level's delta, so an earlier shortfall is fillable here. Counts and
+    // caps come from the shared choice-completion traversal; this module owns
+    // no allowance formula.
+    const underCapDescriptors = getDraftUnderCapDescriptors();
+    /**
+     * @param {string} classId
+     * @param {string} kind
+     * @returns {import("../../domain/rules/choiceCompletion.js").ChoiceCompletionDescriptor | null}
+     */
+    const findUnderCap = (classId, kind) =>
+      underCapDescriptors.find((descriptor) =>
+        descriptor.classId === classId && descriptor.kind === kind) || null;
 
+    /**
+     * The highest leveled spell the pickers offer. Unchanged from the shipped
+     * behavior: the resulting combined slot array (pact casters use their pact
+     * slot level). The per-class ceiling that bounds *prepared* candidates is a
+     * separate, stricter rule owned by the prepared plan.
+     * @param {string} progression
+     * @returns {number}
+     */
+    const maxSpellLevelFor = (progression) => {
+      if (progression === "pact") return plan.pactAfter?.slotLevel ?? 1;
+      let max = 0;
+      plan.slotsAfter.forEach((count, index) => { if (count > 0) max = index + 1; });
+      return Math.max(1, max);
+    };
+
+    /**
+     * Spells already chosen for a class before this Level Up. They stay locked:
+     * Level Up appends, it never retroactively rewrites earlier choices.
+     * @param {string} classId
+     * @param {"cantripIds" | "knownIds"} listKey
+     * @returns {string[]}
+     */
+    const lockedIdsFor = (classId, listKey) => {
       const beforeSelection = isPlainObject(beforeBuild?.spellcasting) &&
-        isPlainObject(/** @type {Record<string, unknown>} */ (beforeBuild.spellcasting)[delta.classId])
-        ? /** @type {{ cantripIds?: unknown, knownIds?: unknown }} */ (
-          /** @type {Record<string, unknown>} */ (beforeBuild.spellcasting)[delta.classId])
+        isPlainObject(/** @type {Record<string, unknown>} */ (beforeBuild.spellcasting)[classId])
+        ? /** @type {Record<string, unknown>} */ (
+          /** @type {Record<string, unknown>} */ (beforeBuild.spellcasting)[classId])
         : {};
-      const lockedCantrips = Array.isArray(beforeSelection.cantripIds)
-        ? beforeSelection.cantripIds.map(cleanString).filter(Boolean)
-        : [];
-      const lockedKnown = Array.isArray(beforeSelection.knownIds)
-        ? beforeSelection.knownIds.map(cleanString).filter(Boolean)
-        : [];
+      const stored = beforeSelection[listKey];
+      return Array.isArray(stored) ? stored.map(cleanString).filter(Boolean) : [];
+    };
 
-      // Informational lines: prepared capacity and newly available levels.
-      if (isPreparedCasterMode(delta.preparationMode)) {
-        renderPreparedCapacity(section, delta.classId);
+    /**
+     * One under-cap picker, capped at the class's **resulting** allowance.
+     *
+     * `affectsPreparedCapacity` is set only for the wizard spellbook group: the
+     * spellbook is the prepared candidate set, so a pick there can move the
+     * displayed resulting capacity. Cantrip and known-spell picks cannot.
+     *
+     * @param {{
+     *   section: HTMLElement,
+     *   classId: string,
+     *   titleWithGain: string,
+     *   titleBackfillOnly: string,
+     *   gained: number,
+     *   listKey: "cantripIds" | "knownIds",
+     *   spellLevels: number[],
+     *   descriptor: import("../../domain/rules/choiceCompletion.js").ChoiceCompletionDescriptor | null,
+     *   affectsPreparedCapacity?: boolean
+     * }} config
+     */
+    const renderUnderCapPicker = ({
+      section, classId, titleWithGain, titleBackfillOnly, gained, listKey,
+      spellLevels, descriptor, affectsPreparedCapacity = false
+    }) => {
+      const locked = lockedIdsFor(classId, listKey);
+      // Without a descriptor (a custom class whose table yields no allowance)
+      // the shipped delta cap is kept verbatim rather than inventing one.
+      const allowed = descriptor ? descriptor.allowed : locked.length + gained;
+      if (allowed <= locked.length) return;
+      const backfill = Math.max(0, allowed - locked.length - gained);
+      const selection = ensureSpellSelection(draft.build, classId);
+
+      const group = el(section, "div", "builderSpellGroup levelUpSpellGroup");
+      const head = el(group, "div", "builderSpellGroupHead");
+      el(head, "span", "builderSpellGroupTitle", gained > 0 ? titleWithGain : titleBackfillOnly);
+      const chosenTotal = () => selection[listKey].length;
+      const countEl = el(head, "span", "builderSpellGroupCount",
+        `${chosenTotal()} / ${allowed} chosen`);
+      countEl.setAttribute("role", "status");
+      countEl.setAttribute("aria-live", "polite");
+      countEl.setAttribute("aria-atomic", "true");
+      if (locked.length) {
+        el(group, "p", "levelUpLockedContext",
+          `Already chosen: ${locked.map(spellName).join(", ")}`);
       }
-      if (delta.newSpellLevels.length) {
-        const row = el(section, "div", "levelUpInfoRow");
-        el(row, "span", "builderSummaryLabel", "New spell levels");
-        el(row, "span", "builderSummaryValue",
-          delta.newSpellLevels.map((level) => ORDINALS[level]).join(", "));
-      }
-      if (delta.grantedSpellIds.length) {
-        const row = el(section, "div", "levelUpInfoRow");
-        el(row, "span", "builderSummaryLabel", "Granted");
-        el(row, "span", "builderSummaryValue", delta.grantedSpellIds.map(spellName).join(", "));
+      if (backfill > 0) {
+        el(group, "p", "builderAbilityMethodNote levelUpUnderCapNote",
+          `${backfill} ${backfill === 1 ? "choice is" : "choices are"} still unused from earlier levels and can be filled here. Choosing fewer than the maximum is allowed.`);
       }
 
       const classSpells = allSpells.filter((entry) => {
         const classIds = Array.isArray(entry.data?.classIds) ? entry.data.classIds : [];
-        return classIds.includes(delta.classId);
+        return classIds.includes(classId);
       });
-      const maxSpellLevel = (() => {
-        if (delta.progression === "pact") return plan.pactAfter?.slotLevel ?? 1;
-        let max = 0;
-        plan.slotsAfter.forEach((count, index) => { if (count > 0) max = index + 1; });
-        return Math.max(1, max);
-      })();
-      const selection = ensureSpellSelection(draft.build, delta.classId);
-
-      /**
-       * `affectsPreparedCapacity` is set only for the wizard spellbook group:
-       * the spellbook is the prepared candidate set, so a pick there can move
-       * the displayed resulting capacity. Cantrip and known-spell picks cannot.
-       * @param {{
-       *   title: string,
-       *   gained: number,
-       *   listKey: "cantripIds" | "knownIds",
-       *   spellLevels: number[],
-       *   locked: string[],
-       *   affectsPreparedCapacity?: boolean
-       * }} config
-       */
-      const renderDeltaPicker = ({ title, gained, listKey, spellLevels, locked, affectsPreparedCapacity = false }) => {
-        if (gained <= 0) return;
-        const group = el(section, "div", "builderSpellGroup levelUpSpellGroup");
-        const head = el(group, "div", "builderSpellGroupHead");
-        el(head, "span", "builderSpellGroupTitle", title);
-        const lockedSet = new Set(locked);
-        const newlyChosen = () => selection[listKey].filter((id) => !lockedSet.has(id));
-        const countEl = el(head, "span", "builderSpellGroupCount",
-          `${newlyChosen().length} / ${gained} chosen`);
-        if (locked.length) {
-          el(group, "p", "levelUpLockedContext",
-            `Already chosen: ${locked.map(spellName).join(", ")}`);
+      const lockedSet = new Set(locked);
+      const list = el(group, "div", "builderSpellCheckList");
+      /** @type {Array<{ input: HTMLInputElement, row: HTMLElement }>} */
+      const rows = [];
+      const refresh = () => {
+        const atCap = chosenTotal() >= allowed;
+        countEl.textContent = `${chosenTotal()} / ${allowed} chosen`;
+        for (const { input, row } of rows) {
+          // Only unchosen rows are blocked; a pick made in this flow stays
+          // removable, so reaching the cap can never strand a selection.
+          input.disabled = input.checked ? false : atCap;
+          row.classList.toggle("isDisabled", input.disabled);
         }
-        const list = el(group, "div", "builderSpellCheckList");
-        /** @type {HTMLInputElement[]} */
-        const checkboxes = [];
-        const refresh = () => {
-          const atCap = newlyChosen().length >= gained;
-          countEl.textContent = `${newlyChosen().length} / ${gained} chosen`;
-          for (const checkbox of checkboxes) {
-            if (!checkbox.checked) checkbox.disabled = atCap;
-          }
-        };
-        const candidates = classSpells
-          .filter((entry) => spellLevels.includes(Number(entry.data?.level) || 0))
-          .filter((entry) => !lockedSet.has(entry.id));
-        for (const spellEntry of candidates) {
-          const label = document.createElement("label");
-          label.className = "builderSpellCheckItem";
-          const checkbox = /** @type {HTMLInputElement} */ (document.createElement("input"));
-          checkbox.type = "checkbox";
-          checkbox.checked = selection[listKey].includes(spellEntry.id);
-          checkbox.addEventListener("change", () => {
-            const ids = selection[listKey];
-            const index = ids.indexOf(spellEntry.id);
-            if (checkbox.checked && index < 0) {
-              if (newlyChosen().length >= gained) {
-                checkbox.checked = false;
-                return;
-              }
-              ids.push(spellEntry.id);
-            }
-            if (!checkbox.checked && index >= 0 && !lockedSet.has(spellEntry.id)) {
-              ids.splice(index, 1);
-            }
-            refresh();
-            if (affectsPreparedCapacity) refreshPreparedCapacity();
-          }, { signal });
-          checkboxes.push(checkbox);
-          label.appendChild(checkbox);
-          const nameSpan = document.createElement("span");
-          const ritual = spellEntry.data?.ritual === true ? " (ritual)" : "";
-          const concentration = spellEntry.data?.concentration === true ? " (conc.)" : "";
-          const levelTag = Number(spellEntry.data?.level) > 0 ? ` — ${ORDINALS[Number(spellEntry.data?.level)]}` : "";
-          nameSpan.textContent = `${spellEntry.name}${levelTag}${ritual}${concentration}`;
-          label.appendChild(nameSpan);
-          list.appendChild(label);
-        }
-        refresh();
       };
+      const candidates = classSpells
+        .filter((entry) => spellLevels.includes(Number(entry.data?.level) || 0))
+        .filter((entry) => !lockedSet.has(entry.id));
+      for (const spellEntry of candidates) {
+        const label = document.createElement("label");
+        label.className = "builderSpellCheckItem";
+        const checkbox = /** @type {HTMLInputElement} */ (document.createElement("input"));
+        checkbox.type = "checkbox";
+        checkbox.checked = selection[listKey].includes(spellEntry.id);
+        checkbox.addEventListener("change", () => {
+          const ids = selection[listKey];
+          const index = ids.indexOf(spellEntry.id);
+          // Defensive cap guard: the rendered `disabled` state blocks a real
+          // pointer or keyboard, but a synthetic or replayed change event must
+          // not push the list past its allowance.
+          if (checkbox.checked && index < 0) {
+            if (chosenTotal() >= allowed) {
+              checkbox.checked = false;
+              refresh();
+              return;
+            }
+            ids.push(spellEntry.id);
+          }
+          if (!checkbox.checked && index >= 0 && !lockedSet.has(spellEntry.id)) {
+            ids.splice(index, 1);
+          }
+          refresh();
+          if (affectsPreparedCapacity) refreshPreparedCapacity();
+        }, { signal });
+        rows.push({ input: checkbox, row: label });
+        label.appendChild(checkbox);
+        const nameSpan = document.createElement("span");
+        const ritual = spellEntry.data?.ritual === true ? " (ritual)" : "";
+        const concentration = spellEntry.data?.concentration === true ? " (conc.)" : "";
+        const levelTag = Number(spellEntry.data?.level) > 0 ? ` — ${ORDINALS[Number(spellEntry.data?.level)]}` : "";
+        nameSpan.textContent = `${spellEntry.name}${levelTag}${ritual}${concentration}`;
+        label.appendChild(nameSpan);
+        list.appendChild(label);
+      }
+      refresh();
+    };
 
-      renderDeltaPicker({
-        title: `New cantrips (${delta.cantripsGained})`,
-        gained: delta.cantripsGained,
+    /**
+     * @param {string} classId
+     * @param {string} className
+     * @param {string} preparationMode
+     * @param {string} progression
+     * @param {{ cantripsGained: number, knownGained: number, spellbookGained: number }} gains
+     * @param {(section: HTMLElement) => void} [renderInfoRows] informational
+     *   rows placed above the pickers, preserving the shipped reading order
+     * @returns {HTMLElement}
+     */
+    const renderClassSection = (classId, className, preparationMode, progression, gains, renderInfoRows) => {
+      const section = el(spellsBody, "section", "builderSpellClassSection levelUpSpellSection");
+      el(section, "h4", "builderWizardSubTitle", `${className} Spellcasting`);
+      if (isPreparedCasterMode(preparationMode)) renderPreparedCapacity(section, classId);
+      renderInfoRows?.(section);
+      const maxSpellLevel = maxSpellLevelFor(progression);
+      const leveled = Array.from({ length: maxSpellLevel }, (_, i) => i + 1);
+
+      renderUnderCapPicker({
+        section,
+        classId,
+        titleWithGain: `New cantrips (${gains.cantripsGained})`,
+        titleBackfillOnly: "Cantrips",
+        gained: gains.cantripsGained,
         listKey: "cantripIds",
         spellLevels: [0],
-        locked: lockedCantrips
+        descriptor: findUnderCap(classId, UNDER_CAP_KIND.CANTRIPS)
       });
-      if (delta.preparationMode === "known") {
-        renderDeltaPicker({
-          title: `New known spells (${delta.knownGained})`,
-          gained: delta.knownGained,
+      if (preparationMode === "known") {
+        renderUnderCapPicker({
+          section,
+          classId,
+          titleWithGain: `New known spells (${gains.knownGained})`,
+          titleBackfillOnly: "Known spells",
+          gained: gains.knownGained,
           listKey: "knownIds",
-          spellLevels: Array.from({ length: maxSpellLevel }, (_, i) => i + 1),
-          locked: lockedKnown
+          spellLevels: leveled,
+          descriptor: findUnderCap(classId, UNDER_CAP_KIND.KNOWN_SPELLS)
         });
       }
-      if (delta.preparationMode === "spellbook") {
-        renderDeltaPicker({
-          title: `Spellbook additions (${delta.spellbookGained})`,
-          gained: delta.spellbookGained,
+      if (preparationMode === "spellbook") {
+        renderUnderCapPicker({
+          section,
+          classId,
+          titleWithGain: `Spellbook additions (${gains.spellbookGained})`,
+          titleBackfillOnly: "Spellbook",
+          gained: gains.spellbookGained,
           listKey: "knownIds",
-          spellLevels: Array.from({ length: maxSpellLevel }, (_, i) => i + 1),
-          locked: lockedKnown,
+          spellLevels: leveled,
+          descriptor: findUnderCap(classId, UNDER_CAP_KIND.SPELLBOOK),
           affectsPreparedCapacity: true
         });
       }
+      return section;
+    };
+
+    for (const delta of plan.spellcastingDelta) {
+      renderClassSection(
+        delta.classId, delta.className, delta.preparationMode, delta.progression,
+        {
+          cantripsGained: delta.cantripsGained,
+          knownGained: delta.knownGained,
+          spellbookGained: delta.spellbookGained
+        },
+        (section) => {
+          if (delta.newSpellLevels.length) {
+            const row = el(section, "div", "levelUpInfoRow");
+            el(row, "span", "builderSummaryLabel", "New spell levels");
+            el(row, "span", "builderSummaryValue",
+              delta.newSpellLevels.map((level) => ORDINALS[level]).join(", "));
+          }
+          if (delta.grantedSpellIds.length) {
+            const row = el(section, "div", "levelUpInfoRow");
+            el(row, "span", "builderSummaryLabel", "Granted");
+            el(row, "span", "builderSummaryValue", delta.grantedSpellIds.map(spellName).join(", "));
+          }
+        }
+      );
     }
 
-    // A prepared caster the appended level grants nothing to can still have its
-    // capacity moved — a multiclass ASI or ability-granting feat raising that
-    // class's spellcasting ability. Those classes get no progression delta, so
-    // they are reported here, informationally, in plan order.
+    // Classes the appended level grants nothing to still need a section when
+    // either their prepared capacity moved (a multiclass ASI raising the
+    // spellcasting ability of a class the new level does not belong to) or they
+    // carry an earlier under-cap shortfall (R5-B2).
     const deltaClassIds = new Set(plan.spellcastingDelta.map((delta) => delta.classId));
+    const draftCasters = new Map(
+      getSpellcastingClasses(normalizeBuildLevels(draft.build), registry)
+        .map((caster) => [caster.classId, caster])
+    );
+    /** @type {string[]} */
+    const extraClassIds = [];
     for (const change of capacityByClass.values()) {
       if (deltaClassIds.has(change.classId) || !change.changed) continue;
-      const section = el(spellsBody, "section", "builderSpellClassSection levelUpSpellSection");
-      el(section, "h4", "builderWizardSubTitle", `${change.className} Spellcasting`);
-      renderPreparedCapacity(section, change.classId);
+      extraClassIds.push(change.classId);
+    }
+    for (const descriptor of underCapDescriptors) {
+      const classId = descriptor.classId;
+      if (!classId || descriptor.satisfied) continue;
+      if (deltaClassIds.has(classId) || extraClassIds.includes(classId)) continue;
+      extraClassIds.push(classId);
+    }
+    for (const classId of extraClassIds) {
+      const caster = draftCasters.get(classId);
+      const className = capacityByClass.get(classId)?.className ||
+        getContentByKind(registry, "class", classId)?.name || classId;
+      renderClassSection(
+        classId,
+        className,
+        caster?.preparationMode || capacityByClass.get(classId)?.preparationMode || "known",
+        caster?.progression || "full",
+        { cantripsGained: 0, knownGained: 0, spellbookGained: 0 }
+      );
     }
   }
 
@@ -1091,6 +1275,56 @@ export function initLevelUpWizard(deps = {}) {
         `Warnings: ${preview.warnings.join("; ")}`);
       warningsEl.hidden = false;
     }
+
+    // R5-B2: permitted under-cap spell categories the resulting build leaves
+    // short, plus the keyboard-operable return to the step that owns them.
+    // Required choices are not blended in — the banner and Complete Choices
+    // still own those (R5-B1) and this flow does not touch them.
+    const shortfalls = getDraftUnderCapShortfalls();
+    const currentKey = underCapKey(shortfalls);
+    if (underCapConfirmationKey !== currentKey) underCapConfirmationKey = null;
+    applyBtn.textContent = currentKey && underCapConfirmationKey === currentKey
+      ? "Apply Anyway"
+      : "Apply";
+    if (shortfalls.length) {
+      const underCapEl = el(summaryBody, "div", "builderWizardValidation builderUnderCapChoices",
+        `Fewer than the maximum chosen at level ${getResultingLevel()} (allowed — you can choose more later): ${shortfalls.map(formatChoiceShortfall).join("; ")}.`);
+      underCapEl.hidden = false;
+      if (isStepAvailable(STEP_SPELLS)) {
+        const review = /** @type {HTMLButtonElement} */ (
+          el(summaryBody, "button", "npcSmallBtn builderSummaryReviewUnderCap", "Review spell choices")
+        );
+        review.type = "button";
+        review.addEventListener("click", goToSpellsStep, { signal });
+      }
+    }
+    if (currentKey && underCapConfirmationKey === currentKey) {
+      const confirmation = el(summaryBody, "div",
+        "builderWizardValidation builderUnderCapConfirmation",
+        `Some spell choices are below the maximum at level ${getResultingLevel()} — this is allowed, and you can choose more later: ${shortfalls.map(formatChoiceShortfall).join("; ")}. Review spell choices, or choose Apply Anyway to continue.`);
+      confirmation.hidden = false;
+      confirmation.setAttribute("role", "alert");
+      confirmation.tabIndex = -1;
+    }
+  }
+
+  /**
+   * Returns to the Spells step and lands focus on its first control, so the
+   * Summary's review affordance is operable by keyboard alone.
+   */
+  function goToSpellsStep() {
+    currentStep = STEP_SPELLS;
+    syncStep();
+    queueMicrotask(() => {
+      const target = /** @type {HTMLElement | null} */ (
+        spellsBody.querySelector("input, summary, button")
+      );
+      try {
+        target?.focus?.({ preventScroll: true });
+      } catch {
+        target?.focus?.();
+      }
+    });
   }
 
   /* ---------------------------- navigation ----------------------------- */
@@ -1165,8 +1399,10 @@ export function initLevelUpWizard(deps = {}) {
     draft = null;
     basePlan = null;
     plan = null;
+    underCapConfirmationKey = null;
     applying = false;
     applyBtn.disabled = false;
+    applyBtn.textContent = "Apply";
     queueMicrotask(() => {
       try {
         target?.focus?.({ preventScroll: true });
@@ -1203,8 +1439,10 @@ export function initLevelUpWizard(deps = {}) {
     beforeBuild = normalized;
     selectedClassId = levels.length ? levels[levels.length - 1].classId : "";
     multiclassMode = !selectedClassId;
+    underCapConfirmationKey = null;
     applying = false;
     applyBtn.disabled = false;
+    applyBtn.textContent = "Apply";
     rebuildDraft();
     currentStep = STEP_CLASS;
     clearValidations();
@@ -1244,6 +1482,28 @@ export function initLevelUpWizard(deps = {}) {
         return;
       }
     }
+    // R5-B2: finishing a Level Up below a permitted allowance stays legal, but
+    // it must be deliberate. The first Apply renders the inline alert and
+    // relabels the action; only a second Apply on the exact same resulting
+    // shortfalls at the exact same resulting level proceeds. This is evaluated
+    // fresh here rather than trusted from the last render, so a pick made after
+    // the alert appeared re-opens the question.
+    const shortfalls = getDraftUnderCapShortfalls();
+    const shortfallKey = underCapKey(shortfalls);
+    if (shortfallKey && underCapConfirmationKey !== shortfallKey) {
+      underCapConfirmationKey = shortfallKey;
+      currentStep = STEP_SUMMARY;
+      syncStep();
+      const confirmation = /** @type {HTMLElement | null} */ (
+        summaryBody.querySelector(".builderUnderCapConfirmation")
+      );
+      try {
+        confirmation?.focus?.({ preventScroll: true });
+      } catch {
+        confirmation?.focus?.();
+      }
+      return;
+    }
     applying = true;
     applyBtn.disabled = true;
     try {
@@ -1251,7 +1511,8 @@ export function initLevelUpWizard(deps = {}) {
         characterId: openingCharacterId,
         build: /** @type {CharacterBuildState} */ (clonePlainBuild(draft.build)),
         classId: selectedClassId,
-        toLevel: plan.toLevel
+        toLevel: plan.toLevel,
+        underCapAckLevel: shortfallKey ? getResultingLevel() : null
       });
     } finally {
       close();

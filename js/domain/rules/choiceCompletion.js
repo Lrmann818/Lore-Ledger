@@ -3,11 +3,20 @@
 //
 // One pure traversal of (build, registry) that answers "which build-time
 // choices are unresolved, and which of those are legally required?". It is the
-// single source of truth for three consumers:
+// single source of truth for five consumers:
 //
 //   1. the creation wizard Summary (via `formatChoiceShortfall`),
-//   2. the Character-page incomplete-required-choices banner, and
-//   3. the focused Complete Choices dialog (via the descriptors + pickers).
+//   2. the Character-page incomplete-required-choices banner,
+//   3. the focused Complete Choices dialog (via the descriptors + pickers),
+//   4. the creation Spells picker's cantrip/known/spellbook caps (R5-B2), and
+//   5. the Level Up Spells step's resulting-allowance pickers (R5-B2).
+//
+// R5-B2 also parks the persisted `underCapAckLevels` normalization here
+// (`normalizeUnderCapAckLevels` and friends) so the under-cap concept —
+// counts, shortfalls, and the acknowledgement record keyed by resulting total
+// character level — has exactly one owner. The record is a *record*: nothing
+// here infers acknowledgement from a shortfall, and no consumer suppresses a
+// prompt because some other level was acknowledged.
 //
 // Required vs. under-cap is a fact of the data, not a judgement: required
 // choices carry a fixed count (`choices[].count`, `skillChoices.choose`,
@@ -38,6 +47,7 @@ import {
   getBuildFeatures,
   getClassLevelTotals,
   getSpellcastingClasses,
+  MAX_CHARACTER_LEVEL,
   multiclassSkillChoiceId,
   normalizeBuildLevels,
   SPELLBOOK_INITIAL_SPELLS,
@@ -54,6 +64,18 @@ import {
 export const CHOICE_REQUIREMENT = Object.freeze({
   REQUIRED: "required",
   UNDER_CAP: "under-cap"
+});
+
+/**
+ * The three permitted under-cap categories (R5-B2). Prepared spells are not one
+ * of them: prepared lists are Long-Rest-owned play state with their own
+ * transient confirmation (rest-rules-spec §4.5), and they must never be mixed
+ * into the under-cap descriptors or the persisted acknowledgement record.
+ */
+export const UNDER_CAP_KIND = Object.freeze({
+  CANTRIPS: "cantrips",
+  KNOWN_SPELLS: "known-spells",
+  SPELLBOOK: "spellbook"
 });
 
 /** Expertise features grant exactly two skill upgrades. */
@@ -661,6 +683,99 @@ export function getChoiceCompletionReport(build, registry) {
     hasUnresolvedRequired: unresolvedRequired.length > 0,
     warnings
   };
+}
+
+/**
+ * The permitted under-cap spell categories for a build — satisfied and short
+ * alike, in the report's own deterministic order.
+ *
+ * A thin accessor over `getChoiceCompletionReport()`, not a second walk: the
+ * creation Spells picker takes its cap from the same `allowed` the creation
+ * Summary counts against, so a rendered cap and a rendered shortfall can never
+ * disagree. Consumers select a category with
+ * `descriptors.find((d) => d.classId === id && d.kind === UNDER_CAP_KIND.…)`.
+ *
+ * @param {unknown} build
+ * @param {ContentRegistry} registry
+ * @returns {ChoiceCompletionDescriptor[]}
+ */
+export function getUnderCapChoiceDescriptors(build, registry) {
+  return getChoiceCompletionReport(build, registry).descriptors.filter(
+    (descriptor) => descriptor.requirement === CHOICE_REQUIREMENT.UNDER_CAP
+  );
+}
+
+/**
+ * The resulting **total character level** a build describes: the number of
+ * level rows, which is what `underCapAckLevels` is keyed by. 0 for a build with
+ * no levels (a malformed or class-less draft), which is never a valid
+ * acknowledgement level.
+ *
+ * @param {unknown} build
+ * @returns {number}
+ */
+export function getResultingCharacterLevel(build) {
+  return normalizeBuildLevels(build).length;
+}
+
+/**
+ * Normalizes the optional persisted `underCapAckLevels` record.
+ *
+ * Defensive by contract: only genuine integers inside the legal character-level
+ * range survive. Strings (including numeric ones), fractions, negatives, zero,
+ * out-of-range values, `NaN`, and non-array containers all fail soft to
+ * "not acknowledged" — the worst consequence of dropping a malformed entry is
+ * that the player is asked to confirm again, which is always safe. Duplicates
+ * collapse and the result is ascending, so the stored record is canonical.
+ *
+ * @param {unknown} value
+ * @returns {number[]}
+ */
+export function normalizeUnderCapAckLevels(value) {
+  if (!Array.isArray(value)) return [];
+  /** @type {Set<number>} */
+  const levels = new Set();
+  for (const raw of value) {
+    if (typeof raw !== "number" || !Number.isInteger(raw)) continue;
+    if (raw < 1 || raw > MAX_CHARACTER_LEVEL) continue;
+    levels.add(raw);
+  }
+  return [...levels].sort((a, b) => a - b);
+}
+
+/**
+ * Whether a resulting total character level has a recorded acknowledgement.
+ *
+ * Read-only: nothing in R5-B2 infers acknowledgement from the mere existence of
+ * a shortfall, and no flow suppresses a prompt on the strength of a *different*
+ * level's record.
+ *
+ * @param {unknown} value
+ * @param {unknown} level
+ * @returns {boolean}
+ */
+export function hasUnderCapAckLevel(value, level) {
+  if (typeof level !== "number" || !Number.isInteger(level)) return false;
+  return normalizeUnderCapAckLevels(value).includes(level);
+}
+
+/**
+ * The record that results from acknowledging one resulting total character
+ * level. Append-only and idempotent: an already-recorded level changes nothing,
+ * and an invalid level is ignored rather than stored.
+ *
+ * Callers must only invoke this **after** the creation or Level Up commit has
+ * succeeded (see `js/pages/character/characterPage.js`).
+ *
+ * @param {unknown} value
+ * @param {unknown} level
+ * @returns {number[]}
+ */
+export function appendUnderCapAckLevel(value, level) {
+  const current = normalizeUnderCapAckLevels(value);
+  const normalizedLevel = normalizeUnderCapAckLevels([level]);
+  if (!normalizedLevel.length) return current;
+  return normalizeUnderCapAckLevels([...current, normalizedLevel[0]]);
 }
 
 /**

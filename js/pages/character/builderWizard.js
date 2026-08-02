@@ -23,7 +23,8 @@ import {
 } from "../../domain/rules/registry.js";
 import {
   formatChoiceShortfall,
-  getChoiceCompletionReport
+  getChoiceCompletionReport,
+  getResultingCharacterLevel
 } from "../../domain/rules/choiceCompletion.js";
 import { getPreparedSpellUnderfillShortfalls } from "../../domain/rules/preparedSpells.js";
 import {
@@ -118,10 +119,15 @@ const STEP_ORDER = Object.freeze([
 ]);
 
 /**
+ * `underCapAckLevel` is the resulting total character level at which the player
+ * explicitly acknowledged a permitted under-cap spell shortfall (R5-B2), or
+ * null when none was required. It is a transient signal, not build data — the
+ * caller persists it on the new character only after creation succeeds.
  * @typedef {{
  *   name: string,
  *   build: import("../../state.js").CharacterBuildState,
- *   characterId: string | null
+ *   characterId: string | null,
+ *   underCapAckLevel?: number | null
  * }} BuilderWizardResult
  */
 
@@ -509,6 +515,13 @@ export function initBuilderWizard(deps = {}) {
   // lists. It is never copied into the build or persisted character state.
   /** @type {string | null} */
   let preparedUnderfillConfirmationKey = null;
+  // R5-B2: the same transient shape for the permitted under-cap spell
+  // categories (class cantrips, known spells, wizard spellbook). Tied to the
+  // exact resulting counts, allowances, and total character level the player
+  // saw; never copied into the draft build. The persisted record is written by
+  // the page only after creation succeeds.
+  /** @type {string | null} */
+  let underCapConfirmationKey = null;
   /** @type {string | null} */
   let editingCharacterId = null;
   /** @type {Record<string, number>} */
@@ -566,6 +579,7 @@ export function initBuilderWizard(deps = {}) {
     enhanceSelect: enhanceDynamicSelect,
     onDraftChanged: () => {
       preparedUnderfillConfirmationKey = null;
+      underCapConfirmationKey = null;
       finishBtn.textContent = "Finish";
       updateLevelDisplay();
       syncStartingClassControl();
@@ -1521,6 +1535,69 @@ export function initBuilderWizard(deps = {}) {
   }
 
   /**
+   * Permitted under-cap spell categories the draft leaves short (R5-B2).
+   *
+   * Creation only. Edit in Builder is excluded for the same reason C2-B
+   * excluded it from the prepared confirmation: an edit session is not a
+   * creation, and `underCapAckLevels` records creation and Level Up decisions
+   * only. Under-cap *cap enforcement* in the picker applies in both modes.
+   *
+   * @returns {import("../../domain/rules/choiceCompletion.js").ChoiceCompletionDescriptor[]}
+   */
+  function getCreationUnderCapShortfalls() {
+    if (editingCharacterId) return [];
+    return getChoiceCompletionReport(draft.build, getActiveContentRegistry()).underCapShortfalls;
+  }
+
+  /**
+   * The acknowledgement is valid only for the exact resulting counts,
+   * allowances, and total character level the player saw. Choosing another
+   * cantrip, or changing a class level so an allowance moves, requires a fresh
+   * inline confirmation.
+   * @param {ReturnType<typeof getCreationUnderCapShortfalls>} shortfalls
+   */
+  function underCapKey(shortfalls) {
+    if (!shortfalls.length) return null;
+    return JSON.stringify({
+      level: getResultingCharacterLevel(draft.build),
+      rows: shortfalls.map((item) => ({
+        key: item.key,
+        chosen: item.chosen,
+        allowed: item.allowed
+      }))
+    });
+  }
+
+  /**
+   * @param {ReturnType<typeof getCreationUnderCapShortfalls>} shortfalls
+   */
+  function formatUnderCapConfirmation(shortfalls) {
+    const counts = shortfalls.map(formatChoiceShortfall);
+    return "Some spell choices are below the maximum — this is allowed, and you " +
+      `can choose more later: ${counts.join("; ")}. Review spell choices, or ` +
+      "choose Finish Anyway to continue.";
+  }
+
+  /**
+   * Returns to the Spells step and lands focus on its first control, so the
+   * Summary's review affordances are operable by keyboard alone.
+   */
+  function goToSpellsStep() {
+    currentStep = STEP_SPELLS;
+    syncStep();
+    queueMicrotask(() => {
+      const target = /** @type {HTMLElement | null} */ (
+        spellsBody.querySelector("input, summary, button")
+      );
+      try {
+        target?.focus?.({ preventScroll: true });
+      } catch {
+        target?.focus?.();
+      }
+    });
+  }
+
+  /**
    * @param {HTMLElement} rowsEl
    * @param {Array<[string, string]>} rows
    */
@@ -1676,20 +1753,7 @@ export function initBuilderWizard(deps = {}) {
       review.type = "button";
       review.className = "npcSmallBtn builderSummaryReviewPrepared";
       review.textContent = "Review prepared spells";
-      review.addEventListener("click", () => {
-        currentStep = STEP_SPELLS;
-        syncStep();
-        queueMicrotask(() => {
-          const target = /** @type {HTMLElement | null} */ (
-            spellsBody.querySelector("input, summary, button")
-          );
-          try {
-            target?.focus?.({ preventScroll: true });
-          } catch {
-            target?.focus?.();
-          }
-        });
-      }, { signal });
+      review.addEventListener("click", goToSpellsStep, { signal });
       preparedWrap.appendChild(review);
     }
 
@@ -1698,10 +1762,20 @@ export function initBuilderWizard(deps = {}) {
     if (preparedUnderfillConfirmationKey !== currentUnderfillKey) {
       preparedUnderfillConfirmationKey = null;
     }
-    finishBtn.textContent = currentUnderfillKey && preparedUnderfillConfirmationKey === currentUnderfillKey
-      ? "Finish Anyway"
-      : "Finish";
-    if (currentUnderfillKey && preparedUnderfillConfirmationKey === currentUnderfillKey) {
+    const underCapShortfalls = getCreationUnderCapShortfalls();
+    const currentUnderCapKey = underCapKey(underCapShortfalls);
+    if (underCapConfirmationKey !== currentUnderCapKey) {
+      underCapConfirmationKey = null;
+    }
+    const preparedConfirmed = !!currentUnderfillKey &&
+      preparedUnderfillConfirmationKey === currentUnderfillKey;
+    const underCapConfirmed = !!currentUnderCapKey &&
+      underCapConfirmationKey === currentUnderCapKey;
+    // One label for both transient confirmations: a draft short on prepared
+    // spells *and* on cantrips is acknowledged in a single second Finish, not
+    // two.
+    finishBtn.textContent = preparedConfirmed || underCapConfirmed ? "Finish Anyway" : "Finish";
+    if (preparedConfirmed) {
       const confirmation = appendDiv(
         summaryEl,
         "builderWizardValidation builderPreparedUnderfillConfirmation",
@@ -1745,6 +1819,27 @@ export function initBuilderWizard(deps = {}) {
       underCapEl.hidden = false;
       underCapEl.textContent =
         `Fewer than the maximum chosen (allowed — you can choose more later): ${underCap.join("; ")}.`;
+      // R5-B2: a direct, keyboard-operable way back to the step that owns the
+      // shortfall — the same affordance C2-B gave prepared spells. Rendered
+      // whenever the Spells step exists, in both creation and Edit in Builder,
+      // because it is navigation and nothing else.
+      if (isStepAvailable(STEP_SPELLS)) {
+        const review = document.createElement("button");
+        review.type = "button";
+        review.className = "npcSmallBtn builderSummaryReviewUnderCap";
+        review.textContent = "Review spell choices";
+        review.addEventListener("click", goToSpellsStep, { signal });
+        summaryEl.appendChild(review);
+      }
+    }
+    if (underCapConfirmed) {
+      const confirmation = appendDiv(
+        summaryEl,
+        "builderWizardValidation builderUnderCapConfirmation",
+        formatUnderCapConfirmation(underCapShortfalls)
+      );
+      confirmation.setAttribute("role", "alert");
+      confirmation.tabIndex = -1;
     }
 
     const abilities = appendDiv(summaryEl, "builderSummaryAbilities", "");
@@ -1859,6 +1954,7 @@ export function initBuilderWizard(deps = {}) {
     }
     currentStep = STEP_IDENTITY;
     preparedUnderfillConfirmationKey = null;
+    underCapConfirmationKey = null;
     finishBtn.textContent = "Finish";
     previousFocus = document.activeElement;
     summaryEl.innerHTML = "";
@@ -1875,12 +1971,19 @@ export function initBuilderWizard(deps = {}) {
     });
   }
 
-  function finish() {
+  /**
+   * @param {number | null} [underCapAckLevel] the resulting total character
+   *   level the player acknowledged an under-cap shortfall at, or null when no
+   *   acknowledgement was required. The caller records it only after the
+   *   character is actually created (R5-B2).
+   */
+  function finish(underCapAckLevel = null) {
     syncDraftFromControls();
     onFinish?.({
       name: draft.name,
       build: structuredClone(draft.build),
-      characterId: editingCharacterId
+      characterId: editingCharacterId,
+      underCapAckLevel
     });
     close();
   }
@@ -1968,17 +2071,28 @@ export function initBuilderWizard(deps = {}) {
       syncStep();
       return;
     }
-    // C2-B: underfilling is legal, but creation Finish must make it deliberate.
-    // The first click renders an inline warning; the second click confirms the
-    // exact same resulting lists. Edit in Builder is excluded because its draft
-    // prepared ids are not authoritative play-state.
+    // C2-B / R5-B2: underfilling is legal, but creation Finish must make it
+    // deliberate. The first click renders the inline warning(s); the second
+    // click confirms the exact same resulting lists, counts, allowances, and
+    // total character level. Both categories are evaluated together, so a
+    // draft short on prepared spells *and* on cantrips needs one extra click,
+    // not two. Edit in Builder is excluded from both: its draft prepared ids
+    // are not authoritative play-state, and `underCapAckLevels` records
+    // creation and Level Up decisions only.
     const preparedUnderfill = getCreationPreparedUnderfill();
     const underfillKey = preparedUnderfillKey(preparedUnderfill);
-    if (underfillKey && preparedUnderfillConfirmationKey !== underfillKey) {
+    const shortfalls = getCreationUnderCapShortfalls();
+    const shortfallKey = underCapKey(shortfalls);
+    const needsPrepared = !!underfillKey && preparedUnderfillConfirmationKey !== underfillKey;
+    const needsUnderCap = !!shortfallKey && underCapConfirmationKey !== shortfallKey;
+    if (needsPrepared || needsUnderCap) {
       preparedUnderfillConfirmationKey = underfillKey;
+      underCapConfirmationKey = shortfallKey;
       renderSummary();
       const confirmation = /** @type {HTMLElement | null} */ (
-        summaryEl.querySelector(".builderPreparedUnderfillConfirmation")
+        summaryEl.querySelector(
+          ".builderPreparedUnderfillConfirmation, .builderUnderCapConfirmation"
+        )
       );
       try {
         confirmation?.focus?.({ preventScroll: true });
@@ -1987,7 +2101,7 @@ export function initBuilderWizard(deps = {}) {
       }
       return;
     }
-    finish();
+    finish(shortfallKey ? getResultingCharacterLevel(draft.build) : null);
   }, { signal });
   cancelBtn.addEventListener("click", close, { signal });
   closeBtn.addEventListener("click", close, { signal });

@@ -2614,6 +2614,7 @@ describe("character page selector", () => {
   async function createClericWithPrepared({
     name = "Prepared Mira",
     pick = 2,
+    cantripPicks = 0,
     wis = 16,
     confirmUnderfill = true
   } = {}) {
@@ -2627,6 +2628,20 @@ describe("character page selector", () => {
         document.getElementById(`builderWizardAbility${suffix}`).value = String(value);
       });
     advanceBuilderWizardToStep("builderWizardStepSpells");
+
+    // R5-B2: cantrips are a permitted under-cap category, so leaving them
+    // empty now raises its own inline confirmation. Tests that want a fully
+    // filled character pass `cantripPicks`.
+    if (cantripPicks > 0) {
+      const cantripGroup = Array.from(
+        document.getElementById("builderWizardSpellsBody").querySelectorAll(".builderSpellGroup")
+      ).find((node) => node.querySelector(".builderSpellGroupTitle")?.textContent === "Cantrips");
+      const cantripBoxes = preparedSpellRows(cantripGroup);
+      for (let i = 0; i < cantripPicks; i += 1) {
+        cantripBoxes[i].input.checked = true;
+        cantripBoxes[i].input.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+    }
 
     const preparedGroup = Array.from(
       document.getElementById("builderWizardSpellsBody").querySelectorAll(".builderSpellGroup")
@@ -2791,7 +2806,11 @@ describe("character page selector", () => {
     actionMenuButton.dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
     document.getElementById("charActionNewBuilderBtn")
       .dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
-    await createClericWithPrepared({ name: "Full Cleric", pick: 4, confirmUnderfill: false });
+    // Full on both axes: 4 of 4 prepared and 3 of 3 cantrips, so neither the
+    // C2-B prepared confirmation nor the R5-B2 under-cap one is raised.
+    await createClericWithPrepared({
+      name: "Full Cleric", pick: 4, cantripPicks: 3, confirmUnderfill: false
+    });
 
     expect(document.getElementById("builderWizardOverlay").hidden).toBe(true);
     expect(deps.state.characters.entries.at(-1).name).toBe("Full Cleric");
@@ -5247,6 +5266,13 @@ describe("level up flow", () => {
     clickLevelUp(document, "levelUpNext"); // spells → hp
     clickLevelUp(document, "levelUpNext"); // hp → summary
     expect(document.getElementById("levelUpStepSummary").hidden).toBe(false);
+    // R5-B2: this cleric never chose its cantrips, so the first Apply is the
+    // inline under-cap acknowledgement and commits nothing.
+    clickLevelUp(document, "levelUpApply");
+    await flushPromises();
+    expect(deps.state.characters.entries.find((e) => e.id === "char_levelup").build.levels)
+      .toHaveLength(3);
+    expect(deps.SaveManager.markDirty).not.toHaveBeenCalled();
     clickLevelUp(document, "levelUpApply");
     await flushPromises();
 
@@ -5303,6 +5329,144 @@ describe("level up flow", () => {
     expect(deps.state.characters.snapshots ?? []).toHaveLength(0);
     expect(deps.setStatus).toHaveBeenCalledWith(
       "Level Up was canceled because the active character changed.", { stickyMs: 2500 });
+
+    controller.destroy();
+  });
+
+  // R5-B2: the under-cap acknowledgement is persisted by the page, inside the
+  // one Level Up mutation, and only on success.
+  function makeShortWizard(overrides = {}) {
+    const character = makeLeveledBuilderCharacter({
+      levels: [
+        { classId: "wizard", hp: null },
+        { classId: "wizard", hp: null }
+      ],
+      subclassByClass: { wizard: "evocation" },
+      base: { str: 8, dex: 14, con: 13, int: 16, wis: 10, cha: 8 },
+      flatFields: { hpMax: 14, hpCur: 14, ...overrides }
+    });
+    character.build.spellcasting = {
+      wizard: { cantripIds: [], knownIds: [], preparedIds: [] }
+    };
+    return character;
+  }
+
+  function walkLevelUpToSummary() {
+    for (let i = 0; i < 8 && document.getElementById("levelUpStepSummary").hidden; i += 1) {
+      clickLevelUp(document, "levelUpNext");
+    }
+    expect(document.getElementById("levelUpStepSummary").hidden).toBe(false);
+  }
+
+  it("records the acknowledged resulting level in the same mutation as the level (R5-B2)", async () => {
+    const character = makeShortWizard();
+    const { deps, controller, actionMenuButton } = setupLevelUp(character);
+
+    openLevelUp(actionMenuButton);
+    walkLevelUpToSummary();
+    clickLevelUp(document, "levelUpApply");
+    await flushPromises();
+    // First Apply is the acknowledgement: nothing committed at all.
+    expect(deps.state.characters.entries[0].build.levels).toHaveLength(2);
+    expect(deps.state.characters.entries[0].underCapAckLevels).toBeUndefined();
+    expect(deps.state.characters.snapshots ?? []).toHaveLength(0);
+    expect(deps.SaveManager.markDirty).not.toHaveBeenCalled();
+
+    clickLevelUp(document, "levelUpApply");
+    await flushPromises();
+    const updated = deps.state.characters.entries[0];
+    expect(updated.build.levels).toHaveLength(3);
+    expect(updated.underCapAckLevels).toEqual([3]);
+    // One atomic commit: the level, the snapshot, and the record together.
+    expect(deps.state.characters.snapshots).toHaveLength(1);
+    expect(deps.SaveManager.markDirty).toHaveBeenCalledTimes(1);
+    // The retained snapshot is the pre-Level-Up character, so it must not
+    // carry the acknowledgement the commit added.
+    expect(deps.state.characters.snapshots[0].payload.underCapAckLevels).toBeUndefined();
+
+    controller.destroy();
+  });
+
+  it("appends to an existing record without disturbing earlier levels", async () => {
+    const character = makeShortWizard();
+    character.underCapAckLevels = [2];
+    const { deps, controller, actionMenuButton } = setupLevelUp(character);
+
+    openLevelUp(actionMenuButton);
+    walkLevelUpToSummary();
+    clickLevelUp(document, "levelUpApply");
+    clickLevelUp(document, "levelUpApply");
+    await flushPromises();
+
+    expect(deps.state.characters.entries[0].underCapAckLevels).toEqual([2, 3]);
+    expect(deps.SaveManager.markDirty).toHaveBeenCalledTimes(1);
+
+    controller.destroy();
+  });
+
+  it("normalizes a malformed stored record when it appends, and fails soft", async () => {
+    const character = makeShortWizard();
+    character.underCapAckLevels = [2, 2, -4, 99, "3", null, 1.5];
+    const { deps, controller, actionMenuButton } = setupLevelUp(character);
+
+    openLevelUp(actionMenuButton);
+    walkLevelUpToSummary();
+    clickLevelUp(document, "levelUpApply");
+    clickLevelUp(document, "levelUpApply");
+    await flushPromises();
+
+    expect(deps.state.characters.entries[0].underCapAckLevels).toEqual([2, 3]);
+
+    controller.destroy();
+  });
+
+  it("records nothing when the level up leaves no allowance short", async () => {
+    const character = makeShortWizard();
+    // 3 of 3 cantrips and 10 of the 10 spellbook spells level 3 allows.
+    character.build.spellcasting.wizard = {
+      cantripIds: ["fire-bolt", "light", "mage-hand"],
+      knownIds: [
+        "magic-missile", "shield", "burning-hands", "detect-magic",
+        "sleep", "charm-person", "mage-armor", "thunderwave",
+        "identify", "feather-fall"
+      ],
+      preparedIds: []
+    };
+    const { deps, controller, actionMenuButton } = setupLevelUp(character);
+
+    openLevelUp(actionMenuButton);
+    walkLevelUpToSummary();
+    clickLevelUp(document, "levelUpApply");
+    await flushPromises();
+
+    const updated = deps.state.characters.entries[0];
+    expect(updated.build.levels).toHaveLength(3); // positive control: it applied
+    expect(updated.underCapAckLevels).toBeUndefined();
+    expect(deps.SaveManager.markDirty).toHaveBeenCalledTimes(1);
+
+    controller.destroy();
+  });
+
+  it("writes no acknowledgement to either character when the active one changes", async () => {
+    const character = makeShortWizard();
+    const other = { id: "char_other", name: "Other", build: null };
+    const { deps, controller, actionMenuButton } = setupLevelUp(character, { extraEntries: [other] });
+
+    openLevelUp(actionMenuButton);
+    walkLevelUpToSummary();
+    clickLevelUp(document, "levelUpApply"); // acknowledgement rendered
+    const snapshotA = JSON.stringify(deps.state.characters.entries[0]);
+    const snapshotB = JSON.stringify(deps.state.characters.entries[1]);
+
+    deps.state.characters.activeId = "char_other";
+    clickLevelUp(document, "levelUpApply");
+    await flushPromises();
+
+    expect(JSON.stringify(deps.state.characters.entries[0])).toBe(snapshotA);
+    expect(JSON.stringify(deps.state.characters.entries[1])).toBe(snapshotB);
+    expect(deps.state.characters.entries[0].underCapAckLevels).toBeUndefined();
+    expect(deps.state.characters.entries[1].underCapAckLevels).toBeUndefined();
+    expect(deps.SaveManager.markDirty).not.toHaveBeenCalled();
 
     controller.destroy();
   });
@@ -5934,6 +6098,188 @@ describe("wizard Summary incomplete-choice guidance", () => {
     // Prepared capacity is Long-Rest owned and never appears in either block.
     expect(required.textContent).not.toContain("prepared");
     expect(underCap.textContent).not.toContain("prepared");
+
+    controller.destroy();
+  });
+});
+
+// R5-B2: creation acknowledges a permitted under-cap spell shortfall exactly
+// once, and the record is written only when the character is actually created.
+describe("creation under-cap acknowledgement (R5-B2)", () => {
+  function openNewBuilderWizard() {
+    const { document, actionMenuButton } = installCharacterSelectorDom();
+    installBuilderWizardDom(document);
+    const deps = createCharacterPageDeps(createFakePopovers());
+    const controller = initCharacterPageUI(deps);
+    actionMenuButton.dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    document.getElementById("charActionNewBuilderBtn")
+      .dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    return { document, deps, controller };
+  }
+
+  function fillIdentity(name, classId = "wizard") {
+    document.getElementById("builderWizardName").value = name;
+    document.getElementById("builderWizardRace").value = "half-orc";
+    document.getElementById("builderWizardClass").value = classId;
+    document.getElementById("builderWizardBackground").value = "acolyte";
+  }
+
+  function spellGroup(title) {
+    return Array.from(
+      document.getElementById("builderWizardSpellsBody").querySelectorAll(".builderSpellGroup")
+    ).find((node) => node.querySelector(".builderSpellGroupTitle")?.textContent === title) || null;
+  }
+
+  function groupRows(groupEl) {
+    return groupEl.querySelectorAll(".builderSpellCheckItem").map((item) => ({
+      input: item.children.find((child) => child.tagName === "INPUT")
+    }));
+  }
+
+  function clickFinish() {
+    document.getElementById("builderWizardFinish")
+      .dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+  }
+
+  it("records the resulting level after an acknowledged creation", async () => {
+    const { deps, controller } = openNewBuilderWizard();
+    fillIdentity("Under Cap Wizard");
+    advanceBuilderWizardToStep("builderWizardStepSummary");
+
+    // First Finish is the acknowledgement: nothing is created.
+    clickFinish();
+    await flushPromises();
+    expect(deps.state.characters.entries).toHaveLength(2);
+    const alert = document.querySelector(".builderUnderCapConfirmation");
+    expect(alert).toBeTruthy();
+    expect(alert.getAttribute("role")).toBe("alert");
+    expect(alert.tabIndex).toBe(-1);
+    expect(alert.textContent).toContain("this is allowed");
+    expect(alert.textContent).toContain("Wizard cantrips: 0 of 3 chosen");
+    expect(document.getElementById("builderWizardFinish").textContent).toBe("Finish Anyway");
+    expect(deps.SaveManager.markDirty).not.toHaveBeenCalled();
+
+    clickFinish();
+    await flushPromises();
+    const created = deps.state.characters.entries.at(-1);
+    expect(created.name).toBe("Under Cap Wizard");
+    expect(created.underCapAckLevels).toEqual([1]);
+    expect(deps.SaveManager.markDirty).toHaveBeenCalledTimes(1);
+
+    controller.destroy();
+  });
+
+  it("records nothing when every allowance is filled", async () => {
+    const { deps, controller } = openNewBuilderWizard();
+    fillIdentity("Full Wizard");
+    expect(advanceBuilderWizardToStep("builderWizardStepSpells")).toBe(true);
+    const cantrips = groupRows(spellGroup("Cantrips"));
+    for (let i = 0; i < 3; i += 1) {
+      cantrips[i].input.checked = true;
+      cantrips[i].input.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+    const spellbook = groupRows(spellGroup("Spellbook"));
+    for (let i = 0; i < 6; i += 1) {
+      spellbook[i].input.checked = true;
+      spellbook[i].input.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+    // Fill the prepared list too, so the C2-B confirmation cannot stand in for
+    // the R5-B2 one this case is meant to prove absent.
+    const preparedFirst = groupRows(spellGroup("Prepared Spells (from spellbook)"))[0];
+    preparedFirst.input.checked = true;
+    preparedFirst.input.dispatchEvent(new Event("change", { bubbles: true }));
+
+    advanceBuilderWizardToStep("builderWizardStepSummary");
+    expect(document.querySelector(".builderUnderCapChoices")).toBeNull();
+
+    clickFinish();
+    await flushPromises();
+    const created = deps.state.characters.entries.at(-1);
+    expect(created.name).toBe("Full Wizard"); // positive control: it was created
+    expect(created.underCapAckLevels).toBeUndefined();
+    expect(document.querySelector(".builderUnderCapConfirmation")).toBeNull();
+
+    controller.destroy();
+  });
+
+  it("records nothing when the wizard is cancelled after acknowledging", async () => {
+    const { deps, controller } = openNewBuilderWizard();
+    fillIdentity("Abandoned Wizard");
+    advanceBuilderWizardToStep("builderWizardStepSummary");
+    clickFinish();
+    await flushPromises();
+    expect(document.querySelector(".builderUnderCapConfirmation")).toBeTruthy();
+
+    document.getElementById("builderWizardCancel")
+      .dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    await flushPromises();
+    expect(deps.state.characters.entries).toHaveLength(2);
+    expect(deps.state.characters.entries.some((e) => e.underCapAckLevels)).toBe(false);
+    expect(deps.SaveManager.markDirty).not.toHaveBeenCalled();
+
+    controller.destroy();
+  });
+
+  it("invalidates the acknowledgement when a spell choice changes", () => {
+    const { controller } = openNewBuilderWizard();
+    fillIdentity("Changing Wizard");
+    advanceBuilderWizardToStep("builderWizardStepSummary");
+    clickFinish();
+    expect(document.getElementById("builderWizardFinish").textContent).toBe("Finish Anyway");
+
+    document.querySelector(".builderSummaryReviewUnderCap")
+      .dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    expect(document.getElementById("builderWizardStepSpells").hidden).toBe(false);
+    const row = groupRows(spellGroup("Cantrips"))[0];
+    row.input.checked = true;
+    row.input.dispatchEvent(new Event("change", { bubbles: true }));
+
+    advanceBuilderWizardToStep("builderWizardStepSummary");
+    expect(document.getElementById("builderWizardFinish").textContent).toBe("Finish");
+    expect(document.querySelector(".builderUnderCapConfirmation")).toBeNull();
+
+    controller.destroy();
+  });
+
+  it("records nothing when a validation failure blocks the creation", async () => {
+    // A prepared list the shared plan rejects: four spells chosen at Wis 16,
+    // then Wis dropped to 10 so the effective capacity is 1. The defensive
+    // Finish gate returns to the Spells step and creates nothing, so no
+    // acknowledgement may be written either.
+    const { deps, controller } = openNewBuilderWizard();
+    fillIdentity("Blocked Cleric", "cleric");
+    expect(advanceBuilderWizardToStep("builderWizardStepAbilities")).toBe(true);
+    document.getElementById("builderWizardAbilityWis").value = "16";
+    document.getElementById("builderWizardAbilityWis")
+      .dispatchEvent(new Event("input", { bubbles: true }));
+    expect(advanceBuilderWizardToStep("builderWizardStepSpells")).toBe(true);
+    const preparedRows = groupRows(spellGroup("Prepared Spells"));
+    for (let i = 0; i < 4; i += 1) {
+      preparedRows[i].input.checked = true;
+      preparedRows[i].input.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+
+    document.getElementById("builderWizardBack")
+      .dispatchEvent(new Event("click", { bubbles: true, cancelable: true }));
+    expect(document.getElementById("builderWizardStepAbilities").hidden).toBe(false);
+    document.getElementById("builderWizardAbilityWis").value = "10";
+    document.getElementById("builderWizardAbilityWis")
+      .dispatchEvent(new Event("input", { bubbles: true }));
+
+    advanceBuilderWizardToStep("builderWizardStepSummary");
+    clickFinish();
+    await flushPromises();
+    clickFinish();
+    await flushPromises();
+    // Positive control: the block is the prepared guard, on the step that owns
+    // the problem — not a silently swallowed Finish.
+    expect(document.getElementById("builderWizardStepSpells").hidden).toBe(false);
+    expect(document.querySelector(".builderSpellsValidation").textContent)
+      .toContain("can prepare at most");
+
+    expect(deps.state.characters.entries).toHaveLength(2);
+    expect(deps.state.characters.entries.some((e) => e.underCapAckLevels)).toBe(false);
+    expect(deps.SaveManager.markDirty).not.toHaveBeenCalled();
 
     controller.destroy();
   });

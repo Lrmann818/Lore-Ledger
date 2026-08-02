@@ -671,10 +671,42 @@ playwright.preview.config.js`) — both smoke gates are blocking per
     seeded sheet content — a code rollback is safe because no new schema exists, but
     those already-completed choices are valid user data and are not removed.
   - **R5-B2 — creation and Level Up under-cap opportunity + persisted acknowledgement.
-    Not authorized.** Also unbuilt and required before R5-C: a separately scoped,
-    **non-banner** correction path (associated with the existing Spells surface) for a
-    permanently stranded level-20 Wizard spellbook shortfall — owner ruling 2026-07-25
-    that such a shortfall is unacceptable; placement to be confirmed separately.
+    ✅ Shipped 2026-08-02 (owner-authorized).** Six production files. `choiceCompletion.js`
+    remains the single traversal and count owner, gaining the thin
+    `getUnderCapChoiceDescriptors()` accessor plus the acknowledgement model
+    (`normalizeUnderCapAckLevels` / `hasUnderCapAckLevel` / `appendUnderCapAckLevel` /
+    `getResultingCharacterLevel`), so both wizards cap against exactly the `allowed` the
+    Summary counts against. **Creation** fixes the generic handler that enforced no cap at
+    all on cantrip, known-spell, and spellbook lists: unchosen rows are disabled (and
+    visibly muted) at the allowance while chosen ones stay removable, the change handler
+    defends the cap against synthetic events, and the spellbook finally shows its maximum.
+    **Level Up** evaluates the *resulting* build at the *resulting total character level*,
+    so a shortfall from an earlier level is fillable — pickers cap at the resulting
+    allowance with earlier picks locked as context, a class with no progression delta still
+    gets a section when it carries a shortfall, and the Spells step becomes available for a
+    shortfall alone. Finishing short stays legal but takes **one** explicit inline
+    acknowledgement (`Finish Anyway` / `Apply Anyway`, focus moved to a `role="alert"`,
+    keyboard-operable **Review spell choices** return, invalidated by any relevant change);
+    creation evaluates the C2-B prepared confirmation together with it so one extra click
+    covers both. **State owner: the optional `underCapAckLevels?: number[]` on the character
+    entry** — a decision *about* a build, not a build choice — aggregated by resulting total
+    level, append-only, deduplicated, ascending, written only inside the successful creation
+    mutation or the single Level Up mutation that also appends the pre-Level-Up snapshot
+    (one dirty mark, one rerender, snapshot transaction intact). **No schema version bump
+    and no migration**; the field rides through sanitize, the campaign vault, full backup,
+    `.ll-character.json` portability, and snapshot payloads because those carry entries
+    whole. Malformed / duplicate / non-integer / negative / out-of-range data fails soft,
+    nothing is inferred from a shortfall, prepared underfill is never mixed in, and Edit in
+    Builder is excluded from the acknowledgement (but not from the cap fix). Tests:
+    `tests/underCapChoices.test.js` (14), `tests/underCapCreation.test.js` (8),
+    `tests/underCapLevelUp.test.js` (10), `tests/smoke/underCapChoices.smoke.js` (2), plus
+    preservation cases in `tests/state.sanitize.test.js`, `tests/storage.backup.test.js`,
+    `tests/characterPortability.test.js`, `tests/characterSnapshots.restore.test.js` and 10
+    real-flow cases in `tests/characterPage.test.js`. **Still unbuilt and required before
+    R5-C:** a separately scoped, **non-banner** correction path (associated with the
+    existing Spells surface) for a permanently stranded level-20 Wizard spellbook shortfall
+    — owner ruling 2026-07-25 that such a shortfall is unacceptable; placement to be
+    confirmed separately.
   - **R5-C — the retirement itself (E1–E6/M1–M3, T1–T6). Not authorized.**
 - **R6 — Docs close-out.** Update `docs/state-schema.md` (v13 + snapshot record),
   `docs/operations/storage-and-backups.md`, `docs/features/multi-character-design.md`

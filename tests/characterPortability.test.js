@@ -340,6 +340,26 @@ describe("prepareImportedCharacter", () => {
     expect(prepared.characterEntry.build).not.toBe(build);
     expect(prepared.characterEntry.overrides).not.toBe(overrides);
   });
+
+  // R5-B2: the acknowledgement record is character data, so a character that
+  // moves between campaigns carries the levels it acknowledged with it.
+  it("preserves the under-cap acknowledgement record through export and import", async () => {
+    const character = makeCharacter({ underCapAckLevels: [1, 3] });
+    const exported = await exportCharacterToObject(character, null, {});
+    expect(exported.character.underCapAckLevels).toEqual([1, 3]);
+
+    const prepared = prepareImportedCharacter({ ...exported, portrait: null });
+    expect(prepared.characterEntry.underCapAckLevels).toEqual([1, 3]);
+    expect(prepared.characterEntry.underCapAckLevels)
+      .not.toBe(exported.character.underCapAckLevels);
+
+    // Negative control: a character that never acknowledged one gains nothing.
+    const plain = prepareImportedCharacter({
+      ...(await exportCharacterToObject(makeCharacter(), null, {})),
+      portrait: null
+    });
+    expect(plain.characterEntry.underCapAckLevels).toBeUndefined();
+  });
 });
 
 describe("exportActiveCharacter", () => {

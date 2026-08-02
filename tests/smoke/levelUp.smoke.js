@@ -258,8 +258,13 @@ test("level up shows the adjustment-aware prepared capacity even when only capac
   await expect(capacityValue(page, "cleric")).toHaveText("3 → 4");
   await expect(page.locator("#levelUpSpellsBody")).toContainText(
     "Prepared spells are chosen when finishing a Long Rest, not here.");
-  // No prepared picker is offered here.
-  await expect(page.locator("#levelUpSpellsBody .builderSpellCheckItem")).toHaveCount(0);
+  // No prepared picker is offered here. (R5-B2 does add a cantrip picker for
+  // this cleric's unfilled level-1 cantrip allowance — that is a build choice,
+  // not a prepared selection, and it is the point of that phase.)
+  await expect(page.locator("#levelUpSpellsBody .builderSpellGroupTitle")
+    .filter({ hasText: /^Prepared/ })).toHaveCount(0);
+  await expect(page.locator("#levelUpSpellsBody .builderSpellGroupTitle")
+    .filter({ hasText: /^Cantrips$/ })).toHaveCount(1);
 
   const bodyOverflow = await page.locator("#levelUpPanel .levelUpBody").evaluate(
     (node) => node.scrollWidth - node.clientWidth
@@ -286,6 +291,11 @@ test("level up shows the adjustment-aware prepared capacity even when only capac
     await page.locator("#levelUpNext").click();
   }
   await expect(page.locator("#levelUpStepSummary")).toBeVisible();
+  // R5-B2: this cleric's cantrips were never chosen, so the first Apply is the
+  // inline under-cap acknowledgement and commits nothing.
+  await page.locator("#levelUpApply").click();
+  await expect(page.locator("#levelUpSummaryBody .builderUnderCapConfirmation")).toBeVisible();
+  await expect(page.locator("#levelUpApply")).toHaveText("Apply Anyway");
   await page.locator("#levelUpApply").click();
   await expect(page.locator("#levelUpPanel")).toBeHidden();
   const afterApply = await page.evaluate(() => {
@@ -340,7 +350,12 @@ test("pending wizard spellbook additions move the resulting prepared capacity li
   // sides at 2, so no change is claimed until the book actually grows.
   await expect(capacityValue(page, "wizard")).toHaveText("2");
 
-  const additions = page.locator("#levelUpSpellsBody .builderSpellGroup .builderSpellCheckItem input[type=checkbox]");
+  // Scoped to the spellbook group: R5-B2 also offers this wizard's unfilled
+  // level-1 cantrips here, and a cantrip pick must not move prepared capacity.
+  const spellbookGroup = page.locator("#levelUpSpellsBody .builderSpellGroup").filter({
+    has: page.locator(".builderSpellGroupTitle", { hasText: /^Spellbook additions/ })
+  });
+  const additions = spellbookGroup.locator(".builderSpellCheckItem input[type=checkbox]");
   expect(await additions.count()).toBeGreaterThan(2);
 
   // Keyboard operation, not a synthetic click: Space toggles the addition and

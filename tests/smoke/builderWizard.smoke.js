@@ -398,6 +398,11 @@ test("builder wizard spells step renders compact checkbox rows", async ({ page }
   await expect(page.locator("#builderWizardStepEquipment")).toBeVisible();
   await page.locator("#builderWizardNext").click();
   await expect(page.locator("#builderWizardStepSummary")).toBeVisible();
+  // R5-B2: this sorcerer deliberately stops at one cantrip and no known spells,
+  // so the first Finish is the inline under-cap acknowledgement.
+  await page.locator("#builderWizardFinish").click();
+  await expect(page.locator(".builderUnderCapConfirmation")).toBeVisible();
+  await expect(page.locator("#builderWizardFinish")).toHaveText("Finish Anyway");
   await page.locator("#builderWizardFinish").click();
   await expect(page.locator("#builderWizardPanel")).toBeHidden();
 

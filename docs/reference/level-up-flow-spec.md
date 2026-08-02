@@ -366,7 +366,7 @@ HP → Summary.
 | 2 | **Subclass** | new class level == `subclassLevel` and none stored | `subclassByClass` |
 | 3 | **Features** | new level grants features with `subfeatureOptions` or expertise; plus read-only list of unchosen new features | `choicesByLevel` |
 | 4 | **ASI / Feat** | `getAsiSlots()` gains a slot at the new level | `choicesByLevel["asi-<lvl>"]` |
-| 5 | **Spells** | any spellcasting delta (cantrips, known, spellbook, new slot level, new grant) **or** any prepared caster whose capacity moves | append cantrip/known/spellbook choices only; prepared capacity is read-only |
+| 5 | **Spells** | any spellcasting delta (cantrips, known, spellbook, new slot level, new grant), any prepared caster whose capacity moves, **or** any under-cap shortfall in the resulting build (R5-B2) | append cantrip/known/spellbook choices up to the **resulting** allowance; prepared capacity is read-only |
 | 6 | **Hit Points** | always | `setLevelHpAt` |
 | 7 | **Summary** | always | nothing — Apply commits |
 
@@ -390,11 +390,13 @@ read-only "You also gain" list of the new level's other features with their
 **Step 4 — ASI / Feat.** Reuse the exact `renderAsiSlot()` shape: mode select
 (ASI +2 total / Feat), then two +1 ability selects or a feat select.
 
-**Step 5 — Spells.** Show **only the delta**:
+**Step 5 — Spells.** Show the delta plus any earlier under-cap shortfall:
 
-- a cantrip picker only when `cantripsGained > 0`
-- known-spell picks only for Bard, Ranger, Sorcerer, or Warlock when `knownGained > 0`
-- level-earned Wizard spellbook additions, stored in Wizard `knownIds`
+- a cantrip picker when `cantripsGained > 0` **or** the resulting build is under its cantrip
+  allowance (R5-B2)
+- known-spell picks only for Bard, Ranger, Sorcerer, or Warlock, when `knownGained > 0` **or**
+  the resulting build is under its known-spell allowance
+- Wizard spellbook additions — the level-earned ones and any never taken at an earlier level
 - prepared capacity and newly available spell levels as information only for Cleric, Druid,
   Paladin, and Wizard
 - automatically granted subclass/domain/oath spells as read-only gained content
@@ -414,6 +416,30 @@ for context, they are read-only and sourced from `rest.preparedByClass`.
 > unknown capacity as `unknown` (never `0`), and omits a meaningless "before" for a class only
 > becoming a prepared caster now. The value is recomputed rather than cached, so a pending
 > spellbook pick updates it in place, bounded by that class's formula.
+>
+> **Under-cap opportunity as shipped (R5-B2, 2026-08-02).** Each picker's cap is the
+> **resulting** allowance for the resulting total character level, taken from
+> `getUnderCapChoiceDescriptors(draftBuild, registry)` — the same
+> `js/domain/rules/choiceCompletion.js` traversal the creation Summary counts against, so no
+> allowance formula lives in the wizard. Before R5-B2 a picker was capped at the level's
+> *gain*, which meant a caster who came in under at an earlier level could not fill it here
+> or anywhere except Edit in Builder (retiring in R5-C). Earlier picks stay locked context —
+> Level Up appends, it never rewrites them — but any unused allowance is offered, with a
+> plain-language note naming how many remain and stating that choosing fewer is allowed.
+> Unchosen rows are disabled at the cap while picks made in this flow stay removable, and the
+> change handler defends the cap against synthetic events. A class with no progression delta
+> still gets a section when it carries a shortfall.
+>
+> Applying while any category is still short is legal but requires **one** explicit inline
+> acknowledgement: the first Apply renders a `role="alert"`, moves focus to it, relabels the
+> action **Apply Anyway**, and commits nothing; only a second Apply on the exact same
+> resulting shortfalls at the same resulting total level proceeds. Topping a category up
+> invalidates it. On success the resulting total level is appended to the character entry's
+> optional `underCapAckLevels` **inside the same single mutation** as the level commit and the
+> pre-Level-Up snapshot — one dirty mark, one rerender, snapshot transaction intact. A prior
+> level's record never satisfies the next level's prompt, and open / navigation / Back /
+> validation failure / Cancel / apply failure / an active-character switch write nothing. See
+> `docs/state-schema.md` → "Basics and vitals" for the field contract.
 >
 > The step is also **available whenever any prepared caster's capacity moves**, even with an
 > empty `spellcastingDelta` — the multiclass case where an ASI on a non-spellcasting appended
@@ -669,8 +695,15 @@ circuit breaker firing.
   Apply: the flow cancels with a clear status and neither character changes.
 - Cancel from every step: build, sheet fields, rest state, and dirty state are unchanged.
 - Validation failure and malformed/missing registry data fail visibly without partial state.
-- Bard/Ranger/Sorcerer/Warlock append only newly granted known spells.
-- Wizard appends only level-earned spellbook entries; its prepared list remains unchanged.
+- Bard/Ranger/Sorcerer/Warlock append only newly granted known spells **and any allowance
+  never taken at an earlier level** (R5-B2); the resulting total is capped at the resulting
+  allowance and earlier picks stay locked.
+- Wizard appends level-earned spellbook entries **plus any earlier unused spellbook
+  allowance** (R5-B2); its prepared list remains unchanged.
+- Applying below any under-cap allowance requires one inline acknowledgement, records the
+  resulting total level on `underCapAckLevels` inside the same mutation as the level commit
+  and the snapshot, and prompts again at the next level if the character is still short
+  (R5-B2 — `tests/underCapLevelUp.test.js`, `tests/smoke/underCapChoices.smoke.js`).
 - Cleric/Druid/Paladin show prepared-capacity changes without a prepared picker or write.
 - Cantrip selection appears only for a positive cantrip-cap delta.
 - Granted spells are shown/seeded as granted and are not counted as manual choices unless

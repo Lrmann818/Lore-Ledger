@@ -165,6 +165,11 @@ test("custom class authored through the manager drives the builder end to end", 
   await page.locator("#builderWizardNext").click(); // → summary
   await expect(page.locator("#builderWizardFinish")).toBeVisible();
   await page.locator("#builderWizardFinish").click();
+  // R5-B2: the custom full caster's cantrip/known allowances are left unfilled,
+  // so the first Finish is the inline under-cap acknowledgement.
+  if (await page.locator("#builderWizardFinish").textContent() === "Finish Anyway") {
+    await page.locator("#builderWizardFinish").click();
+  }
   await expect(page.locator("#builderWizardPanel")).toBeHidden();
 
   // Finish seeded the class-resource pool with its marker, and the feature
