@@ -13,6 +13,8 @@
 //      under its own root, keeps its direct "+ Level" button and never renders
 //      or wires the correction action.
 
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { initSpellsPanel } from "../js/pages/character/panels/spellsPanel.js";
@@ -24,11 +26,13 @@ function setupCharacterDom() {
       <div class="row between items-center spellsHeader">
         <h2 class="m0">Spells</h2>
         <div class="spellsOptionsDropdown" id="spellsOptionsDropdown">
-          <button id="spellsOptionsBtn" type="button" class="moveBtn" aria-haspopup="true"
-            aria-expanded="false" title="Spell options">&#8943;</button>
-          <div class="spellsOptionsMenu" id="spellsOptionsMenu" hidden>
-            <button type="button" class="swatchOption spellsOptionsItem" id="addSpellLevelBtn">Add spell level</button>
-            <button type="button" class="swatchOption spellsOptionsItem" id="addSpellbookChoicesBtn">Add Spellbook Choices</button>
+          <button id="spellsOptionsBtn" type="button" class="moveBtn" aria-haspopup="menu"
+            aria-expanded="false" aria-controls="spellsOptionsMenu"
+            title="Spell options" aria-label="Spell options">&#8943;</button>
+          <div class="spellsOptionsMenu" id="spellsOptionsMenu" role="menu"
+            aria-labelledby="spellsOptionsBtn" hidden aria-hidden="true">
+            <button type="button" role="menuitem" class="swatchOption spellsOptionsItem" id="addSpellLevelBtn">Add spell level</button>
+            <button type="button" role="menuitem" class="swatchOption spellsOptionsItem" id="addSpellbookChoicesBtn">Add Spellbook Choices</button>
           </div>
         </div>
       </div>
@@ -293,6 +297,181 @@ describe("Character Spells overflow menu", () => {
 
     expect(Popovers.handles[0].destroy).toHaveBeenCalledTimes(1);
     expect(correction.listeners.size).toBe(0);
+  });
+
+  it("pins the shipped index.html menu semantics, not just this fixture", () => {
+    // The fixture above is a copy; this asserts the real shipped markup, so a
+    // regression in index.html cannot hide behind a correct test double.
+    const html = readFileSync(resolve(process.cwd(), "index.html"), "utf8");
+    const header = html.slice(
+      html.indexOf('id="spellsOptionsDropdown"'),
+      html.indexOf('id="spellLevels"')
+    );
+    expect(header).toContain('aria-haspopup="menu"');
+    expect(header).toContain('aria-controls="spellsOptionsMenu"');
+    expect(header).toContain('aria-label="Spell options"');
+    expect(header).toContain('role="menu"');
+    expect(header).toContain('aria-labelledby="spellsOptionsBtn"');
+    expect(header.match(/role="menuitem"/g)).toHaveLength(2);
+    expect(header).toContain('id="addSpellLevelBtn"');
+    expect(header).toContain('id="addSpellbookChoicesBtn"');
+  });
+
+  it("carries coherent menu semantics and relationships", () => {
+    init();
+    const trigger = optionsBtn();
+    const menu = optionsMenu();
+
+    expect(trigger.getAttribute("aria-haspopup")).toBe("menu");
+    expect(trigger.getAttribute("aria-controls")).toBe(menu.id);
+    expect(trigger.getAttribute("aria-label")).toBe("Spell options");
+    expect(menu.getAttribute("role")).toBe("menu");
+    expect(menu.getAttribute("aria-labelledby")).toBe(trigger.id);
+    for (const item of [addLevelBtn(), spellbookBtn()]) {
+      expect(item.getAttribute("role")).toBe("menuitem");
+      expect(item.type).toBe("button");
+    }
+
+    // aria-hidden tracks the open state alongside aria-expanded.
+    expect(menu.getAttribute("aria-hidden")).toBe("true");
+    trigger.click();
+    expect(menu.getAttribute("aria-hidden")).toBe("false");
+    expect(trigger.getAttribute("aria-expanded")).toBe("true");
+  });
+
+  it("returns focus to the trigger after Add spell level completes", async () => {
+    const { state } = init(makeState());
+    optionsBtn().click();
+    addLevelBtn().focus();
+    addLevelBtn().click();
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(state.characters.entries[0].spells.levels
+      .some((level) => level.label === "4th Level")).toBe(true);
+    expect(document.activeElement).toBe(optionsBtn());
+  });
+
+  it("returns focus to the trigger when Add spell level is cancelled", async () => {
+    uiPrompt = vi.fn().mockResolvedValue(null);
+    const { state } = init(makeState());
+    const levelsBefore = state.characters.entries[0].spells.levels.length;
+    optionsBtn().click();
+    addLevelBtn().focus();
+    addLevelBtn().click();
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    // Nothing was added, and focus still came back.
+    expect(state.characters.entries[0].spells.levels).toHaveLength(levelsBefore);
+    expect(document.activeElement).toBe(optionsBtn());
+  });
+});
+
+describe("Character Spells overflow menu — no Popovers fallback", () => {
+  let correction;
+  let uiPrompt;
+  let api;
+
+  beforeEach(() => {
+    setupCharacterDom();
+    correction = makeCorrection();
+    uiPrompt = vi.fn().mockResolvedValue("4th Level");
+  });
+
+  afterEach(() => {
+    api?.destroy();
+    api = null;
+  });
+
+  function init(state = makeState()) {
+    const SaveManager = { markDirty: vi.fn() };
+    // No `Popovers` at all — the panel must still provide a usable menu.
+    api = initSpellsPanel({ state, SaveManager, spellbookCorrection: correction, uiPrompt });
+    return { state, SaveManager };
+  }
+
+  it("toggles the menu and keeps aria state coherent", () => {
+    init();
+    expect(optionsMenu().hidden).toBe(true);
+    optionsBtn().click();
+    expect(optionsMenu().hidden).toBe(false);
+    expect(optionsBtn().getAttribute("aria-expanded")).toBe("true");
+    expect(optionsMenu().getAttribute("aria-hidden")).toBe("false");
+
+    optionsBtn().click();
+    expect(optionsMenu().hidden).toBe(true);
+    expect(optionsBtn().getAttribute("aria-expanded")).toBe("false");
+  });
+
+  it("closes on Escape and returns focus to the trigger", () => {
+    init();
+    optionsBtn().click();
+    addLevelBtn().focus();
+
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    expect(optionsMenu().hidden).toBe(true);
+    expect(document.activeElement).toBe(optionsBtn());
+  });
+
+  it("closes on an outside click but not on inert space inside the menu", () => {
+    init();
+    optionsBtn().click();
+
+    // Inert chrome inside the menu (its own padding) leaves it open.
+    optionsMenu().dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(optionsMenu().hidden).toBe(false);
+
+    // Outside: closes.
+    document.body.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(optionsMenu().hidden).toBe(true);
+
+    // Activating an item also dismisses (menu semantics), which is why the
+    // inert-space case above is the meaningful "stays open" control.
+    optionsBtn().click();
+    expect(optionsMenu().hidden).toBe(false);
+    spellbookBtn().dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(optionsMenu().hidden).toBe(true);
+  });
+
+  it("removes its document listeners on destroy and rebinds exactly once", () => {
+    const state = makeState();
+    const { SaveManager } = init(state);
+    api.destroy();
+
+    // After teardown the stale document listeners must be gone: an Escape or an
+    // outside click must not resurrect behavior against a destroyed panel.
+    optionsMenu().hidden = false;
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    expect(optionsMenu().hidden).toBe(false);
+
+    // Re-init binds one fresh set; one click still equals one toggle.
+    api = initSpellsPanel({ state, SaveManager, spellbookCorrection: correction, uiPrompt });
+    optionsMenu().hidden = true;
+    optionsBtn().click();
+    expect(optionsMenu().hidden).toBe(false);
+    optionsBtn().click();
+    expect(optionsMenu().hidden).toBe(true);
+  });
+
+  it("still opens the correction and restores focus after add-level", async () => {
+    const { state } = init(makeState());
+    optionsBtn().click();
+    spellbookBtn().click();
+    expect(correction.open).toHaveBeenCalledTimes(1);
+    expect(optionsMenu().hidden).toBe(true);
+
+    optionsBtn().click();
+    addLevelBtn().focus();
+    addLevelBtn().click();
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(state.characters.entries[0].spells.levels
+      .some((level) => level.label === "4th Level")).toBe(true);
+    expect(document.activeElement).toBe(optionsBtn());
   });
 });
 

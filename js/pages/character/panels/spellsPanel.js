@@ -346,6 +346,14 @@ export function initSpellsPanel(deps = {}) {
   /** @type {Array<() => void>} */
   let spellNotesRenderUnsubscribers = [];
 
+  /**
+   * Set by `setupHeaderOverflowMenu()` when this host actually has the ⋯ menu
+   * (Character page only). Read by the add-level handler, which always runs
+   * later than setup, so the ordering is safe; stays null on the Combat host.
+   * @type {(() => void) | null}
+   */
+  let restoreOverflowMenuFocus = null;
+
   const addListener = (target, type, handler, options) => {
     if (!target || typeof target.addEventListener !== "function") return;
     const listenerOptions =
@@ -994,7 +1002,13 @@ export function initSpellsPanel(deps = {}) {
           title: "New Spell Level"
         })) || "").trim();
 
-        if (destroyed || !label) return;
+        if (destroyed) return;
+        // Focus returns to the ⋯ trigger once the prompt settles — on submit
+        // and on cancel alike — so a keyboard user is never stranded on a node
+        // inside a menu that has since closed. A no-op on the Combat host,
+        // which renders no overflow menu.
+        restoreOverflowMenuFocus?.();
+        if (!label) return;
 
         const isCantrip = label.toLowerCase().includes("cantrip");
         const updated = mutateCharacter((character) => {
@@ -1005,9 +1019,13 @@ export function initSpellsPanel(deps = {}) {
         }, { queueSave: false });
         if (!updated) return;
         markSpellsChanged({ renderSource: true });
+        // The level list rebuilds above; the header trigger is outside it and
+        // survives, so re-assert focus after the re-render.
+        restoreOverflowMenuFocus?.();
       }, (err) => {
         console.error(err);
         notifyStatus(setStatus, "Add spell level failed.");
+        restoreOverflowMenuFocus?.();
       })
     );
 
@@ -1065,15 +1083,48 @@ export function initSpellsPanel(deps = {}) {
       if (handle?.close) handle.close();
       else setMenuOpen(false);
     };
+    const focusTrigger = () => {
+      try { optionsBtnEl.focus({ preventScroll: true }); } catch { optionsBtnEl.focus?.(); }
+    };
+    // "Add spell level" opens a prompt dialog and then re-renders the level
+    // list; the trigger element survives both, so focus returns to it whether
+    // the prompt was submitted or cancelled. Assigned here and read by the
+    // handler in `setupSpellsV2()`, which runs strictly later.
+    restoreOverflowMenuFocus = () => {
+      if (destroyed || !optionsBtnEl.isConnected) return;
+      focusTrigger();
+    };
+    addDestroy(() => { restoreOverflowMenuFocus = null; });
+
     // Without the shared popover system the trigger still has to toggle its own
     // menu, or the relocated "Add spell level" action would be unreachable
-    // (the same fallback the character action menu already carries).
+    // (the same fallback the character action menu already carries). The
+    // fallback must also reproduce the dismissal behaviors Popovers normally
+    // provides, or the menu would be a one-way trap.
     if (!handle) {
       addListener(optionsBtnEl, "click", (event) => {
         event.preventDefault();
         event.stopPropagation();
         if (optionsMenuEl.hidden) openMenu();
         else closeMenu();
+      });
+      // Outside click closes. Listeners are AbortController-owned, so a destroy
+      // (and therefore a re-init) can never leave a second copy behind.
+      addListener(document, "click", (event) => {
+        if (optionsMenuEl.hidden) return;
+        const target = event.target;
+        if (!(target instanceof Node)) return;
+        if (optionsBtnEl.contains(target) || optionsMenuEl.contains(target)) return;
+        closeMenu();
+      });
+      // Escape closes from anywhere while the menu is open, matching the
+      // `closeOnEsc` contract, and returns focus to the trigger.
+      addListener(document, "keydown", (event) => {
+        const e = /** @type {KeyboardEvent} */ (event);
+        if (e.key !== "Escape" || optionsMenuEl.hidden) return;
+        e.preventDefault();
+        closeMenu();
+        focusTrigger();
       });
     }
 

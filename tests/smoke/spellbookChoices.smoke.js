@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { expectNoFatalSignals, openSmokeApp } from "./helpers/smokeApp.js";
+import { expectNoFatalSignals, openSmokeApp, submitPromptDialog } from "./helpers/smokeApp.js";
 
 // The max-level spellbook correction in a real browser, at 380 × 820.
 //
@@ -137,6 +137,15 @@ test("a stranded level-20 wizard fills its spellbook from the Spells menu", asyn
 
   const rows = page.locator("#spellbookChoicesBody .builderSpellCheckItem");
   expect(await rows.count()).toBeGreaterThan(10);
+
+  // The dialog's own scoped styling is actually applied — the reused wizard
+  // classes are scoped to the two wizard panels, so an unstyled dialog would
+  // render the list as inline text with no grid and no pointer affordance.
+  await expect(page.locator("#spellbookChoicesBody .builderSpellCheckList"))
+    .toHaveCSS("display", "grid");
+  await expect(rows.nth(0)).toHaveCSS("display", "flex");
+  await expect(rows.nth(0)).toHaveCSS("cursor", "pointer");
+
   const firstBox = rows.nth(0).locator("input[type=checkbox]");
   const chosenName = (await rows.nth(0).locator("span").innerText()).split(" — ")[0];
   await firstBox.focus();
@@ -178,6 +187,66 @@ test("a stranded level-20 wizard fills its spellbook from the Spells menu", asyn
   await page.getByRole("tab", { name: "Character" }).click();
   await expect.poll(() => readRowNames(page, CHARACTER_SPELLS)).toContain(chosenName);
   expect(await pageOverflow(page)).toBeLessThanOrEqual(1);
+
+  await expectNoFatalSignals(page, fatalSignals);
+});
+
+test("the disabled cap state is visible and Add spell level restores focus", async ({ page }) => {
+  const fatalSignals = await openSmokeApp(page, { campaignName: "Spellbook Style Smoke" });
+  await page.setViewportSize({ width: 380, height: 820 });
+  await page.getByRole("tab", { name: "Character" }).click();
+  await createUnderfilledWizard20(page, "Style Wizard");
+
+  // --- Add spell level: the real prompt, then focus back on the trigger ----
+  const trigger = page.locator("#spellsOptionsBtn");
+  const levelsBefore = await page.locator(`${CHARACTER_SPELLS} .spellLevel`).count();
+  await trigger.click();
+  await page.locator("#addSpellLevelBtn").click();
+  await submitPromptDialog(page, "Focus Check Level");
+  await expect(page.locator(`${CHARACTER_SPELLS} .spellLevel`)).toHaveCount(levelsBefore + 1);
+  await expect(trigger).toBeFocused();
+
+  // Cancelling the prompt also returns focus.
+  await trigger.click();
+  await page.locator("#addSpellLevelBtn").click();
+  await page.locator("#uiDialogCancel").click();
+  await expect(page.locator(`${CHARACTER_SPELLS} .spellLevel`)).toHaveCount(levelsBefore + 1);
+  await expect(trigger).toBeFocused();
+
+  // --- The correction dialog's disabled cap state is genuinely styled ------
+  await trigger.click();
+  await page.locator("#addSpellbookChoicesBtn").click();
+  await expect(page.locator("#spellbookChoicesOverlay")).toBeVisible();
+
+  const rows = page.locator("#spellbookChoicesBody .builderSpellCheckItem");
+  // Positive control: no row is muted before the allowance is reached.
+  await expect(page.locator("#spellbookChoicesBody .builderSpellCheckItem.isDisabled"))
+    .toHaveCount(0);
+
+  // Reaching a 44-spell allowance by keystroke is impractical here (the unit
+  // suite drives the cap logic). What only the browser can prove is that the
+  // disabled *rule* resolves for this panel at all: the wizard classes this
+  // dialog reuses are scoped to #builderWizardPanel/#levelUpPanel, so before
+  // the scoped copies were added these declarations reached nothing. Toggle the
+  // real class on a real row and read the real cascade.
+  const styles = await page.evaluate(() => {
+    const row = document.querySelector("#spellbookChoicesBody .builderSpellCheckItem");
+    if (!row) return null;
+    const before = getComputedStyle(row);
+    const enabled = { color: before.color, cursor: before.cursor };
+    row.classList.add("isDisabled");
+    const after = getComputedStyle(row);
+    const disabled = { color: after.color, cursor: after.cursor };
+    row.classList.remove("isDisabled");
+    return { enabled, disabled };
+  });
+  expect(styles).not.toBeNull();
+  expect(styles.enabled.cursor).toBe("pointer");
+  expect(styles.disabled.cursor).toBe("not-allowed");
+  expect(styles.disabled.color).not.toBe(styles.enabled.color);
+
+  expect(await pageOverflow(page)).toBeLessThanOrEqual(1);
+  expect(await containerOverflow(page, "#spellbookChoicesPanel")).toBeLessThanOrEqual(1);
 
   await expectNoFatalSignals(page, fatalSignals);
 });

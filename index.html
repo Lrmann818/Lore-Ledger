@@ -1051,13 +1051,15 @@
                    Combat workspace's embedded Spells panel keeps its own direct
                    "+ Level" button and does not expose the correction action. -->
               <div class="spellsOptionsDropdown" id="spellsOptionsDropdown">
-                <button id="spellsOptionsBtn" type="button" class="moveBtn" aria-haspopup="true"
-                  aria-expanded="false" title="Spell options">⋯</button>
+                <button id="spellsOptionsBtn" type="button" class="moveBtn" aria-haspopup="menu"
+                  aria-expanded="false" aria-controls="spellsOptionsMenu"
+                  title="Spell options" aria-label="Spell options">⋯</button>
 
-                <div class="spellsOptionsMenu" id="spellsOptionsMenu" hidden>
-                  <button type="button" class="swatchOption spellsOptionsItem"
+                <div class="spellsOptionsMenu" id="spellsOptionsMenu" role="menu"
+                  aria-labelledby="spellsOptionsBtn" hidden aria-hidden="true">
+                  <button type="button" role="menuitem" class="swatchOption spellsOptionsItem"
                     id="addSpellLevelBtn">Add spell level</button>
-                  <button type="button" class="swatchOption spellsOptionsItem"
+                  <button type="button" role="menuitem" class="swatchOption spellsOptionsItem"
                     id="addSpellbookChoicesBtn">Add Spellbook Choices</button>
                 </div>
               </div>

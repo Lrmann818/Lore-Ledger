@@ -41,7 +41,7 @@ import { getPreparedSpellPlan } from "../../domain/rules/preparedSpells.js";
 import { resolveSpellChoiceOptions } from "../../domain/rules/spellChoices.js";
 import { MAX_CHARACTER_LEVEL, normalizeBuildLevels } from "../../domain/rules/progression.js";
 import { getActiveContentRegistry, getContentByKind } from "../../domain/rules/registry.js";
-import { subscribePanelDataChanged } from "../../ui/panelInvalidation.js";
+import { notifyPanelDataChanged, subscribePanelDataChanged } from "../../ui/panelInvalidation.js";
 import { getNoopDestroyApi, requireMany } from "../../utils/domGuards.js";
 
 /** @typedef {import("../../domain/rules/registry.js").ContentRegistry} ContentRegistry */
@@ -661,7 +661,10 @@ export function initSpellbookChoicesFlow(deps) {
     for (const addition of additions) {
       if (!isPlainObject(projection.build.spellcasting)) projection.build.spellcasting = {};
       const bucket = projection.build.spellcasting;
-      if (!isPlainObject(bucket[addition.classId])) bucket[addition.classId] = {};
+      if (!isPlainObject(bucket[addition.classId])) {
+        // Matches the shape both wizards write through `ensureSpellSelection`.
+        bucket[addition.classId] = { cantripIds: [], knownIds: [], preparedIds: [] };
+      }
       const selection = bucket[addition.classId];
       const existing = Array.isArray(selection.knownIds) ? selection.knownIds : [];
       selection.knownIds = [...existing, ...addition.ids];
@@ -670,7 +673,10 @@ export function initSpellbookChoicesFlow(deps) {
     /** @type {{ spells: import("../../state.js").CharacterEntry["spells"] } | null} */
     let patch;
     try {
-      patch = getSpellbookAdditionSheetPatch(projection, registry);
+      // Addition-scoped: only the ids just chosen may seed a row, so a builder
+      // row the player deleted stays deleted and every other level and row is
+      // byte-identical.
+      patch = getSpellbookAdditionSheetPatch(projection, additions, registry);
     } catch (err) {
       console.error("Add Spellbook Choices: sheet seeding failed.", err);
       await failOpen("These spellbook choices could not be added. No changes were made.");
@@ -679,6 +685,12 @@ export function initSpellbookChoicesFlow(deps) {
 
     // 8-10. One mutation → one markDirty → one vault write. The appends and the
     // spells-only seed patch commit together or not at all.
+    //
+    // Multi-class atomicity: every bucket is resolved and validated **before**
+    // the first live assignment, so a second class that cannot be written can
+    // never leave the first class's append committed. `mutateCharacter` marks
+    // dirty only on a truthy return, so a rejection here also produces no dirty
+    // mark and no rerender.
     let applyError = "";
     const updated = mutateCharacter((current) => {
       if (cleanString(current?.id) !== openCharacterId) {
@@ -689,23 +701,53 @@ export function initSpellbookChoicesFlow(deps) {
         applyError = "invalid-eligibility";
         return false;
       }
-      if (!isPlainObject(current.build?.spellcasting)) {
+      if (!isPlainObject(current.build)) {
         applyError = "invalid-build";
         return false;
       }
-      const bucket = /** @type {Record<string, unknown>} */ (current.build.spellcasting);
+      // --- validate every target first ---------------------------------
+      /** @type {Array<{ selection: Record<string, unknown> | null, classId: string, next: string[] }>} */
+      const planned = [];
+      const bucket = isPlainObject(current.build.spellcasting)
+        ? /** @type {Record<string, unknown>} */ (current.build.spellcasting)
+        : null;
       for (const addition of additions) {
-        const selection = isPlainObject(bucket[addition.classId])
+        const selection = bucket && isPlainObject(bucket[addition.classId])
           ? /** @type {Record<string, unknown>} */ (bucket[addition.classId])
           : null;
-        if (!selection) {
-          applyError = "invalid-build";
-          return false;
+        if (selection) {
+          const stored = selection.knownIds;
+          // A malformed non-array `knownIds` is not silently replaced: it is a
+          // build shape this action must not normalize.
+          if (stored !== undefined && !Array.isArray(stored)) {
+            applyError = "invalid-build";
+            return false;
+          }
+          const existing = Array.isArray(stored) ? stored : [];
+          planned.push({ selection, classId: addition.classId, next: [...existing, ...addition.ids] });
+          continue;
         }
-        const existing = Array.isArray(selection.knownIds) ? selection.knownIds : [];
-        // Append only. Existing entries keep their exact values and order, and
-        // nothing else on the build is touched.
-        selection.knownIds = [...existing, ...addition.ids];
+        // Eligibility offered this class with no selection bucket yet (nothing
+        // stored is a legal state and counts as 0 chosen), so the bucket is
+        // created as part of the same transaction rather than rejected.
+        planned.push({ selection: null, classId: addition.classId, next: [...addition.ids] });
+      }
+
+      // --- then write ---------------------------------------------------
+      if (!bucket) current.build.spellcasting = {};
+      const writeBucket = /** @type {Record<string, unknown>} */ (
+        bucket ?? current.build.spellcasting
+      );
+      for (const target of planned) {
+        if (target.selection) {
+          // Append only. Existing entries keep their exact values and order.
+          target.selection.knownIds = target.next;
+          continue;
+        }
+        /** @type {Record<string, unknown>} */
+        (writeBucket)[target.classId] = {
+          cantripIds: [], knownIds: target.next, preparedIds: []
+        };
       }
       if (patch) Object.assign(current, patch);
       return true;
@@ -724,6 +766,11 @@ export function initSpellbookChoicesFlow(deps) {
     const total = additions.reduce((sum, addition) => sum + addition.ids.length, 0);
     const focusTarget = returnFocusTarget;
     close({ restoreFocus: false });
+    // The Character page rebuilds its own panels; a Spells panel mounted on
+    // another surface (the Combat workspace's embedded copy) is not rebuilt by
+    // that rerender, so it needs the established invalidation to pick the new
+    // rows up live — no reload, removal, or re-add.
+    notifyPanelDataChanged("spells");
     rerender();
     notifyAvailabilityChanged();
     focusAfterRerender(focusTarget);

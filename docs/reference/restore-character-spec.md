@@ -734,9 +734,12 @@ playwright.preview.config.js`) — both smoke gates are blocking per
     `getLongRestPreparedSheetPatch()`, for the same C1.1 reason) in one mutation, one dirty
     mark, one rerender. **No acknowledgement is involved: `underCapAckLevels` is neither
     read, written, cleared, nor used as a gate** — this flow reaches no new level.
-    `rest.preparedByClass`, `preparedIds`, prepared capacities, Long Rest behavior,
-    `characters.snapshots`, the required-choice banner, Complete Choices, and unrelated
-    build keys are byte-identical; **no schema change, migration, or new persisted field.**
+    `rest.preparedByClass`, `preparedIds`, stored Long Rest state, `characters.snapshots`,
+    the required-choice banner, Complete Choices, and unrelated build keys are
+    byte-identical; **no schema change, migration, or new persisted field.** Derived
+    prepared capacity is deliberately excluded from that list: `effectiveCapacity` is
+    bounded by the candidate set and a wizard prepares from its spellbook, so a new
+    spellbook entry legitimately raises it (§4.1) — a derivation, not a write.
     The Combat embedded Spells panel is unmodified: direct `+ Level`, no correction action,
     and it still shows the new canonical rows through the one shared `initSpellsPanel()`.
     Tests: `tests/spellbookChoices.test.js` (29), `tests/spellsPanelOverflowMenu.test.js`

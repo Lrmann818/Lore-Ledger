@@ -4688,6 +4688,94 @@ div.mutedSmall {
   font-size: 0.88em;
 }
 
+/* The dialog reuses the wizards' spell-list primitives, whose rules are scoped
+   to `:is(#builderWizardPanel, #levelUpPanel)`. Rather than widening those
+   selectors — which would pull the wizards' whole ability/HP/class-block
+   vocabulary in with them — this panel gets its own narrow copies of exactly
+   the six things it renders: group header, title, count, checkbox list,
+   checkbox row, and the disabled/validation states. Nothing here escapes
+   `#spellbookChoicesPanel`. */
+#spellbookChoicesPanel .builderWizardSubTitle {
+  margin: 4px 0 2px;
+  font-size: 0.95rem;
+}
+
+#spellbookChoicesPanel .builderSpellGroupHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+#spellbookChoicesPanel .builderSpellGroupTitle {
+  font-weight: 600;
+}
+
+#spellbookChoicesPanel .builderSpellGroupCount {
+  font-size: 0.85rem;
+  opacity: 0.85;
+}
+
+#spellbookChoicesPanel .builderSpellCheckList {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 4px 12px;
+  padding: 4px 0 8px;
+}
+
+#spellbookChoicesPanel .builderSpellCheckItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 0.9rem;
+  line-height: 1.3;
+  min-width: 0;
+  padding: 3px 0;
+  cursor: pointer;
+}
+
+#spellbookChoicesPanel .builderSpellCheckItem input[type="checkbox"] {
+  margin-top: 0.15em;
+}
+
+#spellbookChoicesPanel .builderSpellCheckItem span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* Candidates blocked by the allowance. Checked rows stay enabled and therefore
+   never pick up this class, so a pick is always removable. */
+#spellbookChoicesPanel .builderSpellCheckItem.isDisabled {
+  color: var(--muted);
+  cursor: not-allowed;
+}
+
+#spellbookChoicesPanel .builderSpellCheckItem.isDisabled input[type="checkbox"] {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+#spellbookChoicesPanel .builderAbilityMethodNote {
+  margin: -4px 0 0;
+  color: var(--muted);
+  font-size: 0.86rem;
+  line-height: 1.35;
+}
+
+#spellbookChoicesPanel .builderWizardValidation {
+  margin: -4px 0 0;
+  color: var(--danger);
+  font-size: 0.86rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+@media (max-width: 640px) {
+  #spellbookChoicesPanel .builderSpellCheckList {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 420px) {
   .spellbookChoicesFooter>.npcSmallBtn {
     flex: 1 1 auto;

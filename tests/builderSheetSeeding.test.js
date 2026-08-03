@@ -575,7 +575,9 @@ describe("granted spell access is independent of the prepared list (C1)", () => 
 /* ------------------------------------------------------------------ */
 
 describe("spellbook addition sheet patch", () => {
-  /** A level-20 wizard whose spellbook holds one spell. */
+  const ADD = [{ classId: "wizard", ids: ["magic-missile"] }];
+
+  /** A level-20 wizard whose spellbook holds the supplied ids. */
   function wizard20(knownIds) {
     const character = makeDefaultBuilderCharacterEntry("Spellbook Tester");
     character.build.levels = Array.from({ length: 20 }, () => ({ classId: "wizard", hp: 5 }));
@@ -585,18 +587,46 @@ describe("spellbook addition sheet patch", () => {
     return character;
   }
 
+  /**
+   * A hand-built sheet with user state on every axis the patch must not touch:
+   * a custom level first (so canonical reordering would be visible), edited
+   * flags, slot values, notes state, and a granted row.
+   */
+  function sheetWithUserState() {
+    return {
+      levels: [
+        {
+          id: "lvl_custom", label: "Homebrew Rituals", hasSlots: false,
+          used: null, total: null, collapsed: true,
+          spells: [{ id: "s_manual", name: "Hearthlight", notesCollapsed: false, known: true, prepared: true, expended: true }]
+        },
+        {
+          id: "lvl_1", label: "1st Level", hasSlots: true, used: 1, total: 4, collapsed: true,
+          spells: [
+            { id: "s_shield", name: "Shield", notesCollapsed: false, known: false, prepared: true, expended: true, builderSpellId: "shield" },
+            { id: "s_bless", name: "Bless", notesCollapsed: true, known: true, prepared: true, expended: false, builderSpellId: "bless", builderGranted: true }
+          ]
+        },
+        {
+          id: "lvl_0", label: "Cantrips", hasSlots: false, used: null, total: null, collapsed: false,
+          spells: [{ id: "s_firebolt", name: "Fire Bolt", notesCollapsed: true, known: true, prepared: false, expended: false, builderSpellId: "fire-bolt" }]
+        }
+      ]
+    };
+  }
+
   afterEach(() => {
     setActiveCustomContent([]);
   });
 
   it("returns only the spells field", () => {
-    const patch = getSpellbookAdditionSheetPatch(wizard20(["magic-missile"]));
+    const patch = getSpellbookAdditionSheetPatch(wizard20(["magic-missile"]), ADD);
     expect(patch).toBeTruthy();
     expect(Object.keys(patch)).toEqual(["spells"]);
   });
 
   it("seeds a row for a newly stored spellbook entry, unprepared and marked", () => {
-    const patch = getSpellbookAdditionSheetPatch(wizard20(["magic-missile"]));
+    const patch = getSpellbookAdditionSheetPatch(wizard20(["magic-missile"]), ADD);
     const row = (patch.spells?.levels || [])
       .flatMap((level) => level.spells || [])
       .find((spell) => spell.builderSpellId === "magic-missile");
@@ -605,6 +635,128 @@ describe("spellbook addition sheet patch", () => {
     // Spellbook entries are never prepared by seeding and are never grants.
     expect(row.prepared).toBe(false);
     expect(row.builderGranted).toBeUndefined();
+  });
+
+  it("seeds ONLY the ids passed in, never the rest of the build", () => {
+    // The build holds three spellbook entries; only one was just chosen.
+    const character = wizard20(["magic-missile", "shield", "burning-hands"]);
+    character.spells = { levels: [] };
+
+    const patch = getSpellbookAdditionSheetPatch(character, ADD);
+    const seeded = (patch.spells.levels || [])
+      .flatMap((level) => level.spells || [])
+      .map((spell) => spell.builderSpellId);
+
+    expect(seeded).toEqual(["magic-missile"]);
+  });
+
+  it("leaves a previously deleted builder row deleted", () => {
+    // `shield` is in the spellbook but its row was deleted from the sheet.
+    const character = wizard20(["shield", "magic-missile"]);
+    character.spells = {
+      levels: [{
+        id: "lvl_1", label: "1st Level", hasSlots: true, used: 2, total: 4, collapsed: false, spells: []
+      }]
+    };
+
+    const patch = getSpellbookAdditionSheetPatch(character, ADD);
+    const names = patch.spells.levels.flatMap((level) => level.spells || [])
+      .map((spell) => spell.builderSpellId);
+
+    // Positive control: the chosen spell really was inserted.
+    expect(names).toContain("magic-missile");
+    // The deleted row stays deleted — the whole-build seeder would restore it.
+    expect(names).not.toContain("shield");
+  });
+
+  it("leaves every pre-existing level and row byte-identical", () => {
+    const character = wizard20(["magic-missile"]);
+    character.spells = sheetWithUserState();
+    const before = JSON.parse(JSON.stringify(character.spells));
+
+    const patch = getSpellbookAdditionSheetPatch(character, ADD);
+    const levels = patch.spells.levels;
+
+    // Level order is preserved exactly — no canonical reordering.
+    expect(levels.map((level) => level.label))
+      .toEqual(["Homebrew Rituals", "1st Level", "Cantrips"]);
+
+    // The untouched levels are the very same objects, field for field.
+    expect(levels[0]).toEqual(before.levels[0]);
+    expect(levels[2]).toEqual(before.levels[2]);
+
+    // The touched level keeps its id, label, slot values, and collapsed state.
+    const touched = levels[1];
+    expect(touched.id).toBe("lvl_1");
+    expect(touched.hasSlots).toBe(true);
+    expect(touched.used).toBe(1);
+    expect(touched.total).toBe(4);
+    expect(touched.collapsed).toBe(true);
+
+    // Its pre-existing rows are unchanged, including edited flags and the grant.
+    expect(touched.spells.slice(0, 2)).toEqual(before.levels[1].spells);
+    // …and exactly one row was appended.
+    expect(touched.spells).toHaveLength(3);
+    expect(touched.spells[2]).toMatchObject({
+      name: "Magic Missile", builderSpellId: "magic-missile", prepared: false, known: true, expended: false
+    });
+  });
+
+  it("never writes prepared state on an existing row", () => {
+    const character = wizard20(["magic-missile"]);
+    character.spells = sheetWithUserState();
+    // `rest.preparedByClass` disagrees with the sheet on purpose.
+    character.rest.preparedByClass = { wizard: [] };
+
+    const patch = getSpellbookAdditionSheetPatch(character, ADD);
+    const rows = patch.spells.levels.flatMap((level) => level.spells || []);
+    expect(rows.find((row) => row.builderSpellId === "shield").prepared).toBe(true);
+    expect(rows.find((row) => row.id === "s_manual").prepared).toBe(true);
+  });
+
+  it("does not fill empty slot totals", () => {
+    const character = wizard20(["magic-missile"]);
+    character.spells = {
+      levels: [{
+        id: "lvl_1", label: "1st Level", hasSlots: true, used: null, total: null, collapsed: false, spells: []
+      }]
+    };
+
+    const patch = getSpellbookAdditionSheetPatch(character, ADD);
+    expect(patch.spells.levels[0].total).toBeNull();
+    expect(patch.spells.levels[0].used).toBeNull();
+  });
+
+  it("appends a missing level rather than reordering the existing ones", () => {
+    const character = wizard20(["magic-missile"]);
+    character.spells = {
+      levels: [{
+        id: "lvl_9", label: "9th Level", hasSlots: true, used: 1, total: 1, collapsed: false, spells: []
+      }]
+    };
+
+    const patch = getSpellbookAdditionSheetPatch(character, ADD);
+    expect(patch.spells.levels.map((level) => level.label)).toEqual(["9th Level", "1st Level"]);
+    expect(patch.spells.levels[0]).toEqual(character.spells.levels[0]);
+    expect(patch.spells.levels[1].total).toBeNull();
+  });
+
+  it("preserves the manual-name dedupe and the existing-marker skip", () => {
+    const character = wizard20(["magic-missile"]);
+    character.spells = {
+      levels: [{
+        id: "lvl_1", label: "1st Level", hasSlots: true, used: 4, total: 4, collapsed: false,
+        // A manual row that merely shares the name — never adopted.
+        spells: [{ id: "s_manual_mm", name: "Magic Missile", notesCollapsed: true, known: true, prepared: true, expended: false }]
+      }]
+    };
+    expect(getSpellbookAdditionSheetPatch(character, ADD)).toBeNull();
+
+    // And a row already carrying the marker is left alone, not duplicated.
+    character.spells.levels[0].spells = [
+      { id: "s_mm", name: "Magic Missile", notesCollapsed: true, known: false, prepared: true, expended: true, builderSpellId: "magic-missile" }
+    ];
+    expect(getSpellbookAdditionSheetPatch(character, ADD)).toBeNull();
   });
 
   it("does not restore features, proficiencies, attacks, inventory, resources, or vitals", () => {
@@ -619,7 +771,7 @@ describe("spellbook addition sheet patch", () => {
     character.hpMax = null;
     character.ac = null;
 
-    const patch = getSpellbookAdditionSheetPatch(character);
+    const patch = getSpellbookAdditionSheetPatch(character, ADD);
     expect(Object.keys(patch)).toEqual(["spells"]);
 
     // Positive control: the full Finish patch really would have restored them.
@@ -628,7 +780,10 @@ describe("spellbook addition sheet patch", () => {
     expect(finish.features).toBeTruthy();
   });
 
-  it("returns null for a freeform character", () => {
-    expect(getSpellbookAdditionSheetPatch(makeDefaultCharacterEntry("Freeform"))).toBeNull();
+  it("returns null for a freeform character, empty additions, or unresolvable ids", () => {
+    expect(getSpellbookAdditionSheetPatch(makeDefaultCharacterEntry("Freeform"), ADD)).toBeNull();
+    expect(getSpellbookAdditionSheetPatch(wizard20(["magic-missile"]), [])).toBeNull();
+    expect(getSpellbookAdditionSheetPatch(wizard20([]), [{ classId: "wizard", ids: ["no-such-spell"] }]))
+      .toBeNull();
   });
 });

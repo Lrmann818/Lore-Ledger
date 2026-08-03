@@ -1338,45 +1338,138 @@ export function getLongRestPreparedSheetPatch(character, preparedClassIds, regis
 }
 
 /**
- * Returns the **spells-only** patch for a max-level spellbook correction — the
- * Add Spellbook Choices flow (`js/pages/character/spellbookChoicesFlow.js`).
+ * Returns the **spells-only, addition-scoped** patch for a max-level spellbook
+ * correction — the Add Spellbook Choices flow
+ * (`js/pages/character/spellbookChoicesFlow.js`).
  *
- * Same reasoning as `getLongRestPreparedSheetPatch()` above, for the same
- * reason: the full Finish patch would silently restore features, languages,
- * proficiencies, attacks, inventory pockets, resources, HP, AC, or calculation
- * metadata the player has since edited or deleted (the C1.1 defect). A
- * spellbook correction changes exactly one thing — which spells are in the
- * spellbook — so only the spells bucket is returned.
+ * Deliberately **not** `getSeededSpells()`. That function re-derives the whole
+ * build's spell set, which would make this action do three things it must not:
+ * resurrect a builder row the player deleted, fill empty slot totals, and
+ * reorder pre-existing levels. This walks only the ids the player just chose.
  *
- * Within that bucket the behavior is the established additive seeding contract:
- * a newly stored spellbook id gains a row carrying its `builderSpellId` marker
- * at `prepared: false`, existing rows keep every field, and no row is created
- * for anything the build does not hold. No prepared-row synchronization is
- * requested (`syncPreparedClassIds` stays null), so `rest.preparedByClass` is
- * neither read as an authority here nor projected onto rows.
+ * The patch inserts rows and, when necessary, the one level a new row belongs
+ * in. **Everything else is byte-identical**: existing levels keep their id,
+ * label, `hasSlots`, `total`, `used`, `collapsed` and order, and existing rows
+ * keep their id, name, notes state, `known`/`prepared`/`expended` flags,
+ * `builderSpellId`, and `builderGranted`. Nothing is deleted, reordered,
+ * normalized, or repaired.
+ *
+ * Two established behaviors are preserved verbatim from the additive seeder:
+ * a row already carrying the same `builderSpellId` is left alone, and a
+ * manual row that merely shares the spell's name is never adopted or
+ * overwritten (`hasManualName`).
+ *
+ * Prepared state is never written here. New rows are created at
+ * `prepared: false` because a spellbook entry is a *candidate*, not a
+ * preparation — `rest.preparedByClass` stays authoritative and untouched. (The
+ * plan's derived `effectiveCapacity` may legitimately rise as a result, since
+ * it is bounded by the candidate set; that is a derivation, not a write.)
  *
  * Call with the character **after** the `build.spellcasting[classId].knownIds`
- * write, so the seeder sees the new entries.
+ * write, and with exactly the ids that write appended.
  *
  * @param {unknown} character post-write character
+ * @param {ReadonlyArray<{ classId: string, ids: readonly string[] }>} additions
+ *   the spells just added, per class — the only ids this patch may seed
  * @param {ContentRegistry} [registry]
  * @returns {{ spells: import("../state.js").CharacterEntry["spells"] } | null} null when nothing changed
  */
-export function getSpellbookAdditionSheetPatch(character, registry = getActiveContentRegistry()) {
+export function getSpellbookAdditionSheetPatch(character, additions, registry = getActiveContentRegistry()) {
   if (!isBuilderCharacter(character)) return null;
+  if (!Array.isArray(additions) || !additions.length) return null;
 
-  let derived;
-  try {
-    derived = deriveCharacter(character, registry);
-  } catch (err) {
-    console.warn("Spellbook addition sheet seeding derivation failed:", err);
-    return null;
+  // Resolve exactly the chosen ids, grouped by their registry spell level. An
+  // unresolvable id contributes nothing rather than inventing a row.
+  /** @type {Map<number, Array<{ id: string, name: string }>>} */
+  const byLevel = new Map();
+  const seen = new Set();
+  for (const addition of additions) {
+    const ids = Array.isArray(addition?.ids) ? addition.ids : [];
+    for (const rawId of ids) {
+      const spellId = cleanString(rawId);
+      if (!spellId || seen.has(spellId)) continue;
+      seen.add(spellId);
+      const entry = getContentByKind(registry, "spell", spellId);
+      if (!entry) continue;
+      const level = finiteNumberOrNull(entry.data?.level);
+      if (level == null || level < 0 || level > 9) continue;
+      if (!byLevel.has(level)) byLevel.set(level, []);
+      /** @type {Array<{ id: string, name: string }>} */
+      (byLevel.get(level)).push({ id: entry.id, name: entry.name });
+    }
   }
+  if (!byLevel.size) return null;
 
   const source = /** @type {Record<string, unknown>} */ (character);
-  const seededSpells = getSeededSpells(source, derived, registry);
-  if (!seededSpells) return null;
-  return { spells: /** @type {import("../state.js").CharacterEntry["spells"]} */ (seededSpells) };
+  const existingSpells = isPlainObject(source.spells) ? source.spells : {};
+  const existingLevels = Array.isArray(existingSpells.levels) ? existingSpells.levels : [];
+  // Shallow-copy only the levels; untouched level objects and every existing
+  // row object are carried through by reference, so nothing can drift.
+  /** @type {Array<Record<string, unknown>>} */
+  const nextLevels = existingLevels.slice();
+
+  let changed = false;
+
+  for (const [spellLevel, spells] of [...byLevel.entries()].sort((a, b) => a[0] - b[0])) {
+    const label = SPELL_LEVEL_LABELS[spellLevel];
+    const normalized = cleanString(label).toLowerCase();
+    let index = nextLevels.findIndex((level) =>
+      isPlainObject(level) && cleanString(level.label).toLowerCase() === normalized);
+
+    /** @type {Record<string, unknown>} */
+    let levelRow;
+    if (index >= 0) {
+      const current = /** @type {Record<string, unknown>} */ (nextLevels[index]);
+      levelRow = { ...current, spells: Array.isArray(current.spells) ? current.spells.slice() : [] };
+    } else {
+      // The player deleted (or never had) this level. Append it — never
+      // reorder the existing ones — with empty slot values, because filling
+      // slot totals is the whole-build seeder's job, not this action's.
+      levelRow = {
+        id: newSeedId("spellLevel"),
+        label,
+        hasSlots: spellLevel > 0,
+        used: null,
+        total: null,
+        collapsed: false,
+        spells: []
+      };
+    }
+
+    const rows = /** @type {Array<Record<string, unknown>>} */ (levelRow.spells);
+    let levelChanged = index < 0;
+    for (const spell of spells) {
+      const alreadyManaged = rows.some((row) =>
+        isPlainObject(row) && cleanString(row.builderSpellId) === spell.id);
+      if (alreadyManaged) continue;
+      // Established dedupe: an unmarked row sharing the name is user-owned.
+      const hasManualName = rows.some((row) =>
+        isPlainObject(row) && cleanString(row.name).toLowerCase() === spell.name.toLowerCase());
+      if (hasManualName) continue;
+      rows.push({
+        id: newSeedId("spell"),
+        name: spell.name,
+        notesCollapsed: true,
+        known: true,
+        prepared: false,
+        expended: false,
+        builderSpellId: spell.id
+      });
+      levelChanged = true;
+    }
+
+    if (!levelChanged) continue;
+    if (index >= 0) nextLevels[index] = levelRow;
+    else nextLevels.push(levelRow);
+    changed = true;
+  }
+
+  if (!changed) return null;
+  return {
+    spells: /** @type {import("../state.js").CharacterEntry["spells"]} */ (
+      { ...existingSpells, levels: nextLevels }
+    )
+  };
 }
 
 /**

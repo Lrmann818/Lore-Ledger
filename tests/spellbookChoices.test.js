@@ -27,9 +27,11 @@ import {
   getSpellbookCorrectionTargets,
   initSpellbookChoicesFlow
 } from "../js/pages/character/spellbookChoicesFlow.js";
+import { initSpellsPanel } from "../js/pages/character/panels/spellsPanel.js";
 import { makeDefaultBuilderCharacterEntry } from "../js/domain/characterHelpers.js";
 import { getUnderCapChoiceDescriptors, UNDER_CAP_KIND } from "../js/domain/rules/choiceCompletion.js";
 import { getPreparedSpellPlan } from "../js/domain/rules/preparedSpells.js";
+import { deriveCharacter } from "../js/domain/rules/deriveCharacter.js";
 import { getActiveContentRegistry, setActiveCustomContent } from "../js/domain/rules/registry.js";
 
 const registry = () => getActiveContentRegistry();
@@ -143,6 +145,8 @@ describe("spellbook correction eligibility", () => {
 /* ------------------------------------------------------------------ */
 
 describe("spellbook correction candidate ceiling", () => {
+  afterEach(() => setActiveCustomContent([]));
+
   it("bounds a Wizard 1 / Cleric 19 at 1st level despite 9th-level combined slots", () => {
     const character = makeCharacter([["wizard", 1], ["cleric", 19]], {
       spellcasting: {
@@ -151,9 +155,16 @@ describe("spellbook correction candidate ceiling", () => {
       }
     });
 
-    // Positive control for the hazard: combined multiclass slots really do
-    // reach 9th level for this character, so a combined-slot ceiling would
-    // have offered 9th-level wizard spells.
+    // Positive control for the hazard, measured directly rather than assumed:
+    // the character's COMBINED multiclass slot array really does reach 9th
+    // level, so a combined-slot ceiling would have offered 9th-level wizard
+    // spells. This is the exact value the pre-correction design would have used.
+    const combinedSlots = deriveCharacter(character, registry()).spellcasting.slots;
+    const combinedCeiling = combinedSlots.reduce(
+      (max, count, index) => (count > 0 ? index + 1 : max), 0
+    );
+    expect(combinedCeiling).toBe(9);
+
     const wizardPlan = getPreparedSpellPlan(character, registry())
       .find((entry) => entry.classId === "wizard");
     expect(wizardPlan.maxSpellLevel).toBe(1);
@@ -698,5 +709,186 @@ describe("Add Spellbook Choices dialog", () => {
     harness.flow.open();
     expect(overlay().hidden).toBe(true);
     expect(harness.flow.isAvailable()).toBe(false);
+  });
+
+  it("shows a visible explanation, and no picker, when the ceiling is unresolvable", () => {
+    setActiveCustomContent([{
+      id: "runescribe",
+      kind: "class",
+      name: "Runescribe",
+      hitDie: 6,
+      spellcasting: {
+        ability: "int", preparationMode: "spellbook", progression: "full", startLevel: 1
+      }
+    }]);
+    const character = makeCharacter([["runescribe", 20]], {
+      spellcasting: { runescribe: { cantripIds: [], knownIds: [], preparedIds: [] } }
+    });
+    harness = makeHarness(character);
+    harness.flow.open();
+
+    const section = body().querySelector('.spellbookChoicesClass[data-class-id="runescribe"]');
+    expect(section).toBeTruthy();
+    // Fails visibly: a rendered sentence naming the class, no checkboxes, and
+    // Apply disabled so nothing can be committed.
+    const message = section.querySelector(".builderWizardValidation");
+    expect(message).toBeTruthy();
+    expect(message.textContent).toMatch(/Runescribe/);
+    expect(message.textContent).toMatch(/could not be read/i);
+    expect(section.querySelectorAll("input[type=checkbox]")).toHaveLength(0);
+    expect(applyBtn().disabled).toBe(true);
+    expect(harness.mutateCharacter).not.toHaveBeenCalled();
+  });
+
+  it("makes a malformed second class abort the whole Apply, leaving the first untouched", () => {
+    setActiveCustomContent([
+      {
+        id: "runescribe",
+        kind: "class",
+        name: "Runescribe",
+        hitDie: 6,
+        spellcasting: {
+          ability: "int", preparationMode: "spellbook", progression: "full", startLevel: 1,
+          slotsByLevel: Array.from({ length: 10 }, () => [2, 0, 0, 0, 0, 0, 0, 0, 0])
+        }
+      },
+      { id: "rune-bolt", kind: "spell", name: "Rune Bolt", level: 1, classIds: ["runescribe"] }
+    ]);
+    const character = makeCharacter([["wizard", 10], ["runescribe", 10]], {
+      spellcasting: {
+        wizard: { cantripIds: [], knownIds: [], preparedIds: [] },
+        runescribe: { cantripIds: [], knownIds: [], preparedIds: [] }
+      }
+    });
+    harness = makeHarness(character);
+    harness.flow.open();
+
+    const sections = Array.from(body().querySelectorAll(".spellbookChoicesClass"));
+    for (const section of sections) {
+      const box = section.querySelector("input[type=checkbox]");
+      if (box) toggle(box, true);
+    }
+
+    // The second class's stored list turns malformed between open and Apply —
+    // a shape this action must refuse rather than normalize.
+    character.build.spellcasting.runescribe.knownIds = "not-an-array";
+    const before = JSON.parse(JSON.stringify(character));
+
+    applyBtn().click();
+    return Promise.resolve().then(() => {
+      // The mutation ran and rejected, so nothing was written and nothing
+      // was marked dirty — in particular the wizard append did not survive.
+      expect(harness.markDirty).not.toHaveBeenCalled();
+      expect(harness.rerender).not.toHaveBeenCalled();
+      expect(harness.state.characters.entries[0]).toEqual(before);
+      expect(harness.state.characters.entries[0].build.spellcasting.wizard.knownIds).toEqual([]);
+      expect(harness.uiAlert).toHaveBeenCalled();
+    });
+  });
+
+  it("creates a missing selection bucket transactionally rather than rejecting", () => {
+    // Eligibility counts a missing bucket as "0 chosen", so Apply must agree.
+    const character = wizard20({ filled: 0 });
+    delete character.build.spellcasting.wizard;
+    harness = makeHarness(character);
+
+    // Positive control: the class is still offered.
+    expect(harness.flow.isAvailable()).toBe(true);
+    harness.flow.open();
+    toggle(boxes()[0], true);
+    applyBtn().click();
+
+    return Promise.resolve().then(() => {
+      const updated = harness.state.characters.entries[0];
+      expect(harness.markDirty).toHaveBeenCalledTimes(1);
+      expect(updated.build.spellcasting.wizard.knownIds).toHaveLength(1);
+      // Created in the shape both wizards write.
+      expect(updated.build.spellcasting.wizard.cantripIds).toEqual([]);
+      expect(updated.build.spellcasting.wizard.preparedIds).toEqual([]);
+    });
+  });
+
+  it("updates an already-mounted Combat Spells panel live, with no re-init", () => {
+    const character = wizard20({ filled: 0 });
+    harness = makeHarness(character);
+
+    // A Combat-shaped embedded Spells panel mounted BEFORE the correction.
+    const host = document.createElement("div");
+    host.id = "combatHost";
+    host.innerHTML = `
+      <section class="panel" id="combatEmbeddedSpellsSource">
+        <button id="combatEmbeddedAddSpellLevelBtn" type="button">+ Level</button>
+        <div id="combatEmbeddedSpellLevels" class="spellLevels"></div>
+      </section>
+    `;
+    document.body.appendChild(host);
+    const combat = initSpellsPanel({
+      state: harness.state,
+      SaveManager: { markDirty: () => {} },
+      root: host,
+      selectors: {
+        panelEl: "#combatEmbeddedSpellsSource",
+        containerEl: "#combatEmbeddedSpellLevels",
+        addLevelBtnEl: "#combatEmbeddedAddSpellLevelBtn"
+      }
+    });
+
+    const combatNames = () => Array.from(
+      host.querySelectorAll("#combatEmbeddedSpellLevels input.spellName")
+    ).map((node) => node.value);
+
+    harness.flow.open();
+    const target = getSpellbookCorrectionTargets(character, registry())[0];
+    const chosen = target.candidates[0];
+    expect(combatNames()).not.toContain(chosen.name);
+
+    toggle(boxes()[0], true);
+    applyBtn().click();
+
+    return Promise.resolve().then(() => {
+      // No reload, no removal, no re-add — the mounted panel re-rendered from
+      // the established "spells" invalidation.
+      expect(combatNames()).toContain(chosen.name);
+      combat.destroy();
+      host.remove();
+    });
+  });
+
+  it("lets derived prepared capacity rise while writing no prepared state", () => {
+    // A wizard prepares from its spellbook, so an empty spellbook bounds the
+    // candidate-derived capacity at 0. Adding a candidate legitimately raises
+    // it — a derivation, not a write.
+    const character = wizard20({ filled: 0 });
+    harness = makeHarness(character);
+    const planBefore = getPreparedSpellPlan(character, registry())
+      .find((entry) => entry.classId === "wizard");
+    expect(planBefore.effectiveCapacity).toBe(0);
+
+    harness.flow.open();
+    toggle(boxes()[0], true);
+    applyBtn().click();
+
+    return Promise.resolve().then(() => {
+      const updated = harness.state.characters.entries[0];
+      const planAfter = getPreparedSpellPlan(updated, registry())
+        .find((entry) => entry.classId === "wizard");
+      expect(planAfter.effectiveCapacity).toBe(1);
+      // The stored prepared map itself was never touched.
+      expect(updated.rest.preparedByClass).toEqual({});
+      expect(updated.build.spellcasting.wizard.preparedIds).toEqual([]);
+    });
+  });
+
+  it("leaves no custom-registry state behind between cases", () => {
+    // Guards the suite itself: an earlier case that installed custom content
+    // must not leak a class into this one's registry view.
+    const ids = registry().byKind.get("class").map((entry) => entry.id);
+    expect(ids).not.toContain("runescribe");
+    expect(registry().byKind.get("spell").map((entry) => entry.id))
+      .not.toContain("rune-bolt");
+
+    const character = wizard20({ filled: 3 });
+    expect(getSpellbookCorrectionTargets(character, registry()).map((t) => t.classId))
+      .toEqual(["wizard"]);
   });
 });
