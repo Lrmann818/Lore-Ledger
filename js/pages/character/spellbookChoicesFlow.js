@@ -159,6 +159,66 @@ function readStoredSpellbookIds(build, classId) {
 }
 
 /**
+ * @typedef {{
+ *   classId: string,
+ *   selection: Record<string, unknown> | null,
+ *   next: string[]
+ * }} PlannedSpellbookAppend
+ */
+
+/**
+ * Resolve every append against the live build **without writing anything**, so
+ * the caller can commit all of them or none.
+ *
+ * Absence and malformation are deliberately different answers — the read-side
+ * `readStoredSpellbookIds()` above may treat both as "nothing stored" because
+ * it only ever displays, but the write side may not:
+ *
+ *   - **Absent** — `build.spellcasting`, or one class bucket inside it, simply
+ *     not there. That is a legal build state, and eligibility already counts it
+ *     as `0 chosen`, so this action creates it as part of its own transaction.
+ *   - **Present but not a plain object** — an array, a string, a number, `null`.
+ *     Creating over it would silently destroy whatever is stored there, and
+ *     normalizing build shapes is explicitly outside this flow's remit, so the
+ *     whole Apply is refused instead and every class survives byte-for-byte.
+ *   - **A present bucket whose `knownIds` is neither absent nor an array** — the
+ *     same refusal for the same reason.
+ *
+ * Pure: reads only, and the returned `selection` references are the live
+ * objects the caller assigns onto after every entry has validated.
+ *
+ * @param {unknown} spellcasting `current.build.spellcasting`, unnormalized.
+ * @param {Array<{ classId: string, ids: string[] }>} additions
+ * @returns {{ ok: true, createRoot: boolean, entries: PlannedSpellbookAppend[] } | { ok: false }}
+ */
+function planSpellbookAppends(spellcasting, additions) {
+  const rootAbsent = spellcasting === undefined;
+  if (!rootAbsent && !isPlainObject(spellcasting)) return { ok: false };
+  const bucket = rootAbsent ? null : /** @type {Record<string, unknown>} */ (spellcasting);
+
+  /** @type {PlannedSpellbookAppend[]} */
+  const entries = [];
+  for (const addition of additions) {
+    const raw = bucket ? bucket[addition.classId] : undefined;
+    if (raw === undefined) {
+      entries.push({ classId: addition.classId, selection: null, next: [...addition.ids] });
+      continue;
+    }
+    if (!isPlainObject(raw)) return { ok: false };
+    const selection = /** @type {Record<string, unknown>} */ (raw);
+    const stored = selection.knownIds;
+    if (stored !== undefined && !Array.isArray(stored)) return { ok: false };
+    const existing = Array.isArray(stored) ? stored : [];
+    entries.push({
+      classId: addition.classId,
+      selection,
+      next: [...existing, ...addition.ids]
+    });
+  }
+  return { ok: true, createRoot: rootAbsent, entries };
+}
+
+/**
  * @param {ContentRegistry} registry
  * @param {string} spellId
  * @returns {string}
@@ -647,7 +707,11 @@ export function initSpellbookChoicesFlow(deps) {
 
     // Precompute the sheet patch against a plain projection before touching
     // state: derivation can fail without leaving a partially written character
-    // (the R1 transaction-order rule).
+    // (the R1 transaction-order rule). The normalization below is confined to
+    // that disposable clone so seeding always sees a readable shape — it is not
+    // the contract. Whether the *live* build may be written at all is decided
+    // by `planSpellbookAppends()` inside the mutation, which refuses a
+    // malformed bucket rather than creating over it.
     /** @type {Record<string, any>} */
     let projection;
     try {
@@ -706,46 +770,25 @@ export function initSpellbookChoicesFlow(deps) {
         return false;
       }
       // --- validate every target first ---------------------------------
-      /** @type {Array<{ selection: Record<string, unknown> | null, classId: string, next: string[] }>} */
-      const planned = [];
-      const bucket = isPlainObject(current.build.spellcasting)
-        ? /** @type {Record<string, unknown>} */ (current.build.spellcasting)
-        : null;
-      for (const addition of additions) {
-        const selection = bucket && isPlainObject(bucket[addition.classId])
-          ? /** @type {Record<string, unknown>} */ (bucket[addition.classId])
-          : null;
-        if (selection) {
-          const stored = selection.knownIds;
-          // A malformed non-array `knownIds` is not silently replaced: it is a
-          // build shape this action must not normalize.
-          if (stored !== undefined && !Array.isArray(stored)) {
-            applyError = "invalid-build";
-            return false;
-          }
-          const existing = Array.isArray(stored) ? stored : [];
-          planned.push({ selection, classId: addition.classId, next: [...existing, ...addition.ids] });
-          continue;
-        }
-        // Eligibility offered this class with no selection bucket yet (nothing
-        // stored is a legal state and counts as 0 chosen), so the bucket is
-        // created as part of the same transaction rather than rejected.
-        planned.push({ selection: null, classId: addition.classId, next: [...addition.ids] });
+      // A missing bucket is created; a present-but-malformed one is refused
+      // rather than created over. See `planSpellbookAppends()` for why those are
+      // different answers.
+      const plan = planSpellbookAppends(current.build.spellcasting, additions);
+      if (!plan.ok) {
+        applyError = "invalid-build";
+        return false;
       }
 
       // --- then write ---------------------------------------------------
-      if (!bucket) current.build.spellcasting = {};
-      const writeBucket = /** @type {Record<string, unknown>} */ (
-        bucket ?? current.build.spellcasting
-      );
-      for (const target of planned) {
+      if (plan.createRoot) current.build.spellcasting = {};
+      const writeBucket = /** @type {Record<string, unknown>} */ (current.build.spellcasting);
+      for (const target of plan.entries) {
         if (target.selection) {
           // Append only. Existing entries keep their exact values and order.
           target.selection.knownIds = target.next;
           continue;
         }
-        /** @type {Record<string, unknown>} */
-        (writeBucket)[target.classId] = {
+        writeBucket[target.classId] = {
           cantripIds: [], knownIds: target.next, preparedIds: []
         };
       }

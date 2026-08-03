@@ -33,6 +33,7 @@ import { getUnderCapChoiceDescriptors, UNDER_CAP_KIND } from "../js/domain/rules
 import { getPreparedSpellPlan } from "../js/domain/rules/preparedSpells.js";
 import { deriveCharacter } from "../js/domain/rules/deriveCharacter.js";
 import { getActiveContentRegistry, setActiveCustomContent } from "../js/domain/rules/registry.js";
+import { subscribePanelDataChanged } from "../js/ui/panelInvalidation.js";
 
 const registry = () => getActiveContentRegistry();
 
@@ -783,6 +784,166 @@ describe("Add Spellbook Choices dialog", () => {
       expect(harness.state.characters.entries[0]).toEqual(before);
       expect(harness.state.characters.entries[0].build.spellcasting.wizard.knownIds).toEqual([]);
       expect(harness.uiAlert).toHaveBeenCalled();
+    });
+  });
+
+  it("rejects the whole Apply when build.spellcasting itself is malformed", () => {
+    const character = wizard20({ filled: 0 });
+    harness = makeHarness(character);
+
+    // Positive control: the class is offered, and the dialog renders pickable
+    // candidates, so the rejection below cannot be a failure to render.
+    expect(harness.flow.isAvailable()).toBe(true);
+    harness.flow.open();
+    expect(boxes().length).toBeGreaterThan(0);
+    toggle(boxes()[0], true);
+
+    // A present-but-malformed top-level bucket. Absent would be created; this
+    // is a shape the action must refuse rather than create over.
+    const malformed = ["wizard"];
+    character.build.spellcasting = malformed;
+    const before = JSON.parse(JSON.stringify(character));
+    const invalidations = [];
+    const unsubscribe = subscribePanelDataChanged("spells", () => invalidations.push(1));
+
+    applyBtn().click();
+    return Promise.resolve().then(() => {
+      unsubscribe();
+      const updated = harness.state.characters.entries[0];
+      // The malformed value survives by reference — not merely deep-equal.
+      expect(updated.build.spellcasting).toBe(malformed);
+      expect(updated).toEqual(before);
+      expect(harness.markDirty).not.toHaveBeenCalled();
+      expect(harness.rerender).not.toHaveBeenCalled();
+      expect(invalidations).toEqual([]);
+      // No success status; the failure is announced through the alert instead.
+      expect(harness.setStatus).not.toHaveBeenCalled();
+      expect(harness.uiAlert).toHaveBeenCalled();
+    });
+  });
+
+  it("makes a malformed second class bucket abort a valid first class's append", () => {
+    setActiveCustomContent([
+      {
+        id: "runescribe",
+        kind: "class",
+        name: "Runescribe",
+        hitDie: 6,
+        spellcasting: {
+          ability: "int", preparationMode: "spellbook", progression: "full", startLevel: 1,
+          slotsByLevel: Array.from({ length: 10 }, () => [2, 0, 0, 0, 0, 0, 0, 0, 0])
+        }
+      },
+      { id: "rune-bolt", kind: "spell", name: "Rune Bolt", level: 1, classIds: ["runescribe"] }
+    ]);
+    const character = makeCharacter([["wizard", 10], ["runescribe", 10]], {
+      spellcasting: {
+        wizard: { cantripIds: [], knownIds: [], preparedIds: [] },
+        runescribe: { cantripIds: [], knownIds: [], preparedIds: [] }
+      }
+    });
+    harness = makeHarness(character);
+    harness.flow.open();
+
+    const sections = Array.from(body().querySelectorAll(".spellbookChoicesClass"));
+    const sectionFor = (classId) =>
+      sections.find((section) => section.dataset.classId === classId);
+    // Picked in this order, so wizard is the *first* addition validated and
+    // runescribe the second — the ordering that would strand a partial write.
+    toggle(sectionFor("wizard").querySelector("input[type=checkbox]"), true);
+    toggle(sectionFor("runescribe").querySelector("input[type=checkbox]"), true);
+
+    // The second class's whole bucket — not just its `knownIds` — turns
+    // malformed between open and Apply.
+    const malformed = "not-an-object";
+    character.build.spellcasting.runescribe = malformed;
+    const before = JSON.parse(JSON.stringify(character));
+    const invalidations = [];
+    const unsubscribe = subscribePanelDataChanged("spells", () => invalidations.push(1));
+
+    applyBtn().click();
+    return Promise.resolve().then(() => {
+      unsubscribe();
+      const updated = harness.state.characters.entries[0];
+      expect(updated.build.spellcasting.runescribe).toBe(malformed);
+      // The valid first class was validated but never written.
+      expect(updated.build.spellcasting.wizard.knownIds).toEqual([]);
+      expect(updated).toEqual(before);
+      expect(harness.markDirty).not.toHaveBeenCalled();
+      expect(harness.rerender).not.toHaveBeenCalled();
+      expect(invalidations).toEqual([]);
+      expect(harness.setStatus).not.toHaveBeenCalled();
+      expect(harness.uiAlert).toHaveBeenCalled();
+    });
+  });
+
+  it("negative control: treating a malformed bucket as missing corrupts it", () => {
+    // The two cases above assert a byte-for-byte unchanged character. This
+    // proves they discriminate rather than passing for free: a surgical mirror
+    // of the pre-fix classification — `isPlainObject(x) ? x : null`, which
+    // collapsed "absent" and "present but malformed" into one branch and then
+    // created over that branch — destroys the stored value in both shapes, so
+    // neither case could have passed under it.
+    const plainObject = (value) => !!value && typeof value === "object" && !Array.isArray(value);
+    const applyPreFix = (build, additions) => {
+      const bucket = plainObject(build.spellcasting) ? build.spellcasting : null;
+      if (!bucket) build.spellcasting = {};
+      const writeBucket = bucket ?? build.spellcasting;
+      for (const addition of additions) {
+        const selection = plainObject(writeBucket[addition.classId])
+          ? writeBucket[addition.classId]
+          : null;
+        if (selection) {
+          const existing = Array.isArray(selection.knownIds) ? selection.knownIds : [];
+          selection.knownIds = [...existing, ...addition.ids];
+          continue;
+        }
+        writeBucket[addition.classId] = {
+          cantripIds: [], knownIds: [...addition.ids], preparedIds: []
+        };
+      }
+    };
+
+    const malformedRoot = { spellcasting: ["wizard"] };
+    applyPreFix(malformedRoot, [{ classId: "wizard", ids: ["magic-missile"] }]);
+    expect(malformedRoot.spellcasting).not.toEqual(["wizard"]);
+    expect(malformedRoot.spellcasting.wizard.knownIds).toEqual(["magic-missile"]);
+
+    const malformedClass = {
+      spellcasting: {
+        wizard: { cantripIds: [], knownIds: [], preparedIds: [] },
+        runescribe: "not-an-object"
+      }
+    };
+    applyPreFix(malformedClass, [
+      { classId: "wizard", ids: ["magic-missile"] },
+      { classId: "runescribe", ids: ["rune-bolt"] }
+    ]);
+    expect(malformedClass.spellcasting.runescribe).not.toBe("not-an-object");
+    expect(malformedClass.spellcasting.runescribe.knownIds).toEqual(["rune-bolt"]);
+    // ...and the first class's append survived the second's failure, which is
+    // exactly the partial write the rejection now prevents.
+    expect(malformedClass.spellcasting.wizard.knownIds).toEqual(["magic-missile"]);
+  });
+
+  it("creates a missing build.spellcasting transactionally rather than rejecting", () => {
+    // The positive half of the distinction the two rejection cases above pin:
+    // genuinely absent is a legal state, so Apply creates the root bucket.
+    const character = wizard20({ filled: 0 });
+    delete character.build.spellcasting;
+    harness = makeHarness(character);
+
+    expect(harness.flow.isAvailable()).toBe(true);
+    harness.flow.open();
+    toggle(boxes()[0], true);
+    applyBtn().click();
+
+    return Promise.resolve().then(() => {
+      const updated = harness.state.characters.entries[0];
+      expect(harness.markDirty).toHaveBeenCalledTimes(1);
+      expect(updated.build.spellcasting.wizard.knownIds).toHaveLength(1);
+      expect(updated.build.spellcasting.wizard.cantripIds).toEqual([]);
+      expect(updated.build.spellcasting.wizard.preparedIds).toEqual([]);
     });
   });
 

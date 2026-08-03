@@ -732,8 +732,15 @@ playwright.preview.config.js`) — both smoke gates are blocking per
     then **appends only** to `build.spellcasting[classId].knownIds` and assigns the new
     **spells-only** `getSpellbookAdditionSheetPatch()` (a sibling of
     `getLongRestPreparedSheetPatch()`, for the same C1.1 reason) in one mutation, one dirty
-    mark, one rerender. **No acknowledgement is involved: `underCapAckLevels` is neither
-    read, written, cleared, nor used as a gate** — this flow reaches no new level.
+    mark, one rerender. **Absence and malformation are different answers.** A genuinely
+    missing `spellcasting` root, or a missing class bucket inside it, is a legal state that
+    eligibility already counts as `0 chosen`, so it is created inside the same transaction.
+    A bucket that is *present but not a plain object*, or a present bucket whose `knownIds`
+    is neither absent nor an array, refuses the whole Apply before any write rather than
+    being created over: every class survives byte-for-byte, with no dirty mark, no rerender,
+    no panel invalidation, and no success status. **No acknowledgement is involved:
+    `underCapAckLevels` is neither read, written, cleared, nor used as a gate** — this flow
+    reaches no new level.
     `rest.preparedByClass`, `preparedIds`, stored Long Rest state, `characters.snapshots`,
     the required-choice banner, Complete Choices, and unrelated build keys are
     byte-identical; **no schema change, migration, or new persisted field.** Derived
@@ -742,9 +749,9 @@ playwright.preview.config.js`) — both smoke gates are blocking per
     spellbook entry legitimately raises it (§4.1) — a derivation, not a write.
     The Combat embedded Spells panel is unmodified: direct `+ Level`, no correction action,
     and it still shows the new canonical rows through the one shared `initSpellsPanel()`.
-    Tests: `tests/spellbookChoices.test.js` (29), `tests/spellsPanelOverflowMenu.test.js`
-    (14), `tests/spellbookChoicesWiring.test.js` (3), `tests/smoke/spellbookChoices.smoke.js`
-    (1), and 4 new cases in `tests/builderSheetSeeding.test.js`.
+    Tests: `tests/spellbookChoices.test.js` (39), `tests/spellsPanelOverflowMenu.test.js`
+    (23), `tests/spellbookChoicesWiring.test.js` (3), `tests/smoke/spellbookChoices.smoke.js`
+    (2), and 11 new cases in `tests/builderSheetSeeding.test.js` (29 → 40).
   - **Max-level cantrip / known-spell correction — MANDATORY GATE, not authorized.** The
     same level-20 seam is still open for `UNDER_CAP_KIND.CANTRIPS` and
     `UNDER_CAP_KIND.KNOWN_SPELLS`; the spellbook batch deliberately did not generalize to
