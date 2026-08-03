@@ -1042,9 +1042,25 @@
           </section>
 
           <section class="panel" id="charSpellsPanel">
-            <div class="row between items-center">
+            <div class="row between items-center spellsHeader">
               <h2 class="m0">Spells</h2>
-              <button id="addSpellLevelBtn" type="button" class="headerAddBtn" title="Add spell level">+ Level</button>
+              <!-- Character-page Spells actions live behind a ⋯ overflow menu,
+                   matching the Abilities & Skills panel's established pattern.
+                   "Add spell level" is the same #addSpellLevelBtn action as
+                   before, moved into the menu with no behavior change. The
+                   Combat workspace's embedded Spells panel keeps its own direct
+                   "+ Level" button and does not expose the correction action. -->
+              <div class="spellsOptionsDropdown" id="spellsOptionsDropdown">
+                <button id="spellsOptionsBtn" type="button" class="moveBtn" aria-haspopup="true"
+                  aria-expanded="false" title="Spell options">⋯</button>
+
+                <div class="spellsOptionsMenu" id="spellsOptionsMenu" hidden>
+                  <button type="button" class="swatchOption spellsOptionsItem"
+                    id="addSpellLevelBtn">Add spell level</button>
+                  <button type="button" class="swatchOption spellsOptionsItem"
+                    id="addSpellbookChoicesBtn">Add Spellbook Choices</button>
+                </div>
+              </div>
             </div>
 
             <div id="spellLevels" class="spellLevels"></div>
@@ -1608,6 +1624,38 @@
       <div class="completeChoicesFooter">
         <button type="button" class="npcSmallBtn" id="completeChoicesCancel">Cancel</button>
         <button type="button" class="npcSmallBtn" id="completeChoicesApply">Apply</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Spellbook Choices: the max-level spellbook correction. A character
+       already at MAX_CHARACTER_LEVEL can no longer Level Up, so the R5-B2
+       Level Up opportunity can never offer its unused spellbook allowance
+       again. This focused dialog is that allowance's only remaining home. It is
+       additive-only and spellbook-only: it never removes a stored entry, never
+       touches prepared spells, and never records an under-cap acknowledgement. -->
+  <div id="spellbookChoicesOverlay" class="modalOverlay" hidden aria-hidden="true">
+    <div class="modalPanel spellbookChoicesPanel" id="spellbookChoicesPanel" role="dialog" aria-modal="true"
+      aria-labelledby="spellbookChoicesTitle" tabindex="-1">
+      <div class="spellbookChoicesHeader">
+        <div class="modalTitle" id="spellbookChoicesTitle">Add Spellbook Choices</div>
+        <button type="button" class="npcSmallBtn" id="spellbookChoicesClose" aria-label="Close">✕</button>
+      </div>
+
+      <div class="spellbookChoicesScroll">
+        <p class="spellbookChoicesIntro" id="spellbookChoicesIntro">
+          These are optional spellbook choices from earlier levels that were never used. Adding them
+          here does not change your prepared spells.
+        </p>
+
+        <div class="spellbookChoicesBody" id="spellbookChoicesBody"></div>
+
+        <div class="spellbookChoicesStatus" id="spellbookChoicesStatus" role="status" aria-live="polite" hidden></div>
+      </div>
+
+      <div class="spellbookChoicesFooter">
+        <button type="button" class="npcSmallBtn" id="spellbookChoicesCancel">Cancel</button>
+        <button type="button" class="npcSmallBtn" id="spellbookChoicesApply">Apply</button>
       </div>
     </div>
   </div>

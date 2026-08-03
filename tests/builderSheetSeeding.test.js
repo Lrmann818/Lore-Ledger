@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, it } from "vitest";
 
-import { getBuilderFinishSheetSeedPatch } from "../js/domain/builderSheetSeeding.js";
+import {
+  getBuilderFinishSheetSeedPatch,
+  getSpellbookAdditionSheetPatch
+} from "../js/domain/builderSheetSeeding.js";
 import { makeDefaultBuilderCharacterEntry, makeDefaultCharacterEntry } from "../js/domain/characterHelpers.js";
 import { setActiveCustomContent } from "../js/domain/rules/registry.js";
 
@@ -564,5 +567,68 @@ describe("granted spell access is independent of the prepared list (C1)", () => 
 
     expect(seededSpell(character, "Cure Wounds")).toMatchObject({ prepared: true });
     expect(seededSpell(character, "Cure Wounds").builderGranted).toBeUndefined();
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/* Spells-only patch for the max-level spellbook correction            */
+/* ------------------------------------------------------------------ */
+
+describe("spellbook addition sheet patch", () => {
+  /** A level-20 wizard whose spellbook holds one spell. */
+  function wizard20(knownIds) {
+    const character = makeDefaultBuilderCharacterEntry("Spellbook Tester");
+    character.build.levels = Array.from({ length: 20 }, () => ({ classId: "wizard", hp: 5 }));
+    character.build.abilities.base = { str: 10, dex: 10, con: 10, int: 16, wis: 10, cha: 10 };
+    character.build.spellcasting = { wizard: { cantripIds: [], knownIds, preparedIds: [] } };
+    character.rest = { hitDiceSpent: {}, preparedByClass: {} };
+    return character;
+  }
+
+  afterEach(() => {
+    setActiveCustomContent([]);
+  });
+
+  it("returns only the spells field", () => {
+    const patch = getSpellbookAdditionSheetPatch(wizard20(["magic-missile"]));
+    expect(patch).toBeTruthy();
+    expect(Object.keys(patch)).toEqual(["spells"]);
+  });
+
+  it("seeds a row for a newly stored spellbook entry, unprepared and marked", () => {
+    const patch = getSpellbookAdditionSheetPatch(wizard20(["magic-missile"]));
+    const row = (patch.spells?.levels || [])
+      .flatMap((level) => level.spells || [])
+      .find((spell) => spell.builderSpellId === "magic-missile");
+
+    expect(row).toBeTruthy();
+    // Spellbook entries are never prepared by seeding and are never grants.
+    expect(row.prepared).toBe(false);
+    expect(row.builderGranted).toBeUndefined();
+  });
+
+  it("does not restore features, proficiencies, attacks, inventory, resources, or vitals", () => {
+    const character = wizard20(["magic-missile"]);
+    // Everything a player may have deleted after creation. The full Finish
+    // patch restores these; the spellbook correction must not (the C1.1 rule).
+    character.features = "";
+    character.languages = "";
+    character.attacks = [];
+    character.inventoryItems = [];
+    character.resources = [];
+    character.hpMax = null;
+    character.ac = null;
+
+    const patch = getSpellbookAdditionSheetPatch(character);
+    expect(Object.keys(patch)).toEqual(["spells"]);
+
+    // Positive control: the full Finish patch really would have restored them.
+    const finish = getBuilderFinishSheetSeedPatch(character);
+    expect(Object.keys(finish).length).toBeGreaterThan(1);
+    expect(finish.features).toBeTruthy();
+  });
+
+  it("returns null for a freeform character", () => {
+    expect(getSpellbookAdditionSheetPatch(makeDefaultCharacterEntry("Freeform"))).toBeNull();
   });
 });

@@ -89,7 +89,11 @@ test("character panels stay safe after repeated character page init", async ({ p
   await page.locator("#addAttackBtn").click();
   await expect(page.locator("#attackList .attackRow")).toHaveCount(weaponsBefore + 1);
 
+  // Add spell level now lives behind the Spells header ⋯ overflow menu. The
+  // point of this case is unchanged: after three page inits the action must
+  // still fire exactly once, so the menu must also still be bound exactly once.
   const spellLevelsBefore = await page.locator("#spellLevels .spellLevel").count();
+  await page.locator("#spellsOptionsBtn").click();
   await page.locator("#addSpellLevelBtn").click();
   await submitPromptDialog(page, "Lifecycle Level");
   await expect(page.locator("#spellLevels .spellLevel")).toHaveCount(spellLevelsBefore + 1);

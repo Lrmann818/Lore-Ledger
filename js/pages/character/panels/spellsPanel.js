@@ -296,7 +296,18 @@ export function initSpellsPanel(deps = {}) {
     uiConfirm,
     uiPrompt,
     setStatus,
-    applyTextareaSize
+    applyTextareaSize,
+
+    // Character-page overflow menu (both optional). Supplied only by the
+    // Character page, whose Spells header carries a ⋯ menu holding "Add spell
+    // level" (this panel's own, unchanged add-level action) and "Add Spellbook
+    // Choices" (the max-level spellbook correction). The Combat workspace's
+    // embedded host supplies neither and scopes its own ids under its own root,
+    // so it keeps its existing direct "+ Level" button and never exposes the
+    // correction — both behaviors come out of this one renderer, with no second
+    // Spells panel and no Combat-side change.
+    Popovers,
+    spellbookCorrection
   } = deps;
 
   if (!state) throw new Error("initSpellsPanel requires state");
@@ -1003,7 +1014,155 @@ export function initSpellsPanel(deps = {}) {
     render();
   }
 
+  /**
+   * Wires the Character page's Spells header ⋯ overflow menu.
+   *
+   * Opt-in: it runs only when the host supplies both `Popovers` and a
+   * `spellbookCorrection` handle *and* the menu markup resolves under this
+   * panel's own `root`. The Combat embedded host supplies neither and renders
+   * none of these ids under its root, so it keeps its direct "+ Level" button
+   * with no behavior change and never offers the correction.
+   *
+   * "Add spell level" is the same `#addSpellLevelBtn` element and the same
+   * single click handler installed by `setupSpellsV2()` — it is only relocated
+   * into the menu by the markup. Nothing here re-binds it, so one activation
+   * remains exactly one add-level action.
+   */
+  function setupHeaderOverflowMenu() {
+    if (!spellbookCorrection) return;
+    const query = typeof root?.querySelector === "function" ? root.querySelector.bind(root) : null;
+    if (!query) return;
+    const optionsBtnEl = query("#spellsOptionsBtn");
+    const optionsMenuEl = query("#spellsOptionsMenu");
+    const spellbookBtnEl = query("#addSpellbookChoicesBtn");
+    if (!optionsBtnEl || !optionsMenuEl || !spellbookBtnEl) return;
+
+    const setMenuOpen = (open) => {
+      optionsMenuEl.hidden = !open;
+      optionsMenuEl.setAttribute("aria-hidden", open ? "false" : "true");
+      optionsBtnEl.setAttribute("aria-expanded", open ? "true" : "false");
+    };
+    setMenuOpen(false);
+
+    const handle = Popovers?.register ? Popovers.register({
+      button: optionsBtnEl,
+      menu: optionsMenuEl,
+      preferRight: true,
+      closeOnOutside: true,
+      closeOnEsc: true,
+      stopInsideClick: true,
+      wireButton: true
+    }) : null;
+    addDestroy(() => {
+      try { handle?.destroy?.(); } catch { /* noop */ }
+    });
+
+    const openMenu = () => {
+      if (handle?.open) handle.open();
+      else setMenuOpen(true);
+    };
+    const closeMenu = () => {
+      if (handle?.close) handle.close();
+      else setMenuOpen(false);
+    };
+    // Without the shared popover system the trigger still has to toggle its own
+    // menu, or the relocated "Add spell level" action would be unreachable
+    // (the same fallback the character action menu already carries).
+    if (!handle) {
+      addListener(optionsBtnEl, "click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (optionsMenuEl.hidden) openMenu();
+        else closeMenu();
+      });
+    }
+
+    /** @returns {HTMLButtonElement[]} */
+    const enabledItems = () => /** @type {HTMLButtonElement[]} */ (
+      Array.from(optionsMenuEl.querySelectorAll(".spellsOptionsItem"))
+        .filter((item) => !item.disabled && !item.hidden)
+    );
+
+    /** @param {number} index */
+    const focusItemAt = (index) => {
+      const items = enabledItems();
+      if (!items.length) return;
+      const wrapped = (index + items.length) % items.length;
+      try { items[wrapped].focus({ preventScroll: true }); } catch { items[wrapped].focus?.(); }
+    };
+
+    // Menu chrome only: activating any item dismisses the menu. The items' own
+    // actions stay on their own listeners, so this adds no second action.
+    addListener(optionsMenuEl, "click", (event) => {
+      const target = /** @type {HTMLElement | null} */ (event.target);
+      if (target?.closest?.(".spellsOptionsItem")) closeMenu();
+    });
+
+    const syncSpellbookItem = () => {
+      if (destroyed) return;
+      const available = typeof spellbookCorrection.isAvailable === "function"
+        ? !!spellbookCorrection.isAvailable()
+        : false;
+      // Hidden rather than merely disabled: an unused spellbook allowance at
+      // max level is an exceptional state, so the item is absent for the
+      // characters it can never apply to.
+      spellbookBtnEl.hidden = !available;
+      spellbookBtnEl.disabled = !available;
+      spellbookBtnEl.setAttribute("aria-disabled", (!available).toString());
+    };
+
+    addListener(spellbookBtnEl, "click", (event) => {
+      event.preventDefault();
+      // Re-check against the live character: the menu may have been open while
+      // something else changed the build.
+      if (typeof spellbookCorrection.isAvailable !== "function" || !spellbookCorrection.isAvailable()) {
+        syncSpellbookItem();
+        return;
+      }
+      spellbookCorrection.open?.({ returnFocusTo: optionsBtnEl });
+    });
+
+    addListener(optionsBtnEl, "keydown", (event) => {
+      const e = /** @type {KeyboardEvent} */ (event);
+      if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+      e.preventDefault();
+      openMenu();
+      focusItemAt(e.key === "ArrowUp" ? -1 : 0);
+    });
+
+    addListener(optionsMenuEl, "keydown", (event) => {
+      const e = /** @type {KeyboardEvent} */ (event);
+      const items = enabledItems();
+      if (!items.length) return;
+      const active = /** @type {HTMLElement | null} */ (document.activeElement);
+      const index = items.findIndex((item) => item === active);
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        focusItemAt((index >= 0 ? index : -1) + 1);
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        focusItemAt((index >= 0 ? index : items.length) - 1);
+      } else if (e.key === "Home") {
+        e.preventDefault();
+        focusItemAt(0);
+      } else if (e.key === "End") {
+        e.preventDefault();
+        focusItemAt(items.length - 1);
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        closeMenu();
+        try { optionsBtnEl.focus({ preventScroll: true }); } catch { optionsBtnEl.focus?.(); }
+      }
+    });
+
+    if (typeof spellbookCorrection.subscribe === "function") {
+      addDestroy(spellbookCorrection.subscribe(syncSpellbookItem));
+    }
+    syncSpellbookItem();
+  }
+
   setupSpellsV2();
+  setupHeaderOverflowMenu();
 
   addDestroy(subscribePanelDataChanged("spells", (detail) => {
     if (destroyed || detail.source === panelInstance) return;

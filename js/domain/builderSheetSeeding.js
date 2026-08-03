@@ -1338,6 +1338,48 @@ export function getLongRestPreparedSheetPatch(character, preparedClassIds, regis
 }
 
 /**
+ * Returns the **spells-only** patch for a max-level spellbook correction — the
+ * Add Spellbook Choices flow (`js/pages/character/spellbookChoicesFlow.js`).
+ *
+ * Same reasoning as `getLongRestPreparedSheetPatch()` above, for the same
+ * reason: the full Finish patch would silently restore features, languages,
+ * proficiencies, attacks, inventory pockets, resources, HP, AC, or calculation
+ * metadata the player has since edited or deleted (the C1.1 defect). A
+ * spellbook correction changes exactly one thing — which spells are in the
+ * spellbook — so only the spells bucket is returned.
+ *
+ * Within that bucket the behavior is the established additive seeding contract:
+ * a newly stored spellbook id gains a row carrying its `builderSpellId` marker
+ * at `prepared: false`, existing rows keep every field, and no row is created
+ * for anything the build does not hold. No prepared-row synchronization is
+ * requested (`syncPreparedClassIds` stays null), so `rest.preparedByClass` is
+ * neither read as an authority here nor projected onto rows.
+ *
+ * Call with the character **after** the `build.spellcasting[classId].knownIds`
+ * write, so the seeder sees the new entries.
+ *
+ * @param {unknown} character post-write character
+ * @param {ContentRegistry} [registry]
+ * @returns {{ spells: import("../state.js").CharacterEntry["spells"] } | null} null when nothing changed
+ */
+export function getSpellbookAdditionSheetPatch(character, registry = getActiveContentRegistry()) {
+  if (!isBuilderCharacter(character)) return null;
+
+  let derived;
+  try {
+    derived = deriveCharacter(character, registry);
+  } catch (err) {
+    console.warn("Spellbook addition sheet seeding derivation failed:", err);
+    return null;
+  }
+
+  const source = /** @type {Record<string, unknown>} */ (character);
+  const seededSpells = getSeededSpells(source, derived, registry);
+  if (!seededSpells) return null;
+  return { spells: /** @type {import("../state.js").CharacterEntry["spells"]} */ (seededSpells) };
+}
+
+/**
  * Returns the character field values to seed at wizard Finish (create and
  * edit). Seeded values are user-owned after creation; the patch only adds
  * missing content and fills empty vitals.

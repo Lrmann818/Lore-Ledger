@@ -702,12 +702,53 @@ playwright.preview.config.js`) — both smoke gates are blocking per
     `tests/underCapLevelUp.test.js` (10), `tests/smoke/underCapChoices.smoke.js` (2), plus
     preservation cases in `tests/state.sanitize.test.js`, `tests/storage.backup.test.js`,
     `tests/characterPortability.test.js`, `tests/characterSnapshots.restore.test.js` and 10
-    real-flow cases in `tests/characterPage.test.js`. **Still unbuilt and required before
-    R5-C:** a separately scoped, **non-banner** correction path (associated with the
-    existing Spells surface) for a permanently stranded level-20 Wizard spellbook shortfall
-    — owner ruling 2026-07-25 that such a shortfall is unacceptable; placement to be
-    confirmed separately.
-  - **R5-C — the retirement itself (E1–E6/M1–M3, T1–T6). Not authorized.**
+    real-flow cases in `tests/characterPage.test.js`. **The stranded max-level shortfall it
+    left open is now half-closed: the spellbook half shipped 2026-08-03 (below); the
+    cantrip / known-spell half is still unbuilt and remains a hard gate before R5-C.**
+  - **Max-level spellbook correction — "Add Spellbook Choices". ✅ Shipped 2026-08-03
+    (owner-authorized).** The owner ruling of 2026-07-25 — that a permanently stranded
+    level-20 spellbook shortfall is unacceptable, and that its correction must be
+    **non-banner** and associated with the existing Spells surface — delivered. Six
+    production files. The seam: at `MAX_CHARACTER_LEVEL` the Level Up menu item is
+    disabled, `levelUpWizard.open()` refuses, and `getLevelUpPlan()` returns `null`, while
+    Complete Choices renders only *required* choices by construction — so R5-B2's Level Up
+    opportunity can never fire again and Edit in Builder was the last writer.
+    The Character page's Spells panel header now carries a `⋯` **overflow menu** (the
+    Abilities & Skills pattern through the shared `Popovers` system, with a fallback toggle
+    when it is absent) holding **Add spell level** — the same element and single handler as
+    before, relocated with no behavior change — and **Add Spellbook Choices**, which opens
+    the focused `#spellbookChoicesOverlay` dialog owned by
+    `js/pages/character/spellbookChoicesFlow.js`. Eligibility is three live conditions
+    (builder character, total level at `MAX_CHARACTER_LEVEL`, ≥1 unsatisfied
+    `UNDER_CAP_KIND.SPELLBOOK` descriptor), driven by registry-backed descriptors rather
+    than a hard-coded `"wizard"`, with one section per eligible class. **The candidate
+    ceiling is each class's own `maxSpellLevel` from `getPreparedSpellPlan()`, never the
+    combined multiclass slot array** — a Wizard 1 / Cleric 19 has 9th-level combined slots
+    and may still add only 1st-level wizard spells; prepared selections themselves are
+    neither read as an authority nor written. Allowances and counts come from the same
+    `choiceCompletion.js` descriptor the creation Summary counts against; options come from
+    the existing `resolveSpellChoiceOptions()`. Apply re-checks character and campaign
+    identity, level eligibility, and a freshly recomputed allowance/ceiling/candidate set,
+    then **appends only** to `build.spellcasting[classId].knownIds` and assigns the new
+    **spells-only** `getSpellbookAdditionSheetPatch()` (a sibling of
+    `getLongRestPreparedSheetPatch()`, for the same C1.1 reason) in one mutation, one dirty
+    mark, one rerender. **No acknowledgement is involved: `underCapAckLevels` is neither
+    read, written, cleared, nor used as a gate** — this flow reaches no new level.
+    `rest.preparedByClass`, `preparedIds`, prepared capacities, Long Rest behavior,
+    `characters.snapshots`, the required-choice banner, Complete Choices, and unrelated
+    build keys are byte-identical; **no schema change, migration, or new persisted field.**
+    The Combat embedded Spells panel is unmodified: direct `+ Level`, no correction action,
+    and it still shows the new canonical rows through the one shared `initSpellsPanel()`.
+    Tests: `tests/spellbookChoices.test.js` (29), `tests/spellsPanelOverflowMenu.test.js`
+    (14), `tests/spellbookChoicesWiring.test.js` (3), `tests/smoke/spellbookChoices.smoke.js`
+    (1), and 4 new cases in `tests/builderSheetSeeding.test.js`.
+  - **Max-level cantrip / known-spell correction — MANDATORY GATE, not authorized.** The
+    same level-20 seam is still open for `UNDER_CAP_KIND.CANTRIPS` and
+    `UNDER_CAP_KIND.KNOWN_SPELLS`; the spellbook batch deliberately did not generalize to
+    them. This must be separately designed, placement-confirmed, authorized, and **shipped
+    before R5-C removes Edit in Builder**.
+  - **R5-C — the retirement itself (E1–E6/M1–M3, T1–T6). Not authorized, and blocked
+    behind the max-level cantrip / known-spell correction above.**
 - **R6 — Docs close-out.** Update `docs/state-schema.md` (v13 + snapshot record),
   `docs/operations/storage-and-backups.md`, `docs/features/multi-character-design.md`
   as shipped-behavior docs once each phase lands.
@@ -715,6 +756,17 @@ playwright.preview.config.js`) — both smoke gates are blocking per
 R1→R4 are sequential; R5 is independent of R2–R4 but must not precede R1 (the owner
 contract requires the replacement path to exist before the old repair path is
 removed — and D1–D3 resolved).
+
+**The binding tail sequence** (owner ruling, restated 2026-08-03) is:
+
+1. Max-level **spellbook** correction — ✅ shipped 2026-08-03.
+2. Max-level **cantrip / known-spell** correction — separately designed and authorized.
+3. **R5-C** — Edit-in-Builder retirement.
+4. **R6** — shipped-behavior doc close-out.
+
+Step 3 must not begin until step 2 has shipped: retiring Edit in Builder while a
+max-level cantrip or known-spell shortfall is still unreachable would strand it
+permanently, which is exactly what the 2026-07-25 ruling forbids.
 
 ## 9. Authorization
 

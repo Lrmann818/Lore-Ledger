@@ -4570,6 +4570,130 @@ div.mutedSmall {
   }
 }
 
+/* Character-page Spells header ⋯ overflow menu. Same skeleton and behavior as
+   the Abilities & Skills save-options menu; scoped to .spellsOptions* so the
+   Combat workspace's embedded Spells host (which keeps its direct "+ Level"
+   button and renders none of these ids) is untouched. */
+.spellsHeader>h2 {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.spellsOptionsDropdown {
+  position: relative;
+  margin-left: auto;
+  flex: 0 0 auto;
+}
+
+.spellsOptionsMenu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  width: min(260px, calc(100vw - 16px));
+  z-index: 999;
+
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 6px;
+
+  box-shadow:
+    0 0 0 1px var(--shadow-inset) inset,
+    0 10px 22px var(--shadow-drop);
+  max-width: calc(100vw - 16px);
+  max-height: min(70vh, 420px);
+  overflow: auto;
+
+  display: grid;
+  gap: 2px;
+}
+
+.spellsOptionsItem {
+  width: 100%;
+  text-align: left;
+}
+
+/* Add Spellbook Choices dialog: the max-level spellbook correction. Same modal
+   skeleton as Complete Choices; all layout scoped to .spellbookChoices* so
+   nothing global shifts. */
+.spellbookChoicesPanel {
+  width: min(520px, 100%);
+  max-height: calc(100dvh - 36px);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  overflow: hidden;
+}
+
+.spellbookChoicesHeader,
+.spellbookChoicesFooter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+}
+
+.spellbookChoicesHeader {
+  justify-content: space-between;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.spellbookChoicesFooter {
+  justify-content: flex-end;
+  border-top: 1px solid var(--hairline);
+  flex-wrap: wrap;
+}
+
+.spellbookChoicesScroll {
+  min-height: 0;
+  overflow: auto;
+  padding: 14px 8px;
+  display: grid;
+  gap: 12px;
+}
+
+.spellbookChoicesIntro {
+  margin: 0;
+  font-size: 0.9em;
+  opacity: 0.85;
+}
+
+.spellbookChoicesBody {
+  display: grid;
+  gap: 14px;
+}
+
+.spellbookChoicesClass {
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  min-width: 0;
+}
+
+/* Long spell and class names wrap rather than widening the panel at 380px. */
+.spellbookChoicesClass .builderSpellGroupHead,
+.spellbookChoicesClass .levelUpLockedContext,
+.spellbookChoicesNote {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.spellbookChoicesStatus {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent, currentColor);
+  border-radius: 10px;
+  font-size: 0.88em;
+}
+
+@media (max-width: 420px) {
+  .spellbookChoicesFooter>.npcSmallBtn {
+    flex: 1 1 auto;
+  }
+}
+
 /* Restore Character dialog (R3): grouped, newest-first pre-Level-Up snapshot
    list restored through the R2 engine. Same modal skeleton as the wizards,
    narrower; all layout scoped to .restoreCharacter* so nothing global shifts. */

@@ -15,6 +15,7 @@ import { getDraftPreparedValidationMessage } from "../character/builderWizardSte
 import { initLevelUpWizard } from "../character/levelUpWizard.js";
 import { initRestoreCharacterDialog } from "../character/restoreCharacterDialog.js";
 import { initCompleteChoicesFlow } from "../character/completeChoicesFlow.js";
+import { initSpellbookChoicesFlow } from "../character/spellbookChoicesFlow.js";
 import { initProficienciesPanel } from "../character/panels/proficienciesPanel.js";
 import { initAbilitiesPanel } from "../character/panels/abilitiesPanel.js";
 import { initAbilitiesFeaturesPanel } from "../character/panels/abilitiesFeaturesPanel.js";
@@ -317,7 +318,28 @@ export function initCharacterPageUI(deps) {
     // Each panel resolves the active character independently via getActiveCharacter().
     // If no active character exists, panels return early and render empty.
 
-    runPanelInit("Spells panel", () => initSpellsPanel(deps));
+    // Add Spellbook Choices (max-level spellbook correction). Created before
+    // the Spells panel because the panel's ⋯ overflow menu takes this handle to
+    // derive its menu item's availability and to open the dialog. The dialog
+    // overlay lives at document level with the other modal overlays; only the
+    // Character page supplies it, so the Combat embedded Spells panel keeps its
+    // direct "+ Level" button and never exposes the correction.
+    const spellbookChoices = runPanelInit("Add Spellbook Choices flow", () => {
+      const { mutateCharacter } = createStateActions({ state, SaveManager });
+      return initSpellbookChoicesFlow({
+        root: document,
+        state,
+        mutateCharacter,
+        rerender,
+        setStatus,
+        uiAlert
+      });
+    });
+
+    runPanelInit("Spells panel", () => initSpellsPanel({
+      ...deps,
+      spellbookCorrection: spellbookChoices
+    }));
     runPanelInit("Attacks panel", () => initAttacksPanel(deps));
 
     runPanelInit(
