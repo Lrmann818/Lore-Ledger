@@ -1,6 +1,6 @@
 # Contributing to Lore Ledger
 
-This project is a local-first, browser-only D&D campaign companion built with vanilla HTML, CSS, and JavaScript. It is designed to run entirely in the browser, work offline after install, and preserve user data across refreshes, backups, and version upgrades.
+This project is a local-first, browser-only tabletop RPG campaign companion built with vanilla HTML, CSS, and JavaScript. It is designed to run entirely in the browser, work offline after install, and preserve user data across refreshes, backups, and version upgrades.
 
 This guide is for contributors and maintainers working in this repository. It complements, but does not replace, [AGENTS.md](AGENTS.md), which is the stricter AI-agent editing policy.
 

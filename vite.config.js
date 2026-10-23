@@ -75,7 +75,7 @@ export default defineConfig(({ mode }) => {
           theme_color: "#111111",
           background_color: "#111111",
           lang: "en",
-          description: "A lightweight, offline-friendly D&D campaign manager for sessions, NPCs, parties, locations, and notes.",
+          description: "A lightweight, offline-friendly tabletop RPG campaign manager for sessions, NPCs, parties, locations, and notes.",
           icons: [
             {
               src: "icons/icon-192-filled.png",
