@@ -2412,11 +2412,16 @@ button.settingsSelectBtn[aria-expanded="true"] {
 }
 
 button.settingsItem,
-label.settingsItem {
+label.settingsItem,
+a.settingsItem {
   display: inline-flex;
   align-items: center;
   justify-content: flex-start;
   gap: 8px;
+}
+
+a.settingsItem {
+  text-decoration: none;
 }
 
 .settingsToggleItem {

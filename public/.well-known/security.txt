@@ -1,0 +1,4 @@
+Contact: mailto:support@lore-ledger.com
+Expires: 2027-10-23T00:00:00.000Z
+Preferred-Languages: en
+Canonical: https://lore-ledger.com/.well-known/security.txt
